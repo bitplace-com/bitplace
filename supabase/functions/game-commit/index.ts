@@ -163,6 +163,21 @@ Deno.serve(async (req) => {
       pixelMap.set(`${p.x}:${p.y}`, p);
     });
 
+    // Fetch user data to check contribution collateral
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("id, pe_total_pe")
+      .eq("id", userId)
+      .single();
+
+    if (userError || !user) {
+      console.error("[game-commit] User fetch error:", userError);
+      return new Response(JSON.stringify({ ok: false, error: "USER_NOT_FOUND" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Fetch owner data for rebalance status
     const ownerIds = [...new Set((existingPixels || []).map(p => p.owner_user_id).filter(Boolean))];
     const ownerDataMap = new Map<string, OwnerData>();
@@ -178,7 +193,52 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch contributions
+    // Fetch ALL user's contributions to check collateral
+    const { data: allUserContribs } = await supabase
+      .from("pixel_contributions")
+      .select("amount_pe")
+      .eq("user_id", userId);
+
+    const userContribTotal = (allUserContribs || []).reduce((sum, c) => sum + c.amount_pe, 0);
+
+    // Check if user's contributions are under-collateralized
+    let contributionsPurged = false;
+    let purgedContributionCount = 0;
+
+    if (userContribTotal > user.pe_total_pe) {
+      console.log(`[game-commit] User ${userId} contributions under-collateralized: PE=${user.pe_total_pe}, contributions=${userContribTotal}`);
+      
+      // Delete all user's contributions immediately
+      const { data: deleted, error: delError } = await supabase
+        .from("pixel_contributions")
+        .delete()
+        .eq("user_id", userId)
+        .select("id");
+      
+      if (delError) {
+        console.error("[game-commit] Failed to purge contributions:", delError);
+      } else {
+        purgedContributionCount = deleted?.length || 0;
+        contributionsPurged = true;
+        console.log(`[game-commit] Purged ${purgedContributionCount} contributions for under-collateralized user`);
+      }
+
+      // Return error for DEF/ATK modes since user can't contribute
+      if (mode === "DEFEND" || mode === "ATTACK") {
+        return new Response(JSON.stringify({
+          ok: false,
+          error: "CONTRIBUTIONS_PURGED",
+          message: "Your DEF/ATK contributions were removed due to insufficient collateral",
+          contributionsPurged,
+          purgedContributionCount,
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Fetch contributions for selected pixels
     const pixelIds = (existingPixels || []).map(p => p.id);
     let contributions: { pixel_id: number; user_id: string; side: string; amount_pe: number }[] = [];
     
@@ -188,6 +248,44 @@ Deno.serve(async (req) => {
         .select("pixel_id, user_id, side, amount_pe")
         .in("pixel_id", pixelIds);
       contributions = contribs || [];
+    }
+
+    // Check for under-collateralized contributors on these pixels and filter them out
+    const contributorIds = [...new Set(contributions.map(c => c.user_id))];
+    const contributorTotals = new Map<string, number>();
+    
+    if (contributorIds.length > 0) {
+      // Get all contributions for these users (not just on selected pixels)
+      const { data: allContribs } = await supabase
+        .from("pixel_contributions")
+        .select("user_id, amount_pe")
+        .in("user_id", contributorIds);
+      
+      (allContribs || []).forEach(c => {
+        const current = contributorTotals.get(c.user_id) || 0;
+        contributorTotals.set(c.user_id, current + c.amount_pe);
+      });
+
+      // Fetch PE totals for contributors
+      const { data: contributorUsers } = await supabase
+        .from("users")
+        .select("id, pe_total_pe")
+        .in("id", contributorIds);
+
+      // Find under-collateralized contributors
+      const underCollateralizedContributors = new Set<string>();
+      (contributorUsers || []).forEach(u => {
+        const contribTotal = contributorTotals.get(u.id) || 0;
+        if (u.pe_total_pe < contribTotal) {
+          underCollateralizedContributors.add(u.id);
+          console.log(`[game-commit] Contributor ${u.id} under-collateralized, excluding their contributions`);
+        }
+      });
+
+      // Filter out contributions from under-collateralized users
+      if (underCollateralizedContributors.size > 0) {
+        contributions = contributions.filter(c => !underCollateralizedContributors.has(c.user_id));
+      }
     }
 
     const contribsByPixel = new Map<number, { defSum: number; atkSum: number }>();
@@ -375,7 +473,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       ok: true,
       affectedPixels,
-      eventId: eventData?.id
+      eventId: eventData?.id,
+      contributionsPurged,
+      purgedContributionCount,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

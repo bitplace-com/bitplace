@@ -285,10 +285,53 @@ Deno.serve(async (req) => {
 
     const ownedStakeSum = (userOwnedPixels || []).reduce((sum, p) => sum + (p.owner_stake_pe || 0), 0);
     const contributionsSum = (userContributions || []).reduce((sum, c) => sum + c.amount_pe, 0);
-    const peStaked = ownedStakeSum + contributionsSum;
+    
+    // Check if user's contributions are under-collateralized
+    // DEF/ATK have NO decay - they disappear immediately
+    let contributionsPurged = false;
+    let purgedContributionCount = 0;
+    
+    if (contributionsSum > user.pe_total_pe) {
+      console.log(`[game-validate] User ${userId} contributions under-collateralized: PE=${user.pe_total_pe}, contributions=${contributionsSum}`);
+      
+      // Delete all user's contributions immediately
+      const { data: deleted, error: delError } = await supabase
+        .from("pixel_contributions")
+        .delete()
+        .eq("user_id", userId)
+        .select("id");
+      
+      if (delError) {
+        console.error("[game-validate] Failed to purge contributions:", delError);
+      } else {
+        purgedContributionCount = deleted?.length || 0;
+        contributionsPurged = true;
+        console.log(`[game-validate] Purged ${purgedContributionCount} contributions for under-collateralized user`);
+        
+        // Update contributions map to remove user's contributions
+        contributions = contributions.filter(c => c.user_id !== userId);
+        
+        // Recalculate contribsByPixel without user's contributions
+        contribsByPixel.clear();
+        contributions.forEach(c => {
+          const existing = contribsByPixel.get(c.pixel_id) || { defSum: 0, atkSum: 0 };
+          if (c.side === "DEF") {
+            existing.defSum += c.amount_pe;
+          } else if (c.side === "ATK") {
+            existing.atkSum += c.amount_pe;
+          }
+          if (c.user_id === userId) {
+            existing.userSide = c.side as "DEF" | "ATK";
+          }
+          contribsByPixel.set(c.pixel_id, existing);
+        });
+      }
+    }
+
+    const peStaked = ownedStakeSum + (contributionsPurged ? 0 : contributionsSum);
     const peFree = user.pe_total_pe - peStaked;
 
-    console.log("[game-validate] PE status:", { total: user.pe_total_pe, staked: peStaked, free: peFree });
+    console.log("[game-validate] PE status:", { total: user.pe_total_pe, staked: peStaked, free: peFree, contributionsPurged });
 
     // Build enriched pixel data
     const pixelStates: PixelData[] = pixels.map(p => {
@@ -400,9 +443,11 @@ Deno.serve(async (req) => {
         pePerType: breakdown,
       },
       availablePe: peFree,
+      contributionsPurged,
+      purgedContributionCount,
     };
 
-    console.log("[game-validate] Result:", { ok: result.ok, requiredPeTotal, invalidCount: invalidPixels.length, floorBasedCount });
+    console.log("[game-validate] Result:", { ok: result.ok, requiredPeTotal, invalidCount: invalidPixels.length, floorBasedCount, contributionsPurged });
 
     return new Response(JSON.stringify(result), {
       status: 200,

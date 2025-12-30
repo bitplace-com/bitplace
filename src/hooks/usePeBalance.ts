@@ -6,12 +6,15 @@ export interface PeBalance {
   locked: number;
   free: number;
   isLoading: boolean;
-  // Rebalance status
+  // Rebalance status (owner stake)
   isUnderCollateralized: boolean;
   rebalanceActive: boolean;
   healthMultiplier: number;
   rebalanceEndsAt: Date | null;
   rebalanceTargetMultiplier: number | null;
+  // Contribution collateral status
+  contributionTotal: number;
+  isContributionsUnderCollateralized: boolean;
 }
 
 export function usePeBalance(userId: string | undefined): PeBalance {
@@ -25,6 +28,8 @@ export function usePeBalance(userId: string | undefined): PeBalance {
     healthMultiplier: 1,
     rebalanceEndsAt: null,
     rebalanceTargetMultiplier: null,
+    contributionTotal: 0,
+    isContributionsUnderCollateralized: false,
   });
 
   const fetchBalance = useCallback(async () => {
@@ -32,7 +37,8 @@ export function usePeBalance(userId: string | undefined): PeBalance {
       setBalance({ 
         total: 0, locked: 0, free: 0, isLoading: false,
         isUnderCollateralized: false, rebalanceActive: false, 
-        healthMultiplier: 1, rebalanceEndsAt: null, rebalanceTargetMultiplier: null 
+        healthMultiplier: 1, rebalanceEndsAt: null, rebalanceTargetMultiplier: null,
+        contributionTotal: 0, isContributionsUnderCollateralized: false,
       });
       return;
     }
@@ -76,6 +82,8 @@ export function usePeBalance(userId: string | undefined): PeBalance {
       const locked = pixelStakeTotal + contributionTotal;
       const free = total - locked;
       const isUnderCollateralized = pixelStakeTotal > total;
+      // DEF/ATK are under-collateralized if total PE < contribution total
+      const isContributionsUnderCollateralized = total < contributionTotal;
 
       setBalance({
         total,
@@ -87,6 +95,8 @@ export function usePeBalance(userId: string | undefined): PeBalance {
         healthMultiplier,
         rebalanceEndsAt,
         rebalanceTargetMultiplier,
+        contributionTotal,
+        isContributionsUnderCollateralized,
       });
     } catch (error) {
       console.error('Error fetching PE balance:', error);
