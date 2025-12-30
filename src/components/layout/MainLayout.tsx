@@ -1,5 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
+import { WalletButton } from "@/components/wallet/WalletButton";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -11,8 +12,9 @@ export function MainLayout({ children }: MainLayoutProps) {
       <div className="flex min-h-screen w-full">
         <AppSidebar />
         <main className="flex-1 flex flex-col">
-          <header className="h-12 flex items-center border-b border-border px-4 bg-background">
+          <header className="h-12 flex items-center justify-between border-b border-border px-4 bg-background">
             <SidebarTrigger className="h-8 w-8" />
+            <WalletButton />
           </header>
           <div className="flex-1">
             {children}
