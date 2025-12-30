@@ -6,6 +6,12 @@ export interface PeBalance {
   locked: number;
   free: number;
   isLoading: boolean;
+  // Rebalance status
+  isUnderCollateralized: boolean;
+  rebalanceActive: boolean;
+  healthMultiplier: number;
+  rebalanceEndsAt: Date | null;
+  rebalanceTargetMultiplier: number | null;
 }
 
 export function usePeBalance(userId: string | undefined): PeBalance {
@@ -14,23 +20,36 @@ export function usePeBalance(userId: string | undefined): PeBalance {
     locked: 0,
     free: 0,
     isLoading: true,
+    isUnderCollateralized: false,
+    rebalanceActive: false,
+    healthMultiplier: 1,
+    rebalanceEndsAt: null,
+    rebalanceTargetMultiplier: null,
   });
 
   const fetchBalance = useCallback(async () => {
     if (!userId) {
-      setBalance({ total: 0, locked: 0, free: 0, isLoading: false });
+      setBalance({ 
+        total: 0, locked: 0, free: 0, isLoading: false,
+        isUnderCollateralized: false, rebalanceActive: false, 
+        healthMultiplier: 1, rebalanceEndsAt: null, rebalanceTargetMultiplier: null 
+      });
       return;
     }
 
     try {
-      // Fetch user's pe_total_pe
+      // Fetch user's pe_total_pe and rebalance status
       const { data: userData } = await supabase
         .from('users')
-        .select('pe_total_pe')
+        .select('pe_total_pe, owner_health_multiplier, rebalance_active, rebalance_ends_at, rebalance_target_multiplier')
         .eq('id', userId)
         .maybeSingle();
 
       const total = Number(userData?.pe_total_pe || 0);
+      const healthMultiplier = Number(userData?.owner_health_multiplier || 1);
+      const rebalanceActive = userData?.rebalance_active || false;
+      const rebalanceEndsAt = userData?.rebalance_ends_at ? new Date(userData.rebalance_ends_at) : null;
+      const rebalanceTargetMultiplier = userData?.rebalance_target_multiplier ?? null;
 
       // Fetch sum of owner_stake_pe for pixels owned by user
       const { data: pixelStakes } = await supabase
@@ -56,12 +75,18 @@ export function usePeBalance(userId: string | undefined): PeBalance {
 
       const locked = pixelStakeTotal + contributionTotal;
       const free = total - locked;
+      const isUnderCollateralized = pixelStakeTotal > total;
 
       setBalance({
         total,
         locked,
         free: Math.max(0, free),
         isLoading: false,
+        isUnderCollateralized,
+        rebalanceActive,
+        healthMultiplier,
+        rebalanceEndsAt,
+        rebalanceTargetMultiplier,
       });
     } catch (error) {
       console.error('Error fetching PE balance:', error);

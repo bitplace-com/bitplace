@@ -164,7 +164,12 @@ export type Database = {
           created_at: string | null
           display_name: string | null
           id: string
+          owner_health_multiplier: number
           pe_total_pe: number
+          rebalance_active: boolean
+          rebalance_ends_at: string | null
+          rebalance_started_at: string | null
+          rebalance_target_multiplier: number | null
           wallet_address: string | null
         }
         Insert: {
@@ -174,7 +179,12 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           id?: string
+          owner_health_multiplier?: number
           pe_total_pe?: number
+          rebalance_active?: boolean
+          rebalance_ends_at?: string | null
+          rebalance_started_at?: string | null
+          rebalance_target_multiplier?: number | null
           wallet_address?: string | null
         }
         Update: {
@@ -184,7 +194,12 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           id?: string
+          owner_health_multiplier?: number
           pe_total_pe?: number
+          rebalance_active?: boolean
+          rebalance_ends_at?: string | null
+          rebalance_started_at?: string | null
+          rebalance_target_multiplier?: number | null
           wallet_address?: string | null
         }
         Relationships: []

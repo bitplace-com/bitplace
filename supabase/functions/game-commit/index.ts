@@ -16,6 +16,15 @@ interface CommitRequest {
   snapshotHash: string;
 }
 
+interface OwnerData {
+  id: string;
+  owner_health_multiplier: number;
+  rebalance_active: boolean;
+  rebalance_started_at: string | null;
+  rebalance_ends_at: string | null;
+  rebalance_target_multiplier: number | null;
+}
+
 interface PixelData {
   x: number;
   y: number;
@@ -25,10 +34,84 @@ interface PixelData {
   color?: string;
   defSum: number;
   atkSum: number;
+  ownerData?: OwnerData;
+}
+
+// Constants for rebalance calculations
+const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+/**
+ * Get the next tick time (rounded up to next 6h boundary).
+ */
+function getNextTickTime(now: Date): Date {
+  const ms = now.getTime();
+  const nextTick = Math.ceil(ms / TICK_INTERVAL_MS) * TICK_INTERVAL_MS;
+  return new Date(nextTick);
+}
+
+/**
+ * Calculate multiplier at a specific time during rebalance.
+ */
+function calculateMultiplierAtTime(
+  startedAt: Date,
+  endsAt: Date,
+  targetMultiplier: number,
+  atTime: Date
+): number {
+  const totalDuration = endsAt.getTime() - startedAt.getTime();
+  const elapsed = atTime.getTime() - startedAt.getTime();
+  
+  if (elapsed <= 0) return 1;
+  if (elapsed >= totalDuration) return targetMultiplier;
+  
+  const progress = elapsed / totalDuration;
+  return 1 - (1 - targetMultiplier) * progress;
+}
+
+/**
+ * Calculate threshold for taking over a pixel.
+ * Uses floor-based calculation for rebalancing owners.
+ */
+function calculateThreshold(pixel: PixelData): number {
+  const ownerStake = pixel.owner_stake_pe || 0;
+  const defSum = pixel.defSum;
+  const atkSum = pixel.atkSum;
+  const owner = pixel.ownerData;
+
+  if (!owner || !owner.rebalance_active) {
+    // Owner is healthy - use current value
+    const vNow = ownerStake + defSum - atkSum;
+    return Math.max(0, vNow) + 1;
+  }
+
+  // Owner is in rebalance - calculate floor at next tick
+  const now = new Date();
+  const nextTick = getNextTickTime(now);
+  
+  if (owner.rebalance_started_at && owner.rebalance_ends_at && owner.rebalance_target_multiplier !== null) {
+    const multiplierAtNextTick = calculateMultiplierAtTime(
+      new Date(owner.rebalance_started_at),
+      new Date(owner.rebalance_ends_at),
+      owner.rebalance_target_multiplier,
+      nextTick
+    );
+    
+    const effectiveStakeAtFloor = ownerStake * multiplierAtNextTick;
+    const vFloor = effectiveStakeAtFloor + defSum - atkSum;
+    return Math.max(0, vFloor) + 1;
+  }
+
+  // Fallback to current multiplier
+  const effectiveStake = ownerStake * owner.owner_health_multiplier;
+  const vNow = effectiveStake + defSum - atkSum;
+  return Math.max(0, vNow) + 1;
 }
 
 function generateSnapshotHash(pixelStates: PixelData[]): string {
-  const data = pixelStates.map(p => `${p.x}:${p.y}:${p.id || 0}:${p.owner_user_id || ''}:${p.owner_stake_pe || 0}:${p.defSum}:${p.atkSum}`).join("|");
+  const data = pixelStates.map(p => {
+    const multiplier = p.ownerData?.owner_health_multiplier || 1;
+    return `${p.x}:${p.y}:${p.id || 0}:${p.owner_user_id || ''}:${p.owner_stake_pe || 0}:${p.defSum}:${p.atkSum}:${multiplier.toFixed(4)}`;
+  }).join("|");
   let hash = 0;
   for (let i = 0; i < data.length; i++) {
     const char = data.charCodeAt(i);
@@ -80,6 +163,21 @@ Deno.serve(async (req) => {
       pixelMap.set(`${p.x}:${p.y}`, p);
     });
 
+    // Fetch owner data for rebalance status
+    const ownerIds = [...new Set((existingPixels || []).map(p => p.owner_user_id).filter(Boolean))];
+    const ownerDataMap = new Map<string, OwnerData>();
+    
+    if (ownerIds.length > 0) {
+      const { data: owners } = await supabase
+        .from("users")
+        .select("id, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier")
+        .in("id", ownerIds);
+      
+      (owners || []).forEach(o => {
+        ownerDataMap.set(o.id, o);
+      });
+    }
+
     // Fetch contributions
     const pixelIds = (existingPixels || []).map(p => p.id);
     let contributions: { pixel_id: number; user_id: string; side: string; amount_pe: number }[] = [];
@@ -104,6 +202,7 @@ Deno.serve(async (req) => {
     const pixelStates: PixelData[] = pixels.map(p => {
       const existing = pixelMap.get(`${p.x}:${p.y}`);
       const contribs = existing ? contribsByPixel.get(existing.id) : undefined;
+      const ownerData = existing?.owner_user_id ? ownerDataMap.get(existing.owner_user_id) : undefined;
       return {
         x: p.x,
         y: p.y,
@@ -113,6 +212,7 @@ Deno.serve(async (req) => {
         color: existing?.color,
         defSum: contribs?.defSum || 0,
         atkSum: contribs?.atkSum || 0,
+        ownerData,
       };
     });
 
@@ -205,10 +305,8 @@ Deno.serve(async (req) => {
             .eq("id", pixel.id);
           if (!error) affectedPixels++;
         } else {
-          // Takeover
-          const vNow = (pixel.owner_stake_pe || 0) + pixel.defSum - pixel.atkSum;
-          const vClamped = Math.max(0, vNow);
-          const threshold = vClamped + 1;
+          // Takeover - use floor-based threshold
+          const threshold = calculateThreshold(pixel);
 
           // 1. Delete all DEF contributions (refund defenders)
           if (pixel.id) {
