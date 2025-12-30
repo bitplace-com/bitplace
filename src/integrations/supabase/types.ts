@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      auth_nonces: {
+        Row: {
+          created_at: string | null
+          id: string
+          nonce: string
+          used_at: string | null
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nonce: string
+          used_at?: string | null
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nonce?: string
+          used_at?: string | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       paint_events: {
         Row: {
           action_type: string
@@ -140,6 +164,7 @@ export type Database = {
           created_at: string | null
           display_name: string | null
           id: string
+          pe_total_pe: number
           wallet_address: string | null
         }
         Insert: {
@@ -149,6 +174,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           id?: string
+          pe_total_pe?: number
           wallet_address?: string | null
         }
         Update: {
@@ -158,6 +184,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           id?: string
+          pe_total_pe?: number
           wallet_address?: string | null
         }
         Relationships: []

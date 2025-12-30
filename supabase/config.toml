@@ -2,3 +2,12 @@ project_id = "thghyespvzejcveiqdhk"
 
 [functions.paint-pixel-dev]
 verify_jwt = false
+
+[functions.auth-nonce]
+verify_jwt = false
+
+[functions.auth-verify]
+verify_jwt = false
+
+[functions.user-update]
+verify_jwt = false
