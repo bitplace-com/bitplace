@@ -28,6 +28,8 @@ export interface ValidateResult {
   availablePe: number;
   error?: string;
   message?: string;
+  contributionsPurged?: boolean;
+  purgedContributionCount?: number;
 }
 
 export interface ValidateParams {
@@ -74,6 +76,14 @@ export function useGameActions() {
       const result = data as ValidateResult;
       setValidationResult(result);
       
+      // Show toast if contributions were purged due to under-collateralization
+      if (result.contributionsPurged) {
+        toast.warning(
+          `Your DEF/ATK contributions (${result.purgedContributionCount}) were removed due to insufficient collateral`,
+          { duration: 5000 }
+        );
+      }
+      
       if (!result.ok) {
         setInvalidPixels(result.invalidPixels || []);
         if (result.error === 'INSUFFICIENT_PE') {
@@ -116,9 +126,19 @@ export function useGameActions() {
         return false;
       }
 
+      // Show toast if contributions were purged due to under-collateralization
+      if (data.contributionsPurged) {
+        toast.warning(
+          `Your DEF/ATK contributions (${data.purgedContributionCount}) were removed due to insufficient collateral`,
+          { duration: 5000 }
+        );
+      }
+
       if (!data.ok) {
         if (data.error === 'STATE_CHANGED') {
           toast.error('Pixel state changed - please try again');
+        } else if (data.error === 'CONTRIBUTIONS_PURGED') {
+          // Already showed toast above
         } else {
           toast.error(data.message || 'Commit failed');
         }

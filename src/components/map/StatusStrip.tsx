@@ -17,7 +17,7 @@ function formatTimeRemaining(endsAt: Date): string {
 }
 
 export function StatusStrip({ userId }: StatusStripProps) {
-  const { total, locked, free, isLoading, rebalanceActive, healthMultiplier, rebalanceEndsAt } = usePeBalance(userId);
+  const { total, locked, free, isLoading, rebalanceActive, healthMultiplier, rebalanceEndsAt, isContributionsUnderCollateralized } = usePeBalance(userId);
 
   if (!userId) {
     return (
@@ -49,6 +49,13 @@ export function StatusStrip({ userId }: StatusStripProps) {
           <span className={cn("text-sm font-medium", isLowFree && "text-destructive")}>{isLoading ? '...' : free.toLocaleString()} PE</span>
         </div>
       </div>
+
+      {isContributionsUnderCollateralized && (
+        <div className="flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-md">
+          <AlertTriangle className="h-4 w-4 text-orange-500" />
+          <span className="text-sm font-medium text-orange-500">DEF/ATK at risk - add collateral</span>
+        </div>
+      )}
 
       {rebalanceActive && (
         <div className="flex items-center gap-2 px-3 py-1 bg-destructive/10 border border-destructive/20 rounded-md">
