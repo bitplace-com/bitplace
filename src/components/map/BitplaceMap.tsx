@@ -7,10 +7,13 @@ import { CanvasOverlay } from './CanvasOverlay';
 import { MapToolbar } from './MapToolbar';
 import { ColorPalette } from './ColorPalette';
 import { ZoomControls } from './ZoomControls';
-import { usePixelStore, screenToPixel, pixelToScreen } from './hooks/usePixelStore';
+import { ActionConfirmDialog } from './ActionConfirmDialog';
+import { usePixelStore, screenToPixel } from './hooks/usePixelStore';
 import { useSelection } from './hooks/useSelection';
 import { useMapState, Z_PAINT } from './hooks/useMapState';
 import { useSupabasePixels } from '@/hooks/useSupabasePixels';
+import { useGameActions, type GameMode, type ValidateResult } from '@/hooks/useGameActions';
+import { useWallet } from '@/contexts/WalletContext';
 
 const MAX_ZOOM = 22;
 
@@ -20,16 +23,52 @@ export function BitplaceMap() {
   const [mapReady, setMapReady] = useState(false);
   const [hoverPixel, setHoverPixel] = useState<{ x: number; y: number } | null>(null);
   
+  // Action dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [pendingPixels, setPendingPixels] = useState<{ x: number; y: number }[]>([]);
+  const [pePerPixel, setPePerPixel] = useState(1);
+  
+  const { user, refreshUser } = useWallet();
   const { localPixels, paintPixel, mergePixels, confirmPixel } = usePixelStore();
-  const { selection, startSelection, updateSelection, endSelection, clearSelection } = useSelection();
+  const { selection, startSelection, updateSelection, endSelection, clearSelection, getNormalizedBounds } = useSelection();
   const { mode, selectedColor, zoom, setMode, setSelectedColor, setZoom, canPaint } = useMapState();
-  const { dbPixels, updateViewport, paintPixelToDb } = useSupabasePixels(zoom);
+  const { dbPixels, updateViewport } = useSupabasePixels(zoom);
+  const { 
+    validate, 
+    commit, 
+    validationResult, 
+    invalidPixels, 
+    isValidating, 
+    isCommitting, 
+    clearValidation 
+  } = useGameActions();
 
   // Merge local and DB pixels for rendering
   const pixels = useMemo(() => mergePixels(dbPixels), [mergePixels, dbPixels]);
 
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef<{ x: number; y: number; screenX: number; screenY: number } | null>(null);
+
+  // Convert MapMode to GameMode
+  const getGameMode = useCallback((mapMode: string): GameMode => {
+    return mapMode.toUpperCase() as GameMode;
+  }, []);
+
+  // Get pixels from selection bounds
+  const getPixelsFromBounds = useCallback((bounds: { startX: number; startY: number; endX: number; endY: number }) => {
+    const minX = Math.min(bounds.startX, bounds.endX);
+    const maxX = Math.max(bounds.startX, bounds.endX);
+    const minY = Math.min(bounds.startY, bounds.endY);
+    const maxY = Math.max(bounds.startY, bounds.endY);
+    
+    const pixels: { x: number; y: number }[] = [];
+    for (let x = minX; x <= maxX; x++) {
+      for (let y = minY; y <= maxY; y++) {
+        pixels.push({ x, y });
+      }
+    }
+    return pixels;
+  }, []);
 
   // Initialize map
   useEffect(() => {
@@ -82,7 +121,63 @@ export function BitplaceMap() {
       map.remove();
       mapRef.current = null;
     };
-  }, [setZoom]);
+  }, [setZoom, updateViewport]);
+
+  // Handle action execution
+  const executeAction = useCallback(async (pixelsToAct: { x: number; y: number }[]) => {
+    if (!user) {
+      toast.error('Please connect wallet first');
+      return;
+    }
+
+    const gameMode = getGameMode(mode);
+    
+    // For PAINT mode with single pixel, execute directly
+    if (gameMode === 'PAINT' && pixelsToAct.length === 1) {
+      const result = await validate({
+        mode: 'PAINT',
+        pixels: pixelsToAct,
+        color: selectedColor,
+      });
+
+      if (result?.ok) {
+        // Optimistic local update
+        const { x, y } = pixelsToAct[0];
+        paintPixel(x, y, selectedColor);
+
+        const success = await commit({
+          mode: 'PAINT',
+          pixels: pixelsToAct,
+          color: selectedColor,
+          snapshotHash: result.snapshotHash,
+        });
+
+        if (success) {
+          confirmPixel(x, y);
+          refreshUser();
+        }
+      }
+      clearSelection();
+      return;
+    }
+
+    // For multi-pixel or non-PAINT, show dialog
+    setPendingPixels(pixelsToAct);
+    
+    if (gameMode === 'PAINT') {
+      // Auto-validate paint actions
+      const result = await validate({
+        mode: 'PAINT',
+        pixels: pixelsToAct,
+        color: selectedColor,
+      });
+      setDialogOpen(true);
+    } else {
+      // For DEF/ATK/REINFORCE, just open dialog and let user set PE
+      clearValidation();
+      setDialogOpen(true);
+    }
+  }, [user, mode, selectedColor, validate, commit, paintPixel, confirmPixel, clearSelection, clearValidation, getGameMode, refreshUser]);
 
   // Handle mouse move for hover
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -111,10 +206,11 @@ export function BitplaceMap() {
   // Handle mouse down
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     const map = mapRef.current;
-    if (!map || mode !== 'paint') return;
+    if (!map) return;
 
     if (map.getZoom() < Z_PAINT) {
-      toast.info('Zoom in to paint', { duration: 2000 });
+      if (mode !== 'paint') return; // Allow map drag in non-paint modes below Z_PAINT
+      toast.info('Zoom in to interact', { duration: 2000 });
       return;
     }
 
@@ -129,12 +225,12 @@ export function BitplaceMap() {
     isDraggingRef.current = true;
     dragStartRef.current = { x: pixel.x, y: pixel.y, screenX: e.clientX, screenY: e.clientY };
 
-    // Disable map dragging when we're in paint mode at paint zoom
+    // Disable map dragging when we're at paint zoom
     map.dragPan.disable();
   }, [mode]);
 
   // Handle mouse up
-  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+  const handleMouseUp = useCallback(async (e: React.MouseEvent) => {
     const map = mapRef.current;
     if (!map) return;
 
@@ -147,33 +243,26 @@ export function BitplaceMap() {
       Math.pow(e.clientY - dragStartRef.current.screenY, 2)
     );
 
-    // If it was a click (not a drag), paint single pixel
+    // If it was a click (not a drag), handle single pixel
     if (dragDistance < 5) {
-      if (mode === 'paint' && map.getZoom() >= Z_PAINT) {
+      if (map.getZoom() >= Z_PAINT) {
         const x = dragStartRef.current.x;
         const y = dragStartRef.current.y;
-        
-        // Optimistic local update
-        paintPixel(x, y, selectedColor);
-        clearSelection();
-        
-        // Persist to database
-        paintPixelToDb(x, y, selectedColor).then((success) => {
-          if (success) {
-            confirmPixel(x, y);
-          } else {
-            toast.error('Failed to save pixel');
-          }
-        });
+        await executeAction([{ x, y }]);
       }
     } else {
-      // It was a drag, finalize selection
+      // It was a drag, finalize selection and handle action
       endSelection();
+      const bounds = getNormalizedBounds();
+      if (bounds) {
+        const selectedPixels = getPixelsFromBounds(bounds);
+        await executeAction(selectedPixels);
+      }
     }
 
     isDraggingRef.current = false;
     dragStartRef.current = null;
-  }, [mode, selectedColor, paintPixel, clearSelection, endSelection]);
+  }, [executeAction, endSelection, getNormalizedBounds, getPixelsFromBounds]);
 
   // Start selection on drag
   useEffect(() => {
@@ -192,6 +281,57 @@ export function BitplaceMap() {
   const handleZoomOut = useCallback(() => {
     mapRef.current?.zoomOut();
   }, []);
+
+  // Handle dialog confirm
+  const handleConfirm = useCallback(async () => {
+    if (!validationResult?.ok) return;
+
+    const gameMode = getGameMode(mode);
+    
+    const success = await commit({
+      mode: gameMode,
+      pixels: pendingPixels,
+      color: gameMode === 'PAINT' ? selectedColor : undefined,
+      pePerPixel: gameMode !== 'PAINT' ? pePerPixel : undefined,
+      snapshotHash: validationResult.snapshotHash,
+    });
+
+    if (success) {
+      // For PAINT, apply optimistic updates
+      if (gameMode === 'PAINT') {
+        pendingPixels.forEach(({ x, y }) => {
+          paintPixel(x, y, selectedColor);
+          confirmPixel(x, y);
+        });
+      }
+      refreshUser();
+      setDialogOpen(false);
+      clearSelection();
+      setPendingPixels([]);
+    }
+  }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, getGameMode, paintPixel, confirmPixel, clearSelection, refreshUser]);
+
+  // Handle revalidate (for non-PAINT modes when PE changes)
+  const handleRevalidate = useCallback(async () => {
+    const gameMode = getGameMode(mode);
+    
+    await validate({
+      mode: gameMode,
+      pixels: pendingPixels,
+      color: gameMode === 'PAINT' ? selectedColor : undefined,
+      pePerPixel: gameMode !== 'PAINT' ? pePerPixel : undefined,
+    });
+  }, [mode, pendingPixels, selectedColor, pePerPixel, validate, getGameMode]);
+
+  // Close dialog handler
+  const handleDialogClose = useCallback((open: boolean) => {
+    if (!open) {
+      setDialogOpen(false);
+      clearSelection();
+      clearValidation();
+      setPendingPixels([]);
+    }
+  }, [clearSelection, clearValidation]);
 
   return (
     <div className="relative w-full h-full">
@@ -221,6 +361,7 @@ export function BitplaceMap() {
           selection={selection}
           hoverPixel={hoverPixel}
           canPaint={canPaint}
+          invalidPixels={invalidPixels}
         />
       )}
 
@@ -228,6 +369,22 @@ export function BitplaceMap() {
       <MapToolbar mode={mode} onModeChange={setMode} />
       <ColorPalette selectedColor={selectedColor} onColorSelect={setSelectedColor} />
       <ZoomControls zoom={zoom} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} />
+
+      {/* Action Confirmation Dialog */}
+      <ActionConfirmDialog
+        open={dialogOpen}
+        onOpenChange={handleDialogClose}
+        mode={getGameMode(mode)}
+        pixelCount={pendingPixels.length}
+        validationResult={validationResult}
+        pePerPixel={pePerPixel}
+        onPePerPixelChange={setPePerPixel}
+        onConfirm={handleConfirm}
+        onRevalidate={handleRevalidate}
+        isValidating={isValidating}
+        isCommitting={isCommitting}
+        availablePe={user?.pe_total_pe}
+      />
     </div>
   );
 }
