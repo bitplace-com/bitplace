@@ -1,1 +1,4 @@
 project_id = "thghyespvzejcveiqdhk"
+
+[functions.paint-pixel-dev]
+verify_jwt = false

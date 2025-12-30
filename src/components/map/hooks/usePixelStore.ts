@@ -55,10 +55,10 @@ export function getPixelScreenSize(map: MapLibreMap): number {
 }
 
 export function usePixelStore() {
-  const [pixels, setPixels] = useState<PixelStore>(new Map());
+  const [localPixels, setLocalPixels] = useState<PixelStore>(new Map());
 
   const paintPixel = useCallback((x: number, y: number, color: string) => {
-    setPixels((prev) => {
+    setLocalPixels((prev) => {
       const next = new Map(prev);
       next.set(pixelKey(x, y), { color });
       return next;
@@ -67,19 +67,39 @@ export function usePixelStore() {
 
   const getPixel = useCallback(
     (x: number, y: number): PixelData | undefined => {
-      return pixels.get(pixelKey(x, y));
+      return localPixels.get(pixelKey(x, y));
     },
-    [pixels]
+    [localPixels]
   );
 
   const clearPixels = useCallback(() => {
-    setPixels(new Map());
+    setLocalPixels(new Map());
+  }, []);
+
+  // Merge database pixels with local pixels (local takes priority for optimistic updates)
+  const mergePixels = useCallback((dbPixels: PixelStore): PixelStore => {
+    const merged = new Map(dbPixels);
+    localPixels.forEach((value, key) => {
+      merged.set(key, value);
+    });
+    return merged;
+  }, [localPixels]);
+
+  // Clear a local pixel after it's confirmed in DB
+  const confirmPixel = useCallback((x: number, y: number) => {
+    setLocalPixels((prev) => {
+      const next = new Map(prev);
+      next.delete(pixelKey(x, y));
+      return next;
+    });
   }, []);
 
   return {
-    pixels,
+    localPixels,
     paintPixel,
     getPixel,
     clearPixels,
+    mergePixels,
+    confirmPixel,
   };
 }

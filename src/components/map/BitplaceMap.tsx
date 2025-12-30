@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { toast } from 'sonner';
@@ -7,9 +7,12 @@ import { CanvasOverlay } from './CanvasOverlay';
 import { MapToolbar } from './MapToolbar';
 import { ColorPalette } from './ColorPalette';
 import { ZoomControls } from './ZoomControls';
-import { usePixelStore, screenToPixel } from './hooks/usePixelStore';
+import { usePixelStore, screenToPixel, pixelToScreen } from './hooks/usePixelStore';
 import { useSelection } from './hooks/useSelection';
 import { useMapState, Z_PAINT } from './hooks/useMapState';
+import { useSupabasePixels } from '@/hooks/useSupabasePixels';
+
+const MAX_ZOOM = 22;
 
 export function BitplaceMap() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -17,9 +20,13 @@ export function BitplaceMap() {
   const [mapReady, setMapReady] = useState(false);
   const [hoverPixel, setHoverPixel] = useState<{ x: number; y: number } | null>(null);
   
-  const { pixels, paintPixel } = usePixelStore();
+  const { localPixels, paintPixel, mergePixels, confirmPixel } = usePixelStore();
   const { selection, startSelection, updateSelection, endSelection, clearSelection } = useSelection();
   const { mode, selectedColor, zoom, setMode, setSelectedColor, setZoom, canPaint } = useMapState();
+  const { dbPixels, updateViewport, paintPixelToDb } = useSupabasePixels(zoom);
+
+  // Merge local and DB pixels for rendering
+  const pixels = useMemo(() => mergePixels(dbPixels), [mergePixels, dbPixels]);
 
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef<{ x: number; y: number; screenX: number; screenY: number } | null>(null);
@@ -45,6 +52,31 @@ export function BitplaceMap() {
     map.on('zoom', () => {
       setZoom(map.getZoom());
     });
+
+    // Update viewport bounds for pixel fetching
+    const updateBounds = () => {
+      if (!map) return;
+      const bounds = map.getBounds();
+      const worldSize = Math.pow(2, MAX_ZOOM) * 256;
+      
+      const minX = Math.floor(((bounds.getWest() + 180) / 360) * worldSize);
+      const maxX = Math.floor(((bounds.getEast() + 180) / 360) * worldSize);
+      
+      const minLat = bounds.getSouth();
+      const maxLat = bounds.getNorth();
+      
+      const minY = Math.floor(
+        ((1 - Math.log(Math.tan((maxLat * Math.PI) / 180) + 1 / Math.cos((maxLat * Math.PI) / 180)) / Math.PI) / 2) * worldSize
+      );
+      const maxY = Math.floor(
+        ((1 - Math.log(Math.tan((minLat * Math.PI) / 180) + 1 / Math.cos((minLat * Math.PI) / 180)) / Math.PI) / 2) * worldSize
+      );
+
+      updateViewport({ minX, maxX, minY, maxY });
+    };
+
+    map.on('moveend', updateBounds);
+    map.on('zoomend', updateBounds);
 
     return () => {
       map.remove();
@@ -118,8 +150,21 @@ export function BitplaceMap() {
     // If it was a click (not a drag), paint single pixel
     if (dragDistance < 5) {
       if (mode === 'paint' && map.getZoom() >= Z_PAINT) {
-        paintPixel(dragStartRef.current.x, dragStartRef.current.y, selectedColor);
+        const x = dragStartRef.current.x;
+        const y = dragStartRef.current.y;
+        
+        // Optimistic local update
+        paintPixel(x, y, selectedColor);
         clearSelection();
+        
+        // Persist to database
+        paintPixelToDb(x, y, selectedColor).then((success) => {
+          if (success) {
+            confirmPixel(x, y);
+          } else {
+            toast.error('Failed to save pixel');
+          }
+        });
       }
     } else {
       // It was a drag, finalize selection
