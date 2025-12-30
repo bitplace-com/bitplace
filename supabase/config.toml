@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.game-commit]
 verify_jwt = false
+
+[functions.rebalance-tick]
+verify_jwt = false
