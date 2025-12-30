@@ -69,7 +69,18 @@ export function useGameActions() {
 
       if (error) {
         console.error('[useGameActions] Validate error:', error);
+        // Check for rate limit error
+        if (error.message?.includes('429') || error.message?.includes('RATE_LIMITED')) {
+          toast.warning('Too many requests. Please wait a moment.');
+          return null;
+        }
         toast.error('Validation failed');
+        return null;
+      }
+
+      // Check if response indicates rate limiting
+      if (data?.error === 'RATE_LIMITED') {
+        toast.warning(data.message || 'Too many requests. Please wait a moment.');
         return null;
       }
 
@@ -122,7 +133,18 @@ export function useGameActions() {
 
       if (error) {
         console.error('[useGameActions] Commit error:', error);
+        // Check for rate limit error
+        if (error.message?.includes('429') || error.message?.includes('RATE_LIMITED')) {
+          toast.warning('Action too fast. Please wait a moment before trying again.');
+          return false;
+        }
         toast.error('Commit failed');
+        return false;
+      }
+
+      // Check if response indicates rate limiting
+      if (data?.error === 'RATE_LIMITED') {
+        toast.warning(data.message || 'Action too fast. Please wait a moment before trying again.');
         return false;
       }
 

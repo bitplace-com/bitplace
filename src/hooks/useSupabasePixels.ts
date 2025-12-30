@@ -88,7 +88,7 @@ export function useSupabasePixels(zoom: number) {
 
     debounceRef.current = setTimeout(() => {
       fetchViewportPixels(bounds);
-    }, 300);
+    }, 200);
   }, [fetchViewportPixels]);
 
   // Subscribe to realtime changes

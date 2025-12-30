@@ -43,6 +43,41 @@ interface PixelData {
   ownerData?: OwnerData;
 }
 
+// Rate limiting: in-memory store per instance
+// Note: Edge functions are stateless, so this only works per instance
+// For production, use Redis or database-based rate limiting
+const rateLimits = new Map<string, { 
+  validateCount: number; 
+  validateWindowStart: number;
+}>();
+
+const VALIDATE_LIMIT = 5; // max 5 validates per second
+const VALIDATE_WINDOW_MS = 1000;
+
+function checkValidateRateLimit(userId: string): { ok: boolean; retryAfter?: number } {
+  const now = Date.now();
+  let entry = rateLimits.get(userId);
+  
+  if (!entry) {
+    entry = { validateCount: 0, validateWindowStart: now };
+    rateLimits.set(userId, entry);
+  }
+  
+  // Reset window if expired
+  if (now - entry.validateWindowStart > VALIDATE_WINDOW_MS) {
+    entry.validateCount = 0;
+    entry.validateWindowStart = now;
+  }
+  
+  if (entry.validateCount >= VALIDATE_LIMIT) {
+    const retryAfter = Math.ceil((entry.validateWindowStart + VALIDATE_WINDOW_MS - now) / 1000);
+    return { ok: false, retryAfter: Math.max(1, retryAfter) };
+  }
+  
+  entry.validateCount++;
+  return { ok: true };
+}
+
 // Constants for rebalance calculations
 const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
@@ -156,6 +191,24 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: false, error: "INVALID_INPUT", message: "Missing required fields" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Rate limiting check
+    const rateCheck = checkValidateRateLimit(userId);
+    if (!rateCheck.ok) {
+      console.log(`[game-validate] Rate limited user ${userId}`);
+      return new Response(JSON.stringify({ 
+        ok: false, 
+        error: "RATE_LIMITED", 
+        message: `Too many requests. Retry in ${rateCheck.retryAfter}s` 
+      }), {
+        status: 429,
+        headers: { 
+          ...corsHeaders, 
+          "Content-Type": "application/json", 
+          "Retry-After": String(rateCheck.retryAfter) 
+        },
       });
     }
 

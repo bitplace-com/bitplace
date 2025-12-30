@@ -37,6 +37,24 @@ interface PixelData {
   ownerData?: OwnerData;
 }
 
+// Rate limiting: in-memory store per instance
+const commitTimestamps = new Map<string, number>();
+const COMMIT_COOLDOWN_MS = 2000; // min 2 seconds between commits
+
+function checkCommitRateLimit(userId: string): { ok: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const lastCommit = commitTimestamps.get(userId) || 0;
+  
+  const timeSinceLastCommit = now - lastCommit;
+  if (timeSinceLastCommit < COMMIT_COOLDOWN_MS) {
+    const retryAfter = Math.ceil((COMMIT_COOLDOWN_MS - timeSinceLastCommit) / 1000);
+    return { ok: false, retryAfter: Math.max(1, retryAfter) };
+  }
+  
+  commitTimestamps.set(userId, now);
+  return { ok: true };
+}
+
 // Constants for rebalance calculations
 const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
@@ -141,6 +159,24 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: false, error: "INVALID_INPUT" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Rate limiting check
+    const rateCheck = checkCommitRateLimit(userId);
+    if (!rateCheck.ok) {
+      console.log(`[game-commit] Rate limited user ${userId}`);
+      return new Response(JSON.stringify({ 
+        ok: false, 
+        error: "RATE_LIMITED", 
+        message: `Please wait ${rateCheck.retryAfter}s before next action` 
+      }), {
+        status: 429,
+        headers: { 
+          ...corsHeaders, 
+          "Content-Type": "application/json", 
+          "Retry-After": String(rateCheck.retryAfter) 
+        },
       });
     }
 

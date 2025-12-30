@@ -59,7 +59,9 @@ export function CanvasOverlay({
       const topLeft = screenToPixel(0, 0, map);
       const bottomRight = screenToPixel(width, height, map);
 
-      // Draw painted pixels
+      // OPTIMIZATION: Batch pixels by color to minimize fillStyle changes
+      const colorBatches = new Map<string, { x: number; y: number }[]>();
+      
       pixels.forEach((data, key) => {
         const { x, y } = parsePixelKey(key);
         
@@ -67,28 +69,39 @@ export function CanvasOverlay({
         if (x < topLeft.x - 1 || x > bottomRight.x + 1) return;
         if (y < topLeft.y - 1 || y > bottomRight.y + 1) return;
 
-        const screenPos = pixelToScreen(x, y, map);
-        
-        ctx.fillStyle = data.color;
-        ctx.fillRect(screenPos.x, screenPos.y, pixelSize, pixelSize);
+        if (!colorBatches.has(data.color)) {
+          colorBatches.set(data.color, []);
+        }
+        colorBatches.get(data.color)!.push({ x, y });
+      });
+
+      // Draw all pixels of same color in one batch (fewer fillStyle changes)
+      colorBatches.forEach((positions, color) => {
+        ctx.fillStyle = color;
+        positions.forEach(({ x, y }) => {
+          const screenPos = pixelToScreen(x, y, map);
+          ctx.fillRect(screenPos.x, screenPos.y, pixelSize, pixelSize);
+        });
       });
 
       // Draw invalid pixel highlights
       if (invalidPixels.length > 0 && pixelSize > 1) {
+        // Batch invalid overlays
+        ctx.fillStyle = 'rgba(255, 50, 50, 0.4)';
         invalidPixels.forEach(({ x, y }) => {
-          // Bounds check
           if (x < topLeft.x - 1 || x > bottomRight.x + 1) return;
           if (y < topLeft.y - 1 || y > bottomRight.y + 1) return;
-
           const screenPos = pixelToScreen(x, y, map);
-          
-          // Red overlay
-          ctx.fillStyle = 'rgba(255, 50, 50, 0.4)';
           ctx.fillRect(screenPos.x, screenPos.y, pixelSize, pixelSize);
-          
-          // Red border
-          ctx.strokeStyle = 'rgba(255, 50, 50, 0.9)';
-          ctx.lineWidth = 2;
+        });
+        
+        // Batch invalid borders
+        ctx.strokeStyle = 'rgba(255, 50, 50, 0.9)';
+        ctx.lineWidth = 2;
+        invalidPixels.forEach(({ x, y }) => {
+          if (x < topLeft.x - 1 || x > bottomRight.x + 1) return;
+          if (y < topLeft.y - 1 || y > bottomRight.y + 1) return;
+          const screenPos = pixelToScreen(x, y, map);
           ctx.strokeRect(screenPos.x, screenPos.y, pixelSize, pixelSize);
         });
       }
