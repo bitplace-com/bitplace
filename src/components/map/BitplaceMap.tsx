@@ -5,14 +5,14 @@ import { toast } from 'sonner';
 
 import { CanvasOverlay } from './CanvasOverlay';
 import { MapToolbar } from './MapToolbar';
-import { ColorPalette } from './ColorPalette';
 import { ZoomControls } from './ZoomControls';
-import { ActionConfirmDialog } from './ActionConfirmDialog';
+import { InspectorPanel } from './inspector';
+import { StatusStrip } from './StatusStrip';
 import { usePixelStore, screenToPixel } from './hooks/usePixelStore';
 import { useSelection } from './hooks/useSelection';
 import { useMapState, Z_PAINT } from './hooks/useMapState';
 import { useSupabasePixels } from '@/hooks/useSupabasePixels';
-import { useGameActions, type GameMode, type ValidateResult } from '@/hooks/useGameActions';
+import { useGameActions, type GameMode } from '@/hooks/useGameActions';
 import { useWallet } from '@/contexts/WalletContext';
 
 const MAX_ZOOM = 22;
@@ -23,14 +23,13 @@ export function BitplaceMap() {
   const [mapReady, setMapReady] = useState(false);
   const [hoverPixel, setHoverPixel] = useState<{ x: number; y: number } | null>(null);
   
-  // Action dialog state
-  const [dialogOpen, setDialogOpen] = useState(false);
+  // Selection-based action state
   const [pendingPixels, setPendingPixels] = useState<{ x: number; y: number }[]>([]);
   const [pePerPixel, setPePerPixel] = useState(1);
   
   const { user, refreshUser } = useWallet();
   const { localPixels, paintPixel, mergePixels, confirmPixel } = usePixelStore();
-  const { selection, startSelection, updateSelection, endSelection, clearSelection, getNormalizedBounds } = useSelection();
+  const { selection, startSelection, updateSelection, endSelection, clearSelection, getNormalizedBounds, getSelectedPixels } = useSelection();
   const { mode, selectedColor, zoom, setMode, setSelectedColor, setZoom, canPaint } = useMapState();
   const { dbPixels, updateViewport } = useSupabasePixels(zoom);
   const { 
@@ -123,8 +122,16 @@ export function BitplaceMap() {
     };
   }, [setZoom, updateViewport]);
 
-  // Handle action execution
-  const executeAction = useCallback(async (pixelsToAct: { x: number; y: number }[]) => {
+  // Update pending pixels when selection changes
+  useEffect(() => {
+    const selectedPixels = getSelectedPixels();
+    if (selectedPixels.length > 0) {
+      setPendingPixels(selectedPixels);
+    }
+  }, [selection.bounds, getSelectedPixels]);
+
+  // Handle single pixel click action
+  const executeSinglePixelAction = useCallback(async (x: number, y: number) => {
     if (!user) {
       toast.error('Please connect wallet first');
       return;
@@ -133,21 +140,20 @@ export function BitplaceMap() {
     const gameMode = getGameMode(mode);
     
     // For PAINT mode with single pixel, execute directly
-    if (gameMode === 'PAINT' && pixelsToAct.length === 1) {
+    if (gameMode === 'PAINT') {
       const result = await validate({
         mode: 'PAINT',
-        pixels: pixelsToAct,
+        pixels: [{ x, y }],
         color: selectedColor,
       });
 
       if (result?.ok) {
         // Optimistic local update
-        const { x, y } = pixelsToAct[0];
         paintPixel(x, y, selectedColor);
 
         const success = await commit({
           mode: 'PAINT',
-          pixels: pixelsToAct,
+          pixels: [{ x, y }],
           color: selectedColor,
           snapshotHash: result.snapshotHash,
         });
@@ -157,27 +163,13 @@ export function BitplaceMap() {
           refreshUser();
         }
       }
-      clearSelection();
       return;
     }
 
-    // For multi-pixel or non-PAINT, show dialog
-    setPendingPixels(pixelsToAct);
-    
-    if (gameMode === 'PAINT') {
-      // Auto-validate paint actions
-      const result = await validate({
-        mode: 'PAINT',
-        pixels: pixelsToAct,
-        color: selectedColor,
-      });
-      setDialogOpen(true);
-    } else {
-      // For DEF/ATK/REINFORCE, just open dialog and let user set PE
-      clearValidation();
-      setDialogOpen(true);
-    }
-  }, [user, mode, selectedColor, validate, commit, paintPixel, confirmPixel, clearSelection, clearValidation, getGameMode, refreshUser]);
+    // For non-PAINT single clicks, start selection for inspector
+    startSelection(x, y);
+    setPendingPixels([{ x, y }]);
+  }, [user, mode, selectedColor, validate, commit, paintPixel, confirmPixel, getGameMode, refreshUser, startSelection]);
 
   // Handle mouse move for hover
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -209,7 +201,7 @@ export function BitplaceMap() {
     if (!map) return;
 
     if (map.getZoom() < Z_PAINT) {
-      if (mode !== 'paint') return; // Allow map drag in non-paint modes below Z_PAINT
+      if (mode !== 'paint') return;
       toast.info('Zoom in to interact', { duration: 2000 });
       return;
     }
@@ -227,7 +219,10 @@ export function BitplaceMap() {
 
     // Disable map dragging when we're at paint zoom
     map.dragPan.disable();
-  }, [mode]);
+    
+    // Start selection
+    startSelection(pixel.x, pixel.y);
+  }, [mode, startSelection]);
 
   // Handle mouse up
   const handleMouseUp = useCallback(async (e: React.MouseEvent) => {
@@ -243,36 +238,27 @@ export function BitplaceMap() {
       Math.pow(e.clientY - dragStartRef.current.screenY, 2)
     );
 
-    // If it was a click (not a drag), handle single pixel
+    // If it was a click (not a drag), handle single pixel for PAINT mode
     if (dragDistance < 5) {
       if (map.getZoom() >= Z_PAINT) {
         const x = dragStartRef.current.x;
         const y = dragStartRef.current.y;
-        await executeAction([{ x, y }]);
+        const gameMode = getGameMode(mode);
+        
+        if (gameMode === 'PAINT') {
+          await executeSinglePixelAction(x, y);
+          clearSelection();
+        }
+        // For non-PAINT modes, keep the selection for inspector
       }
     } else {
-      // It was a drag, finalize selection and handle action
+      // It was a drag, finalize selection
       endSelection();
-      const bounds = getNormalizedBounds();
-      if (bounds) {
-        const selectedPixels = getPixelsFromBounds(bounds);
-        await executeAction(selectedPixels);
-      }
     }
 
     isDraggingRef.current = false;
     dragStartRef.current = null;
-  }, [executeAction, endSelection, getNormalizedBounds, getPixelsFromBounds]);
-
-  // Start selection on drag
-  useEffect(() => {
-    if (!isDraggingRef.current || !dragStartRef.current) return;
-    
-    const map = mapRef.current;
-    if (!map || map.getZoom() < Z_PAINT) return;
-
-    startSelection(dragStartRef.current.x, dragStartRef.current.y);
-  }, [hoverPixel, startSelection]);
+  }, [executeSinglePixelAction, endSelection, clearSelection, getGameMode, mode]);
 
   const handleZoomIn = useCallback(() => {
     mapRef.current?.zoomIn();
@@ -282,9 +268,57 @@ export function BitplaceMap() {
     mapRef.current?.zoomOut();
   }, []);
 
-  // Handle dialog confirm
+  // Handle validate from inspector
+  const handleValidate = useCallback(async () => {
+    if (!user) {
+      toast.error('Please connect wallet first');
+      return;
+    }
+
+    const gameMode = getGameMode(mode);
+    
+    await validate({
+      mode: gameMode,
+      pixels: pendingPixels,
+      color: gameMode === 'PAINT' ? selectedColor : undefined,
+      pePerPixel: gameMode !== 'PAINT' ? pePerPixel : undefined,
+    });
+  }, [user, mode, pendingPixels, selectedColor, pePerPixel, validate, getGameMode]);
+
+  // Handle confirm from inspector
   const handleConfirm = useCallback(async () => {
-    if (!validationResult?.ok) return;
+    if (!validationResult?.ok) {
+      // If not validated, validate first for PAINT mode
+      const gameMode = getGameMode(mode);
+      if (gameMode === 'PAINT') {
+        const result = await validate({
+          mode: 'PAINT',
+          pixels: pendingPixels,
+          color: selectedColor,
+        });
+        
+        if (!result?.ok) return;
+        
+        // Continue with commit
+        const success = await commit({
+          mode: 'PAINT',
+          pixels: pendingPixels,
+          color: selectedColor,
+          snapshotHash: result.snapshotHash,
+        });
+
+        if (success) {
+          pendingPixels.forEach(({ x, y }) => {
+            paintPixel(x, y, selectedColor);
+            confirmPixel(x, y);
+          });
+          refreshUser();
+          handleClearSelection();
+        }
+        return;
+      }
+      return;
+    }
 
     const gameMode = getGameMode(mode);
     
@@ -297,7 +331,6 @@ export function BitplaceMap() {
     });
 
     if (success) {
-      // For PAINT, apply optimistic updates
       if (gameMode === 'PAINT') {
         pendingPixels.forEach(({ x, y }) => {
           paintPixel(x, y, selectedColor);
@@ -305,86 +338,81 @@ export function BitplaceMap() {
         });
       }
       refreshUser();
-      setDialogOpen(false);
-      clearSelection();
-      setPendingPixels([]);
+      handleClearSelection();
     }
-  }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, getGameMode, paintPixel, confirmPixel, clearSelection, refreshUser]);
+  }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, validate, getGameMode, paintPixel, confirmPixel, refreshUser]);
 
-  // Handle revalidate (for non-PAINT modes when PE changes)
-  const handleRevalidate = useCallback(async () => {
-    const gameMode = getGameMode(mode);
-    
-    await validate({
-      mode: gameMode,
-      pixels: pendingPixels,
-      color: gameMode === 'PAINT' ? selectedColor : undefined,
-      pePerPixel: gameMode !== 'PAINT' ? pePerPixel : undefined,
-    });
-  }, [mode, pendingPixels, selectedColor, pePerPixel, validate, getGameMode]);
-
-  // Close dialog handler
-  const handleDialogClose = useCallback((open: boolean) => {
-    if (!open) {
-      setDialogOpen(false);
-      clearSelection();
-      clearValidation();
-      setPendingPixels([]);
-    }
+  // Handle clear selection
+  const handleClearSelection = useCallback(() => {
+    clearSelection();
+    clearValidation();
+    setPendingPixels([]);
   }, [clearSelection, clearValidation]);
 
   return (
-    <div className="relative w-full h-full">
-      {/* Map container */}
-      <div
-        ref={containerRef}
-        className="absolute inset-0"
-        onMouseMove={handleMouseMove}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={() => {
-          setHoverPixel(null);
-          if (isDraggingRef.current) {
-            endSelection();
-            isDraggingRef.current = false;
-            dragStartRef.current = null;
-            mapRef.current?.dragPan.enable();
-          }
-        }}
-      />
+    <div className="relative w-full h-full flex flex-col">
+      {/* Main content area */}
+      <div className="flex-1 flex relative overflow-hidden">
+        {/* Map area */}
+        <div className="flex-1 relative">
+          {/* Map container */}
+          <div
+            ref={containerRef}
+            className="absolute inset-0"
+            onMouseMove={handleMouseMove}
+            onMouseDown={handleMouseDown}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={() => {
+              setHoverPixel(null);
+              if (isDraggingRef.current) {
+                endSelection();
+                isDraggingRef.current = false;
+                dragStartRef.current = null;
+                mapRef.current?.dragPan.enable();
+              }
+            }}
+          />
 
-      {/* Canvas overlay for pixels */}
-      {mapReady && (
-        <CanvasOverlay
-          map={mapRef.current}
-          pixels={pixels}
-          selection={selection}
-          hoverPixel={hoverPixel}
-          canPaint={canPaint}
-          invalidPixels={invalidPixels}
-        />
-      )}
+          {/* Canvas overlay for pixels */}
+          {mapReady && (
+            <CanvasOverlay
+              map={mapRef.current}
+              pixels={pixels}
+              selection={selection}
+              hoverPixel={hoverPixel}
+              canPaint={canPaint}
+              invalidPixels={invalidPixels}
+            />
+          )}
 
-      {/* UI Controls */}
-      <MapToolbar mode={mode} onModeChange={setMode} />
-      <ColorPalette selectedColor={selectedColor} onColorSelect={setSelectedColor} />
-      <ZoomControls zoom={zoom} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} />
+          {/* UI Controls */}
+          <MapToolbar mode={mode} onModeChange={setMode} />
+          <ZoomControls zoom={zoom} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} />
+        </div>
 
-      {/* Action Confirmation Dialog */}
-      <ActionConfirmDialog
-        open={dialogOpen}
-        onOpenChange={handleDialogClose}
-        mode={getGameMode(mode)}
-        pixelCount={pendingPixels.length}
-        validationResult={validationResult}
-        pePerPixel={pePerPixel}
-        onPePerPixelChange={setPePerPixel}
-        onConfirm={handleConfirm}
-        onRevalidate={handleRevalidate}
-        isValidating={isValidating}
-        isCommitting={isCommitting}
-        availablePe={user?.pe_total_pe}
-      />
+        {/* Inspector Panel (right side) */}
+        {canPaint && (
+          <InspectorPanel
+            selectedPixels={pendingPixels}
+            mode={getGameMode(mode)}
+            selectedColor={selectedColor}
+            currentUserId={user?.id}
+            validationResult={validationResult}
+            invalidPixels={invalidPixels}
+            pePerPixel={pePerPixel}
+            onPePerPixelChange={setPePerPixel}
+            onColorSelect={setSelectedColor}
+            onValidate={handleValidate}
+            onConfirm={handleConfirm}
+            onClearSelection={handleClearSelection}
+            isValidating={isValidating}
+            isCommitting={isCommitting}
+          />
+        )}
+      </div>
+
+      {/* Status Strip (bottom) */}
+      <StatusStrip userId={user?.id} />
     </div>
   );
 }

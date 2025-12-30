@@ -74,6 +74,19 @@ export function useSelection() {
     };
   }, [selection.bounds]);
 
+  const getSelectedPixels = useCallback((): { x: number; y: number }[] => {
+    const bounds = getNormalizedBounds();
+    if (!bounds) return [];
+    
+    const pixels: { x: number; y: number }[] = [];
+    for (let x = bounds.startX; x <= bounds.endX; x++) {
+      for (let y = bounds.startY; y <= bounds.endY; y++) {
+        pixels.push({ x, y });
+      }
+    }
+    return pixels;
+  }, [getNormalizedBounds]);
+
   return {
     selection,
     startSelection,
@@ -81,5 +94,6 @@ export function useSelection() {
     endSelection,
     clearSelection,
     getNormalizedBounds,
+    getSelectedPixels,
   };
 }
