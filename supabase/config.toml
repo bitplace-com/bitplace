@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.user-update]
 verify_jwt = false
+
+[functions.game-validate]
+verify_jwt = false
+
+[functions.game-commit]
+verify_jwt = false

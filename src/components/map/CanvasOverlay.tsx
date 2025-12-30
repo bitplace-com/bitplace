@@ -9,6 +9,7 @@ import {
 } from './hooks/usePixelStore';
 import { type SelectionState } from './hooks/useSelection';
 import { Z_PAINT } from './hooks/useMapState';
+import type { InvalidPixel } from '@/hooks/useGameActions';
 
 interface CanvasOverlayProps {
   map: MapLibreMap | null;
@@ -16,6 +17,7 @@ interface CanvasOverlayProps {
   selection: SelectionState;
   hoverPixel: { x: number; y: number } | null;
   canPaint: boolean;
+  invalidPixels?: InvalidPixel[];
 }
 
 export function CanvasOverlay({
@@ -24,6 +26,7 @@ export function CanvasOverlay({
   selection,
   hoverPixel,
   canPaint,
+  invalidPixels = [],
 }: CanvasOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -46,6 +49,9 @@ export function CanvasOverlay({
     const zoom = map.getZoom();
     const pixelSize = getPixelScreenSize(map);
 
+    // Create invalid pixel set for quick lookup
+    const invalidSet = new Set(invalidPixels.map(p => `${p.x}:${p.y}`));
+
     // Only render pixels that are visible (optimization)
     if (pixelSize > 0.5) {
       // Get visible bounds
@@ -66,18 +72,41 @@ export function CanvasOverlay({
         ctx.fillStyle = data.color;
         ctx.fillRect(screenPos.x, screenPos.y, pixelSize, pixelSize);
       });
+
+      // Draw invalid pixel highlights
+      if (invalidPixels.length > 0 && pixelSize > 1) {
+        invalidPixels.forEach(({ x, y }) => {
+          // Bounds check
+          if (x < topLeft.x - 1 || x > bottomRight.x + 1) return;
+          if (y < topLeft.y - 1 || y > bottomRight.y + 1) return;
+
+          const screenPos = pixelToScreen(x, y, map);
+          
+          // Red overlay
+          ctx.fillStyle = 'rgba(255, 50, 50, 0.4)';
+          ctx.fillRect(screenPos.x, screenPos.y, pixelSize, pixelSize);
+          
+          // Red border
+          ctx.strokeStyle = 'rgba(255, 50, 50, 0.9)';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(screenPos.x, screenPos.y, pixelSize, pixelSize);
+        });
+      }
     }
 
     // Draw hover highlight at paint zoom
     if (hoverPixel && canPaint && pixelSize > 1) {
       const screenPos = pixelToScreen(hoverPixel.x, hoverPixel.y, map);
+      const isInvalid = invalidSet.has(`${hoverPixel.x}:${hoverPixel.y}`);
       
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(screenPos.x, screenPos.y, pixelSize, pixelSize);
-      
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-      ctx.fillRect(screenPos.x, screenPos.y, pixelSize, pixelSize);
+      if (!isInvalid) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(screenPos.x, screenPos.y, pixelSize, pixelSize);
+        
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.fillRect(screenPos.x, screenPos.y, pixelSize, pixelSize);
+      }
     }
 
     // Draw selection rectangle
@@ -94,12 +123,17 @@ export function CanvasOverlay({
       const rectWidth = bottomRightScreen.x - topLeftScreen.x;
       const rectHeight = bottomRightScreen.y - topLeftScreen.y;
 
-      // Selection fill
-      ctx.fillStyle = 'rgba(0, 200, 255, 0.15)';
+      // Selection fill - different color if has invalid pixels
+      const hasInvalid = invalidPixels.length > 0;
+      ctx.fillStyle = hasInvalid 
+        ? 'rgba(255, 100, 100, 0.15)' 
+        : 'rgba(0, 200, 255, 0.15)';
       ctx.fillRect(topLeftScreen.x, topLeftScreen.y, rectWidth, rectHeight);
 
       // Selection border
-      ctx.strokeStyle = 'rgba(0, 200, 255, 0.8)';
+      ctx.strokeStyle = hasInvalid 
+        ? 'rgba(255, 100, 100, 0.8)' 
+        : 'rgba(0, 200, 255, 0.8)';
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 4]);
       ctx.strokeRect(topLeftScreen.x, topLeftScreen.y, rectWidth, rectHeight);
@@ -122,13 +156,13 @@ export function CanvasOverlay({
         ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 4);
         ctx.fill();
 
-        ctx.fillStyle = '#00C8FF';
+        ctx.fillStyle = hasInvalid ? '#FF6464' : '#00C8FF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY + badgeHeight / 2);
       }
     }
-  }, [map, pixels, selection, hoverPixel, canPaint]);
+  }, [map, pixels, selection, hoverPixel, canPaint, invalidPixels]);
 
   useEffect(() => {
     if (!map) return;
