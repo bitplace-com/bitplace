@@ -14,7 +14,154 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      paint_events: {
+        Row: {
+          action_type: string
+          bbox: Json | null
+          created_at: string | null
+          details: Json | null
+          id: number
+          pixel_count: number | null
+          user_id: string | null
+        }
+        Insert: {
+          action_type: string
+          bbox?: Json | null
+          created_at?: string | null
+          details?: Json | null
+          id?: number
+          pixel_count?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          bbox?: Json | null
+          created_at?: string | null
+          details?: Json | null
+          id?: number
+          pixel_count?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paint_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pixel_contributions: {
+        Row: {
+          amount_pe: number
+          id: number
+          pixel_id: number
+          side: string
+          user_id: string
+        }
+        Insert: {
+          amount_pe: number
+          id?: number
+          pixel_id: number
+          side: string
+          user_id: string
+        }
+        Update: {
+          amount_pe?: number
+          id?: number
+          pixel_id?: number
+          side?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pixel_contributions_pixel_id_fkey"
+            columns: ["pixel_id"]
+            isOneToOne: false
+            referencedRelation: "pixels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pixel_contributions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pixels: {
+        Row: {
+          color: string
+          created_at: string | null
+          id: number
+          owner_stake_pe: number
+          owner_user_id: string | null
+          updated_at: string | null
+          x: number
+          y: number
+        }
+        Insert: {
+          color: string
+          created_at?: string | null
+          id?: number
+          owner_stake_pe?: number
+          owner_user_id?: string | null
+          updated_at?: string | null
+          x: number
+          y: number
+        }
+        Update: {
+          color?: string
+          created_at?: string | null
+          id?: number
+          owner_stake_pe?: number
+          owner_user_id?: string | null
+          updated_at?: string | null
+          x?: number
+          y?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pixels_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          alliance_tag: string | null
+          avatar_url: string | null
+          country_code: string | null
+          created_at: string | null
+          display_name: string | null
+          id: string
+          wallet_address: string | null
+        }
+        Insert: {
+          alliance_tag?: string | null
+          avatar_url?: string | null
+          country_code?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          wallet_address?: string | null
+        }
+        Update: {
+          alliance_tag?: string | null
+          avatar_url?: string | null
+          country_code?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          wallet_address?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
