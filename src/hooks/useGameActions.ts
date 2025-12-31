@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useWallet } from '@/contexts/WalletContext';
 import { toast } from 'sonner';
 
+const SESSION_TOKEN_KEY = 'bitplace_session_token';
+
 export type GameMode = 'PAINT' | 'DEFEND' | 'ATTACK' | 'REINFORCE';
 
 export interface InvalidPixel {
@@ -50,9 +52,21 @@ export function useGameActions() {
   const [isValidating, setIsValidating] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
 
+  const getAuthHeaders = useCallback(() => {
+    const token = localStorage.getItem(SESSION_TOKEN_KEY);
+    if (!token) return undefined;
+    return { Authorization: `Bearer ${token}` };
+  }, []);
+
   const validate = useCallback(async (params: ValidateParams): Promise<ValidateResult | null> => {
     if (!user?.id) {
       toast.error('Please connect wallet first');
+      return null;
+    }
+
+    const headers = getAuthHeaders();
+    if (!headers) {
+      toast.error('Session expired. Please reconnect wallet.');
       return null;
     }
 
@@ -61,10 +75,8 @@ export function useGameActions() {
 
     try {
       const { data, error } = await supabase.functions.invoke('game-validate', {
-        body: {
-          userId: user.id,
-          ...params,
-        },
+        headers,
+        body: params,
       });
 
       if (error) {
@@ -121,14 +133,18 @@ export function useGameActions() {
       return false;
     }
 
+    const headers = getAuthHeaders();
+    if (!headers) {
+      toast.error('Session expired. Please reconnect wallet.');
+      return false;
+    }
+
     setIsCommitting(true);
 
     try {
       const { data, error } = await supabase.functions.invoke('game-commit', {
-        body: {
-          userId: user.id,
-          ...params,
-        },
+        headers,
+        body: params,
       });
 
       if (error) {
@@ -178,7 +194,7 @@ export function useGameActions() {
     } finally {
       setIsCommitting(false);
     }
-  }, [user?.id]);
+  }, [user?.id, getAuthHeaders]);
 
   const clearValidation = useCallback(() => {
     setValidationResult(null);

@@ -5,10 +5,38 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Verify JWT token - extract userId from token instead of trusting request body
+async function verifyToken(token: string, secret: string): Promise<{ wallet: string; userId: string; exp: number } | null> {
+  try {
+    const [headerB64, payloadB64, signatureB64] = token.split(".");
+    if (!headerB64 || !payloadB64 || !signatureB64) return null;
+
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"]
+    );
+
+    const signatureInput = `${headerB64}.${payloadB64}`;
+    const signature = Uint8Array.from(atob(signatureB64.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+    const valid = await crypto.subtle.verify("HMAC", key, signature, encoder.encode(signatureInput));
+    if (!valid) return null;
+
+    const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
+    if (payload.exp && Date.now() / 1000 > payload.exp) return null;
+
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE";
 
 interface CommitRequest {
-  userId: string;
   mode: GameMode;
   pixels: { x: number; y: number }[];
   color?: string;
@@ -145,17 +173,49 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Verify JWT token from Authorization header
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("[game-commit] Missing or invalid Authorization header");
+      return new Response(JSON.stringify({ ok: false, error: "UNAUTHORIZED", message: "Missing authentication token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const authSecret = Deno.env.get("AUTH_SECRET");
+    if (!authSecret) {
+      console.error("[game-commit] AUTH_SECRET not configured");
+      return new Response(JSON.stringify({ ok: false, error: "SERVER_ERROR" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const payload = await verifyToken(token, authSecret);
+    if (!payload) {
+      console.log("[game-commit] Invalid or expired token");
+      return new Response(JSON.stringify({ ok: false, error: "UNAUTHORIZED", message: "Invalid or expired token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Extract userId from verified token - DO NOT trust request body for userId
+    const userId = payload.userId;
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body: CommitRequest = await req.json();
-    const { userId, mode, pixels, color, pePerPixel, snapshotHash } = body;
+    const { mode, pixels, color, pePerPixel, snapshotHash } = body;
 
     console.log("[game-commit] Request:", { userId, mode, pixelCount: pixels?.length, snapshotHash });
 
     // Input validation
-    if (!userId || !mode || !pixels || !Array.isArray(pixels) || pixels.length === 0 || !snapshotHash) {
+    if (!mode || !pixels || !Array.isArray(pixels) || pixels.length === 0 || !snapshotHash) {
       return new Response(JSON.stringify({ ok: false, error: "INVALID_INPUT" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
