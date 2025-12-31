@@ -22,6 +22,7 @@ import { useSupabasePixels } from '@/hooks/useSupabasePixels';
 import { useGameActions, type GameMode } from '@/hooks/useGameActions';
 import { useWallet } from '@/contexts/WalletContext';
 import { useMapUrl } from '@/hooks/useMapUrl';
+import { useSound } from '@/hooks/useSound';
 
 const MAX_ZOOM = 22;
 
@@ -45,6 +46,7 @@ export function BitplaceMap() {
   const { dbPixels, updateViewport } = useSupabasePixels(zoom);
   const { validate, commit, validationResult, invalidPixels, isValidating, isCommitting, clearValidation } = useGameActions();
   const { queue: paintQueue, queueSize, isSpacePainting, isFlushing, startSpacePaint, stopSpacePaint, addToQueue } = usePaintQueue(paintPixel, confirmPixel);
+  const { play: playSound } = useSound();
 
   const pixels = useMemo(() => mergePixels(dbPixels), [mergePixels, dbPixels]);
 
@@ -341,6 +343,7 @@ export function BitplaceMap() {
         const { x, y } = dragStartRef.current;
         // In DRAG mode, click opens inspector
         setInspectedPixel({ x, y });
+        playSound('pixel_select');
       }
       
       isDraggingRef.current = false;
@@ -400,7 +403,7 @@ export function BitplaceMap() {
     }
   }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, validate, getGameMode, paintPixel, confirmPixel, refreshUser]);
 
-  const handleClearSelection = useCallback(() => { clearSelection(); clearValidation(); setPendingPixels([]); }, [clearSelection, clearValidation]);
+  const handleClearSelection = useCallback(() => { clearSelection(); clearValidation(); setPendingPixels([]); playSound('pixel_deselect'); }, [clearSelection, clearValidation, playSound]);
 
   // Inspector card handlers
   const handleInspectorPaint = useCallback(async (x: number, y: number) => {

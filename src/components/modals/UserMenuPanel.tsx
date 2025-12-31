@@ -1,4 +1,4 @@
-import { User, LogOut, BarChart3, Star, Copy, Check, BookOpen, Users } from "lucide-react";
+import { User, LogOut, BarChart3, Star, Copy, Check, BookOpen, Users, Volume2, VolumeX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import {
@@ -9,9 +9,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 import { useWallet } from "@/contexts/WalletContext";
 import { usePeBalance } from "@/hooks/usePeBalance";
 import { usePixelStats } from "@/hooks/usePixelStats";
+import { useSound } from "@/hooks/useSound";
 import { getCountryByCode } from "@/lib/countries";
 import { generateAvatarGradient, getAvatarInitial } from "@/lib/avatar";
 import {
@@ -39,6 +41,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
   const peBalance = usePeBalance(user?.id);
   const pixelStats = usePixelStats(user?.id);
   const [copied, setCopied] = useState(false);
+  const { enabled: soundEnabled, toggle: toggleSound } = useSound();
 
   const country = getCountryByCode(user?.country_code);
   const xp = user?.xp || 0;
@@ -217,6 +220,19 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             <BookOpen className="h-4 w-4" />
             Rules
           </Button>
+        </div>
+
+        <Separator className="bg-border/50" />
+
+        {/* Settings */}
+        <div className="p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              <span>Sound effects</span>
+            </div>
+            <Switch checked={soundEnabled} onCheckedChange={toggleSound} />
+          </div>
         </div>
 
         <Separator className="bg-border/50" />

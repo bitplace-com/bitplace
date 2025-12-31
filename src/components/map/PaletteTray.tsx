@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { ChevronUp, ChevronDown, Pipette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { COLOR_PALETTE, Z_PAINT } from './hooks/useMapState';
 import { useUsedColors } from './hooks/useUsedColors';
+import { useSound } from '@/hooks/useSound';
 import { cn } from '@/lib/utils';
 
 interface PaletteTrayProps {
@@ -26,6 +27,7 @@ export function PaletteTray({
 }: PaletteTrayProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('all');
+  const { play } = useSound();
   
   const usedColors = useUsedColors(viewportPixels);
   const displayColors = activeTab === 'all' ? COLOR_PALETTE : usedColors;
@@ -41,43 +43,49 @@ export function PaletteTray({
     onEyedropperToggle(!isEyedropperActive);
   }, [onEyedropperToggle, isEyedropperActive, canPaint]);
 
+  const handleToggleExpand = useCallback(() => {
+    const newExpanded = !isExpanded;
+    setIsExpanded(newExpanded);
+    play(newExpanded ? 'palette_open' : 'palette_close');
+  }, [isExpanded, play]);
+
   return (
     <div 
-      className="fixed bottom-16 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
-      style={{ width: isExpanded ? 'min(85%, 720px)' : 'auto' }}
+      className="fixed bottom-14 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
+      style={{ width: isExpanded ? 'min(85%, 680px)' : 'auto' }}
     >
       <div 
         className={cn(
-          "pointer-events-auto bg-secondary/95 backdrop-blur-md rounded-xl border border-border shadow-2xl overflow-hidden transition-all duration-200",
-          isEyedropperActive && "ring-2 ring-primary/50 animate-pulse"
+          "pointer-events-auto bg-secondary/90 backdrop-blur-md rounded-xl border border-white/10 shadow-xl overflow-hidden transition-all duration-200",
+          isEyedropperActive && "ring-2 ring-primary/50"
         )}
       >
         {/* Header - always visible */}
-        <div className="flex items-center justify-between gap-3 px-3 py-2.5 border-b border-border/50">
+        <div className="flex items-center justify-between gap-2 px-3 py-2">
           {/* Selected color preview */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <div
-              className="h-8 w-8 rounded-lg border-2 border-border shadow-inner flex-shrink-0"
+              className="h-7 w-7 rounded-lg border border-white/20 shadow-sm flex-shrink-0"
               style={{ backgroundColor: selectedColor }}
             />
-            <span className="text-xs font-mono text-muted-foreground">
+            <span className="text-xs font-mono font-medium text-foreground/80">
               {selectedColor.toUpperCase()}
             </span>
             {!isExpanded && (
-              <span className="text-xs text-muted-foreground hidden sm:block">Palette</span>
+              <span className="text-[10px] text-muted-foreground hidden sm:block uppercase tracking-wider">Palette</span>
             )}
           </div>
 
           {/* Tabs - only when expanded */}
           {isExpanded && (
-            <div className="flex items-center gap-1 bg-background/50 rounded-lg p-0.5">
+            <div className="flex items-center">
               <button
                 onClick={() => setActiveTab('all')}
                 className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                  "px-2.5 py-1 text-[11px] font-medium transition-colors border-b-2",
                   activeTab === 'all'
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
                 All
@@ -85,10 +93,10 @@ export function PaletteTray({
               <button
                 onClick={() => setActiveTab('used')}
                 className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                  "px-2.5 py-1 text-[11px] font-medium transition-colors border-b-2",
                   activeTab === 'used'
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
                 Used
@@ -97,7 +105,7 @@ export function PaletteTray({
           )}
 
           {/* Actions */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             {isExpanded && (
               <Button
                 variant="ghost"
@@ -105,24 +113,24 @@ export function PaletteTray({
                 onClick={handleEyedropperClick}
                 disabled={!canPaint}
                 className={cn(
-                  "h-8 w-8 rounded-lg",
+                  "h-7 w-7 rounded-lg",
                   isEyedropperActive && "bg-primary text-primary-foreground"
                 )}
                 title="Eyedropper (Alt+Click)"
               >
-                <Pipette className="h-4 w-4" />
+                <Pipette className="h-3.5 w-3.5" />
               </Button>
             )}
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="h-8 w-8 rounded-lg"
+              onClick={handleToggleExpand}
+              className="h-7 w-7 rounded-lg"
             >
               {isExpanded ? (
-                <ChevronDown className="h-4 w-4" />
+                <ChevronDown className="h-3.5 w-3.5" />
               ) : (
-                <ChevronUp className="h-4 w-4" />
+                <ChevronUp className="h-3.5 w-3.5" />
               )}
             </Button>
           </div>
@@ -130,20 +138,20 @@ export function PaletteTray({
 
         {/* Color grid - expandable */}
         {isExpanded && (
-          <div className="p-3">
+          <div className="px-4 pb-4 pt-2">
             {/* Zoom hint */}
             {!canPaint && (
-              <div className="text-center py-2 mb-2 text-xs text-muted-foreground bg-muted/30 rounded-lg">
+              <div className="text-center py-1.5 mb-3 text-[11px] text-muted-foreground bg-muted/20 rounded-md">
                 Zoom in to paint
               </div>
             )}
             
             {displayColors.length === 0 ? (
-              <div className="text-center py-4 text-sm text-muted-foreground">
+              <div className="text-center py-3 text-xs text-muted-foreground">
                 No colors in viewport
               </div>
             ) : (
-              <div className="grid grid-cols-9 sm:grid-cols-12 md:grid-cols-15 lg:grid-cols-18 gap-1.5">
+              <div className="grid grid-cols-9 sm:grid-cols-12 md:grid-cols-14 lg:grid-cols-18 gap-2">
                 {displayColors.map((color) => {
                   const isSelected = selectedColor.toUpperCase() === color.toUpperCase();
                   return (
@@ -152,12 +160,12 @@ export function PaletteTray({
                       onClick={() => handleColorClick(color)}
                       disabled={!canPaint}
                       className={cn(
-                        "aspect-square rounded-md border-2 transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                        canPaint && "hover:scale-110",
+                        "aspect-square min-w-[26px] rounded-md border transition-all duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                        canPaint && "hover:scale-105",
                         isSelected
-                          ? "border-primary ring-2 ring-primary/30 scale-110 z-10"
-                          : "border-transparent hover:border-foreground/20",
-                        !canPaint && "opacity-50 cursor-not-allowed"
+                          ? "border-primary ring-2 ring-primary/40 scale-105 z-10"
+                          : "border-white/10 hover:border-white/30",
+                        !canPaint && "opacity-40 cursor-not-allowed"
                       )}
                       style={{ backgroundColor: color }}
                       title={color.toUpperCase()}

@@ -17,11 +17,11 @@ interface ActionBoxProps {
   isCommitting: boolean;
 }
 
-const modeConfig: Record<GameMode, { icon: React.ReactNode; label: string; buttonLabel: string }> = {
-  PAINT: { icon: <Paintbrush className="h-4 w-4" />, label: 'Paint', buttonLabel: 'Paint' },
-  DEFEND: { icon: <Shield className="h-4 w-4" />, label: 'Defend', buttonLabel: 'Defend' },
-  ATTACK: { icon: <Swords className="h-4 w-4" />, label: 'Attack', buttonLabel: 'Attack' },
-  REINFORCE: { icon: <Plus className="h-4 w-4" />, label: 'Reinforce', buttonLabel: 'Reinforce' },
+const modeConfig: Record<GameMode, { icon: React.ReactNode; label: string }> = {
+  PAINT: { icon: <Paintbrush className="h-3.5 w-3.5" />, label: 'Paint' },
+  DEFEND: { icon: <Shield className="h-3.5 w-3.5" />, label: 'Defend' },
+  ATTACK: { icon: <Swords className="h-3.5 w-3.5" />, label: 'Attack' },
+  REINFORCE: { icon: <Plus className="h-3.5 w-3.5" />, label: 'Reinforce' },
 };
 
 export function ActionBox({
@@ -43,57 +43,55 @@ export function ActionBox({
   const canConfirm = isValidated && !isCommitting;
 
   return (
-    <div className="border-t border-border/30 p-4 space-y-4 bg-background/30">
-      {/* Mode Label */}
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          {config.icon}
-        </div>
-        <span className="text-sm font-semibold">{config.label} Mode</span>
-      </div>
-
-      {/* Selected Color Display for PAINT mode */}
-      {mode === 'PAINT' && (
-        <div className="space-y-2">
-          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Color</div>
-          <div className="flex items-center gap-3">
-            <div
-              className="h-10 w-10 rounded-lg border-2 border-border shadow-inner"
-              style={{ backgroundColor: selectedColor }}
-            />
-            <span className="text-sm font-mono text-foreground">{selectedColor.toUpperCase()}</span>
+    <div className="border-t border-border/20 p-3 space-y-3 bg-background/20">
+      {/* Mode + Color inline for PAINT */}
+      {mode === 'PAINT' ? (
+        <div className="flex items-center gap-2">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+            {config.icon}
           </div>
-          <p className="text-xs text-muted-foreground">Change color in palette below</p>
+          <div
+            className="h-6 w-6 rounded-md border border-white/20"
+            style={{ backgroundColor: selectedColor }}
+          />
+          <span className="text-[11px] font-mono text-muted-foreground">{selectedColor.toUpperCase()}</span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+            {config.icon}
+          </div>
+          <span className="text-xs font-medium">{config.label}</span>
         </div>
       )}
 
       {/* PE Input for non-PAINT modes */}
       {mode !== 'PAINT' && (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <PeInput 
             value={pePerPixel} 
             onChange={onPePerPixelChange} 
             pixelCount={pixelCount}
           />
-          <div className="text-xs text-muted-foreground">
-            Total: <span className="font-medium text-foreground">{(pePerPixel * pixelCount).toLocaleString()} PE</span> for {pixelCount} pixel(s)
+          <div className="text-[10px] text-muted-foreground">
+            Total: <span className="font-medium text-foreground">{(pePerPixel * pixelCount).toLocaleString()} PE</span> × {pixelCount}px
           </div>
         </div>
       )}
 
       {/* Action Buttons */}
-      <div className="flex gap-2">
+      <div className="flex gap-1.5">
         {needsValidation && !isValidated && (
           <Button
-            className="flex-1 rounded-xl"
+            className="flex-1 rounded-lg h-8 text-xs"
             variant="secondary"
             onClick={onValidate}
             disabled={isValidating}
           >
             {isValidating ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Validating...
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                Checking...
               </>
             ) : (
               'Validate'
@@ -103,19 +101,19 @@ export function ActionBox({
 
         {(isValidated || !needsValidation) && (
           <Button
-            className="flex-1 rounded-xl shadow-md"
+            className="flex-1 rounded-lg h-8 text-xs"
             onClick={onConfirm}
             disabled={!canConfirm && needsValidation}
           >
             {isCommitting ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Confirming...
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ...
               </>
             ) : (
               <>
                 {config.icon}
-                <span className="ml-2">{config.buttonLabel}</span>
+                <span className="ml-1.5">{config.label}</span>
               </>
             )}
           </Button>
@@ -124,8 +122,8 @@ export function ActionBox({
 
       {/* Validation Status */}
       {validationResult && !validationResult.ok && (
-        <div className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg">
-          Validation failed: {validationResult.invalidPixels.length} invalid pixel(s)
+        <div className="text-[10px] text-destructive bg-destructive/10 px-2 py-1.5 rounded-md">
+          {validationResult.invalidPixels.length} invalid pixel(s)
         </div>
       )}
     </div>
