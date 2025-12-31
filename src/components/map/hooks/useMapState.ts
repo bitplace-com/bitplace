@@ -6,6 +6,7 @@ export interface MapState {
   mode: MapMode;
   selectedColor: string;
   zoom: number;
+  artOpacity: number;
 }
 
 export const Z_PAINT = 16;
@@ -28,6 +29,7 @@ export function useMapState() {
     mode: 'paint',
     selectedColor: COLOR_PALETTE[2], // Start with red
     zoom: 2,
+    artOpacity: 1,
   });
 
   const setMode = useCallback((mode: MapMode) => {
@@ -42,6 +44,13 @@ export function useMapState() {
     setState((prev) => ({ ...prev, zoom }));
   }, []);
 
+  const toggleArtOpacity = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      artOpacity: prev.artOpacity === 1 ? 0.3 : 1,
+    }));
+  }, []);
+
   const canPaint = state.zoom >= Z_PAINT;
 
   return {
@@ -49,6 +58,7 @@ export function useMapState() {
     setMode,
     setSelectedColor,
     setZoom,
+    toggleArtOpacity,
     canPaint,
   };
 }

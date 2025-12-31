@@ -1,37 +1,52 @@
 import { Plus, Minus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { GlassPanel } from '@/components/ui/glass-panel';
+import { GlassIconButton } from '@/components/ui/glass-icon-button';
+import { ArtOpacityButton } from './ArtOpacityButton';
 import { Z_PAINT } from './hooks/useMapState';
 
 interface ZoomControlsProps {
   zoom: number;
   onZoomIn: () => void;
   onZoomOut: () => void;
+  artOpacity: number;
+  onToggleArtOpacity: () => void;
 }
 
-export function ZoomControls({ zoom, onZoomIn, onZoomOut }: ZoomControlsProps) {
+export function ZoomControls({
+  zoom,
+  onZoomIn,
+  onZoomOut,
+  artOpacity,
+  onToggleArtOpacity,
+}: ZoomControlsProps) {
   const canPaint = zoom >= Z_PAINT;
-  
+
   return (
-    <div className="absolute bottom-4 right-4 flex flex-col gap-2 z-10">
-      <GlassPanel padding="none" className="shadow-lg overflow-hidden">
-        <Button
+    <div className="flex flex-col gap-2">
+      {/* Art Opacity Toggle */}
+      <ArtOpacityButton opacity={artOpacity} onToggle={onToggleArtOpacity} />
+
+      {/* Zoom Controls */}
+      <GlassPanel padding="none" className="overflow-hidden">
+        <GlassIconButton
           variant="ghost"
-          size="icon"
           onClick={onZoomIn}
-          className="h-10 w-10 rounded-none border-b border-border/30 hover:bg-primary/10 hover:text-primary transition-colors"
+          className="rounded-none border-b border-border/30"
+          aria-label="Zoom in"
         >
           <Plus className="h-4 w-4" />
-        </Button>
-        <Button
+        </GlassIconButton>
+        <GlassIconButton
           variant="ghost"
-          size="icon"
           onClick={onZoomOut}
-          className="h-10 w-10 rounded-none hover:bg-primary/10 hover:text-primary transition-colors"
+          className="rounded-none"
+          aria-label="Zoom out"
         >
           <Minus className="h-4 w-4" />
-        </Button>
+        </GlassIconButton>
       </GlassPanel>
+
+      {/* Zoom Level Indicator */}
       <GlassPanel
         variant={canPaint ? "secondary" : "default"}
         padding="sm"
@@ -41,7 +56,11 @@ export function ZoomControls({ zoom, onZoomIn, onZoomOut }: ZoomControlsProps) {
             : ''
         }`}
       >
-        <span className={`text-xs font-mono font-medium ${canPaint ? 'text-primary' : 'text-muted-foreground'}`}>
+        <span
+          className={`text-xs font-mono font-medium ${
+            canPaint ? 'text-primary' : 'text-muted-foreground'
+          }`}
+        >
           z{zoom.toFixed(1)}
         </span>
       </GlassPanel>
