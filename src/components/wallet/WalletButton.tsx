@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Wallet, User, ChevronDown, Loader2 } from 'lucide-react';
+import { Wallet, ChevronDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GlassPanel } from '@/components/ui/glass-panel';
-import { GlassIconButton } from '@/components/ui/glass-icon-button';
 import { UserMenuPanel } from '@/components/modals/UserMenuPanel';
+import { WalletSelectModal } from '@/components/modals/WalletSelectModal';
 import { useWallet } from '@/contexts/WalletContext';
 
 function shortenAddress(address: string): string {
@@ -12,6 +12,16 @@ function shortenAddress(address: string): string {
 
 export function WalletButton() {
   const { isConnected, isConnecting, walletAddress, connect, energy } = useWallet();
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const handleConnectClick = () => {
+    setModalOpen(true);
+  };
+
+  const handleSelectPhantom = async () => {
+    await connect();
+    setModalOpen(false);
+  };
 
   if (isConnecting) {
     return (
@@ -44,13 +54,22 @@ export function WalletButton() {
   }
 
   return (
-    <Button
-      onClick={connect}
-      size="sm"
-      className="gap-2 rounded-xl shadow-md bg-primary text-primary-foreground hover:bg-primary/90"
-    >
-      <Wallet className="h-4 w-4" />
-      Connect Wallet
-    </Button>
+    <>
+      <Button
+        onClick={handleConnectClick}
+        size="sm"
+        className="gap-2 rounded-xl shadow-md bg-primary text-primary-foreground hover:bg-primary/90"
+      >
+        <Wallet className="h-4 w-4" />
+        Connect Wallet
+      </Button>
+
+      <WalletSelectModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        onSelectPhantom={handleSelectPhantom}
+        isConnecting={isConnecting}
+      />
+    </>
   );
 }

@@ -6,7 +6,7 @@ import { ENERGY_ASSET, ENERGY_CONFIG } from '@/config/energy';
 interface PhantomProvider {
   isPhantom?: boolean;
   publicKey?: { toBase58(): string };
-  connect(): Promise<{ publicKey: { toBase58(): string } }>;
+  connect(options?: { onlyIfTrusted?: boolean }): Promise<{ publicKey: { toBase58(): string } }>;
   disconnect(): Promise<void>;
   signMessage(message: Uint8Array): Promise<{ signature: Uint8Array }>;
   on(event: string, callback: () => void): void;
@@ -61,11 +61,37 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | null>(null);
 
-const getPhantom = (): PhantomProvider | null => {
-  if (typeof window !== 'undefined' && 'solana' in window) {
-    const provider = (window as unknown as { solana: PhantomProvider }).solana;
-    if (provider?.isPhantom) return provider;
+// Debug logger - enabled with ?debug=1 or localStorage
+const walletDebug = (stage: string, data?: unknown) => {
+  const isDebug = 
+    typeof window !== 'undefined' && (
+      localStorage.getItem('bitplace_debug') === '1' ||
+      window.location.search.includes('debug=1') ||
+      import.meta.env.DEV
+    );
+  if (isDebug) {
+    console.log(`[Wallet:${stage}]`, data ?? '');
   }
+};
+
+const getPhantom = (): PhantomProvider | null => {
+  if (typeof window === 'undefined') return null;
+  
+  // Recommended Phantom detection (phantom.solana)
+  const phantom = (window as any).phantom?.solana;
+  if (phantom?.isPhantom) {
+    walletDebug('provider_check', { source: 'phantom.solana', isPhantom: true });
+    return phantom;
+  }
+  
+  // Fallback for older versions (window.solana)
+  const solana = (window as any).solana;
+  if (solana?.isPhantom) {
+    walletDebug('provider_check', { source: 'window.solana', isPhantom: true });
+    return solana;
+  }
+  
+  walletDebug('provider_check', { detected: false });
   return null;
 };
 
@@ -250,6 +276,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const phantom = getPhantom();
     
     if (!phantom) {
+      walletDebug('connect_error', { reason: 'provider_not_found' });
       toast.error('Phantom wallet not found', {
         description: 'Please install Phantom wallet extension',
         action: {
@@ -261,29 +288,77 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
 
     setIsConnecting(true);
+    walletDebug('connect_start');
 
     try {
       // Connect to Phantom
-      const { publicKey } = await phantom.connect();
+      let publicKey;
+      try {
+        // Check if already connected
+        if (phantom.publicKey) {
+          publicKey = phantom.publicKey;
+          walletDebug('connect_reuse', { publicKey: publicKey.toBase58().substring(0, 8) });
+        } else {
+          const response = await phantom.connect({ onlyIfTrusted: false });
+          publicKey = response.publicKey;
+          walletDebug('connect_success', { publicKey: publicKey.toBase58().substring(0, 8) });
+        }
+      } catch (connectError: any) {
+        walletDebug('connect_error', { code: connectError?.code, message: connectError?.message });
+        
+        // User rejected connection
+        if (connectError?.code === 4001 || connectError?.message?.includes('User rejected')) {
+          toast.error('Connection cancelled', {
+            description: 'You rejected the connection request',
+          });
+          return;
+        }
+        throw connectError;
+      }
+
       const wallet = publicKey.toBase58();
-      
-      console.log('Connected to wallet:', wallet.substring(0, 8) + '...');
+      walletDebug('wallet_address', { wallet: wallet.substring(0, 8) + '...' });
 
       // Get nonce from server
+      walletDebug('nonce_fetch_start');
       const { data: nonceData, error: nonceError } = await supabase.functions.invoke('auth-nonce', {
         body: { wallet },
       });
 
       if (nonceError || !nonceData?.nonce) {
-        throw new Error('Failed to get authentication nonce');
+        walletDebug('nonce_fetch_error', { error: nonceError, data: nonceData });
+        toast.error('Could not start authentication', {
+          description: 'Failed to get authentication nonce from server',
+        });
+        return;
       }
+      walletDebug('nonce_fetch_success', { nonceLength: nonceData.nonce.length });
 
       // Sign the nonce
-      const messageBytes = new TextEncoder().encode(nonceData.nonce);
-      const { signature } = await phantom.signMessage(messageBytes);
+      walletDebug('sign_start');
+      let signature: Uint8Array;
+      try {
+        const messageBytes = new TextEncoder().encode(nonceData.nonce);
+        const signResult = await phantom.signMessage(messageBytes);
+        signature = signResult.signature;
+        walletDebug('sign_success', { signatureLength: signature.length });
+      } catch (signError: any) {
+        walletDebug('sign_error', { code: signError?.code, message: signError?.message });
+        
+        // User rejected signature
+        if (signError?.code === 4001 || signError?.message?.includes('User rejected')) {
+          toast.error('Signature cancelled', {
+            description: 'You cancelled the signature request',
+          });
+          return;
+        }
+        throw signError;
+      }
+
       const signatureB64 = btoa(String.fromCharCode(...signature));
 
       // Verify signature and get token
+      walletDebug('verify_start');
       const { data: authData, error: authError } = await supabase.functions.invoke('auth-verify', {
         body: {
           wallet,
@@ -292,9 +367,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         },
       });
 
-      if (authError || !authData?.token) {
-        throw new Error('Authentication failed');
+      if (authError) {
+        walletDebug('verify_error', { error: authError });
+        toast.error('Authentication failed', {
+          description: 'Server could not verify your signature. Please try again.',
+        });
+        return;
       }
+
+      if (!authData?.token) {
+        walletDebug('verify_error', { reason: 'no_token', data: authData });
+        toast.error('Authentication failed', {
+          description: authData?.error || 'No session token received',
+        });
+        return;
+      }
+
+      walletDebug('verify_success', { userId: authData.user?.id });
 
       // Store session
       setSessionToken(authData.token);
@@ -316,7 +405,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         refreshEnergy();
       }, 500);
 
-    } catch (error) {
+    } catch (error: any) {
+      walletDebug('connect_exception', { error: error?.message || error });
       console.error('Wallet connection error:', error);
       toast.error('Failed to connect wallet', {
         description: error instanceof Error ? error.message : 'Unknown error occurred',
