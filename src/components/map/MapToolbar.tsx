@@ -17,7 +17,7 @@ const modes: { value: MapMode; icon: React.ReactNode; label: string }[] = [
 export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
   return (
     <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
-      <div className="bg-background/90 backdrop-blur-sm rounded-lg border border-border shadow-lg p-1">
+      <div className="bg-secondary/95 backdrop-blur-sm rounded-lg border border-border shadow-lg p-1">
         <ToggleGroup
           type="single"
           value={mode}

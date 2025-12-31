@@ -14,7 +14,7 @@ export function ColorPalette({ selectedColor, onColorSelect }: ColorPaletteProps
 
   return (
     <div className="absolute bottom-4 left-4 z-10">
-      <div className="bg-background/90 backdrop-blur-sm rounded-lg border border-border shadow-lg overflow-hidden">
+      <div className="bg-secondary/95 backdrop-blur-sm rounded-lg border border-border shadow-lg overflow-hidden">
         <Button
           variant="ghost"
           size="sm"
