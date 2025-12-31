@@ -21,7 +21,7 @@ export function StatusStrip({ userId }: StatusStripProps) {
 
   if (!userId) {
     return (
-      <div className="h-10 bg-muted/50 border-t border-border flex items-center justify-center px-4">
+      <div className="h-11 glass flex items-center justify-center px-4 border-t-0 rounded-none">
         <span className="text-sm text-muted-foreground">Connect wallet to see PE balance</span>
       </div>
     );
@@ -31,42 +31,43 @@ export function StatusStrip({ userId }: StatusStripProps) {
   const healthPercent = Math.round(healthMultiplier * 100);
 
   return (
-    <div className="h-10 bg-secondary/95 backdrop-blur-sm border-t border-border flex items-center justify-between px-4">
+    <div className="h-11 glass flex items-center justify-between px-4 border-t-0 rounded-none">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2">
           <Coins className="h-4 w-4 text-primary" />
-          <span className="text-sm text-muted-foreground">Total:</span>
-          <span className="text-sm font-medium">{isLoading ? '...' : total.toLocaleString()} PE</span>
+          <span className="text-xs text-muted-foreground uppercase tracking-wide">Total</span>
+          <span className="text-sm font-semibold tabular-nums">{isLoading ? '...' : total.toLocaleString()} PE</span>
         </div>
         <div className="flex items-center gap-2" title="PE staked in owned pixels + contributions">
           <Lock className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Locked:</span>
-          <span className="text-sm font-medium">{isLoading ? '...' : locked.toLocaleString()} PE</span>
+          <span className="text-xs text-muted-foreground uppercase tracking-wide">Locked</span>
+          <span className="text-sm font-medium tabular-nums">{isLoading ? '...' : locked.toLocaleString()} PE</span>
         </div>
         <div className="flex items-center gap-2">
           <Wallet className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Free:</span>
-          <span className={cn("text-sm font-medium", isLowFree && "text-destructive")}>{isLoading ? '...' : free.toLocaleString()} PE</span>
+          <span className="text-xs text-muted-foreground uppercase tracking-wide">Free</span>
+          <span className={cn("text-sm font-medium tabular-nums", isLowFree && "text-destructive")}>{isLoading ? '...' : free.toLocaleString()} PE</span>
         </div>
       </div>
 
-      {isContributionsUnderCollateralized && (
-        <div className="flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-md">
-          <AlertTriangle className="h-4 w-4 text-orange-500" />
-          <span className="text-sm font-medium text-orange-500">DEF/ATK at risk - add collateral</span>
-        </div>
-      )}
+      <div className="flex items-center gap-3">
+        {isContributionsUnderCollateralized && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+            <span className="text-xs font-medium text-amber-600">DEF/ATK at risk</span>
+          </div>
+        )}
 
-      {rebalanceActive && (
-        <div className="flex items-center gap-2 px-3 py-1 bg-destructive/10 border border-destructive/20 rounded-md">
-          <AlertTriangle className="h-4 w-4 text-destructive" />
-          <Heart className="h-3 w-3 text-destructive" />
-          <span className="text-sm font-medium text-destructive">{healthPercent}%</span>
-          {rebalanceEndsAt && (
-            <span className="text-xs text-muted-foreground">ends in {formatTimeRemaining(rebalanceEndsAt)}</span>
-          )}
-        </div>
-      )}
+        {rebalanceActive && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <Heart className="h-3.5 w-3.5 text-destructive animate-pulse-soft" />
+            <span className="text-xs font-semibold text-destructive tabular-nums">{healthPercent}%</span>
+            {rebalanceEndsAt && (
+              <span className="text-xs text-muted-foreground">· {formatTimeRemaining(rebalanceEndsAt)}</span>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

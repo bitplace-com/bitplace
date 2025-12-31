@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { User, Wallet, Grid3X3, Shield, Swords, Save, Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { User, Wallet, Grid3X3, Shield, Swords, Save, Loader2, Coins } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionCard } from "@/components/ui/section-card";
+import { StatCard } from "@/components/ui/stat-card";
+import { KeyValueRow } from "@/components/ui/key-value-row";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -45,128 +47,127 @@ const ProfilePage = () => {
 
   return (
     <div className="min-h-full bg-background p-6 md:p-8 lg:p-12">
-      <div className="max-w-2xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <User className="h-5 w-5" />
+      <div className="max-w-3xl mx-auto space-y-8">
+        <PageHeader
+          icon={User}
+          title="Profile"
+          subtitle="Your wallet, pixel ownership, and stake overview."
+        />
+
+        {/* Wallet Section */}
+        <SectionCard icon={Wallet} title="Wallet">
+          {!isConnected ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center mb-4">
+                <Wallet className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">
+                Connect your wallet to get started with Bitplace
+              </p>
+              <Button 
+                onClick={connect} 
+                disabled={isConnecting}
+                className="rounded-xl"
+              >
+                {isConnecting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <Wallet className="h-4 w-4 mr-2" />
+                    Connect Wallet
+                  </>
+                )}
+              </Button>
             </div>
-            <h1 className="text-3xl font-bold text-foreground">Profile</h1>
-          </div>
-          <p className="text-muted-foreground">
-            Your wallet, pixel ownership, and stake overview.
-          </p>
-        </div>
-
-        <Separator />
-
-        {/* Wallet Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Wallet className="h-5 w-5 text-primary" />
-              Wallet
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!isConnected ? (
-              <div className="p-4 bg-muted rounded-lg text-center">
-                <p className="text-sm text-muted-foreground mb-1">Connect your wallet to get started</p>
-                <Button 
-                  onClick={connect} 
-                  disabled={isConnecting}
-                  className="mt-2"
-                >
-                  {isConnecting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    "Connect Wallet"
-                  )}
-                </Button>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl">
+                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="font-mono text-sm text-foreground break-all">{walletAddress}</span>
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Connected Wallet</p>
-                  <p className="font-mono text-sm text-foreground break-all">{walletAddress}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="p-3 bg-secondary rounded-lg">
-                    <p className="text-muted-foreground">BTP Balance</p>
-                    <p className="text-lg font-semibold text-foreground">—</p>
-                  </div>
-                  <div className="p-3 bg-secondary rounded-lg">
-                    <p className="text-muted-foreground">Available PE</p>
-                    <p className="text-lg font-semibold text-foreground">
-                      {user?.pe_total_pe?.toLocaleString() ?? "—"}
-                    </p>
-                  </div>
-                </div>
+              <div className="grid grid-cols-2 gap-3">
+                <StatCard
+                  label="BTP Balance"
+                  value="—"
+                  icon={Coins}
+                  variant="muted"
+                />
+                <StatCard
+                  label="Available PE"
+                  value={user?.pe_total_pe?.toLocaleString() ?? "—"}
+                  icon={Coins}
+                  variant="primary"
+                />
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          )}
+        </SectionCard>
 
         {/* Profile Settings - Only show when connected */}
         {isConnected && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5 text-primary" />
-                Profile Settings
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <SectionCard icon={User} title="Profile Settings">
+            <div className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="displayName">Display Name</Label>
+                <Label htmlFor="displayName" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Display Name
+                </Label>
                 <Input
                   id="displayName"
                   placeholder="Enter your display name"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   maxLength={50}
+                  className="rounded-xl border-border/50 focus:ring-primary"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="countryCode">Country Code</Label>
+                  <Label htmlFor="countryCode" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Country Code
+                  </Label>
                   <Input
                     id="countryCode"
                     placeholder="US"
                     value={countryCode}
                     onChange={(e) => setCountryCode(e.target.value.toUpperCase())}
                     maxLength={5}
+                    className="rounded-xl border-border/50 focus:ring-primary"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="allianceTag">Alliance Tag</Label>
+                  <Label htmlFor="allianceTag" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Alliance Tag
+                  </Label>
                   <Input
                     id="allianceTag"
                     placeholder="MOON"
                     value={allianceTag}
                     onChange={(e) => setAllianceTag(e.target.value.toUpperCase())}
                     maxLength={10}
+                    className="rounded-xl border-border/50 focus:ring-primary"
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="avatarUrl">Avatar URL</Label>
+                <Label htmlFor="avatarUrl" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Avatar URL
+                </Label>
                 <Input
                   id="avatarUrl"
                   placeholder="https://example.com/avatar.png"
                   value={avatarUrl}
                   onChange={(e) => setAvatarUrl(e.target.value)}
                   maxLength={500}
+                  className="rounded-xl border-border/50 focus:ring-primary"
                 />
               </div>
               <Button 
                 onClick={handleSave} 
                 disabled={isSaving || !hasChanges}
-                className="w-full"
+                className="w-full rounded-xl"
               >
                 {isSaving ? (
                   <>
@@ -180,58 +181,42 @@ const ProfilePage = () => {
                   </>
                 )}
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
         )}
 
-        {/* Pixel Stats */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Grid3X3 className="h-5 w-5 text-primary" />
-              Pixel Ownership
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div className="p-3 bg-secondary rounded-lg text-center">
-                <p className="text-2xl font-bold text-foreground">0</p>
-                <p className="text-muted-foreground">Owned</p>
-              </div>
-              <div className="p-3 bg-secondary rounded-lg text-center">
-                <p className="text-2xl font-bold text-foreground">0</p>
-                <p className="text-muted-foreground">PE Staked</p>
-              </div>
-              <div className="p-3 bg-secondary rounded-lg text-center">
-                <p className="text-2xl font-bold text-foreground">0</p>
-                <p className="text-muted-foreground">Total Value</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Pixel Ownership */}
+        <SectionCard icon={Grid3X3} title="Pixel Ownership">
+          <div className="grid grid-cols-3 gap-3">
+            <StatCard label="Owned" value="0" icon={Grid3X3} />
+            <StatCard label="PE Staked" value="0" icon={Coins} />
+            <StatCard label="Total Value" value="0" icon={Coins} />
+          </div>
+        </SectionCard>
 
         {/* Active Stakes */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Active Stakes</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-primary" />
+        <SectionCard title="Active Stakes">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                  <Shield className="h-4 w-4 text-emerald-600" />
+                </div>
                 <span className="text-sm font-medium">Defending</span>
               </div>
               <span className="text-sm text-muted-foreground">0 pixels • 0 PE</span>
             </div>
-            <div className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-              <div className="flex items-center gap-2">
-                <Swords className="h-4 w-4 text-destructive" />
+            <div className="flex items-center justify-between p-3 bg-rose-500/5 border border-rose-500/10 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-rose-500/10 flex items-center justify-center">
+                  <Swords className="h-4 w-4 text-rose-600" />
+                </div>
                 <span className="text-sm font-medium">Attacking</span>
               </div>
               <span className="text-sm text-muted-foreground">0 pixels • 0 PE</span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </SectionCard>
       </div>
     </div>
   );
