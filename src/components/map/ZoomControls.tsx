@@ -13,7 +13,7 @@ export function ZoomControls({ zoom, onZoomIn, onZoomOut }: ZoomControlsProps) {
   
   return (
     <div className="absolute bottom-4 right-4 flex flex-col gap-2 z-10">
-      <div className="flex flex-col bg-background/90 backdrop-blur-sm rounded-lg border border-border shadow-lg overflow-hidden">
+      <div className="flex flex-col bg-secondary/95 backdrop-blur-sm rounded-lg border border-border shadow-lg overflow-hidden">
         <Button
           variant="ghost"
           size="icon"

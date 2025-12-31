@@ -6,83 +6,84 @@
 
 @layer base {
   :root {
-    --background: 0 0% 99%;
-    --foreground: 220 20% 10%;
+    /* Bitplace Electric Indigo Palette */
+    --background: 0 0% 97%;           /* Soft White #F7F7F7 */
+    --foreground: 0 0% 13%;           /* Charcoal Black #222222 */
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card: 0 0% 97%;                 /* Soft White #F7F7F7 */
+    --card-foreground: 0 0% 13%;      /* Charcoal Black #222222 */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover: 0 0% 97%;              /* Soft White #F7F7F7 */
+    --popover-foreground: 0 0% 13%;   /* Charcoal Black #222222 */
 
-    --primary: 187 85% 43%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 250 100% 63%;          /* Electric Indigo #6045FF */
+    --primary-foreground: 0 0% 97%;   /* Soft White #F7F7F7 */
 
-    --secondary: 210 20% 96%;
-    --secondary-foreground: 220 20% 10%;
+    --secondary: 250 100% 93%;        /* Pale Lavender #DFDAFF */
+    --secondary-foreground: 0 0% 13%; /* Charcoal Black #222222 */
 
-    --muted: 210 15% 95%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 250 100% 93%;            /* Pale Lavender #DFDAFF */
+    --muted-foreground: 0 0% 35%;     /* Charcoal Black at ~70% */
 
-    --accent: 187 85% 43%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 250 100% 93%;           /* Pale Lavender #DFDAFF */
+    --accent-foreground: 0 0% 13%;    /* Charcoal Black #222222 */
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;         /* Keep existing red */
+    --destructive-foreground: 0 0% 97%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 187 85% 43%;
+    --border: 0 0% 70%;               /* Cool Gray #B2B2B2 */
+    --input: 0 0% 70%;                /* Cool Gray #B2B2B2 */
+    --ring: 250 100% 63%;             /* Electric Indigo #6045FF */
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 220 15% 25%;
-    --sidebar-primary: 187 85% 43%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 187 85% 95%;
-    --sidebar-accent-foreground: 187 85% 25%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 187 85% 43%;
+    --sidebar-background: 0 0% 97%;   /* Soft White */
+    --sidebar-foreground: 0 0% 13%;   /* Charcoal Black */
+    --sidebar-primary: 250 100% 63%;  /* Electric Indigo */
+    --sidebar-primary-foreground: 0 0% 97%;
+    --sidebar-accent: 250 100% 93%;   /* Pale Lavender */
+    --sidebar-accent-foreground: 0 0% 13%;
+    --sidebar-border: 0 0% 70%;       /* Cool Gray */
+    --sidebar-ring: 250 100% 63%;
   }
 
   .dark {
-    --background: 220 20% 7%;
-    --foreground: 210 20% 95%;
+    --background: 0 0% 13%;           /* Charcoal Black #222222 */
+    --foreground: 0 0% 97%;           /* Soft White #F7F7F7 */
 
-    --card: 220 20% 10%;
-    --card-foreground: 210 20% 95%;
+    --card: 0 0% 18%;                 /* Slightly lighter than background */
+    --card-foreground: 0 0% 97%;
 
-    --popover: 220 20% 10%;
-    --popover-foreground: 210 20% 95%;
+    --popover: 0 0% 18%;
+    --popover-foreground: 0 0% 97%;
 
-    --primary: 187 85% 50%;
-    --primary-foreground: 220 20% 7%;
+    --primary: 250 100% 68%;          /* Electric Indigo (slightly brighter) */
+    --primary-foreground: 0 0% 13%;
 
-    --secondary: 220 15% 15%;
-    --secondary-foreground: 210 20% 95%;
+    --secondary: 250 40% 20%;         /* Darker lavender tone */
+    --secondary-foreground: 0 0% 97%;
 
-    --muted: 220 15% 15%;
-    --muted-foreground: 220 10% 55%;
+    --muted: 250 40% 20%;             /* Darker lavender tone */
+    --muted-foreground: 0 0% 70%;     /* Soft White at ~70% */
 
-    --accent: 187 85% 50%;
-    --accent-foreground: 220 20% 7%;
+    --accent: 250 40% 25%;            /* Darker lavender tone */
+    --accent-foreground: 0 0% 97%;
 
-    --destructive: 0 62% 40%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 97%;
 
-    --border: 220 15% 18%;
-    --input: 220 15% 18%;
-    --ring: 187 85% 50%;
+    --border: 0 0% 25%;               /* Darker gray for dark mode */
+    --input: 0 0% 25%;
+    --ring: 250 100% 68%;
 
-    --sidebar-background: 220 20% 8%;
-    --sidebar-foreground: 210 15% 85%;
-    --sidebar-primary: 187 85% 50%;
-    --sidebar-primary-foreground: 220 20% 7%;
-    --sidebar-accent: 187 40% 15%;
-    --sidebar-accent-foreground: 187 85% 70%;
-    --sidebar-border: 220 15% 18%;
-    --sidebar-ring: 187 85% 50%;
+    --sidebar-background: 0 0% 10%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 250 100% 68%;
+    --sidebar-primary-foreground: 0 0% 13%;
+    --sidebar-accent: 250 40% 25%;
+    --sidebar-accent-foreground: 0 0% 97%;
+    --sidebar-border: 0 0% 25%;
+    --sidebar-ring: 250 100% 68%;
   }
 }
 

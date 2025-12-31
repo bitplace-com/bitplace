@@ -31,7 +31,7 @@ export function StatusStrip({ userId }: StatusStripProps) {
   const healthPercent = Math.round(healthMultiplier * 100);
 
   return (
-    <div className="h-10 bg-background/95 backdrop-blur-sm border-t border-border flex items-center justify-between px-4">
+    <div className="h-10 bg-secondary/95 backdrop-blur-sm border-t border-border flex items-center justify-between px-4">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2">
           <Coins className="h-4 w-4 text-primary" />

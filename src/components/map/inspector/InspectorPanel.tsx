@@ -58,7 +58,7 @@ export function InspectorPanel({
           variant="secondary"
           size="icon"
           onClick={() => setIsCollapsed(false)}
-          className="rounded-l-lg rounded-r-none h-16 w-6 bg-background/95 border border-r-0 border-border"
+          className="rounded-l-lg rounded-r-none h-16 w-6 bg-secondary/95 border border-r-0 border-border"
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -67,7 +67,7 @@ export function InspectorPanel({
   }
 
   return (
-    <div className="w-80 bg-background/95 backdrop-blur-sm border-l border-border flex flex-col h-full overflow-hidden">
+    <div className="w-80 bg-secondary/95 backdrop-blur-sm border-l border-border flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-border">
         <h2 className="text-sm font-medium text-foreground">Inspector</h2>
