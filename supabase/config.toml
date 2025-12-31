@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.contribution-cleanup]
 verify_jwt = false
+
+[functions.energy-refresh]
+verify_jwt = false

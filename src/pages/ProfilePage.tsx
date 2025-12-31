@@ -1,16 +1,19 @@
 import { useState, useEffect } from "react";
-import { User, Wallet, Grid3X3, Shield, Swords, Save, Loader2, Coins } from "lucide-react";
+import { User, Wallet, Grid3X3, Shield, Swords, Save, Loader2, Coins, RefreshCw, Zap, DollarSign } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
-import { KeyValueRow } from "@/components/ui/key-value-row";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/contexts/WalletContext";
+import { usePeBalance } from "@/hooks/usePeBalance";
+import { ENERGY_ASSET } from "@/config/energy";
+import { cn } from "@/lib/utils";
 
 const ProfilePage = () => {
-  const { isConnected, walletAddress, user, connect, updateUser, isConnecting } = useWallet();
+  const { isConnected, walletAddress, user, connect, updateUser, isConnecting, energy, refreshEnergy } = useWallet();
+  const peBalance = usePeBalance(user?.id);
   const [displayName, setDisplayName] = useState("");
   const [countryCode, setCountryCode] = useState("");
   const [allianceTag, setAllianceTag] = useState("");
@@ -44,6 +47,16 @@ const ProfilePage = () => {
     allianceTag !== (user.alliance_tag || "") ||
     avatarUrl !== (user.avatar_url || "")
   );
+
+  const formatLastSync = (date: Date | null) => {
+    if (!date) return 'Never';
+    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ago`;
+  };
 
   return (
     <div className="min-h-full bg-background p-6 md:p-8 lg:p-12">
@@ -83,25 +96,81 @@ const ProfilePage = () => {
               </Button>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-5">
+              {/* Wallet Address */}
               <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl">
                 <div className="h-2 w-2 rounded-full bg-emerald-500" />
                 <span className="font-mono text-sm text-foreground break-all">{walletAddress}</span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+
+              {/* Energy Source Label */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/5 border border-primary/10 rounded-lg">
+                  <Zap className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-medium text-primary uppercase tracking-wider">
+                    Energy source: {ENERGY_ASSET}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">(temporary)</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={refreshEnergy}
+                  disabled={energy.isRefreshing}
+                  className="rounded-lg"
+                >
+                  <RefreshCw className={cn("h-4 w-4 mr-2", energy.isRefreshing && "animate-spin")} />
+                  {energy.isRefreshing ? 'Refreshing...' : 'Refresh Balance'}
+                </Button>
+              </div>
+
+              {/* Balance Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <StatCard
-                  label="BTP Balance"
-                  value="—"
-                  icon={Coins}
+                  label={`${energy.nativeSymbol} Balance`}
+                  value={energy.nativeBalance.toFixed(4)}
+                  icon={Wallet}
+                  helper={energy.usdPrice > 0 ? `$${energy.usdPrice.toFixed(2)}/SOL` : undefined}
+                />
+                <StatCard
+                  label="Wallet USD"
+                  value={`$${energy.walletUsd.toFixed(2)}`}
+                  icon={DollarSign}
                   variant="muted"
                 />
                 <StatCard
-                  label="Available PE"
-                  value={user?.pe_total_pe?.toLocaleString() ?? "—"}
+                  label="Total PE"
+                  value={energy.peTotal.toLocaleString()}
                   icon={Coins}
                   variant="primary"
                 />
+                <StatCard
+                  label="Available PE"
+                  value={peBalance.free.toLocaleString()}
+                  icon={Coins}
+                  helper={`Locked: ${peBalance.locked.toLocaleString()}`}
+                />
               </div>
+
+              {/* Last Sync Info */}
+              <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                <span>Last synced: {formatLastSync(energy.lastSyncAt)}</span>
+                {energy.isStale && (
+                  <span className="text-amber-600">Balance may be outdated</span>
+                )}
+              </div>
+
+              {/* Insufficient PE Warning */}
+              {energy.peTotal < 1 && (
+                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                  <p className="text-sm text-amber-700 font-medium">
+                    Add {energy.nativeSymbol} to your Phantom wallet to get PE (temporary until BTP launches).
+                  </p>
+                  <p className="text-xs text-amber-600/80 mt-1">
+                    1 PE = $0.001 • Your PE is calculated from your {energy.nativeSymbol} balance
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </SectionCard>
