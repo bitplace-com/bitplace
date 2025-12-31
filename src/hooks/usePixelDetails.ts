@@ -77,8 +77,28 @@ export function usePixelDetails(x: number | null, y: number | null) {
 
       let owner: OwnerProfile | null = null;
       if (pixelData.owner_user_id) {
-        const { data: ownerData } = await supabase.from('users').select('id, display_name, wallet_address, country_code, alliance_tag, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier').eq('id', pixelData.owner_user_id).maybeSingle();
-        if (ownerData) owner = ownerData;
+        // Use public_pixel_owner_info view - safe public fields only (no wallet/financial data)
+        const { data: ownerData } = await supabase
+          .from('public_pixel_owner_info' as any)
+          .select('id, display_name, country_code, alliance_tag, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier')
+          .eq('id', pixelData.owner_user_id)
+          .maybeSingle();
+        
+        if (ownerData) {
+          const data = ownerData as Record<string, any>;
+          owner = {
+            id: data.id,
+            display_name: data.display_name,
+            wallet_address: null,
+            country_code: data.country_code,
+            alliance_tag: data.alliance_tag,
+            owner_health_multiplier: data.owner_health_multiplier ?? 1,
+            rebalance_active: data.rebalance_active ?? false,
+            rebalance_started_at: data.rebalance_started_at,
+            rebalance_ends_at: data.rebalance_ends_at,
+            rebalance_target_multiplier: data.rebalance_target_multiplier,
+          };
+        }
       }
 
       const { data: contributions } = await supabase.from('pixel_contributions').select('user_id, amount_pe, side').eq('pixel_id', pixelData.id);
