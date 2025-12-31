@@ -45,27 +45,29 @@ export function ActionBox({
   const canConfirm = isValidated && !isCommitting;
 
   return (
-    <div className="border-t border-border p-3 space-y-3 bg-background/50">
+    <div className="border-t border-border/30 p-4 space-y-4 bg-background/30">
       {/* Mode Label */}
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <span className="text-primary">{config.icon}</span>
-        <span>{config.label} Mode</span>
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          {config.icon}
+        </div>
+        <span className="text-sm font-semibold">{config.label} Mode</span>
       </div>
 
       {/* Color Picker for PAINT mode */}
       {mode === 'PAINT' && (
         <div className="space-y-2">
-          <div className="text-xs text-muted-foreground">Color</div>
-          <div className="grid grid-cols-8 gap-1">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Color</div>
+          <div className="grid grid-cols-8 gap-1.5">
             {COLOR_PALETTE.map((color) => (
               <button
                 key={color}
                 onClick={() => onColorSelect(color)}
                 className={cn(
-                  'h-6 w-6 rounded border-2 transition-all hover:scale-110',
+                  'h-7 w-7 rounded-lg border-2 transition-all duration-200 hover:scale-110 focus-ring',
                   selectedColor === color
-                    ? 'border-primary ring-2 ring-primary/30'
-                    : 'border-transparent hover:border-muted-foreground/30'
+                    ? 'border-primary ring-2 ring-primary/30 scale-110'
+                    : 'border-transparent hover:border-foreground/20'
                 )}
                 style={{ backgroundColor: color }}
               />
@@ -83,7 +85,7 @@ export function ActionBox({
             pixelCount={pixelCount}
           />
           <div className="text-xs text-muted-foreground">
-            Total: {(pePerPixel * pixelCount).toLocaleString()} PE for {pixelCount} pixel(s)
+            Total: <span className="font-medium text-foreground">{(pePerPixel * pixelCount).toLocaleString()} PE</span> for {pixelCount} pixel(s)
           </div>
         </div>
       )}
@@ -92,7 +94,7 @@ export function ActionBox({
       <div className="flex gap-2">
         {needsValidation && !isValidated && (
           <Button
-            className="flex-1"
+            className="flex-1 rounded-xl"
             variant="secondary"
             onClick={onValidate}
             disabled={isValidating}
@@ -110,7 +112,7 @@ export function ActionBox({
 
         {(isValidated || !needsValidation) && (
           <Button
-            className="flex-1"
+            className="flex-1 rounded-xl shadow-md"
             onClick={onConfirm}
             disabled={!canConfirm && needsValidation}
           >
@@ -131,7 +133,7 @@ export function ActionBox({
 
       {/* Validation Status */}
       {validationResult && !validationResult.ok && (
-        <div className="text-xs text-destructive">
+        <div className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg">
           Validation failed: {validationResult.invalidPixels.length} invalid pixel(s)
         </div>
       )}

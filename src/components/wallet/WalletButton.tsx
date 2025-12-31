@@ -19,7 +19,7 @@ export function WalletButton() {
 
   if (isConnecting) {
     return (
-      <Button variant="outline" size="sm" disabled>
+      <Button variant="outline" size="sm" disabled className="rounded-xl">
         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
         Connecting...
       </Button>
@@ -30,19 +30,19 @@ export function WalletButton() {
     return (
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Wallet className="h-4 w-4" />
-            <span className="font-mono">{shortenAddress(walletAddress)}</span>
-            <ChevronDown className="h-3 w-3" />
+          <Button variant="outline" size="sm" className="gap-2 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm hover:bg-muted/50">
+            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-mono text-xs">{shortenAddress(walletAddress)}</span>
+            <ChevronDown className="h-3 w-3 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuContent align="end" className="w-48 rounded-xl bg-popover/95 backdrop-blur-md border-border/50">
           <DropdownMenuItem
             onClick={() => {
               disconnect();
               setIsOpen(false);
             }}
-            className="text-destructive focus:text-destructive"
+            className="text-destructive focus:text-destructive focus:bg-destructive/10 rounded-lg cursor-pointer"
           >
             <LogOut className="h-4 w-4 mr-2" />
             Disconnect
@@ -53,7 +53,7 @@ export function WalletButton() {
   }
 
   return (
-    <Button onClick={connect} size="sm" className="gap-2">
+    <Button onClick={connect} size="sm" className="gap-2 rounded-xl shadow-md">
       <Wallet className="h-4 w-4" />
       Connect Wallet
     </Button>

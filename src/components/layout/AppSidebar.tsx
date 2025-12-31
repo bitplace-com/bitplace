@@ -5,12 +5,10 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 
@@ -26,40 +24,35 @@ export function AppSidebar() {
   const isCollapsed = state === "collapsed";
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+    <Sidebar collapsible="icon" className="border-r border-border/50">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-md">
             B
           </div>
           {!isCollapsed && (
-            <span className="font-semibold text-sidebar-foreground tracking-tight">
+            <span className="font-bold text-foreground tracking-tight text-lg">
               Bitplace
             </span>
           )}
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="px-2">
         <SidebarGroup>
-          {!isCollapsed && (
-            <SidebarGroupLabel className="text-muted-foreground text-xs uppercase tracking-wider">
-              Navigation
-            </SidebarGroupLabel>
-          )}
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild tooltip={item.title}>
                     <NavLink
                       to={item.url}
                       end={item.url === "/"}
-                      className="flex items-center gap-3 rounded-md px-3 py-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-foreground/70 transition-all hover:bg-muted hover:text-foreground"
+                      activeClassName="bg-primary/10 text-primary font-medium hover:bg-primary/10 hover:text-primary"
                     >
                       <item.icon className="h-4 w-4 shrink-0" />
-                      {!isCollapsed && <span>{item.title}</span>}
+                      {!isCollapsed && <span className="text-sm">{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

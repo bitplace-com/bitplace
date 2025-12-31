@@ -1,5 +1,6 @@
 import { Paintbrush, Shield, Swords, Plus } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { GlassPanel } from '@/components/ui/glass-panel';
 import { type MapMode } from './hooks/useMapState';
 
 interface MapToolbarProps {
@@ -17,25 +18,26 @@ const modes: { value: MapMode; icon: React.ReactNode; label: string }[] = [
 export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
   return (
     <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
-      <div className="bg-secondary/95 backdrop-blur-sm rounded-lg border border-border shadow-lg p-1">
+      <GlassPanel padding="sm" className="shadow-lg">
         <ToggleGroup
           type="single"
           value={mode}
           onValueChange={(value) => value && onModeChange(value as MapMode)}
+          className="gap-1"
         >
           {modes.map(({ value, icon, label }) => (
             <ToggleGroupItem
               key={value}
               value={value}
               aria-label={label}
-              className="flex items-center gap-2 px-3 py-2 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-200 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-md hover:bg-muted/50"
             >
               {icon}
-              <span className="text-sm hidden sm:inline">{label}</span>
+              <span className="text-sm font-medium hidden sm:inline">{label}</span>
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
-      </div>
+      </GlassPanel>
     </div>
   );
 }
