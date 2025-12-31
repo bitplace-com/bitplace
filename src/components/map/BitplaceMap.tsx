@@ -8,6 +8,7 @@ import { MapToolbar } from './MapToolbar';
 import { ZoomControls } from './ZoomControls';
 import { InspectorPanel } from './inspector';
 import { StatusStrip } from './StatusStrip';
+import { DevDiagnostics } from './DevDiagnostics';
 import { usePixelStore, screenToPixel } from './hooks/usePixelStore';
 import { useSelection } from './hooks/useSelection';
 import { useMapState, Z_PAINT } from './hooks/useMapState';
@@ -349,31 +350,29 @@ export function BitplaceMap() {
     setPendingPixels([]);
   }, [clearSelection, clearValidation]);
 
+  // Handle wheel events - pass through to map
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    // Forward wheel events to the map by temporarily disabling pointer events
+    const target = e.currentTarget as HTMLElement;
+    target.style.pointerEvents = 'none';
+    requestAnimationFrame(() => {
+      target.style.pointerEvents = canPaint ? 'auto' : 'none';
+    });
+  }, [canPaint]);
+
   return (
     <div className="relative w-full h-full flex flex-col">
       {/* Main content area */}
       <div className="flex-1 flex relative overflow-hidden">
         {/* Map area */}
         <div className="flex-1 relative">
-          {/* Map container */}
+          {/* Map container - clean, no event handlers to avoid blocking MapLibre */}
           <div
             ref={containerRef}
             className="absolute inset-0"
-            onMouseMove={handleMouseMove}
-            onMouseDown={handleMouseDown}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={() => {
-              setHoverPixel(null);
-              if (isDraggingRef.current) {
-                endSelection();
-                isDraggingRef.current = false;
-                dragStartRef.current = null;
-                mapRef.current?.dragPan.enable();
-              }
-            }}
           />
 
-          {/* Canvas overlay for pixels */}
+          {/* Canvas overlay for pixels (pointer-events: none) */}
           {mapReady && (
             <CanvasOverlay
               map={mapRef.current}
@@ -382,6 +381,39 @@ export function BitplaceMap() {
               hoverPixel={hoverPixel}
               canPaint={canPaint}
               invalidPixels={invalidPixels}
+            />
+          )}
+
+          {/* Interaction layer - only captures events at paint zoom */}
+          {mapReady && (
+            <div
+              className="absolute inset-0"
+              style={{
+                pointerEvents: canPaint ? 'auto' : 'none',
+              }}
+              onMouseMove={handleMouseMove}
+              onMouseDown={handleMouseDown}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={() => {
+                setHoverPixel(null);
+                if (isDraggingRef.current) {
+                  endSelection();
+                  isDraggingRef.current = false;
+                  dragStartRef.current = null;
+                  mapRef.current?.dragPan.enable();
+                }
+              }}
+              onWheel={handleWheel}
+            />
+          )}
+
+          {/* Dev Diagnostics */}
+          {mapReady && (
+            <DevDiagnostics
+              map={mapRef.current}
+              zoom={zoom}
+              canPaint={canPaint}
+              isSelecting={selection.isSelecting}
             />
           )}
 

@@ -209,7 +209,6 @@ export function CanvasOverlay({
     <canvas
       ref={canvasRef}
       className="absolute inset-0 w-full h-full pointer-events-none"
-      style={{ touchAction: 'none' }}
     />
   );
 }
