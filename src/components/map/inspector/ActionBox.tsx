@@ -58,14 +58,14 @@ export function ActionBox({
       {mode === 'PAINT' && (
         <div className="space-y-2">
           <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Color</div>
-          <div className="grid grid-cols-8 gap-1.5">
+          <div className="grid grid-cols-9 gap-1">
             {COLOR_PALETTE.map((color) => (
               <button
                 key={color}
                 onClick={() => onColorSelect(color)}
                 className={cn(
-                  'h-7 w-7 rounded-lg border-2 transition-all duration-200 hover:scale-110 focus-ring',
-                  selectedColor === color
+                  'aspect-square rounded-md border-2 transition-all duration-200 hover:scale-110 focus-ring',
+                  selectedColor.toUpperCase() === color.toUpperCase()
                     ? 'border-primary ring-2 ring-primary/30 scale-110'
                     : 'border-transparent hover:border-foreground/20'
                 )}

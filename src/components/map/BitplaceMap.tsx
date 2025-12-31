@@ -11,8 +11,9 @@ import { StatusStrip } from './StatusStrip';
 import { DevDiagnostics } from './DevDiagnostics';
 import { HudOverlay, HudSlot } from './HudOverlay';
 import { PixelInspectorDrawer } from './PixelInspectorDrawer';
+import { ColorPalette } from './ColorPalette';
 import { WalletButton } from '@/components/wallet/WalletButton';
-import { usePixelStore, screenToPixel } from './hooks/usePixelStore';
+import { usePixelStore, screenToPixel, pixelKey } from './hooks/usePixelStore';
 import { useSelection } from './hooks/useSelection';
 import { useMapState, Z_PAINT } from './hooks/useMapState';
 import { useSupabasePixels } from '@/hooks/useSupabasePixels';
@@ -28,6 +29,7 @@ export function BitplaceMap() {
   const [mapReady, setMapReady] = useState(false);
   const [hoverPixel, setHoverPixel] = useState<{ x: number; y: number } | null>(null);
   const [inspectedPixel, setInspectedPixel] = useState<{ x: number; y: number } | null>(null);
+  const [isEyedropperActive, setIsEyedropperActive] = useState(false);
   
   const [pendingPixels, setPendingPixels] = useState<{ x: number; y: number }[]>([]);
   const [pePerPixel, setPePerPixel] = useState(1);
@@ -158,20 +160,47 @@ export function BitplaceMap() {
     setPendingPixels([{ x, y }]);
   }, [user, mode, selectedColor, validate, commit, paintPixel, confirmPixel, getGameMode, refreshUser, startSelection]);
 
+  // Eyedropper: pick color from pixel
+  const handleEyedropperPick = useCallback((x: number, y: number) => {
+    const key = pixelKey(x, y);
+    const pixel = pixels.get(key);
+    if (pixel?.color) {
+      setSelectedColor(pixel.color);
+      toast.success(`Picked color: ${pixel.color.toUpperCase()}`);
+    } else {
+      toast.info('No color at this pixel');
+    }
+    setIsEyedropperActive(false);
+  }, [pixels, setSelectedColor]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
+
+    // Update cursor based on eyedropper state
+    const canvas = map.getCanvas();
+    canvas.style.cursor = isEyedropperActive ? 'crosshair' : '';
 
     const handleMapMouseMove = (e: maplibregl.MapMouseEvent) => {
       if (map.getZoom() >= Z_PAINT) {
         const pixel = screenToPixel(e.point.x, e.point.y, map);
         setHoverPixel(pixel);
-        if (isDraggingRef.current && dragStartRef.current) updateSelection(pixel.x, pixel.y);
+        if (isDraggingRef.current && dragStartRef.current && !isEyedropperActive) {
+          updateSelection(pixel.x, pixel.y);
+        }
       } else { setHoverPixel(null); }
     };
 
     const handleMapMouseDown = (e: maplibregl.MapMouseEvent) => {
       if (map.getZoom() < Z_PAINT) return;
+      
+      // Handle eyedropper mode or Alt+Click
+      if (isEyedropperActive || e.originalEvent.altKey) {
+        const pixel = screenToPixel(e.point.x, e.point.y, map);
+        handleEyedropperPick(pixel.x, pixel.y);
+        return;
+      }
+      
       const pixel = screenToPixel(e.point.x, e.point.y, map);
       isDraggingRef.current = true;
       dragStartRef.current = { x: pixel.x, y: pixel.y, screenX: e.point.x, screenY: e.point.y };
@@ -210,15 +239,16 @@ export function BitplaceMap() {
     map.on('mousemove', handleMapMouseMove);
     map.on('mousedown', handleMapMouseDown);
     map.on('mouseup', handleMapMouseUp);
-    map.getCanvas().addEventListener('mouseleave', handleMapMouseLeave);
+    canvas.addEventListener('mouseleave', handleMapMouseLeave);
 
     return () => {
       map.off('mousemove', handleMapMouseMove);
       map.off('mousedown', handleMapMouseDown);
       map.off('mouseup', handleMapMouseUp);
-      map.getCanvas().removeEventListener('mouseleave', handleMapMouseLeave);
+      canvas.removeEventListener('mouseleave', handleMapMouseLeave);
+      canvas.style.cursor = '';
     };
-  }, [mapReady, mode, updateSelection, startSelection, endSelection, clearSelection, executeSinglePixelAction, getGameMode]);
+  }, [mapReady, mode, updateSelection, startSelection, endSelection, clearSelection, executeSinglePixelAction, getGameMode, isEyedropperActive, handleEyedropperPick]);
 
   const handleZoomIn = useCallback(() => mapRef.current?.zoomIn(), []);
   const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), []);
@@ -288,6 +318,17 @@ export function BitplaceMap() {
               <ZoomControls zoom={zoom} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} artOpacity={artOpacity} onToggleArtOpacity={toggleArtOpacity} />
             </HudSlot>
           </HudOverlay>
+
+          {/* Color Palette - only show in paint mode at paint zoom */}
+          {canPaint && mode === 'paint' && (
+            <ColorPalette
+              selectedColor={selectedColor}
+              onColorSelect={setSelectedColor}
+              viewportPixels={pixels}
+              onEyedropperToggle={setIsEyedropperActive}
+              isEyedropperActive={isEyedropperActive}
+            />
+          )}
 
           {/* Pixel Inspector Card/Drawer */}
           <PixelInspectorDrawer
