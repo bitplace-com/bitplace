@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ENERGY_ASSET, ENERGY_CONFIG } from '@/config/energy';
+import { useBalance } from '@/hooks/useBalance';
 
 interface PhantomProvider {
   isPhantom?: boolean;
@@ -32,6 +33,7 @@ interface User {
   usd_price?: number;
   wallet_usd?: number;
   last_energy_sync_at?: string;
+  sol_cluster?: string;
 }
 
 interface EnergyState {
@@ -41,6 +43,7 @@ interface EnergyState {
   usdPrice: number;
   walletUsd: number;
   peTotal: number;
+  cluster: 'mainnet' | 'devnet' | null;
   lastSyncAt: Date | null;
   isRefreshing: boolean;
   isStale: boolean;
@@ -106,6 +109,7 @@ const defaultEnergyState: EnergyState = {
   usdPrice: 0,
   walletUsd: 0,
   peTotal: 0,
+  cluster: null,
   lastSyncAt: null,
   isRefreshing: false,
   isStale: true,
@@ -118,6 +122,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [energy, setEnergy] = useState<EnergyState>(defaultEnergyState);
 
+  // Use the new balance hook for immediate balance fetching (no auth required)
+  const balance = useBalance({ 
+    walletAddress, 
+    enabled: isConnected 
+  });
+
   const getSessionToken = () => localStorage.getItem(SESSION_TOKEN_KEY);
   const setSessionToken = (token: string) => localStorage.setItem(SESSION_TOKEN_KEY, token);
   const clearSession = () => {
@@ -125,28 +135,53 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(WALLET_ADDRESS_KEY);
   };
 
+  // Sync balance hook state to energy state
+  useEffect(() => {
+    if (balance.solBalance > 0 || balance.peTotal > 0) {
+      setEnergy(prev => ({
+        ...prev,
+        nativeBalance: balance.solBalance,
+        usdPrice: balance.solUsdPrice,
+        walletUsd: balance.walletUsd,
+        peTotal: balance.peTotal,
+        cluster: balance.cluster,
+        lastSyncAt: balance.lastSyncAt,
+        isRefreshing: balance.isRefreshing,
+        isStale: !balance.lastSyncAt || (Date.now() - balance.lastSyncAt.getTime() > ENERGY_STALE_THRESHOLD_MS),
+      }));
+
+      // Also update user's pe_total_pe
+      setUser(prev => prev ? { ...prev, pe_total_pe: balance.peTotal } : null);
+    }
+  }, [balance.solBalance, balance.solUsdPrice, balance.walletUsd, balance.peTotal, balance.cluster, balance.lastSyncAt, balance.isRefreshing]);
+
   // Update energy state from user data
   const updateEnergyFromUser = useCallback((userData: User) => {
     const lastSyncAt = userData.last_energy_sync_at ? new Date(userData.last_energy_sync_at) : null;
     const isStale = !lastSyncAt || (Date.now() - lastSyncAt.getTime() > ENERGY_STALE_THRESHOLD_MS);
     
-    setEnergy({
+    setEnergy(prev => ({
       energyAsset: (userData.energy_asset as 'SOL' | 'BTP') || ENERGY_ASSET,
       nativeSymbol: userData.native_symbol || ENERGY_CONFIG[ENERGY_ASSET].symbol,
-      nativeBalance: Number(userData.native_balance) || 0,
-      usdPrice: Number(userData.usd_price) || 0,
-      walletUsd: Number(userData.wallet_usd) || 0,
-      peTotal: Number(userData.pe_total_pe) || 0,
+      nativeBalance: Number(userData.native_balance) || prev.nativeBalance,
+      usdPrice: Number(userData.usd_price) || prev.usdPrice,
+      walletUsd: Number(userData.wallet_usd) || prev.walletUsd,
+      peTotal: Number(userData.pe_total_pe) || prev.peTotal,
+      cluster: (userData.sol_cluster as 'mainnet' | 'devnet') || prev.cluster,
       lastSyncAt,
       isRefreshing: false,
       isStale,
-    });
+    }));
   }, []);
 
-  // Refresh energy from edge function
+  // Refresh energy from edge function (authenticated)
   const refreshEnergy = useCallback(async () => {
     const token = getSessionToken();
-    if (!token) return;
+    if (!token) {
+      // If no token, use the balance hook's refresh
+      balance.refresh();
+      return;
+    }
 
     setEnergy(prev => ({ ...prev, isRefreshing: true }));
 
@@ -178,6 +213,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         usdPrice: data.usdPrice || 0,
         walletUsd: data.walletUsd || 0,
         peTotal: data.peTotal || 0,
+        cluster: data.cluster || null,
         lastSyncAt,
         isRefreshing: false,
         isStale: data.stale ?? false,
@@ -195,7 +231,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       console.error('[WalletContext] Energy refresh exception:', err);
       setEnergy(prev => ({ ...prev, isRefreshing: false }));
     }
-  }, []);
+  }, [balance]);
 
   const refreshUser = useCallback(async () => {
     const storedWallet = localStorage.getItem(WALLET_ADDRESS_KEY);

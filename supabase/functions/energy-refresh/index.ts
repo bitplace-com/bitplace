@@ -5,6 +5,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// RPC endpoints
+const RPC_MAINNET = "https://api.mainnet-beta.solana.com";
+const RPC_DEVNET = "https://api.devnet.solana.com";
+
 // In-memory rate limiting (per user)
 const userLastRefresh: Map<string, number> = new Map();
 const RATE_LIMIT_MS = 10 * 1000; // 10 seconds
@@ -49,43 +53,70 @@ function verifyToken(token: string, authSecret: string): { userId: string; walle
   }
 }
 
-// Fetch SOL balance from Solana RPC
-async function fetchSolBalance(walletAddress: string, rpcUrl: string): Promise<number> {
-  console.log(`[energy-refresh] Fetching SOL balance for ${walletAddress.substring(0, 8)}...`);
+// Fetch SOL balance from a specific RPC
+async function fetchSolBalanceFromRpc(walletAddress: string, rpcUrl: string, cluster: string): Promise<{ balance: number; cluster: string }> {
+  console.log(`[energy-refresh] Fetching balance from ${cluster}: ${walletAddress.substring(0, 8)}...`);
   
-  const response = await fetch(rpcUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "getBalance",
-      params: [walletAddress],
-    }),
-  });
+  try {
+    const response = await fetch(rpcUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "getBalance",
+        params: [walletAddress],
+      }),
+    });
 
-  if (!response.ok) {
-    throw new Error(`Solana RPC error: ${response.status}`);
+    if (!response.ok) {
+      console.error(`[energy-refresh] BALANCE_RPC_FAILED: ${cluster} returned ${response.status}`);
+      return { balance: 0, cluster };
+    }
+
+    const data = await response.json();
+    
+    if (data.error) {
+      console.error(`[energy-refresh] BALANCE_RPC_FAILED: ${cluster} error: ${data.error.message}`);
+      return { balance: 0, cluster };
+    }
+
+    const lamports = data.result?.value ?? 0;
+    const solBalance = lamports / 1e9;
+    
+    console.log(`[energy-refresh] ${cluster}: ${solBalance} SOL`);
+    return { balance: solBalance, cluster };
+  } catch (err) {
+    console.error(`[energy-refresh] BALANCE_RPC_FAILED: ${cluster} exception:`, err);
+    return { balance: 0, cluster };
+  }
+}
+
+// Fetch SOL balance with cluster fallback
+async function fetchSolBalanceWithFallback(walletAddress: string): Promise<{ balance: number; cluster: 'mainnet' | 'devnet' }> {
+  const [mainnetResult, devnetResult] = await Promise.all([
+    fetchSolBalanceFromRpc(walletAddress, RPC_MAINNET, 'mainnet'),
+    fetchSolBalanceFromRpc(walletAddress, RPC_DEVNET, 'devnet'),
+  ]);
+
+  console.log(`[energy-refresh] Mainnet: ${mainnetResult.balance}, Devnet: ${devnetResult.balance}`);
+
+  if (mainnetResult.balance >= devnetResult.balance && mainnetResult.balance > 0) {
+    return { balance: mainnetResult.balance, cluster: 'mainnet' };
+  } else if (devnetResult.balance > 0) {
+    console.log('[energy-refresh] CLUSTER_FALLBACK_USED: devnet has higher balance');
+    return { balance: devnetResult.balance, cluster: 'devnet' };
+  } else if (mainnetResult.balance > 0) {
+    return { balance: mainnetResult.balance, cluster: 'mainnet' };
   }
 
-  const data = await response.json();
-  
-  if (data.error) {
-    throw new Error(`Solana RPC error: ${data.error.message}`);
-  }
-
-  const lamports = data.result?.value ?? 0;
-  const solBalance = lamports / 1e9; // Convert lamports to SOL
-  
-  console.log(`[energy-refresh] SOL balance: ${solBalance}`);
-  return solBalance;
+  return { balance: 0, cluster: 'mainnet' };
 }
 
 // Fetch SOL/USD price from Coinbase (with caching)
 async function fetchSolPrice(): Promise<number> {
   const now = Date.now();
   
-  // Return cached price if still valid
   if (priceCache && (now - priceCache.fetchedAt) < PRICE_CACHE_TTL_MS) {
     console.log(`[energy-refresh] Using cached SOL price: $${priceCache.price}`);
     return priceCache.price;
@@ -93,21 +124,27 @@ async function fetchSolPrice(): Promise<number> {
 
   console.log("[energy-refresh] Fetching SOL price from Coinbase...");
   
-  const response = await fetch("https://api.coinbase.com/v2/prices/SOL-USD/spot");
-  
-  if (!response.ok) {
-    throw new Error(`Coinbase API error: ${response.status}`);
-  }
+  try {
+    const response = await fetch("https://api.coinbase.com/v2/prices/SOL-USD/spot", {
+      headers: { "Accept": "application/json" },
+    });
+    
+    if (!response.ok) {
+      console.error(`[energy-refresh] PRICE_FETCH_FAILED: Coinbase returned ${response.status}`);
+      return priceCache?.price ?? 0;
+    }
 
-  const data = await response.json();
-  const price = parseFloat(data.data?.amount ?? "0");
-  
-  console.log(`[energy-refresh] SOL price: $${price}`);
-  
-  // Update cache
-  priceCache = { price, fetchedAt: now };
-  
-  return price;
+    const data = await response.json();
+    const price = parseFloat(data.data?.amount ?? "0");
+    
+    console.log(`[energy-refresh] SOL price: $${price}`);
+    priceCache = { price, fetchedAt: now };
+    
+    return price;
+  } catch (err) {
+    console.error("[energy-refresh] PRICE_FETCH_FAILED: Exception:", err);
+    return priceCache?.price ?? 0;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -144,10 +181,10 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch user from DB (to get the canonical wallet_address)
+    // Fetch user from DB
     const { data: userData, error: userError } = await supabase
       .from("users")
-      .select("id, wallet_address, native_balance, usd_price, wallet_usd, pe_total_pe, last_energy_sync_at")
+      .select("id, wallet_address, native_balance, usd_price, wallet_usd, pe_total_pe, last_energy_sync_at, sol_cluster")
       .eq("id", userId)
       .maybeSingle();
 
@@ -176,7 +213,6 @@ Deno.serve(async (req) => {
       const waitTime = Math.ceil((RATE_LIMIT_MS - timeSinceLastRefresh) / 1000);
       console.log(`[energy-refresh] Rate limited for user ${userId}, wait ${waitTime}s`);
       
-      // Return current cached values with stale flag
       return new Response(
         JSON.stringify({
           ok: true,
@@ -188,6 +224,7 @@ Deno.serve(async (req) => {
           usdPrice: Number(userData.usd_price) || 0,
           walletUsd: Number(userData.wallet_usd) || 0,
           peTotal: Number(userData.pe_total_pe) || 0,
+          cluster: userData.sol_cluster || 'mainnet',
           lastSyncAt: userData.last_energy_sync_at,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -197,21 +234,21 @@ Deno.serve(async (req) => {
     // Update rate limit timestamp
     userLastRefresh.set(userId, now);
 
-    // Fetch SOL balance and price
-    const rpcUrl = Deno.env.get("SOLANA_RPC_URL") || "https://api.mainnet-beta.solana.com";
-    
-    const [solBalance, solPrice] = await Promise.all([
-      fetchSolBalance(walletAddress, rpcUrl),
+    // Fetch SOL balance with cluster fallback and price
+    const [balanceResult, solPrice] = await Promise.all([
+      fetchSolBalanceWithFallback(walletAddress),
       fetchSolPrice(),
     ]);
+
+    const { balance: solBalance, cluster } = balanceResult;
 
     // Calculate wallet USD value and PE
     const walletUsd = solBalance * solPrice;
     const peTotal = Math.floor(walletUsd * PE_PER_USD);
 
-    console.log(`[energy-refresh] User ${userId}: ${solBalance} SOL × $${solPrice} = $${walletUsd.toFixed(2)} = ${peTotal} PE`);
+    console.log(`[energy-refresh] User ${userId}: ${solBalance} SOL × $${solPrice} = $${walletUsd.toFixed(2)} = ${peTotal} PE (${cluster})`);
 
-    // Update user record
+    // Update user record with cluster info
     const syncAt = new Date().toISOString();
     const { error: updateError } = await supabase
       .from("users")
@@ -222,6 +259,7 @@ Deno.serve(async (req) => {
         usd_price: solPrice,
         wallet_usd: walletUsd,
         pe_total_pe: peTotal,
+        sol_cluster: cluster,
         last_energy_sync_at: syncAt,
       })
       .eq("id", userId);
@@ -241,6 +279,7 @@ Deno.serve(async (req) => {
         usdPrice: solPrice,
         walletUsd,
         peTotal,
+        cluster,
         lastSyncAt: syncAt,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

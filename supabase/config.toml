@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.leaderboard-get]
 verify_jwt = false
+
+[functions.sol-balance]
+verify_jwt = false
