@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { X, Bug } from 'lucide-react';
+import { X, Bug, Wallet, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useWallet } from '@/contexts/WalletContext';
 
 interface DevDiagnosticsProps {
   map: MapLibreMap | null;
@@ -19,6 +20,14 @@ export function DevDiagnostics({ map, zoom, canPaint, isSelecting }: DevDiagnost
     doubleClickZoom: false,
     touchZoomRotate: false,
   });
+
+  const { isConnected, walletAddress, energy, user } = useWallet();
+
+  // Check for debug mode
+  const isDebugMode = typeof window !== 'undefined' && (
+    localStorage.getItem('bitplace_debug') === '1' ||
+    window.location.search.includes('debug=1')
+  );
 
   useEffect(() => {
     if (!map) return;
@@ -46,6 +55,26 @@ export function DevDiagnostics({ map, zoom, canPaint, isSelecting }: DevDiagnost
     };
   }, [map]);
 
+  // Detect Phantom provider
+  const getProviderInfo = () => {
+    if (typeof window === 'undefined') return { detected: false, source: null };
+    const phantom = (window as any).phantom?.solana;
+    if (phantom?.isPhantom) return { detected: true, source: 'phantom.solana' };
+    const solana = (window as any).solana;
+    if (solana?.isPhantom) return { detected: true, source: 'window.solana' };
+    return { detected: false, source: null };
+  };
+
+  const providerInfo = getProviderInfo();
+
+  // Get RPC URL based on cluster
+  const getRpcUrl = () => {
+    if (!energy.cluster) return 'Not connected';
+    return energy.cluster === 'mainnet' 
+      ? 'https://api.mainnet-beta.solana.com'
+      : 'https://api.devnet.solana.com';
+  };
+
   if (!visible) {
     return (
       <Button
@@ -61,7 +90,7 @@ export function DevDiagnostics({ map, zoom, canPaint, isSelecting }: DevDiagnost
   }
 
   return (
-    <div className="absolute top-4 left-4 z-50 bg-secondary/95 backdrop-blur-sm border border-border rounded-lg p-3 text-xs space-y-2 min-w-52 shadow-lg">
+    <div className="absolute top-4 left-4 z-50 bg-secondary/95 backdrop-blur-sm border border-border rounded-lg p-3 text-xs space-y-2 min-w-64 max-w-80 shadow-lg max-h-[80vh] overflow-y-auto">
       <div className="flex justify-between items-center border-b border-border pb-2">
         <span className="font-semibold text-foreground flex items-center gap-1.5">
           <Bug className="h-3.5 w-3.5" />
@@ -77,20 +106,22 @@ export function DevDiagnostics({ map, zoom, canPaint, isSelecting }: DevDiagnost
         </Button>
       </div>
 
+      {/* Map Section */}
       <div className="space-y-1 text-muted-foreground">
+        <div className="text-foreground font-medium mb-1">Map State</div>
         <div className="flex justify-between">
           <span>Zoom:</span>
           <span className="font-mono text-foreground">{zoom.toFixed(2)}</span>
         </div>
         <div className="flex justify-between">
           <span>Center:</span>
-          <span className="font-mono text-foreground">
+          <span className="font-mono text-foreground text-right">
             {center.lng.toFixed(4)}, {center.lat.toFixed(4)}
           </span>
         </div>
         <div className="flex justify-between">
           <span>Can Paint:</span>
-          <span className={canPaint ? 'text-green-600 font-semibold' : 'text-muted-foreground'}>
+          <span className={canPaint ? 'text-green-500 font-semibold' : 'text-muted-foreground'}>
             {canPaint ? 'YES' : 'NO'}
           </span>
         </div>
@@ -102,22 +133,145 @@ export function DevDiagnostics({ map, zoom, canPaint, isSelecting }: DevDiagnost
         </div>
       </div>
 
+      {/* Map Handlers */}
       <div className="border-t border-border pt-2 space-y-1">
-        <div className="text-muted-foreground font-medium mb-1">Map Handlers</div>
+        <div className="text-foreground font-medium mb-1">Map Handlers</div>
         <HandlerStatus name="scrollZoom" enabled={handlers.scrollZoom} />
         <HandlerStatus name="dragPan" enabled={handlers.dragPan} />
         <HandlerStatus name="doubleClickZoom" enabled={handlers.doubleClickZoom} />
         <HandlerStatus name="touchZoomRotate" enabled={handlers.touchZoomRotate} />
       </div>
+
+      {/* Wallet & Balance Section (visible with ?debug=1) */}
+      {isDebugMode && (
+        <div className="border-t border-border pt-2 space-y-1">
+          <div className="text-foreground font-medium mb-1 flex items-center gap-1.5">
+            <Wallet className="h-3.5 w-3.5" />
+            Wallet Debug
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Provider:</span>
+            <span className={providerInfo.detected ? 'text-green-500' : 'text-destructive'}>
+              {providerInfo.source || 'Not detected'}
+            </span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Connected:</span>
+            <span className={isConnected ? 'text-green-500' : 'text-muted-foreground'}>
+              {isConnected ? 'YES' : 'NO'}
+            </span>
+          </div>
+          
+          {walletAddress && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Public Key:</span>
+              <span className="font-mono text-foreground text-right truncate max-w-32" title={walletAddress}>
+                {walletAddress.substring(0, 8)}...{walletAddress.slice(-4)}
+              </span>
+            </div>
+          )}
+          
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Cluster:</span>
+            <span className={energy.cluster === 'mainnet' ? 'text-green-500' : 'text-amber-500'}>
+              {energy.cluster?.toUpperCase() || 'N/A'}
+            </span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">RPC URL:</span>
+            <span className="font-mono text-foreground text-right text-[10px] truncate max-w-40" title={getRpcUrl()}>
+              {getRpcUrl()}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Balance Section (visible with ?debug=1) */}
+      {isDebugMode && (
+        <div className="border-t border-border pt-2 space-y-1">
+          <div className="text-foreground font-medium mb-1 flex items-center gap-1.5">
+            <Zap className="h-3.5 w-3.5" />
+            Balance Debug
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">SOL Balance:</span>
+            <span className="font-mono text-foreground">
+              {energy.nativeBalance.toFixed(6)}
+            </span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">SOL Price:</span>
+            <span className="font-mono text-foreground">
+              ${energy.usdPrice.toFixed(2)}
+            </span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Wallet USD:</span>
+            <span className="font-mono text-foreground">
+              ${energy.walletUsd.toFixed(4)}
+            </span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">PE Total:</span>
+            <span className="font-mono text-primary font-semibold">
+              {energy.peTotal.toLocaleString()}
+            </span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Last Sync:</span>
+            <span className="font-mono text-foreground text-right">
+              {energy.lastSyncAt ? energy.lastSyncAt.toLocaleTimeString() : 'Never'}
+            </span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Is Refreshing:</span>
+            <span className={energy.isRefreshing ? 'text-amber-500' : 'text-muted-foreground'}>
+              {energy.isRefreshing ? 'YES' : 'NO'}
+            </span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Is Stale:</span>
+            <span className={energy.isStale ? 'text-amber-500' : 'text-green-500'}>
+              {energy.isStale ? 'YES' : 'NO'}
+            </span>
+          </div>
+
+          {user && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">User ID:</span>
+              <span className="font-mono text-foreground text-right truncate max-w-32" title={user.id}>
+                {user.id.substring(0, 8)}...
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Debug Mode Hint */}
+      {!isDebugMode && (
+        <div className="border-t border-border pt-2 text-muted-foreground text-[10px]">
+          Add ?debug=1 to URL for wallet/balance info
+        </div>
+      )}
     </div>
   );
 }
 
 function HandlerStatus({ name, enabled }: { name: string; enabled: boolean }) {
   return (
-    <div className="flex justify-between">
-      <span className="text-muted-foreground">{name}:</span>
-      <span className={enabled ? 'text-green-600 font-semibold' : 'text-destructive font-semibold'}>
+    <div className="flex justify-between text-muted-foreground">
+      <span>{name}:</span>
+      <span className={enabled ? 'text-green-500 font-semibold' : 'text-destructive font-semibold'}>
         {enabled ? 'ON' : 'OFF'}
       </span>
     </div>

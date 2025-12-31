@@ -326,6 +326,7 @@ export type Database = {
           rebalance_ends_at: string | null
           rebalance_started_at: string | null
           rebalance_target_multiplier: number | null
+          sol_cluster: string | null
           usd_price: number | null
           wallet_address: string | null
           wallet_usd: number | null
@@ -349,6 +350,7 @@ export type Database = {
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
           rebalance_target_multiplier?: number | null
+          sol_cluster?: string | null
           usd_price?: number | null
           wallet_address?: string | null
           wallet_usd?: number | null
@@ -372,6 +374,7 @@ export type Database = {
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
           rebalance_target_multiplier?: number | null
+          sol_cluster?: string | null
           usd_price?: number | null
           wallet_address?: string | null
           wallet_usd?: number | null
