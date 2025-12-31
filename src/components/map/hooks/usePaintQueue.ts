@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useGameActions } from '@/hooks/useGameActions';
 import { useWallet } from '@/contexts/WalletContext';
-
+import { soundEngine } from '@/lib/soundEngine';
 const BATCH_INTERVAL_MS = 250;
 const MAX_BATCH_SIZE = 200;
 
@@ -87,6 +87,7 @@ export function usePaintQueue(
           if (success) {
             pixels.forEach(({ x, y }) => confirmPixel(x, y));
             refreshUser();
+            soundEngine.play('paint_commit');
           } else {
             setIsSpacePainting(false);
           }

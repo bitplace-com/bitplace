@@ -60,8 +60,8 @@ export function InspectorPanel({
           className="rounded-l-xl rounded-r-none shadow-lg cursor-pointer hover:bg-primary/5 transition-colors"
           onClick={() => setIsCollapsed(false)}
         >
-          <div className="h-16 w-7 flex items-center justify-center">
-            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+          <div className="h-14 w-6 flex items-center justify-center">
+            <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground" />
           </div>
         </GlassPanel>
       </div>
@@ -69,51 +69,52 @@ export function InspectorPanel({
   }
 
   return (
-    <div className="w-80 glass border-l-0 rounded-none flex flex-col h-full overflow-hidden">
+    <div className="w-72 glass border-l-0 rounded-none flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border/30">
-        <h2 className="text-sm font-semibold text-foreground tracking-tight">Inspector</h2>
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border/20">
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 rounded-lg hover:bg-destructive/10 hover:text-destructive"
+            className="h-6 w-6 rounded-md hover:bg-destructive/10 hover:text-destructive"
             onClick={onClearSelection}
+            title="Clear selection"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-3 w-3" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 rounded-lg"
+            className="h-6 w-6 rounded-md"
             onClick={() => setIsCollapsed(true)}
+            title="Collapse"
           >
-            <ChevronRight className="h-3.5 w-3.5" />
+            <ChevronRight className="h-3 w-3" />
           </Button>
         </div>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="w-full justify-start rounded-none border-b border-border/30 bg-transparent px-4 h-10">
+        <TabsList className="w-full justify-start rounded-none border-b border-border/20 bg-transparent px-3 h-8">
           <TabsTrigger
             value="pixel"
             disabled={!isSinglePixel}
-            className="text-xs font-medium rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none px-3"
+            className="text-[11px] font-medium rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none px-2.5 h-6"
           >
             Pixel
           </TabsTrigger>
           <TabsTrigger
             value="area"
             disabled={isSinglePixel}
-            className="text-xs font-medium rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none px-3"
+            className="text-[11px] font-medium rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none px-2.5 h-6"
           >
             Area
           </TabsTrigger>
         </TabsList>
 
         <div className="flex-1 overflow-y-auto">
-          <TabsContent value="pixel" className="m-0 p-4">
+          <TabsContent value="pixel" className="m-0 p-3">
             {isSinglePixel && (
               <PixelTab
                 x={selectedPixels[0].x}
@@ -123,7 +124,7 @@ export function InspectorPanel({
             )}
           </TabsContent>
 
-          <TabsContent value="area" className="m-0 p-4">
+          <TabsContent value="area" className="m-0 p-3">
             {!isSinglePixel && (
               <AreaTab
                 pixelCount={selectedPixels.length}
