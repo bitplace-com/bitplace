@@ -16,6 +16,7 @@ import { WalletButton } from '@/components/wallet/WalletButton';
 import { usePixelStore, screenToPixel, pixelKey } from './hooks/usePixelStore';
 import { useSelection } from './hooks/useSelection';
 import { useMapState, Z_PAINT } from './hooks/useMapState';
+import { usePaintQueue } from './hooks/usePaintQueue';
 import { useSupabasePixels } from '@/hooks/useSupabasePixels';
 import { useGameActions, type GameMode } from '@/hooks/useGameActions';
 import { useWallet } from '@/contexts/WalletContext';
@@ -41,6 +42,7 @@ export function BitplaceMap() {
   const { mode, selectedColor, zoom, artOpacity, setMode, setSelectedColor, setZoom, toggleArtOpacity, canPaint } = useMapState();
   const { dbPixels, updateViewport } = useSupabasePixels(zoom);
   const { validate, commit, validationResult, invalidPixels, isValidating, isCommitting, clearValidation } = useGameActions();
+  const { queue: paintQueue, queueSize, isSpacePainting, isFlushing, startSpacePaint, stopSpacePaint, addToQueue } = usePaintQueue(paintPixel, confirmPixel);
 
   const pixels = useMemo(() => mergePixels(dbPixels), [mergePixels, dbPixels]);
 
@@ -139,6 +141,48 @@ export function BitplaceMap() {
     return () => window.removeEventListener('bitplace:navigate', handleNavigate);
   }, [setUrlPosition]);
 
+  // SPACE key handling for fast paint
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && mode === 'paint' && canPaint && user && !isSpacePainting) {
+        e.preventDefault();
+        startSpacePaint();
+        map.dragPan.disable();
+        map.getCanvas().style.cursor = 'crosshair';
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && isSpacePainting) {
+        stopSpacePaint();
+        map.dragPan.enable();
+        map.getCanvas().style.cursor = '';
+      }
+    };
+
+    // Handle window blur to release SPACE mode
+    const handleBlur = () => {
+      if (isSpacePainting) {
+        stopSpacePaint();
+        map.dragPan.enable();
+        map.getCanvas().style.cursor = '';
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [mapReady, mode, canPaint, user, isSpacePainting, startSpacePaint, stopSpacePaint]);
+
   useEffect(() => {
     const selectedPixels = getSelectedPixels();
     if (selectedPixels.length > 0) setPendingPixels(selectedPixels);
@@ -185,13 +229,19 @@ export function BitplaceMap() {
       if (map.getZoom() >= Z_PAINT) {
         const pixel = screenToPixel(e.point.x, e.point.y, map);
         setHoverPixel(pixel);
-        if (isDraggingRef.current && dragStartRef.current && !isEyedropperActive) {
+        
+        // SPACE painting: add to queue on move
+        if (isSpacePainting && mode === 'paint') {
+          addToQueue(pixel.x, pixel.y, selectedColor);
+        } else if (isDraggingRef.current && dragStartRef.current && !isEyedropperActive) {
           updateSelection(pixel.x, pixel.y);
         }
       } else { setHoverPixel(null); }
     };
 
     const handleMapMouseDown = (e: maplibregl.MapMouseEvent) => {
+      // Don't start drag selection during SPACE painting
+      if (isSpacePainting) return;
       if (map.getZoom() < Z_PAINT) return;
       
       // Handle eyedropper mode or Alt+Click
@@ -246,9 +296,9 @@ export function BitplaceMap() {
       map.off('mousedown', handleMapMouseDown);
       map.off('mouseup', handleMapMouseUp);
       canvas.removeEventListener('mouseleave', handleMapMouseLeave);
-      canvas.style.cursor = '';
+      canvas.style.cursor = isSpacePainting ? 'crosshair' : '';
     };
-  }, [mapReady, mode, updateSelection, startSelection, endSelection, clearSelection, executeSinglePixelAction, getGameMode, isEyedropperActive, handleEyedropperPick]);
+  }, [mapReady, mode, selectedColor, updateSelection, startSelection, endSelection, clearSelection, executeSinglePixelAction, getGameMode, isEyedropperActive, handleEyedropperPick, isSpacePainting, addToQueue]);
 
   const handleZoomIn = useCallback(() => mapRef.current?.zoomIn(), []);
   const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), []);
@@ -346,7 +396,7 @@ export function BitplaceMap() {
           <InspectorPanel selectedPixels={pendingPixels} mode={getGameMode(mode)} selectedColor={selectedColor} currentUserId={user?.id} validationResult={validationResult} invalidPixels={invalidPixels} pePerPixel={pePerPixel} onPePerPixelChange={setPePerPixel} onColorSelect={setSelectedColor} onValidate={handleValidate} onConfirm={handleConfirm} onClearSelection={handleClearSelection} isValidating={isValidating} isCommitting={isCommitting} />
         )}
       </div>
-      <StatusStrip userId={user?.id} />
+      <StatusStrip userId={user?.id} paintQueueSize={queueSize} isSpacePainting={isSpacePainting} isFlushing={isFlushing} />
     </div>
   );
 }
