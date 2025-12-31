@@ -1,4 +1,4 @@
-import { Coins, Lock, Wallet, AlertTriangle, Heart, RefreshCw, Zap } from 'lucide-react';
+import { Coins, Lock, Wallet, AlertTriangle, Heart, RefreshCw, Zap, Paintbrush, Loader2 } from 'lucide-react';
 import { usePeBalance } from '@/hooks/usePeBalance';
 import { useWallet } from '@/contexts/WalletContext';
 import { cn } from '@/lib/utils';
@@ -7,6 +7,9 @@ import { ENERGY_ASSET } from '@/config/energy';
 
 interface StatusStripProps {
   userId?: string;
+  paintQueueSize?: number;
+  isSpacePainting?: boolean;
+  isFlushing?: boolean;
 }
 
 function formatTimeRemaining(endsAt: Date): string {
@@ -19,7 +22,7 @@ function formatTimeRemaining(endsAt: Date): string {
   return `${hours}h`;
 }
 
-export function StatusStrip({ userId }: StatusStripProps) {
+export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = false, isFlushing = false }: StatusStripProps) {
   const { total, locked, free, isLoading, rebalanceActive, healthMultiplier, rebalanceEndsAt, isContributionsUnderCollateralized, nativeSymbol, nativeBalance, usdPrice } = usePeBalance(userId);
   const { energy, refreshEnergy } = useWallet();
 
@@ -38,6 +41,23 @@ export function StatusStrip({ userId }: StatusStripProps) {
   return (
     <div className="h-11 glass flex items-center justify-between px-4 border-t-0 rounded-none">
       <div className="flex items-center gap-5">
+        {/* Paint Queue Status */}
+        {(isSpacePainting || isFlushing) && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg animate-pulse">
+            {isFlushing ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
+                <span className="text-xs font-medium text-primary">Syncing...</span>
+              </>
+            ) : (
+              <>
+                <Paintbrush className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-medium text-primary tabular-nums">Painting {paintQueueSize}...</span>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Energy Source Label */}
         <div className="flex items-center gap-1.5 px-2 py-1 bg-primary/5 border border-primary/10 rounded-md">
           <Zap className="h-3 w-3 text-primary" />
