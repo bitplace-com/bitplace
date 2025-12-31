@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
+import { MapLayout } from "@/components/layout/MapLayout";
 import { WalletProvider } from "@/contexts/WalletContext";
 import MapPage from "./pages/MapPage";
 import RulesPage from "./pages/RulesPage";
@@ -21,8 +22,8 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            {/* Map route - fullscreen, no sidebar */}
-            <Route path="/" element={<MapPage />} />
+            {/* Map route with collapsible sidebar */}
+            <Route path="/" element={<MapLayout><MapPage /></MapLayout>} />
             {/* Other routes use MainLayout with sidebar */}
             <Route element={<MainLayout><RulesPage /></MainLayout>} path="/rules" />
             <Route element={<MainLayout><ProfilePage /></MainLayout>} path="/profile" />

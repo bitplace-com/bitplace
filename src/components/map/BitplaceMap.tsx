@@ -10,8 +10,6 @@ import { InspectorPanel } from './inspector';
 import { StatusStrip } from './StatusStrip';
 import { DevDiagnostics } from './DevDiagnostics';
 import { HudOverlay, HudSlot } from './HudOverlay';
-import { MapMenuDrawer } from './MapMenuDrawer';
-import { UtilityCluster } from './UtilityCluster';
 import { WalletButton } from '@/components/wallet/WalletButton';
 import { usePixelStore, screenToPixel } from './hooks/usePixelStore';
 import { useSelection } from './hooks/useSelection';
@@ -209,14 +207,10 @@ export function BitplaceMap() {
 
           {/* HUD Overlay */}
           <HudOverlay>
-            <HudSlot position="top-left">
-              <MapMenuDrawer />
-            </HudSlot>
             <HudSlot position="top-center">
               <MapToolbar mode={mode} onModeChange={setMode} />
             </HudSlot>
-            <HudSlot position="top-right" className="flex items-center gap-2">
-              <UtilityCluster />
+            <HudSlot position="top-right">
               <WalletButton />
             </HudSlot>
             <HudSlot position="bottom-right">
