@@ -45,6 +45,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "alliance_members_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "public_alliances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alliance_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "public_pixel_owner_info"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alliance_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "public_user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "alliance_members_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
@@ -79,6 +100,20 @@ export type Database = {
           tag?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "alliances_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_pixel_owner_info"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alliances_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_user_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "alliances_created_by_fkey"
             columns: ["created_by"]
@@ -145,6 +180,20 @@ export type Database = {
             foreignKeyName: "paint_events_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "public_pixel_owner_info"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paint_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paint_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -178,6 +227,20 @@ export type Database = {
             columns: ["pixel_id"]
             isOneToOne: false
             referencedRelation: "pixels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pixel_contributions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_pixel_owner_info"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pixel_contributions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_user_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -221,6 +284,20 @@ export type Database = {
           y?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "pixels_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "public_pixel_owner_info"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pixels_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "public_user_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pixels_owner_user_id_fkey"
             columns: ["owner_user_id"]
@@ -304,7 +381,124 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_alliances: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string | null
+          name: string | null
+          tag: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          name?: string | null
+          tag?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          name?: string | null
+          tag?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliances_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_pixel_owner_info"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alliances_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alliances_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_pixel_owner_info: {
+        Row: {
+          alliance_tag: string | null
+          avatar_url: string | null
+          country_code: string | null
+          display_name: string | null
+          id: string | null
+          level: number | null
+          owner_health_multiplier: number | null
+          rebalance_active: boolean | null
+          rebalance_ends_at: string | null
+          rebalance_started_at: string | null
+          rebalance_target_multiplier: number | null
+        }
+        Insert: {
+          alliance_tag?: string | null
+          avatar_url?: string | null
+          country_code?: string | null
+          display_name?: string | null
+          id?: string | null
+          level?: number | null
+          owner_health_multiplier?: number | null
+          rebalance_active?: boolean | null
+          rebalance_ends_at?: string | null
+          rebalance_started_at?: string | null
+          rebalance_target_multiplier?: number | null
+        }
+        Update: {
+          alliance_tag?: string | null
+          avatar_url?: string | null
+          country_code?: string | null
+          display_name?: string | null
+          id?: string | null
+          level?: number | null
+          owner_health_multiplier?: number | null
+          rebalance_active?: boolean | null
+          rebalance_ends_at?: string | null
+          rebalance_started_at?: string | null
+          rebalance_target_multiplier?: number | null
+        }
+        Relationships: []
+      }
+      public_user_profiles: {
+        Row: {
+          alliance_tag: string | null
+          avatar_url: string | null
+          country_code: string | null
+          display_name: string | null
+          id: string | null
+          level: number | null
+          xp: number | null
+        }
+        Insert: {
+          alliance_tag?: string | null
+          avatar_url?: string | null
+          country_code?: string | null
+          display_name?: string | null
+          id?: string | null
+          level?: number | null
+          xp?: number | null
+        }
+        Update: {
+          alliance_tag?: string | null
+          avatar_url?: string | null
+          country_code?: string | null
+          display_name?: string | null
+          id?: string | null
+          level?: number | null
+          xp?: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
