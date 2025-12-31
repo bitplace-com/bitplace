@@ -172,94 +172,97 @@ export function BitplaceMap() {
     setPendingPixels([{ x, y }]);
   }, [user, mode, selectedColor, validate, commit, paintPixel, confirmPixel, getGameMode, refreshUser, startSelection]);
 
-  // Handle mouse move for hover
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+  // Attach MapLibre event listeners for mouse interactions
+  // This allows MapLibre to handle zoom/pan natively while we capture paint/selection events
+  useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !mapReady) return;
 
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    if (map.getZoom() >= Z_PAINT) {
-      const pixel = screenToPixel(x, y, map);
-      setHoverPixel(pixel);
-
-      // Handle drag selection
-      if (isDraggingRef.current && dragStartRef.current) {
-        updateSelection(pixel.x, pixel.y);
-      }
-    } else {
-      setHoverPixel(null);
-    }
-  }, [updateSelection]);
-
-  // Handle mouse down
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    if (map.getZoom() < Z_PAINT) {
-      if (mode !== 'paint') return;
-      toast.info('Zoom in to interact', { duration: 2000 });
-      return;
-    }
-
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const pixel = screenToPixel(x, y, map);
-
-    // Start potential drag
-    isDraggingRef.current = true;
-    dragStartRef.current = { x: pixel.x, y: pixel.y, screenX: e.clientX, screenY: e.clientY };
-
-    // Disable map dragging when we're at paint zoom
-    map.dragPan.disable();
-    
-    // Start selection
-    startSelection(pixel.x, pixel.y);
-  }, [mode, startSelection]);
-
-  // Handle mouse up
-  const handleMouseUp = useCallback(async (e: React.MouseEvent) => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    map.dragPan.enable();
-
-    if (!isDraggingRef.current || !dragStartRef.current) return;
-
-    const dragDistance = Math.sqrt(
-      Math.pow(e.clientX - dragStartRef.current.screenX, 2) +
-      Math.pow(e.clientY - dragStartRef.current.screenY, 2)
-    );
-
-    // If it was a click (not a drag), handle single pixel for PAINT mode
-    if (dragDistance < 5) {
+    const handleMapMouseMove = (e: maplibregl.MapMouseEvent) => {
       if (map.getZoom() >= Z_PAINT) {
-        const x = dragStartRef.current.x;
-        const y = dragStartRef.current.y;
-        const gameMode = getGameMode(mode);
-        
-        if (gameMode === 'PAINT') {
-          await executeSinglePixelAction(x, y);
-          clearSelection();
-        }
-        // For non-PAINT modes, keep the selection for inspector
-      }
-    } else {
-      // It was a drag, finalize selection
-      endSelection();
-    }
+        const pixel = screenToPixel(e.point.x, e.point.y, map);
+        setHoverPixel(pixel);
 
-    isDraggingRef.current = false;
-    dragStartRef.current = null;
-  }, [executeSinglePixelAction, endSelection, clearSelection, getGameMode, mode]);
+        if (isDraggingRef.current && dragStartRef.current) {
+          updateSelection(pixel.x, pixel.y);
+        }
+      } else {
+        setHoverPixel(null);
+      }
+    };
+
+    const handleMapMouseDown = (e: maplibregl.MapMouseEvent) => {
+      if (map.getZoom() < Z_PAINT) return;
+
+      const pixel = screenToPixel(e.point.x, e.point.y, map);
+      isDraggingRef.current = true;
+      dragStartRef.current = {
+        x: pixel.x,
+        y: pixel.y,
+        screenX: e.point.x,
+        screenY: e.point.y,
+      };
+
+      // Disable pan ONLY during drag selection
+      map.dragPan.disable();
+      startSelection(pixel.x, pixel.y);
+    };
+
+    const handleMapMouseUp = async (e: maplibregl.MapMouseEvent) => {
+      // Always re-enable pan
+      map.dragPan.enable();
+
+      if (!isDraggingRef.current || !dragStartRef.current) return;
+
+      const dragDistance = Math.sqrt(
+        Math.pow(e.point.x - dragStartRef.current.screenX, 2) +
+        Math.pow(e.point.y - dragStartRef.current.screenY, 2)
+      );
+
+      // If it was a click (not a drag), handle single pixel for PAINT mode
+      if (dragDistance < 5) {
+        if (map.getZoom() >= Z_PAINT) {
+          const x = dragStartRef.current.x;
+          const y = dragStartRef.current.y;
+          const gameMode = getGameMode(mode);
+
+          if (gameMode === 'PAINT') {
+            await executeSinglePixelAction(x, y);
+            clearSelection();
+          }
+          // For non-PAINT modes, keep the selection for inspector
+        }
+      } else {
+        // It was a drag, finalize selection
+        endSelection();
+      }
+
+      isDraggingRef.current = false;
+      dragStartRef.current = null;
+    };
+
+    const handleMapMouseLeave = () => {
+      setHoverPixel(null);
+      if (isDraggingRef.current) {
+        endSelection();
+        isDraggingRef.current = false;
+        dragStartRef.current = null;
+        map.dragPan.enable();
+      }
+    };
+
+    map.on('mousemove', handleMapMouseMove);
+    map.on('mousedown', handleMapMouseDown);
+    map.on('mouseup', handleMapMouseUp);
+    map.getCanvas().addEventListener('mouseleave', handleMapMouseLeave);
+
+    return () => {
+      map.off('mousemove', handleMapMouseMove);
+      map.off('mousedown', handleMapMouseDown);
+      map.off('mouseup', handleMapMouseUp);
+      map.getCanvas().removeEventListener('mouseleave', handleMapMouseLeave);
+    };
+  }, [mapReady, mode, updateSelection, startSelection, endSelection, clearSelection, executeSinglePixelAction, getGameMode]);
 
   const handleZoomIn = useCallback(() => {
     mapRef.current?.zoomIn();
@@ -350,15 +353,6 @@ export function BitplaceMap() {
     setPendingPixels([]);
   }, [clearSelection, clearValidation]);
 
-  // Handle wheel events - pass through to map
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    // Forward wheel events to the map by temporarily disabling pointer events
-    const target = e.currentTarget as HTMLElement;
-    target.style.pointerEvents = 'none';
-    requestAnimationFrame(() => {
-      target.style.pointerEvents = canPaint ? 'auto' : 'none';
-    });
-  }, [canPaint]);
 
   return (
     <div className="relative w-full h-full flex flex-col">
@@ -384,28 +378,7 @@ export function BitplaceMap() {
             />
           )}
 
-          {/* Interaction layer - only captures events at paint zoom */}
-          {mapReady && (
-            <div
-              className="absolute inset-0"
-              style={{
-                pointerEvents: canPaint ? 'auto' : 'none',
-              }}
-              onMouseMove={handleMouseMove}
-              onMouseDown={handleMouseDown}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={() => {
-                setHoverPixel(null);
-                if (isDraggingRef.current) {
-                  endSelection();
-                  isDraggingRef.current = false;
-                  dragStartRef.current = null;
-                  mapRef.current?.dragPan.enable();
-                }
-              }}
-              onWheel={handleWheel}
-            />
-          )}
+          {/* No interaction layer needed - events are handled by MapLibre directly */}
 
           {/* Dev Diagnostics */}
           {mapReady && (
