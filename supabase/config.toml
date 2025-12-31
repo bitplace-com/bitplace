@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.energy-refresh]
 verify_jwt = false
+
+[functions.geocode]
+verify_jwt = false

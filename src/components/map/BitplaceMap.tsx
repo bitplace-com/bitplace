@@ -17,6 +17,7 @@ import { useMapState, Z_PAINT } from './hooks/useMapState';
 import { useSupabasePixels } from '@/hooks/useSupabasePixels';
 import { useGameActions, type GameMode } from '@/hooks/useGameActions';
 import { useWallet } from '@/contexts/WalletContext';
+import { useMapUrl } from '@/hooks/useMapUrl';
 
 const MAX_ZOOM = 22;
 
@@ -30,6 +31,7 @@ export function BitplaceMap() {
   const [pePerPixel, setPePerPixel] = useState(1);
   
   const { user, refreshUser } = useWallet();
+  const { getUrlPosition, setUrlPosition } = useMapUrl();
   const { localPixels, paintPixel, mergePixels, confirmPixel } = usePixelStore();
   const { selection, startSelection, updateSelection, endSelection, clearSelection, getNormalizedBounds, getSelectedPixels } = useSelection();
   const { mode, selectedColor, zoom, artOpacity, setMode, setSelectedColor, setZoom, toggleArtOpacity, canPaint } = useMapState();
@@ -55,11 +57,15 @@ export function BitplaceMap() {
   // Initialize map
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
+    
+    // Check for URL params for initial position
+    const urlPos = getUrlPosition();
+    
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: 'https://tiles.openfreemap.org/styles/liberty',
-      center: [0, 20],
-      zoom: 2,
+      center: urlPos ? [urlPos.lng, urlPos.lat] : [0, 20],
+      zoom: urlPos ? urlPos.zoom : 2,
       minZoom: 2,
       maxZoom: 22,
     });
@@ -89,6 +95,29 @@ export function BitplaceMap() {
 
     return () => { map.remove(); mapRef.current = null; };
   }, []);
+
+  // Listen for navigation events from SearchModal
+  useEffect(() => {
+    const handleNavigate = (e: Event) => {
+      const detail = (e as CustomEvent<{ lat: number; lng: number; zoom?: number }>).detail;
+      if (!mapRef.current || !detail) return;
+      
+      const { lat, lng, zoom: targetZoom } = detail;
+      const finalZoom = targetZoom || Math.max(8, mapRef.current.getZoom());
+      
+      mapRef.current.flyTo({ 
+        center: [lng, lat], 
+        zoom: finalZoom,
+        duration: 2000,
+      });
+      
+      // Update URL
+      setUrlPosition(lat, lng, finalZoom);
+    };
+
+    window.addEventListener('bitplace:navigate', handleNavigate);
+    return () => window.removeEventListener('bitplace:navigate', handleNavigate);
+  }, [setUrlPosition]);
 
   useEffect(() => {
     const selectedPixels = getSelectedPixels();
