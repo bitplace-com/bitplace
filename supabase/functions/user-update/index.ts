@@ -79,11 +79,26 @@ serve(async (req) => {
     const updates: Record<string, string | null> = {};
     
     if (display_name !== undefined) {
-      if (display_name && (typeof display_name !== 'string' || display_name.length > 50)) {
-        return new Response(
-          JSON.stringify({ error: 'Display name must be a string under 50 characters' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      if (display_name) {
+        if (typeof display_name !== 'string') {
+          return new Response(
+            JSON.stringify({ error: 'Display name must be a string' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        if (display_name.length < 3 || display_name.length > 20) {
+          return new Response(
+            JSON.stringify({ error: 'Display name must be 3-20 characters' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        // Only allow alphanumeric and underscores
+        if (!/^[a-zA-Z0-9_]+$/.test(display_name)) {
+          return new Response(
+            JSON.stringify({ error: 'Display name can only contain letters, numbers, and underscores' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
       updates.display_name = display_name || null;
     }
