@@ -5,6 +5,8 @@ export interface UrlPosition {
   lat: number;
   lng: number;
   zoom: number;
+  pixelX?: number;
+  pixelY?: number;
 }
 
 export function useMapUrl() {
@@ -18,6 +20,8 @@ export function useMapUrl() {
     const lat = searchParams.get('lat');
     const lng = searchParams.get('lng');
     const z = searchParams.get('z');
+    const px = searchParams.get('px');
+    const py = searchParams.get('py');
 
     if (lat && lng) {
       const parsedLat = parseFloat(lat);
@@ -26,11 +30,23 @@ export function useMapUrl() {
       // Validate coordinates
       if (!isNaN(parsedLat) && !isNaN(parsedLng) && 
           Math.abs(parsedLat) <= 90 && Math.abs(parsedLng) <= 180) {
-        return {
+        const result: UrlPosition = {
           lat: parsedLat,
           lng: parsedLng,
           zoom: z ? parseFloat(z) : 8,
         };
+        
+        // Add pixel coords if present
+        if (px && py) {
+          const parsedPx = parseInt(px, 10);
+          const parsedPy = parseInt(py, 10);
+          if (!isNaN(parsedPx) && !isNaN(parsedPy) && parsedPx >= 0 && parsedPy >= 0) {
+            result.pixelX = parsedPx;
+            result.pixelY = parsedPy;
+          }
+        }
+        
+        return result;
       }
     }
     return null;
@@ -40,12 +56,17 @@ export function useMapUrl() {
    * Update URL with current map position
    * Uses replace to avoid polluting browser history
    */
-  const setUrlPosition = useCallback((lat: number, lng: number, zoom: number) => {
-    setSearchParams({
+  const setUrlPosition = useCallback((lat: number, lng: number, zoom: number, pixelX?: number, pixelY?: number) => {
+    const params: Record<string, string> = {
       lat: lat.toFixed(5),
       lng: lng.toFixed(5),
       z: zoom.toFixed(1),
-    }, { replace: true });
+    };
+    if (pixelX !== undefined && pixelY !== undefined) {
+      params.px = String(pixelX);
+      params.py = String(pixelY);
+    }
+    setSearchParams(params, { replace: true });
   }, [setSearchParams]);
 
   /**
