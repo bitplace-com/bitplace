@@ -1,8 +1,6 @@
 import { Paintbrush, Shield, Swords, Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PeInput } from '../PeInput';
-import { COLOR_PALETTE } from '../hooks/useMapState';
-import { cn } from '@/lib/utils';
 import type { GameMode, ValidateResult } from '@/hooks/useGameActions';
 
 interface ActionBoxProps {
@@ -54,25 +52,18 @@ export function ActionBox({
         <span className="text-sm font-semibold">{config.label} Mode</span>
       </div>
 
-      {/* Color Picker for PAINT mode */}
+      {/* Selected Color Display for PAINT mode */}
       {mode === 'PAINT' && (
         <div className="space-y-2">
           <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Color</div>
-          <div className="grid grid-cols-9 gap-1">
-            {COLOR_PALETTE.map((color) => (
-              <button
-                key={color}
-                onClick={() => onColorSelect(color)}
-                className={cn(
-                  'aspect-square rounded-md border-2 transition-all duration-200 hover:scale-110 focus-ring',
-                  selectedColor.toUpperCase() === color.toUpperCase()
-                    ? 'border-primary ring-2 ring-primary/30 scale-110'
-                    : 'border-transparent hover:border-foreground/20'
-                )}
-                style={{ backgroundColor: color }}
-              />
-            ))}
+          <div className="flex items-center gap-3">
+            <div
+              className="h-10 w-10 rounded-lg border-2 border-border shadow-inner"
+              style={{ backgroundColor: selectedColor }}
+            />
+            <span className="text-sm font-mono text-foreground">{selectedColor.toUpperCase()}</span>
           </div>
+          <p className="text-xs text-muted-foreground">Change color in palette below</p>
         </div>
       )}
 
