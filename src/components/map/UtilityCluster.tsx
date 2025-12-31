@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Book, Search, ShoppingBag, Users } from "lucide-react";
+import { Book, Search, ShoppingBag, Users, Trophy } from "lucide-react";
 import { GlassIconButton } from "@/components/ui/glass-icon-button";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -7,12 +7,14 @@ import { RulesModal } from "@/components/modals/RulesModal";
 import { SearchModal } from "@/components/modals/SearchModal";
 import { ShopModal } from "@/components/modals/ShopModal";
 import { AllianceModal } from "@/components/modals/AllianceModal";
+import { LeaderboardModal } from "@/components/modals/LeaderboardModal";
 
 export function UtilityCluster() {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
   const [allianceOpen, setAllianceOpen] = useState(false);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
 
   return (
     <>
@@ -50,6 +52,20 @@ export function UtilityCluster() {
             <GlassIconButton
               variant="ghost"
               size="sm"
+              onClick={() => setLeaderboardOpen(true)}
+              aria-label="Leaderboard"
+            >
+              <Trophy className="h-4 w-4" />
+            </GlassIconButton>
+          </TooltipTrigger>
+          <TooltipContent>Leaderboard</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <GlassIconButton
+              variant="ghost"
+              size="sm"
               onClick={() => setShopOpen(true)}
               aria-label="Shop"
             >
@@ -76,6 +92,7 @@ export function UtilityCluster() {
 
       <RulesModal open={rulesOpen} onOpenChange={setRulesOpen} />
       <SearchModal open={searchOpen} onOpenChange={setSearchOpen} />
+      <LeaderboardModal open={leaderboardOpen} onOpenChange={setLeaderboardOpen} />
       <ShopModal open={shopOpen} onOpenChange={setShopOpen} />
       <AllianceModal open={allianceOpen} onOpenChange={setAllianceOpen} />
     </>
