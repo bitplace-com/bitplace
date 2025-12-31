@@ -13,6 +13,14 @@ export const Z_PAINT = 16;
 export const MAX_ZOOM = 22;
 export const MIN_ZOOM = 2;
 
+const ART_OPACITY_KEY = 'bitplace-art-opacity';
+
+const getInitialArtOpacity = (): number => {
+  if (typeof window === 'undefined') return 1;
+  const stored = localStorage.getItem(ART_OPACITY_KEY);
+  return stored ? parseFloat(stored) : 1;
+};
+
 export const COLOR_PALETTE = [
   '#000000', '#FFFFFF', '#FF0000', '#00FF00',
   '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF',
@@ -27,9 +35,9 @@ export const COLOR_PALETTE = [
 export function useMapState() {
   const [state, setState] = useState<MapState>({
     mode: 'paint',
-    selectedColor: COLOR_PALETTE[2], // Start with red
+    selectedColor: COLOR_PALETTE[2],
     zoom: 2,
-    artOpacity: 1,
+    artOpacity: getInitialArtOpacity(),
   });
 
   const setMode = useCallback((mode: MapMode) => {
@@ -45,10 +53,11 @@ export function useMapState() {
   }, []);
 
   const toggleArtOpacity = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      artOpacity: prev.artOpacity === 1 ? 0.3 : 1,
-    }));
+    setState((prev) => {
+      const newOpacity = prev.artOpacity === 1 ? 0.35 : 1;
+      localStorage.setItem(ART_OPACITY_KEY, String(newOpacity));
+      return { ...prev, artOpacity: newOpacity };
+    });
   }, []);
 
   const canPaint = state.zoom >= Z_PAINT;
