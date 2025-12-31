@@ -1,12 +1,14 @@
 import { useState, useCallback } from 'react';
 
 export type MapMode = 'paint' | 'defend' | 'attack' | 'reinforce';
+export type InteractionMode = 'drag' | 'draw';
 
 export interface MapState {
   mode: MapMode;
   selectedColor: string;
   zoom: number;
   artOpacity: number;
+  interactionMode: InteractionMode;
 }
 
 export const Z_PAINT = 16;
@@ -41,6 +43,7 @@ export function useMapState() {
     selectedColor: COLOR_PALETTE[2],
     zoom: 2,
     artOpacity: getInitialArtOpacity(),
+    interactionMode: 'drag',
   });
 
   const setMode = useCallback((mode: MapMode) => {
@@ -63,6 +66,10 @@ export function useMapState() {
     });
   }, []);
 
+  const setInteractionMode = useCallback((interactionMode: InteractionMode) => {
+    setState((prev) => ({ ...prev, interactionMode }));
+  }, []);
+
   const canPaint = state.zoom >= Z_PAINT;
 
   return {
@@ -71,6 +78,7 @@ export function useMapState() {
     setSelectedColor,
     setZoom,
     toggleArtOpacity,
+    setInteractionMode,
     canPaint,
   };
 }
