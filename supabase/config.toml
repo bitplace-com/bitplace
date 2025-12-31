@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.geocode]
 verify_jwt = false
+
+[functions.alliance-manage]
+verify_jwt = false
