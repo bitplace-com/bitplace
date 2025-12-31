@@ -166,6 +166,7 @@ export type Database = {
           energy_asset: string | null
           id: string
           last_energy_sync_at: string | null
+          level: number
           native_balance: number | null
           native_symbol: string | null
           owner_health_multiplier: number
@@ -177,6 +178,7 @@ export type Database = {
           usd_price: number | null
           wallet_address: string | null
           wallet_usd: number | null
+          xp: number
         }
         Insert: {
           alliance_tag?: string | null
@@ -187,6 +189,7 @@ export type Database = {
           energy_asset?: string | null
           id?: string
           last_energy_sync_at?: string | null
+          level?: number
           native_balance?: number | null
           native_symbol?: string | null
           owner_health_multiplier?: number
@@ -198,6 +201,7 @@ export type Database = {
           usd_price?: number | null
           wallet_address?: string | null
           wallet_usd?: number | null
+          xp?: number
         }
         Update: {
           alliance_tag?: string | null
@@ -208,6 +212,7 @@ export type Database = {
           energy_asset?: string | null
           id?: string
           last_energy_sync_at?: string | null
+          level?: number
           native_balance?: number | null
           native_symbol?: string | null
           owner_health_multiplier?: number
@@ -219,6 +224,7 @@ export type Database = {
           usd_price?: number | null
           wallet_address?: string | null
           wallet_usd?: number | null
+          xp?: number
         }
         Relationships: []
       }

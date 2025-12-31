@@ -486,6 +486,50 @@ Deno.serve(async (req) => {
       maxY: Math.max(...ys)
     };
 
+    // Calculate XP earned
+    let xpEarned = 0;
+    
+    if (mode === "PAINT") {
+      // Count paints vs takeovers
+      for (const pixel of pixelStates) {
+        const isEmpty = !pixel.id;
+        const isOwnedByUser = pixel.owner_user_id === userId;
+        
+        if (isEmpty || isOwnedByUser) {
+          xpEarned += 1; // +1 XP for new paint or repaint
+        } else {
+          xpEarned += 2; // +2 XP for takeover
+        }
+      }
+    } else if (mode === "DEFEND" || mode === "ATTACK") {
+      xpEarned = Math.floor(affectedPixels / 10); // +1 XP per 10 pixels
+    }
+    // REINFORCE gives no XP
+    
+    // Update user XP and level if earned
+    if (xpEarned > 0) {
+      const { data: userData } = await supabase
+        .from("users")
+        .select("xp")
+        .eq("id", userId)
+        .single();
+      
+      const currentXp = userData?.xp || 0;
+      const newXp = currentXp + xpEarned;
+      const newLevel = 1 + Math.floor(Math.sqrt(newXp / 50));
+      
+      const { error: xpError } = await supabase
+        .from("users")
+        .update({ xp: newXp, level: newLevel })
+        .eq("id", userId);
+      
+      if (xpError) {
+        console.error("[game-commit] XP update error:", xpError);
+      } else {
+        console.log(`[game-commit] User ${userId} earned ${xpEarned} XP, now at ${newXp} XP (level ${newLevel})`);
+      }
+    }
+
     // Log paint event
     const { data: eventData, error: eventError } = await supabase
       .from("paint_events")
@@ -494,7 +538,7 @@ Deno.serve(async (req) => {
         action_type: mode,
         pixel_count: affectedPixels,
         bbox,
-        details: { color, pePerPixel },
+        details: { color, pePerPixel, xpEarned },
         created_at: now
       })
       .select("id")
@@ -504,11 +548,12 @@ Deno.serve(async (req) => {
       console.error("[game-commit] Event log error:", eventError);
     }
 
-    console.log("[game-commit] Success:", { affectedPixels, eventId: eventData?.id });
+    console.log("[game-commit] Success:", { affectedPixels, xpEarned, eventId: eventData?.id });
 
     return new Response(JSON.stringify({
       ok: true,
       affectedPixels,
+      xpEarned,
       eventId: eventData?.id,
       contributionsPurged,
       purgedContributionCount,
