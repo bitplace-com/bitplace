@@ -23,10 +23,16 @@ export function useSupabasePixels(zoom: number) {
   const [isLoading, setIsLoading] = useState(false);
   const lastBoundsRef = useRef<ViewportBounds | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Use ref for zoom to avoid recreating fetchViewportPixels when zoom changes
+  const zoomRef = useRef(zoom);
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
 
   // Fetch pixels within viewport bounds
   const fetchViewportPixels = useCallback(async (bounds: ViewportBounds) => {
-    if (zoom < 12) {
+    if (zoomRef.current < 12) {
       setDbPixels(new Map());
       return;
     }
@@ -78,7 +84,7 @@ export function useSupabasePixels(zoom: number) {
     } finally {
       setIsLoading(false);
     }
-  }, [zoom]);
+  }, []); // No zoom dependency - use zoomRef instead
 
   // Debounced viewport update
   const updateViewport = useCallback((bounds: ViewportBounds) => {
