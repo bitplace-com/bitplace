@@ -49,6 +49,16 @@ export function BitplaceMap() {
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef<{ x: number; y: number; screenX: number; screenY: number } | null>(null);
 
+  // Refs to avoid re-initializing the map when these change
+  const setZoomRef = useRef(setZoom);
+  const updateViewportRef = useRef(updateViewport);
+
+  // Keep refs updated
+  useEffect(() => {
+    setZoomRef.current = setZoom;
+    updateViewportRef.current = updateViewport;
+  }, [setZoom, updateViewport]);
+
   // Convert MapMode to GameMode
   const getGameMode = useCallback((mapMode: string): GameMode => {
     return mapMode.toUpperCase() as GameMode;
@@ -70,7 +80,7 @@ export function BitplaceMap() {
     return pixels;
   }, []);
 
-  // Initialize map
+  // Initialize map - ONLY ONCE (empty dependency array)
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
@@ -89,7 +99,7 @@ export function BitplaceMap() {
     });
 
     map.on('zoom', () => {
-      setZoom(map.getZoom());
+      setZoomRef.current(map.getZoom());
     });
 
     // Update viewport bounds for pixel fetching
@@ -111,7 +121,7 @@ export function BitplaceMap() {
         ((1 - Math.log(Math.tan((minLat * Math.PI) / 180) + 1 / Math.cos((minLat * Math.PI) / 180)) / Math.PI) / 2) * worldSize
       );
 
-      updateViewport({ minX, maxX, minY, maxY });
+      updateViewportRef.current({ minX, maxX, minY, maxY });
     };
 
     map.on('moveend', updateBounds);
@@ -121,7 +131,7 @@ export function BitplaceMap() {
       map.remove();
       mapRef.current = null;
     };
-  }, [setZoom, updateViewport]);
+  }, []); // Empty array - initialize ONLY ONCE
 
   // Update pending pixels when selection changes
   useEffect(() => {
