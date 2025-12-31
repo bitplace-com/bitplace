@@ -1,4 +1,4 @@
-import { User, LogOut, BarChart3, Star, Copy, Check, BookOpen } from "lucide-react";
+import { User, LogOut, BarChart3, Star, Copy, Check, BookOpen, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import {
@@ -107,6 +107,14 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {country.flag} {country.name}
                 </p>
+              )}
+              {user?.alliance_tag && (
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <Users className="h-3 w-3 text-primary" />
+                  <span className="text-xs font-medium font-mono text-primary">
+                    [{user.alliance_tag}]
+                  </span>
+                </div>
               )}
             </div>
           </div>

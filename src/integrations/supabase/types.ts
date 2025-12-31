@@ -14,6 +14,80 @@ export type Database = {
   }
   public: {
     Tables: {
+      alliance_members: {
+        Row: {
+          alliance_id: string
+          id: string
+          joined_at: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          alliance_id: string
+          id?: string
+          joined_at?: string | null
+          role?: string
+          user_id: string
+        }
+        Update: {
+          alliance_id?: string
+          id?: string
+          joined_at?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliance_members_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alliance_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alliances: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          id: string
+          invite_code: string
+          name: string
+          tag: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          id?: string
+          invite_code: string
+          name: string
+          tag: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          invite_code?: string
+          name?: string
+          tag?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliances_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auth_nonces: {
         Row: {
           created_at: string | null
