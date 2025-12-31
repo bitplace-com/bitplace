@@ -10,6 +10,7 @@ import { InspectorPanel } from './inspector';
 import { StatusStrip } from './StatusStrip';
 import { DevDiagnostics } from './DevDiagnostics';
 import { HudOverlay, HudSlot } from './HudOverlay';
+import { PixelInspectorDrawer } from './PixelInspectorDrawer';
 import { WalletButton } from '@/components/wallet/WalletButton';
 import { usePixelStore, screenToPixel } from './hooks/usePixelStore';
 import { useSelection } from './hooks/useSelection';
@@ -26,6 +27,7 @@ export function BitplaceMap() {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [hoverPixel, setHoverPixel] = useState<{ x: number; y: number } | null>(null);
+  const [inspectedPixel, setInspectedPixel] = useState<{ x: number; y: number } | null>(null);
   
   const [pendingPixels, setPendingPixels] = useState<{ x: number; y: number }[]>([]);
   const [pePerPixel, setPePerPixel] = useState(1);
@@ -54,12 +56,20 @@ export function BitplaceMap() {
     return mapMode.toUpperCase() as GameMode;
   }, []);
 
+  // Track URL pixel to open on load
+  const urlPixelRef = useRef<{ x: number; y: number } | null>(null);
+
   // Initialize map
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     
     // Check for URL params for initial position
     const urlPos = getUrlPosition();
+    
+    // Store pixel coords from URL to open after map ready
+    if (urlPos?.pixelX !== undefined && urlPos?.pixelY !== undefined) {
+      urlPixelRef.current = { x: urlPos.pixelX, y: urlPos.pixelY };
+    }
     
     const map = new maplibregl.Map({
       container: containerRef.current,
@@ -73,6 +83,14 @@ export function BitplaceMap() {
     map.on('load', () => {
       mapRef.current = map;
       setMapReady(true);
+      
+      // Open inspector for URL pixel after a brief delay for map to settle
+      if (urlPixelRef.current) {
+        setTimeout(() => {
+          setInspectedPixel(urlPixelRef.current);
+          urlPixelRef.current = null;
+        }, 500);
+      }
     });
 
     map.on('zoom', () => setZoomRef.current(map.getZoom()));
@@ -168,7 +186,16 @@ export function BitplaceMap() {
       if (dragDistance < 5) {
         if (map.getZoom() >= Z_PAINT) {
           const { x, y } = dragStartRef.current;
-          if (getGameMode(mode) === 'PAINT') { await executeSinglePixelAction(x, y); clearSelection(); }
+          const gameMode = getGameMode(mode);
+          if (gameMode === 'PAINT') {
+            // Direct paint on single click
+            await executeSinglePixelAction(x, y);
+            clearSelection();
+          } else {
+            // Open inspector for DEFEND/ATTACK modes
+            setInspectedPixel({ x, y });
+            clearSelection();
+          }
         }
       } else { endSelection(); }
       isDraggingRef.current = false;
@@ -222,6 +249,21 @@ export function BitplaceMap() {
 
   const handleClearSelection = useCallback(() => { clearSelection(); clearValidation(); setPendingPixels([]); }, [clearSelection, clearValidation]);
 
+  // Inspector card handlers
+  const handleInspectorPaint = useCallback(async (x: number, y: number) => {
+    await executeSinglePixelAction(x, y);
+  }, [executeSinglePixelAction]);
+
+  const handleInspectorDefendAttack = useCallback((x: number, y: number, targetMode: 'DEFEND' | 'ATTACK') => {
+    setMode(targetMode.toLowerCase() as 'paint' | 'defend' | 'attack');
+    startSelection(x, y);
+    setPendingPixels([{ x, y }]);
+  }, [setMode, startSelection]);
+
+  const handleCloseInspector = useCallback(() => {
+    setInspectedPixel(null);
+  }, []);
+
   return (
     <div className="relative w-full h-full flex flex-col">
       <div className="flex-1 flex relative overflow-hidden">
@@ -246,6 +288,17 @@ export function BitplaceMap() {
               <ZoomControls zoom={zoom} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} artOpacity={artOpacity} onToggleArtOpacity={toggleArtOpacity} />
             </HudSlot>
           </HudOverlay>
+
+          {/* Pixel Inspector Card/Drawer */}
+          <PixelInspectorDrawer
+            pixel={inspectedPixel}
+            onClose={handleCloseInspector}
+            onPaint={handleInspectorPaint}
+            onDefendAttack={handleInspectorDefendAttack}
+            selectedColor={selectedColor}
+            mode={getGameMode(mode)}
+            currentUserId={user?.id}
+          />
         </div>
 
         {canPaint && (
