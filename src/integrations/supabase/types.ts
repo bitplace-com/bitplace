@@ -163,14 +163,20 @@ export type Database = {
           country_code: string | null
           created_at: string | null
           display_name: string | null
+          energy_asset: string | null
           id: string
+          last_energy_sync_at: string | null
+          native_balance: number | null
+          native_symbol: string | null
           owner_health_multiplier: number
           pe_total_pe: number
           rebalance_active: boolean
           rebalance_ends_at: string | null
           rebalance_started_at: string | null
           rebalance_target_multiplier: number | null
+          usd_price: number | null
           wallet_address: string | null
+          wallet_usd: number | null
         }
         Insert: {
           alliance_tag?: string | null
@@ -178,14 +184,20 @@ export type Database = {
           country_code?: string | null
           created_at?: string | null
           display_name?: string | null
+          energy_asset?: string | null
           id?: string
+          last_energy_sync_at?: string | null
+          native_balance?: number | null
+          native_symbol?: string | null
           owner_health_multiplier?: number
           pe_total_pe?: number
           rebalance_active?: boolean
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
           rebalance_target_multiplier?: number | null
+          usd_price?: number | null
           wallet_address?: string | null
+          wallet_usd?: number | null
         }
         Update: {
           alliance_tag?: string | null
@@ -193,14 +205,20 @@ export type Database = {
           country_code?: string | null
           created_at?: string | null
           display_name?: string | null
+          energy_asset?: string | null
           id?: string
+          last_energy_sync_at?: string | null
+          native_balance?: number | null
+          native_symbol?: string | null
           owner_health_multiplier?: number
           pe_total_pe?: number
           rebalance_active?: boolean
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
           rebalance_target_multiplier?: number | null
+          usd_price?: number | null
           wallet_address?: string | null
+          wallet_usd?: number | null
         }
         Relationships: []
       }
