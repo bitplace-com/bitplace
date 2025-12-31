@@ -20,15 +20,15 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <MainLayout>
-            <Routes>
-              <Route path="/" element={<MapPage />} />
-              <Route path="/rules" element={<RulesPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/leaderboard" element={<LeaderboardPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </MainLayout>
+          <Routes>
+            {/* Map route - fullscreen, no sidebar */}
+            <Route path="/" element={<MapPage />} />
+            {/* Other routes use MainLayout with sidebar */}
+            <Route element={<MainLayout><RulesPage /></MainLayout>} path="/rules" />
+            <Route element={<MainLayout><ProfilePage /></MainLayout>} path="/profile" />
+            <Route element={<MainLayout><LeaderboardPage /></MainLayout>} path="/leaderboard" />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
         </BrowserRouter>
       </WalletProvider>
     </TooltipProvider>

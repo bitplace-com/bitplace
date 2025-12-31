@@ -18,6 +18,7 @@ interface CanvasOverlayProps {
   hoverPixel: { x: number; y: number } | null;
   canPaint: boolean;
   invalidPixels?: InvalidPixel[];
+  artOpacity?: number;
 }
 
 export function CanvasOverlay({
@@ -27,6 +28,7 @@ export function CanvasOverlay({
   hoverPixel,
   canPaint,
   invalidPixels = [],
+  artOpacity = 1,
 }: CanvasOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -48,8 +50,9 @@ export function CanvasOverlay({
 
     const zoom = map.getZoom();
     const pixelSize = getPixelScreenSize(map);
-
-    // Create invalid pixel set for quick lookup
+    
+    // Apply art opacity
+    ctx.globalAlpha = artOpacity;
     const invalidSet = new Set(invalidPixels.map(p => `${p.x}:${p.y}`));
 
     // Only render pixels that are visible (optimization)
@@ -83,6 +86,9 @@ export function CanvasOverlay({
           ctx.fillRect(screenPos.x, screenPos.y, pixelSize, pixelSize);
         });
       });
+
+      // Reset opacity for overlays
+      ctx.globalAlpha = 1;
 
       // Draw invalid pixel highlights
       if (invalidPixels.length > 0 && pixelSize > 1) {
@@ -175,7 +181,7 @@ export function CanvasOverlay({
         ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY + badgeHeight / 2);
       }
     }
-  }, [map, pixels, selection, hoverPixel, canPaint, invalidPixels]);
+  }, [map, pixels, selection, hoverPixel, canPaint, invalidPixels, artOpacity]);
 
   useEffect(() => {
     if (!map) return;
