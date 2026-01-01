@@ -18,9 +18,29 @@ serve(async (req) => {
   try {
     const { query } = await req.json();
     
-    if (!query || typeof query !== 'string' || query.trim().length === 0) {
+    // Validate query exists and is a string
+    if (!query || typeof query !== 'string') {
       return new Response(
-        JSON.stringify({ error: 'Query is required' }),
+        JSON.stringify({ error: 'Query must be a string' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const trimmed = query.trim();
+
+    // Length validation (1-200 characters)
+    if (trimmed.length === 0 || trimmed.length > 200) {
+      return new Response(
+        JSON.stringify({ error: 'Query must be 1-200 characters' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Character whitelist - allow international characters with unicode letter class
+    // Allows: letters (any language), numbers, spaces, common punctuation
+    if (!/^[\p{L}\p{N}\s,.\-'"()]+$/u.test(trimmed)) {
+      return new Response(
+        JSON.stringify({ error: 'Query contains invalid characters' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -39,11 +59,11 @@ serve(async (req) => {
     }
     rateLimitMap.set(clientIp, now);
 
-    console.log(`[geocode] Searching for: ${query}`);
+    console.log(`[geocode] Searching for: ${trimmed}`);
 
     // Call Nominatim API
     const url = `https://nominatim.openstreetmap.org/search?` +
-      `q=${encodeURIComponent(query.trim())}&format=json&limit=5&addressdetails=1`;
+      `q=${encodeURIComponent(trimmed)}&format=json&limit=5&addressdetails=1`;
     
     const response = await fetch(url, {
       headers: {

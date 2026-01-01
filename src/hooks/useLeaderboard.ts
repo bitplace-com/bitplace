@@ -8,7 +8,6 @@ export interface PlayerEntry {
   rank: number;
   id: string;
   displayName: string | null;
-  walletAddress: string | null;
   countryCode: string | null;
   allianceTag: string | null;
   level: number;
