@@ -26,7 +26,8 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
     if (!valid) return null;
 
     const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
-    if (payload.exp && Date.now() / 1000 > payload.exp) return null;
+    // Token expiry is in milliseconds (from auth-verify)
+    if (payload.exp && Date.now() > payload.exp) return null;
 
     return payload;
   } catch {
