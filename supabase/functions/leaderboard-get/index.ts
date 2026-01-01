@@ -5,6 +5,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Rate limiting: 5 requests per 10 seconds per IP
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 10000;
+const RATE_LIMIT_MAX_REQUESTS = 5;
+
 type Scope = "players" | "countries" | "alliances";
 type Period = "today" | "week" | "month" | "all";
 
@@ -19,6 +24,35 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Rate limiting by IP
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
+                     req.headers.get("cf-connecting-ip") || 
+                     "unknown";
+    
+    const now = Date.now();
+    const rateLimit = rateLimitMap.get(clientIp);
+    
+    if (rateLimit && now < rateLimit.resetAt) {
+      if (rateLimit.count >= RATE_LIMIT_MAX_REQUESTS) {
+        const retryAfter = Math.ceil((rateLimit.resetAt - now) / 1000);
+        console.log(`[leaderboard-get] Rate limited IP: ${clientIp}`);
+        return new Response(
+          JSON.stringify({ error: "Rate limit exceeded" }),
+          { 
+            status: 429, 
+            headers: { 
+              ...corsHeaders, 
+              "Content-Type": "application/json",
+              "Retry-After": retryAfter.toString()
+            } 
+          }
+        );
+      }
+      rateLimit.count++;
+    } else {
+      rateLimitMap.set(clientIp, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
