@@ -11,8 +11,9 @@ export function useRebalancingOwners() {
 
   const fetchRebalancingOwners = useCallback(async () => {
     try {
+      // Use public_pixel_owner_info view instead of users table (RLS blocks direct users access)
       const { data, error } = await supabase
-        .from('users')
+        .from('public_pixel_owner_info' as any)
         .select('id')
         .eq('rebalance_active', true);
 
@@ -21,7 +22,7 @@ export function useRebalancingOwners() {
         return;
       }
 
-      setRebalancingOwnerIds(new Set((data || []).map(u => u.id)));
+      setRebalancingOwnerIds(new Set((data || []).map((u: any) => u.id)));
     } catch (error) {
       console.error('Error fetching rebalancing owners:', error);
     } finally {

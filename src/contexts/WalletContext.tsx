@@ -234,20 +234,41 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [balance]);
 
   const refreshUser = useCallback(async () => {
-    const storedWallet = localStorage.getItem(WALLET_ADDRESS_KEY);
-    if (!storedWallet) return;
+    const token = getSessionToken();
+    if (!token) return;
 
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('wallet_address', storedWallet)
-      .maybeSingle();
+    // Use energy-refresh edge function to get fresh user data (authenticated)
+    try {
+      const { data, error } = await supabase.functions.invoke('energy-refresh', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    if (data && !error) {
-      setUser(data as User);
-      updateEnergyFromUser(data as User);
+      if (!error && data?.ok) {
+        // Energy refresh returns user data, update energy state
+        const lastSyncAt = data.lastSyncAt ? new Date(data.lastSyncAt) : null;
+        
+        setEnergy({
+          energyAsset: (data.energyAsset as 'SOL' | 'BTP') || ENERGY_ASSET,
+          nativeSymbol: data.nativeSymbol || ENERGY_CONFIG[ENERGY_ASSET].symbol,
+          nativeBalance: data.nativeBalance || 0,
+          usdPrice: data.usdPrice || 0,
+          walletUsd: data.walletUsd || 0,
+          peTotal: data.peTotal || 0,
+          cluster: data.cluster || null,
+          lastSyncAt,
+          isRefreshing: false,
+          isStale: data.stale ?? false,
+        });
+
+        // Update user's pe_total_pe
+        setUser(prev => prev ? { ...prev, pe_total_pe: data.peTotal } : null);
+      }
+    } catch (err) {
+      console.error('[WalletContext] refreshUser error:', err);
     }
-  }, [updateEnergyFromUser]);
+  }, []);
 
   // Check for existing session on mount
   useEffect(() => {

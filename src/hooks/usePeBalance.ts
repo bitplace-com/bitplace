@@ -64,26 +64,27 @@ export function usePeBalance(userId: string | undefined): PeBalance {
     }
 
     try {
-      // Fetch user's pe_total_pe, rebalance status, and energy fields
+      // Use public_pixel_owner_info view for rebalance/health data (no financial fields accessible via RLS)
       const { data: userData } = await supabase
-        .from('users')
-        .select('pe_total_pe, owner_health_multiplier, rebalance_active, rebalance_ends_at, rebalance_target_multiplier, energy_asset, native_symbol, native_balance, usd_price, wallet_usd, last_energy_sync_at')
+        .from('public_pixel_owner_info' as any)
+        .select('id, owner_health_multiplier, rebalance_active, rebalance_ends_at, rebalance_target_multiplier')
         .eq('id', userId)
         .maybeSingle();
 
-      const total = Number(userData?.pe_total_pe || 0);
-      const healthMultiplier = Number(userData?.owner_health_multiplier || 1);
-      const rebalanceActive = userData?.rebalance_active || false;
-      const rebalanceEndsAt = userData?.rebalance_ends_at ? new Date(userData.rebalance_ends_at) : null;
-      const rebalanceTargetMultiplier = userData?.rebalance_target_multiplier ?? null;
+      const healthMultiplier = Number((userData as any)?.owner_health_multiplier || 1);
+      const rebalanceActive = (userData as any)?.rebalance_active || false;
+      const rebalanceEndsAt = (userData as any)?.rebalance_ends_at ? new Date((userData as any).rebalance_ends_at) : null;
+      const rebalanceTargetMultiplier = (userData as any)?.rebalance_target_multiplier ?? null;
       
-      // Energy fields
-      const energyAsset = (userData?.energy_asset as 'SOL' | 'BTP') || ENERGY_ASSET;
-      const nativeSymbol = userData?.native_symbol || ENERGY_CONFIG[ENERGY_ASSET].symbol;
-      const nativeBalance = Number(userData?.native_balance || 0);
-      const usdPrice = Number(userData?.usd_price || 0);
-      const walletUsd = Number(userData?.wallet_usd || 0);
-      const lastSyncAt = userData?.last_energy_sync_at ? new Date(userData.last_energy_sync_at) : null;
+      // Financial/energy fields must come from WalletContext (via edge function), not direct query
+      // For now, these will be defaults - actual values come from energy-refresh edge function
+      const total = 0; // Will be set by WalletContext
+      const energyAsset = ENERGY_ASSET;
+      const nativeSymbol = ENERGY_CONFIG[ENERGY_ASSET].symbol;
+      const nativeBalance = 0;
+      const usdPrice = 0;
+      const walletUsd = 0;
+      const lastSyncAt: Date | null = null;
 
       // Fetch sum of owner_stake_pe for pixels owned by user
       const { data: pixelStakes } = await supabase

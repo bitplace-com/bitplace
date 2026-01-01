@@ -105,8 +105,9 @@ export function usePixelDetails(x: number | null, y: number | null) {
       const userIds = [...new Set(contributions?.map(c => c.user_id) || [])];
       let userMap: Record<string, string | null> = {};
       if (userIds.length > 0) {
-        const { data: users } = await supabase.from('users').select('id, display_name').in('id', userIds);
-        users?.forEach(u => { userMap[u.id] = u.display_name; });
+        // Use public_user_profiles view instead of users table (RLS blocks direct users access)
+        const { data: users } = await supabase.from('public_user_profiles' as any).select('id, display_name').in('id', userIds);
+        (users as any[])?.forEach(u => { userMap[u.id] = u.display_name; });
       }
 
       const defenders: Contribution[] = [], attackers: Contribution[] = [];
