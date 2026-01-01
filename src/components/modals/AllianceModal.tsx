@@ -11,6 +11,8 @@ import { useWallet } from "@/contexts/WalletContext";
 import { useAlliance, Alliance, AllianceMember } from "@/hooks/useAlliance";
 import { supabase } from "@/integrations/supabase/client";
 
+const SESSION_TOKEN_KEY = 'bitplace_session_token';
+
 interface AllianceModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,7 +41,7 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
 
     setIsSubmitting(true);
     try {
-      const token = sessionStorage.getItem("auth_token");
+      const token = localStorage.getItem(SESSION_TOKEN_KEY);
       const { data, error } = await supabase.functions.invoke("alliance-manage", {
         body: { action: "join", inviteCode: joinCode.trim() },
         headers: { Authorization: `Bearer ${token}` },
@@ -69,7 +71,7 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
 
     setIsSubmitting(true);
     try {
-      const token = sessionStorage.getItem("auth_token");
+      const token = localStorage.getItem(SESSION_TOKEN_KEY);
       const { data, error } = await supabase.functions.invoke("alliance-manage", {
         body: { action: "create", name: createName.trim(), tag: createTag.trim() },
         headers: { Authorization: `Bearer ${token}` },
@@ -95,7 +97,7 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
   const handleLeave = async () => {
     setIsSubmitting(true);
     try {
-      const token = sessionStorage.getItem("auth_token");
+      const token = localStorage.getItem(SESSION_TOKEN_KEY);
       const { data, error } = await supabase.functions.invoke("alliance-manage", {
         body: { action: "leave" },
         headers: { Authorization: `Bearer ${token}` },
