@@ -20,33 +20,56 @@ const PRICE_CACHE_TTL_MS = 30 * 1000; // 30 seconds
 // PE rate: 1 PE = $0.001
 const PE_PER_USD = 1000;
 
-// Auth token verification
-function verifyToken(token: string, authSecret: string): { userId: string; wallet: string } | null {
+// Auth token verification using HMAC-SHA256 (same as other edge functions)
+async function verifyToken(token: string, secret: string): Promise<{ userId: string; wallet: string; exp: number } | null> {
   try {
-    const [payloadB64, sig] = token.split(".");
-    const payload = JSON.parse(atob(payloadB64));
-    
-    // Simple signature check using auth secret
-    const encoder = new TextEncoder();
-    const key = encoder.encode(authSecret);
-    const data = encoder.encode(payloadB64);
-    let hash = 0;
-    for (let i = 0; i < data.length; i++) {
-      hash = ((hash << 5) - hash + data[i] * key[i % key.length]) | 0;
+    const [payloadB64, signatureB64] = token.split('.');
+    if (!payloadB64 || !signatureB64) {
+      console.error("[energy-refresh] Invalid token format");
+      return null;
     }
-    const expectedSig = Math.abs(hash).toString(36);
+
+    const encoder = new TextEncoder();
     
-    if (sig !== expectedSig) {
+    // Import the secret key for HMAC
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+
+    // Decode the signature from base64
+    const signatureBytes = Uint8Array.from(atob(signatureB64), c => c.charCodeAt(0));
+
+    // Verify the signature
+    const isValid = await crypto.subtle.verify(
+      'HMAC',
+      key,
+      signatureBytes,
+      encoder.encode(payloadB64)
+    );
+
+    if (!isValid) {
       console.error("[energy-refresh] Invalid signature");
       return null;
     }
-    
-    if (payload.exp < Date.now()) {
+
+    // Decode and parse payload
+    const payload = JSON.parse(atob(payloadB64));
+
+    // Check expiration
+    if (payload.exp && payload.exp < Date.now()) {
       console.error("[energy-refresh] Token expired");
       return null;
     }
-    
-    return { userId: payload.sub, wallet: payload.wallet };
+
+    return {
+      userId: payload.userId,
+      wallet: payload.wallet,
+      exp: payload.exp
+    };
   } catch (err) {
     console.error("[energy-refresh] Token verification error:", err);
     return null;
@@ -165,7 +188,8 @@ Deno.serve(async (req) => {
 
     const token = authHeader.substring(7);
     const authSecret = Deno.env.get("AUTH_SECRET") || "";
-    const tokenData = verifyToken(token, authSecret);
+    const tokenData = await verifyToken(token, authSecret);
+    
 
     if (!tokenData) {
       return new Response(
