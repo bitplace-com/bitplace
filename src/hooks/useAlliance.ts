@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+const SESSION_TOKEN_KEY = 'bitplace_session_token';
+
 export interface Alliance {
   id: string;
   name: string;
@@ -45,7 +47,7 @@ export function useAlliance(userId: string | undefined): UseAllianceResult {
     setError(null);
 
     try {
-      const token = sessionStorage.getItem("auth_token");
+      const token = localStorage.getItem(SESSION_TOKEN_KEY);
       if (!token) {
         setAlliance(null);
         setMembers([]);
