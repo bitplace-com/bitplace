@@ -141,6 +141,7 @@ Deno.serve(async (req) => {
         .eq("id", membership.alliance_id)
         .single();
 
+      // Only select public profile data - exclude sensitive wallet_address
       const { data: members } = await supabase
         .from("alliance_members")
         .select(`
@@ -149,8 +150,8 @@ Deno.serve(async (req) => {
           joined_at,
           users:user_id (
             display_name,
-            wallet_address,
-            level
+            level,
+            country_code
           )
         `)
         .eq("alliance_id", membership.alliance_id)
@@ -170,8 +171,8 @@ Deno.serve(async (req) => {
         members: members?.map(m => ({
           userId: m.user_id,
           displayName: (m.users as any)?.display_name,
-          walletAddress: (m.users as any)?.wallet_address,
           level: (m.users as any)?.level || 1,
+          countryCode: (m.users as any)?.country_code,
           role: m.role,
           joinedAt: m.joined_at,
         })) || [],
