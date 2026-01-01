@@ -68,7 +68,7 @@ function RankBadge({ rank }: { rank: number }) {
 
 function PlayerRow({ entry }: { entry: PlayerEntry }) {
   const country = entry.countryCode ? getCountryByCode(entry.countryCode) : null;
-  const displayName = entry.displayName || (entry.walletAddress ? truncateAddress(entry.walletAddress) : "Unknown");
+  const displayName = entry.displayName || "Unknown";
   const gradient = generateAvatarGradient(entry.id);
 
   return (

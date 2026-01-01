@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
         const userIds = sortedUsers.map(([id]) => id);
         const { data: users, error: usersError } = await supabase
           .from("users")
-          .select("id, display_name, wallet_address, country_code, alliance_tag, level")
+          .select("id, display_name, country_code, alliance_tag, level")
           .in("id", userIds);
 
         if (usersError) throw usersError;
@@ -101,7 +101,6 @@ Deno.serve(async (req) => {
             rank: index + 1,
             id: userId,
             displayName: user?.display_name,
-            walletAddress: user?.wallet_address,
             countryCode: user?.country_code,
             allianceTag: user?.alliance_tag,
             level: user?.level || 1,
