@@ -124,11 +124,28 @@ serve(async (req) => {
     }
     
     if (avatar_url !== undefined) {
-      if (avatar_url && (typeof avatar_url !== 'string' || avatar_url.length > 500)) {
-        return new Response(
-          JSON.stringify({ error: 'Avatar URL must be a string under 500 characters' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      if (avatar_url) {
+        if (typeof avatar_url !== 'string' || avatar_url.length > 500) {
+          return new Response(
+            JSON.stringify({ error: 'Avatar URL must be a string under 500 characters' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        // Validate URL format and protocol
+        try {
+          const url = new URL(avatar_url);
+          if (!['http:', 'https:'].includes(url.protocol)) {
+            return new Response(
+              JSON.stringify({ error: 'Avatar URL must use http or https protocol' }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        } catch {
+          return new Response(
+            JSON.stringify({ error: 'Invalid avatar URL format' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
       updates.avatar_url = avatar_url || null;
     }
