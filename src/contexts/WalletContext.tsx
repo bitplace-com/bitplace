@@ -236,6 +236,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         toast.success('Balance updated', { 
           description: `${data.nativeBalance.toFixed(4)} ${data.nativeSymbol} = ${data.peTotal.toLocaleString()} PE`
         });
+        // Also refresh PE status to update used/available
+        setTimeout(() => refreshPeStatus(), 100);
       }
     } catch (err) {
       console.error('[WalletContext] Energy refresh exception:', err);

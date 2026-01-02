@@ -40,7 +40,8 @@ export function ActionBox({
   const config = modeConfig[mode];
   const needsValidation = mode !== 'PAINT' || pixelCount > 1;
   const isValidated = validationResult?.ok === true;
-  const canConfirm = isValidated && !isCommitting;
+  // For single-pixel PAINT, allow direct confirm without validation
+  const canConfirm = (isValidated || (!needsValidation && mode === 'PAINT')) && !isCommitting;
 
   return (
     <div className="border-t border-border/20 p-3 space-y-3 bg-background/20">

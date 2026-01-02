@@ -44,7 +44,7 @@ export function BitplaceMap() {
   const { mode, selectedColor, zoom, artOpacity, interactionMode, setMode, setSelectedColor, setZoom, toggleArtOpacity, setInteractionMode, canPaint } = useMapState();
   const { dbPixels, updateViewport } = useSupabasePixels(zoom);
   const { validate, commit, validationResult, invalidPixels, isValidating, isCommitting, clearValidation } = useGameActions();
-  const { queue: paintQueue, queueSize, isSpacePainting, isFlushing, startSpacePaint, stopSpacePaint, addToQueue } = usePaintQueue(paintPixel, confirmPixel);
+  const { queue: paintQueue, queueSize, isSpacePainting, isFlushing, startSpacePaint, stopSpacePaint, addToQueue, flushQueue } = usePaintQueue(paintPixel, confirmPixel);
   const { play: playSound } = useSound();
 
   const pixels = useMemo(() => mergePixels(dbPixels), [mergePixels, dbPixels]);
@@ -250,19 +250,17 @@ export function BitplaceMap() {
 
   const executeSinglePixelAction = useCallback(async (x: number, y: number) => {
     if (!user) { toast.error('Please connect wallet first'); return; }
+    if (selectedColor === null) { toast.info('Select a color to paint'); return; }
     const gameMode = getGameMode(mode);
     if (gameMode === 'PAINT') {
-      const result = await validate({ mode: 'PAINT', pixels: [{ x, y }], color: selectedColor });
-      if (result?.ok) {
-        paintPixel(x, y, selectedColor);
-        const success = await commit({ mode: 'PAINT', pixels: [{ x, y }], color: selectedColor, snapshotHash: result.snapshotHash });
-        if (success) { confirmPixel(x, y); refreshUser(); }
-      }
+      // Use paint queue for consistency with hover-paint
+      addToQueue(x, y, selectedColor);
+      flushQueue();
       return;
     }
     startSelection(x, y);
     setPendingPixels([{ x, y }]);
-  }, [user, mode, selectedColor, validate, commit, paintPixel, confirmPixel, getGameMode, refreshUser, startSelection]);
+  }, [user, mode, selectedColor, addToQueue, flushQueue, getGameMode, startSelection]);
 
   // Eyedropper: pick color from pixel
   const handleEyedropperPick = useCallback((x: number, y: number) => {
@@ -337,6 +335,7 @@ export function BitplaceMap() {
         isDraggingRef.current = true;
         dragStartRef.current = { x: pixel.x, y: pixel.y, screenX: e.point.x, screenY: e.point.y };
         map.dragPan.disable();
+        clearValidation(); // Clear previous validation on new selection
         startSelection(pixel.x, pixel.y);
         return;
       }
