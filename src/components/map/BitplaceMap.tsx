@@ -8,11 +8,9 @@ import { MapToolbar } from './MapToolbar';
 import { ZoomControls } from './ZoomControls';
 import { InspectorPanel } from './inspector';
 import { StatusStrip } from './StatusStrip';
-import { DevDiagnostics } from './DevDiagnostics';
 import { HudOverlay, HudSlot } from './HudOverlay';
 import { PixelInspectorDrawer } from './PixelInspectorDrawer';
 import { PaletteTray } from './PaletteTray';
-import { InteractionModeToggle, type InteractionMode } from './InteractionModeToggle';
 import { WalletButton } from '@/components/wallet/WalletButton';
 import { usePixelStore, pixelKey } from './hooks/usePixelStore';
 import { useSelection } from './hooks/useSelection';
@@ -164,8 +162,8 @@ export function BitplaceMap() {
         map.dragPan.disable();
         map.getCanvas().style.cursor = 'crosshair';
         startSpacePaint();
-        // Paint first pixel if hovering
-        if (hoverPixel) {
+        // Paint first pixel if hovering (only if not eraser)
+        if (hoverPixel && selectedColor !== null) {
           addToQueue(hoverPixel.x, hoverPixel.y, selectedColor);
           lastPaintedPixelRef.current = hoverPixel;
         }
@@ -301,8 +299,8 @@ export function BitplaceMap() {
         const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
         setHoverPixel(pixel);
         
-        // SPACE held: hover-paint mode
-        if (isSpaceHeld && mode === 'paint') {
+        // SPACE held: hover-paint mode (skip if eraser)
+        if (isSpaceHeld && mode === 'paint' && selectedColor !== null) {
           const last = lastPaintedPixelRef.current;
           if (!last || last.x !== pixel.x || last.y !== pixel.y) {
             addToQueue(pixel.x, pixel.y, selectedColor);
@@ -313,8 +311,8 @@ export function BitplaceMap() {
         else if (isShiftHeld && isDraggingRef.current && dragStartRef.current) {
           updateSelection(pixel.x, pixel.y);
         }
-        // DRAW mode continuous painting
-        else if (interactionMode === 'draw' && isDrawingRef.current && mode === 'paint') {
+        // DRAW mode continuous painting (skip if eraser)
+        else if (interactionMode === 'draw' && isDrawingRef.current && mode === 'paint' && selectedColor !== null) {
           addToQueue(pixel.x, pixel.y, selectedColor);
         }
       } else { 
@@ -348,8 +346,8 @@ export function BitplaceMap() {
         return;
       }
       
-      // DRAW mode: start painting
-      if (interactionMode === 'draw' && mode === 'paint') {
+      // DRAW mode: start painting (skip if eraser for now)
+      if (interactionMode === 'draw' && mode === 'paint' && selectedColor !== null) {
         isDrawingRef.current = true;
         startSpacePaint(); // Use paint queue
         addToQueue(pixel.x, pixel.y, selectedColor);
@@ -487,21 +485,10 @@ export function BitplaceMap() {
             <CanvasOverlay map={mapRef.current} pixels={pixels} selection={selection} hoverPixel={hoverPixel} canPaint={canPaint} invalidPixels={invalidPixels} artOpacity={artOpacity} />
           )}
 
-          {mapReady && <DevDiagnostics map={mapRef.current} zoom={zoom} canPaint={canPaint} isSelecting={selection.isSelecting} />}
-
           {/* HUD Overlay */}
           <HudOverlay>
             <HudSlot position="top-center">
-              <div className="flex items-center gap-2">
-                <MapToolbar mode={mode} onModeChange={setMode} />
-                {mode === 'paint' && (
-                  <InteractionModeToggle 
-                    mode={interactionMode} 
-                    onModeChange={setInteractionMode}
-                    disabled={!canPaint}
-                  />
-                )}
-              </div>
+              <MapToolbar mode={mode} onModeChange={setMode} />
             </HudSlot>
             <HudSlot position="top-right">
               <WalletButton />
@@ -520,6 +507,8 @@ export function BitplaceMap() {
               onEyedropperToggle={setIsEyedropperActive}
               isEyedropperActive={isEyedropperActive}
               zoom={zoom}
+              interactionMode={interactionMode}
+              onInteractionModeChange={setInteractionMode}
             />
           )}
 

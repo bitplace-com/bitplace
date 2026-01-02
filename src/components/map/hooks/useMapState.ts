@@ -5,7 +5,7 @@ export type InteractionMode = 'drag' | 'draw';
 
 export interface MapState {
   mode: MapMode;
-  selectedColor: string;
+  selectedColor: string | null;
   zoom: number;
   artOpacity: number;
   interactionMode: InteractionMode;
@@ -50,7 +50,7 @@ export function useMapState() {
     setState((prev) => ({ ...prev, mode }));
   }, []);
 
-  const setSelectedColor = useCallback((color: string) => {
+  const setSelectedColor = useCallback((color: string | null) => {
     setState((prev) => ({ ...prev, selectedColor: color }));
   }, []);
 
