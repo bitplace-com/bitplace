@@ -1,31 +1,28 @@
 /**
  * Coordinate conversion utilities for Bitplace pixel grid system
- * Uses WebMercator projection at MAX_ZOOM=22
+ * Uses the pixelGrid module for GRID_ZOOM=12 based coordinates
  */
 
-const MAX_ZOOM = 22;
-const WORLD_SIZE = Math.pow(2, MAX_ZOOM) * 256;
+import { 
+  GRID_SIZE, 
+  lngLatToGridInt, 
+  gridIntToLngLat 
+} from './pixelGrid';
 
 /**
  * Convert pixel coordinates to geographic coordinates (lng/lat)
+ * Wrapper around gridIntToLngLat for backwards compatibility
  */
 export function pixelToLngLat(x: number, y: number): { lng: number; lat: number } {
-  const lng = (x / WORLD_SIZE) * 360 - 180;
-  const n = Math.PI - (2 * Math.PI * y) / WORLD_SIZE;
-  const lat = (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
-  return { lng, lat };
+  return gridIntToLngLat(x, y);
 }
 
 /**
  * Convert geographic coordinates to pixel coordinates
+ * Wrapper around lngLatToGridInt for backwards compatibility
  */
 export function lngLatToPixel(lng: number, lat: number): { x: number; y: number } {
-  const x = Math.floor(((lng + 180) / 360) * WORLD_SIZE);
-  const y = Math.floor(
-    ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 
-      1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) * WORLD_SIZE
-  );
-  return { x, y };
+  return lngLatToGridInt(lng, lat);
 }
 
 /**
@@ -41,7 +38,7 @@ export type ParsedInput =
  * Parse user search input to determine type and extract coordinates
  * Supports:
  * - lat,lng format (e.g., "41.9028, 12.4964")
- * - x:y or x,y pixel format for large integers (e.g., "12345:67890")
+ * - x:y or x,y pixel format for integers (e.g., "12345:67890")
  * - Free-text place names (e.g., "Tokyo")
  */
 export function parseSearchInput(input: string): ParsedInput {
@@ -51,11 +48,12 @@ export function parseSearchInput(input: string): ParsedInput {
   // Try x:y pixel format first (e.g., "12345:67890" or "12345x67890")
   const pixelColonMatch = trimmed.match(/^(\d+)\s*[:x]\s*(\d+)$/i);
   if (pixelColonMatch) {
-    return { 
-      type: 'pixel', 
-      x: parseInt(pixelColonMatch[1]), 
-      y: parseInt(pixelColonMatch[2]) 
-    };
+    const x = parseInt(pixelColonMatch[1]);
+    const y = parseInt(pixelColonMatch[2]);
+    // Validate against grid size
+    if (x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE) {
+      return { type: 'pixel', x, y };
+    }
   }
 
   // Try comma-separated numbers (could be lat,lng or pixel x,y)
@@ -69,8 +67,9 @@ export function parseSearchInput(input: string): ParsedInput {
       return { type: 'latlng', lat: a, lng: b };
     }
     
-    // If both are large positive integers, treat as pixel coordinates
-    if (a >= 0 && b >= 0 && Number.isInteger(a) && Number.isInteger(b)) {
+    // If both are positive integers within grid bounds, treat as pixel coordinates
+    if (a >= 0 && b >= 0 && Number.isInteger(a) && Number.isInteger(b) && 
+        a < GRID_SIZE && b < GRID_SIZE) {
       return { type: 'pixel', x: a, y: b };
     }
   }

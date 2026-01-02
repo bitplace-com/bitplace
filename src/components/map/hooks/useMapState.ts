@@ -12,8 +12,8 @@ export interface MapState {
 }
 
 export const Z_PAINT = 16;
-export const MAX_ZOOM = 22;
 export const MIN_ZOOM = 2;
+export const MAX_ZOOM = 22;
 
 const ART_OPACITY_KEY = 'bitplace-art-opacity';
 

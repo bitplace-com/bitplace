@@ -3,12 +3,11 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 import {
   type PixelStore,
   parsePixelKey,
-  pixelToScreen,
-  getPixelScreenSize,
-  screenToPixel,
+  pixelKey,
 } from './hooks/usePixelStore';
 import { type SelectionState } from './hooks/useSelection';
 import { Z_PAINT } from './hooks/useMapState';
+import { lngLatToGridFloat, lngLatToGridInt, getCellSize, roundToDevicePixel, gridIntToLngLat } from '@/lib/pixelGrid';
 import type { InvalidPixel } from '@/hooks/useGameActions';
 
 interface CanvasOverlayProps {
@@ -42,25 +41,35 @@ export function CanvasOverlay({
     const { width, height } = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
 
+    // Set up high-DPI canvas
     canvas.width = width * dpr;
     canvas.height = height * dpr;
-    ctx.scale(dpr, dpr);
+    
+    // Use setTransform for DPR scaling
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    
+    // Disable image smoothing for pixel-crisp rendering
+    ctx.imageSmoothingEnabled = false;
 
     ctx.clearRect(0, 0, width, height);
 
     const zoom = map.getZoom();
-    const pixelSize = getPixelScreenSize(map);
+    const cellSize = getCellSize(zoom);
+    
+    // Get viewport top-left in grid coordinates (float for precise alignment)
+    const tlLngLat = map.unproject([0, 0]);
+    const tlGrid = lngLatToGridFloat(tlLngLat.lng, tlLngLat.lat);
     
     // Apply art opacity
     ctx.globalAlpha = artOpacity;
     const invalidSet = new Set(invalidPixels.map(p => `${p.x}:${p.y}`));
 
     // Only render pixels that are visible (optimization)
-    if (pixelSize > 0.5) {
-      // Get visible bounds
-      const bounds = map.getBounds();
-      const topLeft = screenToPixel(0, 0, map);
-      const bottomRight = screenToPixel(width, height, map);
+    if (cellSize > 0.5) {
+      // Get visible bounds in grid coordinates
+      const brLngLat = map.unproject([width, height]);
+      const brGrid = lngLatToGridInt(brLngLat.lng, brLngLat.lat);
+      const topLeft = lngLatToGridInt(tlLngLat.lng, tlLngLat.lat);
 
       // OPTIMIZATION: Batch pixels by color to minimize fillStyle changes
       const colorBatches = new Map<string, { x: number; y: number }[]>();
@@ -68,9 +77,9 @@ export function CanvasOverlay({
       pixels.forEach((data, key) => {
         const { x, y } = parsePixelKey(key);
         
-        // Quick bounds check
-        if (x < topLeft.x - 1 || x > bottomRight.x + 1) return;
-        if (y < topLeft.y - 1 || y > bottomRight.y + 1) return;
+        // Quick bounds check with margin
+        if (x < topLeft.x - 1 || x > brGrid.x + 1) return;
+        if (y < topLeft.y - 1 || y > brGrid.y + 1) return;
 
         if (!colorBatches.has(data.color)) {
           colorBatches.set(data.color, []);
@@ -82,8 +91,16 @@ export function CanvasOverlay({
       colorBatches.forEach((positions, color) => {
         ctx.fillStyle = color;
         positions.forEach(({ x, y }) => {
-          const screenPos = pixelToScreen(x, y, map);
-          ctx.fillRect(screenPos.x, screenPos.y, pixelSize, pixelSize);
+          // Calculate screen position using grid math
+          const screenX = (x - tlGrid.x) * cellSize;
+          const screenY = (y - tlGrid.y) * cellSize;
+          
+          // Round to device pixels for crisp rendering
+          const rx = roundToDevicePixel(screenX, dpr);
+          const ry = roundToDevicePixel(screenY, dpr);
+          const rSize = Math.max(1, roundToDevicePixel(cellSize, dpr));
+          
+          ctx.fillRect(rx, ry, rSize, rSize);
         });
       });
 
@@ -91,40 +108,57 @@ export function CanvasOverlay({
       ctx.globalAlpha = 1;
 
       // Draw invalid pixel highlights
-      if (invalidPixels.length > 0 && pixelSize > 1) {
+      if (invalidPixels.length > 0 && cellSize > 1) {
         // Batch invalid overlays
         ctx.fillStyle = 'rgba(255, 50, 50, 0.4)';
         invalidPixels.forEach(({ x, y }) => {
-          if (x < topLeft.x - 1 || x > bottomRight.x + 1) return;
-          if (y < topLeft.y - 1 || y > bottomRight.y + 1) return;
-          const screenPos = pixelToScreen(x, y, map);
-          ctx.fillRect(screenPos.x, screenPos.y, pixelSize, pixelSize);
+          if (x < topLeft.x - 1 || x > brGrid.x + 1) return;
+          if (y < topLeft.y - 1 || y > brGrid.y + 1) return;
+          
+          const screenX = (x - tlGrid.x) * cellSize;
+          const screenY = (y - tlGrid.y) * cellSize;
+          const rx = roundToDevicePixel(screenX, dpr);
+          const ry = roundToDevicePixel(screenY, dpr);
+          const rSize = Math.max(1, roundToDevicePixel(cellSize, dpr));
+          
+          ctx.fillRect(rx, ry, rSize, rSize);
         });
         
         // Batch invalid borders
         ctx.strokeStyle = 'rgba(255, 50, 50, 0.9)';
         ctx.lineWidth = 2;
         invalidPixels.forEach(({ x, y }) => {
-          if (x < topLeft.x - 1 || x > bottomRight.x + 1) return;
-          if (y < topLeft.y - 1 || y > bottomRight.y + 1) return;
-          const screenPos = pixelToScreen(x, y, map);
-          ctx.strokeRect(screenPos.x, screenPos.y, pixelSize, pixelSize);
+          if (x < topLeft.x - 1 || x > brGrid.x + 1) return;
+          if (y < topLeft.y - 1 || y > brGrid.y + 1) return;
+          
+          const screenX = (x - tlGrid.x) * cellSize;
+          const screenY = (y - tlGrid.y) * cellSize;
+          const rx = roundToDevicePixel(screenX, dpr);
+          const ry = roundToDevicePixel(screenY, dpr);
+          const rSize = Math.max(1, roundToDevicePixel(cellSize, dpr));
+          
+          ctx.strokeRect(rx, ry, rSize, rSize);
         });
       }
     }
 
     // Draw hover highlight at paint zoom
-    if (hoverPixel && canPaint && pixelSize > 1) {
-      const screenPos = pixelToScreen(hoverPixel.x, hoverPixel.y, map);
+    if (hoverPixel && canPaint && cellSize > 1) {
+      const screenX = (hoverPixel.x - tlGrid.x) * cellSize;
+      const screenY = (hoverPixel.y - tlGrid.y) * cellSize;
+      const rx = roundToDevicePixel(screenX, dpr);
+      const ry = roundToDevicePixel(screenY, dpr);
+      const rSize = Math.max(1, roundToDevicePixel(cellSize, dpr));
+      
       const isInvalid = invalidSet.has(`${hoverPixel.x}:${hoverPixel.y}`);
       
       if (!isInvalid) {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.lineWidth = 2;
-        ctx.strokeRect(screenPos.x, screenPos.y, pixelSize, pixelSize);
+        ctx.strokeRect(rx, ry, rSize, rSize);
         
         ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.fillRect(screenPos.x, screenPos.y, pixelSize, pixelSize);
+        ctx.fillRect(rx, ry, rSize, rSize);
       }
     }
 
@@ -136,18 +170,23 @@ export function CanvasOverlay({
       const minY = Math.min(startY, endY);
       const maxY = Math.max(startY, endY);
 
-      const topLeftScreen = pixelToScreen(minX, minY, map);
-      const bottomRightScreen = pixelToScreen(maxX + 1, maxY + 1, map);
+      // Calculate screen positions for selection bounds
+      const topLeftScreenX = (minX - tlGrid.x) * cellSize;
+      const topLeftScreenY = (minY - tlGrid.y) * cellSize;
+      const bottomRightScreenX = (maxX + 1 - tlGrid.x) * cellSize;
+      const bottomRightScreenY = (maxY + 1 - tlGrid.y) * cellSize;
 
-      const rectWidth = bottomRightScreen.x - topLeftScreen.x;
-      const rectHeight = bottomRightScreen.y - topLeftScreen.y;
+      const rectX = roundToDevicePixel(topLeftScreenX, dpr);
+      const rectY = roundToDevicePixel(topLeftScreenY, dpr);
+      const rectWidth = roundToDevicePixel(bottomRightScreenX - topLeftScreenX, dpr);
+      const rectHeight = roundToDevicePixel(bottomRightScreenY - topLeftScreenY, dpr);
 
       // Selection fill - different color if has invalid pixels
       const hasInvalid = invalidPixels.length > 0;
       ctx.fillStyle = hasInvalid 
         ? 'rgba(255, 100, 100, 0.15)' 
         : 'rgba(0, 200, 255, 0.15)';
-      ctx.fillRect(topLeftScreen.x, topLeftScreen.y, rectWidth, rectHeight);
+      ctx.fillRect(rectX, rectY, rectWidth, rectHeight);
 
       // Selection border
       ctx.strokeStyle = hasInvalid 
@@ -155,7 +194,7 @@ export function CanvasOverlay({
         : 'rgba(0, 200, 255, 0.8)';
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 4]);
-      ctx.strokeRect(topLeftScreen.x, topLeftScreen.y, rectWidth, rectHeight);
+      ctx.strokeRect(rectX, rectY, rectWidth, rectHeight);
       ctx.setLineDash([]);
 
       // Selection count badge
@@ -167,8 +206,8 @@ export function CanvasOverlay({
         const badgeHeight = 20;
         const badgeWidth = textMetrics.width + badgePadding * 2;
         
-        const badgeX = topLeftScreen.x + rectWidth / 2 - badgeWidth / 2;
-        const badgeY = topLeftScreen.y - badgeHeight - 8;
+        const badgeX = rectX + rectWidth / 2 - badgeWidth / 2;
+        const badgeY = rectY - badgeHeight - 8;
 
         ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
         ctx.beginPath();
