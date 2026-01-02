@@ -609,7 +609,31 @@ Deno.serve(async (req) => {
       console.error("[game-commit] Event log error:", eventError);
     }
 
-    console.log("[game-commit] Success:", { affectedPixels, xpEarned, eventId: eventData?.id });
+    // Calculate updated PE status after commit
+    const { data: updatedPixelStakes } = await supabase
+      .from("pixels")
+      .select("owner_stake_pe")
+      .eq("owner_user_id", userId);
+
+    const updatedPixelStakeTotal = (updatedPixelStakes || []).reduce(
+      (sum, p) => sum + Number(p.owner_stake_pe || 0),
+      0
+    );
+
+    const { data: updatedContribs } = await supabase
+      .from("pixel_contributions")
+      .select("amount_pe")
+      .eq("user_id", userId);
+
+    const updatedContribTotal = (updatedContribs || []).reduce(
+      (sum, c) => sum + Number(c.amount_pe || 0),
+      0
+    );
+
+    const peUsed = updatedPixelStakeTotal + updatedContribTotal;
+    const peAvailable = Math.max(0, user.pe_total_pe - peUsed);
+
+    console.log("[game-commit] Success:", { affectedPixels, xpEarned, eventId: eventData?.id, peUsed, peAvailable });
 
     return new Response(JSON.stringify({
       ok: true,
@@ -618,6 +642,13 @@ Deno.serve(async (req) => {
       eventId: eventData?.id,
       contributionsPurged,
       purgedContributionCount,
+      peStatus: {
+        total: user.pe_total_pe,
+        used: peUsed,
+        available: peAvailable,
+        pixelStakeTotal: updatedPixelStakeTotal,
+        contributionTotal: updatedContribTotal,
+      },
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -27,7 +27,7 @@ export function usePaintQueue(
   const [isFlushing, setIsFlushing] = useState(false);
   
   const { validate, commit } = useGameActions();
-  const { refreshUser } = useWallet();
+  const { refreshUser, updatePeStatus } = useWallet();
   
   // Store color for the current painting session
   const currentColorRef = useRef<string>('#FFFFFF');
@@ -70,22 +70,26 @@ export function usePaintQueue(
       // Process async
       (async () => {
         try {
-          const result = await validate({ mode: 'PAINT', pixels, color });
+          const validateResult = await validate({ mode: 'PAINT', pixels, color });
           
-          if (!result?.ok) {
+          if (!validateResult?.ok) {
             setIsSpacePainting(false);
             return;
           }
           
-          const success = await commit({
+          const commitResult = await commit({
             mode: 'PAINT',
             pixels,
             color,
-            snapshotHash: result.snapshotHash,
+            snapshotHash: validateResult.snapshotHash,
           });
           
-          if (success) {
+          if (commitResult) {
             pixels.forEach(({ x, y }) => confirmPixel(x, y));
+            // Update PE status from commit response
+            if (commitResult.peStatus) {
+              updatePeStatus(commitResult.peStatus);
+            }
             refreshUser();
             soundEngine.play('paint_commit');
           } else {
@@ -104,7 +108,7 @@ export function usePaintQueue(
       // Clear queue immediately after capturing pixels
       return new Set();
     });
-  }, [validate, commit, confirmPixel, refreshUser]);
+  }, [validate, commit, confirmPixel, refreshUser, updatePeStatus]);
 
   const startSpacePaint = useCallback(() => {
     setIsSpacePainting(true);
