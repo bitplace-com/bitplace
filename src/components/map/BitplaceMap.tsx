@@ -14,7 +14,7 @@ import { PixelInspectorDrawer } from './PixelInspectorDrawer';
 import { PaletteTray } from './PaletteTray';
 import { InteractionModeToggle, type InteractionMode } from './InteractionModeToggle';
 import { WalletButton } from '@/components/wallet/WalletButton';
-import { usePixelStore, screenToPixel, pixelKey } from './hooks/usePixelStore';
+import { usePixelStore, pixelKey } from './hooks/usePixelStore';
 import { useSelection } from './hooks/useSelection';
 import { useMapState, Z_PAINT } from './hooks/useMapState';
 import { usePaintQueue } from './hooks/usePaintQueue';
@@ -23,8 +23,7 @@ import { useGameActions, type GameMode } from '@/hooks/useGameActions';
 import { useWallet } from '@/contexts/WalletContext';
 import { useMapUrl } from '@/hooks/useMapUrl';
 import { useSound } from '@/hooks/useSound';
-
-const MAX_ZOOM = 22;
+import { lngLatToGridInt, getViewportGridBounds } from '@/lib/pixelGrid';
 
 export function BitplaceMap() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -87,6 +86,11 @@ export function BitplaceMap() {
       zoom: urlPos ? urlPos.zoom : 2,
       minZoom: 2,
       maxZoom: 22,
+      // Disable pitch and rotation for stable grid math
+      dragRotate: false,
+      touchPitch: false,
+      // Disable world copies for simpler coordinate handling
+      renderWorldCopies: false,
     });
 
     map.on('load', () => {
@@ -107,14 +111,13 @@ export function BitplaceMap() {
     const updateBounds = () => {
       if (!map) return;
       const bounds = map.getBounds();
-      const worldSize = Math.pow(2, MAX_ZOOM) * 256;
-      const minX = Math.floor(((bounds.getWest() + 180) / 360) * worldSize);
-      const maxX = Math.floor(((bounds.getEast() + 180) / 360) * worldSize);
-      const minLat = bounds.getSouth();
-      const maxLat = bounds.getNorth();
-      const minY = Math.floor(((1 - Math.log(Math.tan((maxLat * Math.PI) / 180) + 1 / Math.cos((maxLat * Math.PI) / 180)) / Math.PI) / 2) * worldSize);
-      const maxY = Math.floor(((1 - Math.log(Math.tan((minLat * Math.PI) / 180) + 1 / Math.cos((minLat * Math.PI) / 180)) / Math.PI) / 2) * worldSize);
-      updateViewportRef.current({ minX, maxX, minY, maxY });
+      const gridBounds = getViewportGridBounds(
+        bounds.getWest(),
+        bounds.getEast(),
+        bounds.getNorth(),
+        bounds.getSouth()
+      );
+      updateViewportRef.current(gridBounds);
     };
 
     map.on('moveend', updateBounds);
@@ -263,7 +266,8 @@ export function BitplaceMap() {
 
     const handleMapMouseMove = (e: maplibregl.MapMouseEvent) => {
       if (map.getZoom() >= Z_PAINT) {
-        const pixel = screenToPixel(e.point.x, e.point.y, map);
+        // Use lngLatToGridInt for grid-snapped hover
+        const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
         setHoverPixel(pixel);
         
         // SPACE held: area selection
@@ -284,12 +288,12 @@ export function BitplaceMap() {
       
       // Handle eyedropper mode or Alt+Click
       if (isEyedropperActive || e.originalEvent.altKey) {
-        const pixel = screenToPixel(e.point.x, e.point.y, map);
+        const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
         handleEyedropperPick(pixel.x, pixel.y);
         return;
       }
       
-      const pixel = screenToPixel(e.point.x, e.point.y, map);
+      const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
       
       // SPACE held: start area selection
       if (isSpaceHeld) {
