@@ -72,6 +72,14 @@ export function InspectorPanel({
     <div className="w-72 glass border-l-0 rounded-none flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/20">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-foreground/80">
+            {selectedPixels.length} pixel{selectedPixels.length !== 1 ? 's' : ''}
+          </span>
+          <span className="text-[10px] text-muted-foreground">
+            selected
+          </span>
+        </div>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"

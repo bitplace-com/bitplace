@@ -139,6 +139,18 @@ export function PaletteTray({
         {/* Color grid - expandable */}
         {isExpanded && (
           <div className="px-4 pb-4 pt-2">
+            {/* Keyboard hints */}
+            {canPaint && (
+              <div className="flex gap-2 mb-3 flex-wrap">
+                <span className="text-[10px] text-muted-foreground bg-muted/30 px-1.5 py-0.5 rounded">
+                  SPACE to paint
+                </span>
+                <span className="text-[10px] text-muted-foreground bg-muted/30 px-1.5 py-0.5 rounded">
+                  SHIFT+drag to select
+                </span>
+              </div>
+            )}
+            
             {/* Zoom hint */}
             {!canPaint && (
               <div className="text-center py-1.5 mb-3 text-[11px] text-muted-foreground bg-muted/20 rounded-md">
