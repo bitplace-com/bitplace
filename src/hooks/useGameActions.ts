@@ -45,6 +45,24 @@ export interface CommitParams extends ValidateParams {
   snapshotHash: string;
 }
 
+export interface CommitResult {
+  ok: boolean;
+  affectedPixels?: number;
+  xpEarned?: number;
+  eventId?: number;
+  peStatus?: {
+    total: number;
+    used: number;
+    available: number;
+    pixelStakeTotal?: number;
+    contributionTotal?: number;
+  };
+  error?: string;
+  message?: string;
+  contributionsPurged?: boolean;
+  purgedContributionCount?: number;
+}
+
 export function useGameActions() {
   const { user } = useWallet();
   const [validationResult, setValidationResult] = useState<ValidateResult | null>(null);
@@ -127,16 +145,16 @@ export function useGameActions() {
     }
   }, [user?.id]);
 
-  const commit = useCallback(async (params: CommitParams): Promise<boolean> => {
+  const commit = useCallback(async (params: CommitParams): Promise<CommitResult | null> => {
     if (!user?.id) {
       toast.error('Please connect wallet first');
-      return false;
+      return null;
     }
 
     const headers = getAuthHeaders();
     if (!headers) {
       toast.error('Session expired. Please reconnect wallet.');
-      return false;
+      return null;
     }
 
     setIsCommitting(true);
@@ -152,16 +170,16 @@ export function useGameActions() {
         // Check for rate limit error
         if (error.message?.includes('429') || error.message?.includes('RATE_LIMITED')) {
           toast.warning('Action too fast. Please wait a moment before trying again.');
-          return false;
+          return null;
         }
         toast.error('Commit failed');
-        return false;
+        return null;
       }
 
       // Check if response indicates rate limiting
       if (data?.error === 'RATE_LIMITED') {
         toast.warning(data.message || 'Action too fast. Please wait a moment before trying again.');
-        return false;
+        return null;
       }
 
       // Show toast if contributions were purged due to under-collateralization
@@ -180,17 +198,17 @@ export function useGameActions() {
         } else {
           toast.error(data.message || 'Commit failed');
         }
-        return false;
+        return null;
       }
 
       toast.success(`${formatMode(params.mode)} ${data.affectedPixels} pixel(s)`);
       setValidationResult(null);
       setInvalidPixels([]);
-      return true;
+      return data as CommitResult;
     } catch (err) {
       console.error('[useGameActions] Commit exception:', err);
       toast.error('Commit error');
-      return false;
+      return null;
     } finally {
       setIsCommitting(false);
     }

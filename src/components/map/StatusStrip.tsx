@@ -34,7 +34,9 @@ function formatLastSync(date: Date | null): string {
 }
 
 export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = false, isFlushing = false }: StatusStripProps) {
-  const { locked, free, isLoading, rebalanceActive, healthMultiplier, rebalanceEndsAt, isContributionsUnderCollateralized } = usePeBalance(userId);
+  // Use usePeBalance for rebalance status only
+  const { isLoading, rebalanceActive, healthMultiplier, rebalanceEndsAt, isContributionsUnderCollateralized } = usePeBalance(userId);
+  // Use WalletContext for PE totals (server truth)
   const { energy, refreshEnergy } = useWallet();
 
   if (!userId) {
@@ -47,8 +49,8 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
 
   const healthPercent = Math.round(healthMultiplier * 100);
   const hasInsufficientPe = energy.peTotal < 1;
-  const peUsed = locked;
-  const peAvailable = Math.max(0, energy.peTotal - locked);
+  const peUsed = energy.peUsed;
+  const peAvailable = energy.peAvailable;
 
   return (
     <TooltipProvider>

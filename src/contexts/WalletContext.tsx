@@ -43,6 +43,8 @@ interface EnergyState {
   usdPrice: number;
   walletUsd: number;
   peTotal: number;
+  peUsed: number;
+  peAvailable: number;
   cluster: 'mainnet' | 'devnet' | null;
   lastSyncAt: Date | null;
   isRefreshing: boolean;
@@ -60,6 +62,8 @@ interface WalletContextType {
   updateUser: (updates: Partial<Pick<User, 'display_name' | 'country_code' | 'alliance_tag' | 'avatar_url'>>) => Promise<void>;
   refreshUser: () => Promise<void>;
   refreshEnergy: () => Promise<void>;
+  refreshPeStatus: () => Promise<void>;
+  updatePeStatus: (peStatus: { total: number; used: number; available: number }) => void;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
@@ -109,6 +113,8 @@ const defaultEnergyState: EnergyState = {
   usdPrice: 0,
   walletUsd: 0,
   peTotal: 0,
+  peUsed: 0,
+  peAvailable: 0,
   cluster: null,
   lastSyncAt: null,
   isRefreshing: false,
@@ -167,6 +173,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       usdPrice: Number(userData.usd_price) || prev.usdPrice,
       walletUsd: Number(userData.wallet_usd) || prev.walletUsd,
       peTotal: Number(userData.pe_total_pe) || prev.peTotal,
+      peUsed: prev.peUsed,
+      peAvailable: prev.peAvailable,
       cluster: (userData.sol_cluster as 'mainnet' | 'devnet') || prev.cluster,
       lastSyncAt,
       isRefreshing: false,
@@ -206,18 +214,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       const lastSyncAt = data.lastSyncAt ? new Date(data.lastSyncAt) : null;
       
-      setEnergy({
+      setEnergy(prev => ({
         energyAsset: (data.energyAsset as 'SOL' | 'BTP') || ENERGY_ASSET,
         nativeSymbol: data.nativeSymbol || ENERGY_CONFIG[ENERGY_ASSET].symbol,
         nativeBalance: data.nativeBalance || 0,
         usdPrice: data.usdPrice || 0,
         walletUsd: data.walletUsd || 0,
         peTotal: data.peTotal || 0,
+        peUsed: prev.peUsed,
+        peAvailable: Math.max(0, (data.peTotal || 0) - prev.peUsed),
         cluster: data.cluster || null,
         lastSyncAt,
         isRefreshing: false,
         isStale: data.stale ?? false,
-      });
+      }));
 
       // Also update user's pe_total_pe
       setUser(prev => prev ? { ...prev, pe_total_pe: data.peTotal } : null);
@@ -249,18 +259,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         // Energy refresh returns user data, update energy state
         const lastSyncAt = data.lastSyncAt ? new Date(data.lastSyncAt) : null;
         
-        setEnergy({
+        setEnergy(prev => ({
           energyAsset: (data.energyAsset as 'SOL' | 'BTP') || ENERGY_ASSET,
           nativeSymbol: data.nativeSymbol || ENERGY_CONFIG[ENERGY_ASSET].symbol,
           nativeBalance: data.nativeBalance || 0,
           usdPrice: data.usdPrice || 0,
           walletUsd: data.walletUsd || 0,
           peTotal: data.peTotal || 0,
+          peUsed: prev.peUsed,
+          peAvailable: Math.max(0, (data.peTotal || 0) - prev.peUsed),
           cluster: data.cluster || null,
           lastSyncAt,
           isRefreshing: false,
           isStale: data.stale ?? false,
-        });
+        }));
 
         // Update user's pe_total_pe
         setUser(prev => prev ? { ...prev, pe_total_pe: data.peTotal } : null);
@@ -268,6 +280,45 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('[WalletContext] refreshUser error:', err);
     }
+  }, []);
+
+  // Refresh PE status from pe-status edge function
+  const refreshPeStatus = useCallback(async () => {
+    const token = getSessionToken();
+    if (!token) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('pe-status', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (error) {
+        console.error('[WalletContext] PE status refresh error:', error);
+        return;
+      }
+
+      if (data?.ok) {
+        setEnergy(prev => ({
+          ...prev,
+          peUsed: data.pe_used || 0,
+          peAvailable: data.pe_available || 0,
+        }));
+      }
+    } catch (err) {
+      console.error('[WalletContext] PE status refresh exception:', err);
+    }
+  }, []);
+
+  // Update PE status directly (called after game-commit response)
+  const updatePeStatus = useCallback((peStatus: { total: number; used: number; available: number }) => {
+    setEnergy(prev => ({
+      ...prev,
+      peTotal: peStatus.total,
+      peUsed: peStatus.used,
+      peAvailable: peStatus.available,
+    }));
   }, []);
 
   // Check for existing session on mount
@@ -530,6 +581,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         updateUser,
         refreshUser,
         refreshEnergy,
+        refreshPeStatus,
+        updatePeStatus,
       }}
     >
       {children}
