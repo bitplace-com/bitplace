@@ -8,11 +8,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Simple token signing using HMAC
+// JWT token signing using HMAC (3-part format: header.payload.signature)
 async function signToken(payload: object, secret: string): Promise<string> {
   const encoder = new TextEncoder();
-  const payloadStr = JSON.stringify(payload);
-  const payloadB64 = btoa(payloadStr);
+  
+  // Standard JWT header
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const headerB64 = btoa(JSON.stringify(header))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  
+  const payloadB64 = btoa(JSON.stringify(payload))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   
   const key = await crypto.subtle.importKey(
     'raw',
@@ -22,14 +28,18 @@ async function signToken(payload: object, secret: string): Promise<string> {
     ['sign']
   );
   
+  // Sign the header.payload combination
+  const signatureInput = `${headerB64}.${payloadB64}`;
   const signature = await crypto.subtle.sign(
     'HMAC',
     key,
-    encoder.encode(payloadB64)
+    encoder.encode(signatureInput)
   );
   
-  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
-  return `${payloadB64}.${signatureB64}`;
+  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    
+  return `${headerB64}.${payloadB64}.${signatureB64}`;
 }
 
 serve(async (req) => {

@@ -11,6 +11,8 @@ import { StatusStrip } from './StatusStrip';
 import { HudOverlay, HudSlot } from './HudOverlay';
 import { PixelInspectorDrawer } from './PixelInspectorDrawer';
 import { PaletteTray } from './PaletteTray';
+import { GlassPanel } from '@/components/ui/glass-panel';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import { WalletButton } from '@/components/wallet/WalletButton';
 import { usePixelStore, pixelKey } from './hooks/usePixelStore';
 import { useSelection } from './hooks/useSelection';
@@ -91,6 +93,8 @@ export function BitplaceMap() {
       touchPitch: false,
       // Disable world copies for simpler coordinate handling
       renderWorldCopies: false,
+      // Hide MapLibre attribution
+      attributionControl: false,
     });
 
     map.on('load', () => {
@@ -486,6 +490,11 @@ export function BitplaceMap() {
 
           {/* HUD Overlay */}
           <HudOverlay>
+            <HudSlot position="top-left">
+              <GlassPanel padding="none" className="overflow-hidden">
+                <SidebarTrigger className="h-9 w-9" />
+              </GlassPanel>
+            </HudSlot>
             <HudSlot position="top-center">
               <MapToolbar mode={mode} onModeChange={setMode} />
             </HudSlot>
@@ -493,7 +502,7 @@ export function BitplaceMap() {
               <WalletButton />
             </HudSlot>
             <HudSlot position="bottom-right">
-              <ZoomControls zoom={zoom} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} artOpacity={artOpacity} onToggleArtOpacity={toggleArtOpacity} />
+              <ZoomControls onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} artOpacity={artOpacity} onToggleArtOpacity={toggleArtOpacity} />
             </HudSlot>
           </HudOverlay>
 

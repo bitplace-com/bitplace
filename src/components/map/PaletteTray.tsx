@@ -66,20 +66,20 @@ export function PaletteTray({
         )}
       >
         {/* Header - always visible */}
-        <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+        <div className="flex items-center justify-between gap-3 px-3 py-2">
           {/* Selected color preview */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             {isEraser ? (
-              <div className="h-6 w-6 rounded-md border border-white/20 flex items-center justify-center bg-[repeating-conic-gradient(#808080_0%_25%,_#404040_25%_50%)] bg-[length:6px_6px]">
-                <Eraser className="h-3 w-3 text-white drop-shadow-md" />
+              <div className="h-7 w-7 rounded-md border border-white/20 flex items-center justify-center bg-[repeating-conic-gradient(#808080_0%_25%,_#404040_25%_50%)] bg-[length:6px_6px]">
+                <Eraser className="h-3.5 w-3.5 text-white drop-shadow-md" />
               </div>
             ) : (
               <div
-                className="h-6 w-6 rounded-md border border-white/20 shadow-sm flex-shrink-0"
+                className="h-7 w-7 rounded-md border border-white/20 shadow-sm flex-shrink-0"
                 style={{ backgroundColor: selectedColor }}
               />
             )}
-            <span className="text-[10px] font-mono font-medium text-foreground/80">
+            <span className="text-[11px] font-mono font-medium text-foreground/80">
               {isEraser ? 'ERASER' : selectedColor?.toUpperCase()}
             </span>
           </div>
@@ -176,14 +176,14 @@ export function PaletteTray({
 
         {/* Color grid - expandable */}
         {isExpanded && (
-          <div className="px-3 pb-3 pt-1">
+          <div className="px-4 pb-4 pt-2">
             {/* Keyboard hints */}
             {canPaint && (
-              <div className="flex gap-1.5 mb-2 flex-wrap">
-                <span className="text-[9px] text-muted-foreground bg-muted/30 px-1.5 py-0.5 rounded">
+              <div className="flex gap-2 mb-3 flex-wrap">
+                <span className="text-[10px] text-muted-foreground bg-muted/30 px-2 py-1 rounded">
                   SPACE to paint
                 </span>
-                <span className="text-[9px] text-muted-foreground bg-muted/30 px-1.5 py-0.5 rounded">
+                <span className="text-[10px] text-muted-foreground bg-muted/30 px-2 py-1 rounded">
                   SHIFT+drag to select
                 </span>
               </div>
@@ -191,24 +191,24 @@ export function PaletteTray({
             
             {/* Zoom hint */}
             {!canPaint && (
-              <div className="text-center py-1 mb-2 text-[10px] text-muted-foreground bg-muted/20 rounded-md">
+              <div className="text-center py-1.5 mb-3 text-[11px] text-muted-foreground bg-muted/20 rounded-md">
                 Zoom in to paint
               </div>
             )}
             
             {displayColors.length === 0 && activeTab === 'used' ? (
-              <div className="text-center py-2 text-[10px] text-muted-foreground">
+              <div className="text-center py-3 text-[11px] text-muted-foreground">
                 No colors in viewport
               </div>
             ) : (
-              <div className="max-h-44 overflow-y-auto">
-                <div className="grid grid-cols-10 sm:grid-cols-13 md:grid-cols-16 gap-1.5">
+              <div className="max-h-48 overflow-y-auto">
+                <div className="grid grid-cols-10 sm:grid-cols-12 md:grid-cols-14 gap-2">
                   {/* Eraser button - always first */}
                   <button
                     onClick={() => handleColorClick(null)}
                     disabled={!canPaint}
                     className={cn(
-                      "aspect-square min-w-[22px] rounded-md border flex items-center justify-center transition-all duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                      "aspect-square min-w-[28px] rounded-lg border flex items-center justify-center transition-all duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                       "bg-[repeating-conic-gradient(#808080_0%_25%,_#404040_25%_50%)] bg-[length:6px_6px]",
                       canPaint && "hover:scale-105",
                       isEraser
@@ -218,7 +218,7 @@ export function PaletteTray({
                     )}
                     title="Eraser"
                   >
-                    <Eraser className="h-2.5 w-2.5 text-white drop-shadow-md" />
+                    <Eraser className="h-3 w-3 text-white drop-shadow-md" />
                   </button>
                   
                   {/* Color swatches */}
@@ -230,7 +230,7 @@ export function PaletteTray({
                         onClick={() => handleColorClick(color)}
                         disabled={!canPaint}
                         className={cn(
-                          "aspect-square min-w-[22px] rounded-md border transition-all duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                          "aspect-square min-w-[28px] rounded-lg border transition-all duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                           canPaint && "hover:scale-105",
                           isSelected
                             ? "border-primary ring-2 ring-primary/40 scale-105 z-10"
