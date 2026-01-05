@@ -1,10 +1,11 @@
 import { useState, useCallback } from 'react';
 import { ChevronUp, ChevronDown, Pipette, Eraser, Hand, Paintbrush } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { COLOR_PALETTE, Z_PAINT, type InteractionMode } from './hooks/useMapState';
+import { COLOR_PALETTE, type InteractionMode } from './hooks/useMapState';
 import { useUsedColors } from './hooks/useUsedColors';
 import { useSound } from '@/hooks/useSound';
 import { cn } from '@/lib/utils';
+import { canInteractAtZoom } from '@/lib/pixelGrid';
 
 interface PaletteTrayProps {
   selectedColor: string | null;
@@ -35,7 +36,7 @@ export function PaletteTray({
   
   const usedColors = useUsedColors(viewportPixels);
   const displayColors = activeTab === 'all' ? COLOR_PALETTE : usedColors;
-  const canPaint = zoom >= Z_PAINT;
+  const canPaint = canInteractAtZoom(zoom);
   const isEraser = selectedColor === null;
 
   const handleColorClick = useCallback((color: string | null) => {

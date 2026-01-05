@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { canInteractAtZoom } from '@/lib/pixelGrid';
 
 export type MapMode = 'paint' | 'defend' | 'attack' | 'reinforce';
 export type InteractionMode = 'drag' | 'draw';
@@ -11,7 +12,6 @@ export interface MapState {
   interactionMode: InteractionMode;
 }
 
-export const Z_PAINT = 16;
 export const MIN_ZOOM = 2;
 export const MAX_ZOOM = 22;
 
@@ -70,7 +70,7 @@ export function useMapState() {
     setState((prev) => ({ ...prev, interactionMode }));
   }, []);
 
-  const canPaint = state.zoom >= Z_PAINT;
+  const canPaint = canInteractAtZoom(state.zoom);
 
   return {
     ...state,

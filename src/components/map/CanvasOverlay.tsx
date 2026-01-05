@@ -6,8 +6,7 @@ import {
   pixelKey,
 } from './hooks/usePixelStore';
 import { type SelectionState } from './hooks/useSelection';
-import { Z_PAINT } from './hooks/useMapState';
-import { lngLatToGridFloat, lngLatToGridInt, getCellSize, roundToDevicePixel, gridIntToLngLat } from '@/lib/pixelGrid';
+import { lngLatToGridFloat, lngLatToGridInt, getCellSize, roundToDevicePixel } from '@/lib/pixelGrid';
 import type { InvalidPixel } from '@/hooks/useGameActions';
 
 interface CanvasOverlayProps {
