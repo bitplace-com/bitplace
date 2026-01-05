@@ -70,6 +70,20 @@ export function getCellSize(mapZoom: number): number {
 }
 
 /**
+ * Minimum cell size in CSS pixels for interaction (painting, selecting)
+ * At 8px cells are large enough to click/tap reliably
+ */
+export const MIN_CELL_SIZE_INTERACT = 8;
+
+/**
+ * Check if painting/interaction is allowed at current zoom
+ * Returns true when cell size is large enough for usable interaction
+ */
+export function canInteractAtZoom(mapZoom: number): boolean {
+  return getCellSize(mapZoom) >= MIN_CELL_SIZE_INTERACT;
+}
+
+/**
  * Helper for crisp rendering: round to device pixel boundary
  */
 export function roundToDevicePixel(value: number, dpr: number = window.devicePixelRatio || 1): number {

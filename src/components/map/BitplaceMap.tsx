@@ -16,7 +16,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { WalletButton } from '@/components/wallet/WalletButton';
 import { usePixelStore, pixelKey } from './hooks/usePixelStore';
 import { useSelection } from './hooks/useSelection';
-import { useMapState, Z_PAINT } from './hooks/useMapState';
+import { useMapState } from './hooks/useMapState';
 import { usePaintQueue } from './hooks/usePaintQueue';
 import { useSupabasePixels } from '@/hooks/useSupabasePixels';
 import { useGameActions, type GameMode } from '@/hooks/useGameActions';
@@ -296,7 +296,7 @@ export function BitplaceMap() {
     }
 
     const handleMapMouseMove = (e: maplibregl.MapMouseEvent) => {
-      if (map.getZoom() >= Z_PAINT) {
+      if (canPaint) {
         // Use lngLatToGridInt for grid-snapped hover
         const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
         setHoverPixel(pixel);
@@ -323,7 +323,7 @@ export function BitplaceMap() {
     };
 
     const handleMapMouseDown = (e: maplibregl.MapMouseEvent) => {
-      if (map.getZoom() < Z_PAINT) return;
+      if (!canPaint) return;
       
       // Handle eyedropper mode or Alt+Click
       if (isEyedropperActive || e.originalEvent.altKey) {
@@ -390,7 +390,7 @@ export function BitplaceMap() {
       );
       
       // Single click (minimal drag distance)
-      if (dragDistance < 5 && map.getZoom() >= Z_PAINT) {
+      if (dragDistance < 5 && canPaint) {
         const { x, y } = dragStartRef.current;
         
         // In Paint mode, single click paints the pixel
