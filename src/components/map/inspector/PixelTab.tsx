@@ -1,5 +1,6 @@
-import { User, Flag, Users, Shield, Swords, Coins } from 'lucide-react';
+import { User, Flag, Users, Shield, Swords, Coins, RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import { usePixelDetails } from '@/hooks/usePixelDetails';
 import { cn } from '@/lib/utils';
 
@@ -10,7 +11,7 @@ interface PixelTabProps {
 }
 
 export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
-  const { pixel, isLoading } = usePixelDetails(x, y);
+  const { pixel, isLoading, refetch } = usePixelDetails(x, y);
 
   if (isLoading) {
     return (
@@ -24,8 +25,12 @@ export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
 
   if (!pixel) {
     return (
-      <div className="text-center text-muted-foreground py-8">
-        Failed to load pixel data
+      <div className="text-center text-muted-foreground py-8 space-y-3">
+        <p>Couldn't load pixel data</p>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          <RefreshCw className="h-3 w-3 mr-1.5" />
+          Retry
+        </Button>
       </div>
     );
   }

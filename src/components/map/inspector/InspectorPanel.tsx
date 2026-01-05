@@ -12,7 +12,7 @@ import type { GameMode, ValidateResult, InvalidPixel } from '@/hooks/useGameActi
 interface InspectorPanelProps {
   selectedPixels: { x: number; y: number }[];
   mode: GameMode;
-  selectedColor: string;
+  selectedColor: string | null;
   currentUserId?: string;
   validationResult: ValidateResult | null;
   invalidPixels: InvalidPixel[];
