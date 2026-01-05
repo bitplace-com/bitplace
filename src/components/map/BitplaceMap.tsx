@@ -14,6 +14,7 @@ import { PaletteTray } from './PaletteTray';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { WalletButton } from '@/components/wallet/WalletButton';
+import { WalletSelectModal } from '@/components/modals/WalletSelectModal';
 import { usePixelStore, pixelKey } from './hooks/usePixelStore';
 import { useSelection } from './hooks/useSelection';
 import { useMapState } from './hooks/useMapState';
@@ -21,6 +22,7 @@ import { usePaintQueue } from './hooks/usePaintQueue';
 import { useSupabasePixels } from '@/hooks/useSupabasePixels';
 import { useGameActions, type GameMode } from '@/hooks/useGameActions';
 import { useWallet } from '@/contexts/WalletContext';
+import { useWalletGate } from '@/hooks/useWalletGate';
 import { useMapUrl } from '@/hooks/useMapUrl';
 import { useSound } from '@/hooks/useSound';
 import { lngLatToGridInt, getViewportGridBounds } from '@/lib/pixelGrid';
@@ -39,7 +41,8 @@ export function BitplaceMap() {
   const [pendingPixels, setPendingPixels] = useState<{ x: number; y: number }[]>([]);
   const [pePerPixel, setPePerPixel] = useState(1);
   
-  const { user, refreshUser } = useWallet();
+  const { user, refreshUser, connect, isConnecting } = useWallet();
+  const { isWalletModalOpen, setWalletModalOpen, requireWallet } = useWalletGate();
   const { getUrlPosition, setUrlPosition } = useMapUrl();
   const { localPixels, paintPixel, mergePixels, confirmPixel } = usePixelStore();
   const { selection, startSelection, updateSelection, endSelection, clearSelection, getNormalizedBounds, getSelectedPixels } = useSelection();
@@ -160,8 +163,10 @@ export function BitplaceMap() {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // SPACE: enable hover-paint mode (Paint mode only)
-      if (e.code === 'Space' && mode === 'paint' && canPaint && user && !isSpaceHeld) {
+      if (e.code === 'Space' && mode === 'paint' && canPaint && !isSpaceHeld) {
         e.preventDefault();
+        // Gate behind wallet connection
+        if (!requireWallet('paint')) return;
         setIsSpaceHeld(true);
         map.dragPan.disable();
         map.getCanvas().style.cursor = 'crosshair';
@@ -231,7 +236,7 @@ export function BitplaceMap() {
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [mapReady, mode, canPaint, user, isSpaceHeld, isShiftHeld, interactionMode, selection.isSelecting, endSelection, hoverPixel, selectedColor, addToQueue, startSpacePaint, stopSpacePaint]);
+  }, [mapReady, mode, canPaint, user, isSpaceHeld, isShiftHeld, interactionMode, selection.isSelecting, endSelection, hoverPixel, selectedColor, addToQueue, startSpacePaint, stopSpacePaint, requireWallet]);
 
   // Update dragPan when interaction mode changes
   useEffect(() => {
@@ -301,8 +306,8 @@ export function BitplaceMap() {
         const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
         setHoverPixel(pixel);
         
-        // SPACE held: hover-paint mode (skip if eraser)
-        if (isSpaceHeld && mode === 'paint' && selectedColor !== null) {
+        // SPACE held: hover-paint mode (skip if eraser, silent user check - modal shown on keydown)
+        if (isSpaceHeld && mode === 'paint' && selectedColor !== null && user) {
           const last = lastPaintedPixelRef.current;
           if (!last || last.x !== pixel.x || last.y !== pixel.y) {
             addToQueue(pixel.x, pixel.y, selectedColor);
@@ -313,8 +318,8 @@ export function BitplaceMap() {
         else if (isShiftHeld && isDraggingRef.current && dragStartRef.current) {
           updateSelection(pixel.x, pixel.y);
         }
-        // DRAW mode continuous painting (skip if eraser)
-        else if (interactionMode === 'draw' && isDrawingRef.current && mode === 'paint' && selectedColor !== null) {
+        // DRAW mode continuous painting (skip if eraser, silent user check - modal shown on mousedown)
+        else if (interactionMode === 'draw' && isDrawingRef.current && mode === 'paint' && selectedColor !== null && user) {
           addToQueue(pixel.x, pixel.y, selectedColor);
         }
       } else { 
@@ -351,6 +356,8 @@ export function BitplaceMap() {
       
       // DRAW mode: start painting (skip if eraser for now)
       if (interactionMode === 'draw' && mode === 'paint' && selectedColor !== null) {
+        // Gate behind wallet connection
+        if (!requireWallet('paint')) return;
         isDrawingRef.current = true;
         startSpacePaint(); // Use paint queue
         addToQueue(pixel.x, pixel.y, selectedColor);
@@ -394,7 +401,9 @@ export function BitplaceMap() {
         const { x, y } = dragStartRef.current;
         
         // In Paint mode, single click paints the pixel
-        if (mode === 'paint' && user) {
+        if (mode === 'paint') {
+          // Gate behind wallet connection
+          if (!requireWallet('paint')) return;
           executeSinglePixelAction(x, y);
           playSound('pixel_select');
         } else {
@@ -432,7 +441,7 @@ export function BitplaceMap() {
       map.off('mouseup', handleMapMouseUp);
       canvas.removeEventListener('mouseleave', handleMapMouseLeave);
     };
-  }, [mapReady, mode, selectedColor, interactionMode, isSpaceHeld, isShiftHeld, updateSelection, startSelection, endSelection, clearSelection, isEyedropperActive, handleEyedropperPick, addToQueue, startSpacePaint, stopSpacePaint, canPaint, user, executeSinglePixelAction, playSound]);
+  }, [mapReady, mode, selectedColor, interactionMode, isSpaceHeld, isShiftHeld, updateSelection, startSelection, endSelection, clearSelection, isEyedropperActive, handleEyedropperPick, addToQueue, startSpacePaint, stopSpacePaint, canPaint, user, executeSinglePixelAction, playSound, requireWallet]);
 
   const handleZoomIn = useCallback(() => mapRef.current?.zoomIn(), []);
   const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), []);
@@ -537,6 +546,17 @@ export function BitplaceMap() {
         )}
       </div>
       <StatusStrip userId={user?.id} paintQueueSize={queueSize} isSpacePainting={isSpacePainting || isDrawingRef.current} isFlushing={isFlushing} />
+      
+      {/* Wallet Connect Modal - triggered when trying to paint without connection */}
+      <WalletSelectModal
+        open={isWalletModalOpen}
+        onOpenChange={setWalletModalOpen}
+        onSelectPhantom={async () => {
+          await connect();
+          setWalletModalOpen(false);
+        }}
+        isConnecting={isConnecting}
+      />
     </div>
   );
 }

@@ -54,6 +54,14 @@ export function usePaintQueue(
   const flushQueue = useCallback(async () => {
     if (flushingRef.current) return;
     
+    // Safety check - don't flush if not authenticated
+    const token = localStorage.getItem('bitplace_session_token');
+    if (!token) {
+      console.warn('[usePaintQueue] No session token, clearing queue');
+      setQueue(new Set());
+      return;
+    }
+    
     setQueue(currentQueue => {
       if (currentQueue.size === 0) return currentQueue;
       
