@@ -11,7 +11,6 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { useWallet } from "@/contexts/WalletContext";
-import { usePeBalance } from "@/hooks/usePeBalance";
 import { usePixelStats } from "@/hooks/usePixelStats";
 import { useSound } from "@/hooks/useSound";
 import { getCountryByCode } from "@/lib/countries";
@@ -38,7 +37,6 @@ function shortenAddress(address: string): string {
 export function UserMenuPanel({ children }: UserMenuPanelProps) {
   const navigate = useNavigate();
   const { user, walletAddress, disconnect, energy } = useWallet();
-  const peBalance = usePeBalance(user?.id);
   const pixelStats = usePixelStats(user?.id);
   const [copied, setCopied] = useState(false);
   const { enabled: soundEnabled, toggle: toggleSound } = useSound();
@@ -171,7 +169,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               Total PE
             </p>
             <p className="text-sm font-semibold text-foreground">
-              {peBalance.total.toLocaleString()}
+              {energy.peTotal.toLocaleString()}
             </p>
           </div>
           <div className="p-2.5 rounded-xl bg-muted/50 border border-border/50">
@@ -184,10 +182,10 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           </div>
           <div className="p-2.5 rounded-xl bg-muted/50 border border-border/50">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              Free PE
+              PE Used
             </p>
             <p className="text-sm font-semibold text-foreground">
-              {peBalance.free.toLocaleString()}
+              {energy.peUsed.toLocaleString()}
             </p>
           </div>
         </div>

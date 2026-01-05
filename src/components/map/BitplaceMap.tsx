@@ -162,9 +162,14 @@ export function BitplaceMap() {
     if (!map || !mapReady) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // SPACE: enable hover-paint mode (Paint mode only)
+      // SPACE: enable hover-paint mode (Paint mode only, Brush mode only)
       if (e.code === 'Space' && mode === 'paint' && canPaint && !isSpaceHeld) {
         e.preventDefault();
+        // Only allow SPACE paint in Brush (draw) mode
+        if (interactionMode !== 'draw') {
+          toast.info('Switch to Brush to paint');
+          return;
+        }
         // Gate behind wallet connection
         if (!requireWallet('paint')) return;
         setIsSpaceHeld(true);
@@ -400,14 +405,15 @@ export function BitplaceMap() {
       if (dragDistance < 5 && canPaint) {
         const { x, y } = dragStartRef.current;
         
-        // In Paint mode, single click paints the pixel
-        if (mode === 'paint') {
+        // In Paint mode with Brush tool, single click paints the pixel
+        // In Hand mode or other modes, click opens inspector
+        if (mode === 'paint' && interactionMode === 'draw') {
           // Gate behind wallet connection
           if (!requireWallet('paint')) return;
           executeSinglePixelAction(x, y);
           playSound('pixel_select');
         } else {
-          // Other modes: click opens inspector
+          // Hand mode or other game modes: click opens inspector
           setInspectedPixel({ x, y });
           playSound('pixel_select');
         }
