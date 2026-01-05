@@ -67,20 +67,20 @@ export function PaletteTray({
         )}
       >
         {/* Header - always visible */}
-        <div className="flex items-center justify-between gap-3 px-3 py-2">
+        <div className="flex items-center justify-between gap-4 px-4 py-3">
           {/* Selected color preview */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {isEraser ? (
-              <div className="h-7 w-7 rounded-md border border-white/20 flex items-center justify-center bg-[repeating-conic-gradient(#808080_0%_25%,_#404040_25%_50%)] bg-[length:6px_6px]">
-                <Eraser className="h-3.5 w-3.5 text-white drop-shadow-md" />
+              <div className="h-9 w-9 rounded-md border border-white/20 flex items-center justify-center bg-[repeating-conic-gradient(#808080_0%_25%,_#404040_25%_50%)] bg-[length:6px_6px]">
+                <Eraser className="h-4 w-4 text-white drop-shadow-md" />
               </div>
             ) : (
               <div
-                className="h-7 w-7 rounded-md border border-white/20 shadow-sm flex-shrink-0"
+                className="h-9 w-9 rounded-md border border-white/20 shadow-sm flex-shrink-0"
                 style={{ backgroundColor: selectedColor }}
               />
             )}
-            <span className="text-[11px] font-mono font-medium text-foreground/80">
+            <span className="text-xs font-mono font-medium text-foreground/80">
               {isEraser ? 'ERASER' : selectedColor?.toUpperCase()}
             </span>
           </div>
@@ -114,33 +114,33 @@ export function PaletteTray({
           )}
 
           {/* Mode toggle + Actions */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             {/* Compact Drag/Draw mode toggle */}
             {canPaint && (
-              <div className="flex items-center gap-0.5 bg-muted/30 rounded-md p-0.5">
+              <div className="flex items-center gap-0.5 bg-muted/30 rounded-lg p-1">
                 <button
                   onClick={() => onInteractionModeChange('drag')}
                   className={cn(
-                    "p-1 rounded transition-colors",
+                    "p-1.5 rounded-md transition-colors",
                     interactionMode === 'drag' 
                       ? "bg-primary text-primary-foreground" 
                       : "text-muted-foreground hover:text-foreground"
                   )}
-                  title="Drag mode: Pan map, click to paint"
+                  title="Hand mode: Pan map, click to inspect"
                 >
-                  <Hand className="h-3 w-3" />
+                  <Hand className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => onInteractionModeChange('draw')}
                   className={cn(
-                    "p-1 rounded transition-colors",
+                    "p-1.5 rounded-md transition-colors",
                     interactionMode === 'draw' 
                       ? "bg-primary text-primary-foreground" 
                       : "text-muted-foreground hover:text-foreground"
                   )}
-                  title="Draw mode: Click/drag to paint"
+                  title="Brush mode: Click/drag to paint"
                 >
-                  <Paintbrush className="h-3 w-3" />
+                  <Paintbrush className="h-4 w-4" />
                 </button>
               </div>
             )}
@@ -152,24 +152,24 @@ export function PaletteTray({
                 onClick={handleEyedropperClick}
                 disabled={!canPaint}
                 className={cn(
-                  "h-6 w-6 rounded-md",
+                  "h-8 w-8 rounded-md",
                   isEyedropperActive && "bg-primary text-primary-foreground"
                 )}
                 title="Eyedropper (Alt+Click)"
               >
-                <Pipette className="h-3 w-3" />
+                <Pipette className="h-4 w-4" />
               </Button>
             )}
             <Button
               variant="ghost"
               size="icon"
               onClick={handleToggleExpand}
-              className="h-6 w-6 rounded-md"
+              className="h-8 w-8 rounded-md"
             >
               {isExpanded ? (
-                <ChevronDown className="h-3 w-3" />
+                <ChevronDown className="h-4 w-4" />
               ) : (
-                <ChevronUp className="h-3 w-3" />
+                <ChevronUp className="h-4 w-4" />
               )}
             </Button>
           </div>
