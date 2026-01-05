@@ -1,5 +1,8 @@
 import { useState, useCallback } from 'react';
 
+// Safety limit to prevent memory explosion from huge selections
+export const MAX_SELECTION_PIXELS = 10000;
+
 export interface SelectionBounds {
   startX: number;
   startY: number;
@@ -74,9 +77,25 @@ export function useSelection() {
     };
   }, [selection.bounds]);
 
+  const getSelectionCount = useCallback((): number => {
+    const bounds = getNormalizedBounds();
+    if (!bounds) return 0;
+    return (bounds.endX - bounds.startX + 1) * (bounds.endY - bounds.startY + 1);
+  }, [getNormalizedBounds]);
+
+  const isSelectionTooLarge = useCallback((): boolean => {
+    return getSelectionCount() > MAX_SELECTION_PIXELS;
+  }, [getSelectionCount]);
+
   const getSelectedPixels = useCallback((): { x: number; y: number }[] => {
     const bounds = getNormalizedBounds();
     if (!bounds) return [];
+    
+    const count = getSelectionCount();
+    if (count > MAX_SELECTION_PIXELS) {
+      console.warn(`Selection too large: ${count} pixels, max is ${MAX_SELECTION_PIXELS}. Returning empty array.`);
+      return [];
+    }
     
     const pixels: { x: number; y: number }[] = [];
     for (let x = bounds.startX; x <= bounds.endX; x++) {
@@ -85,7 +104,7 @@ export function useSelection() {
       }
     }
     return pixels;
-  }, [getNormalizedBounds]);
+  }, [getNormalizedBounds, getSelectionCount]);
 
   return {
     selection,
@@ -95,5 +114,7 @@ export function useSelection() {
     clearSelection,
     getNormalizedBounds,
     getSelectedPixels,
+    getSelectionCount,
+    isSelectionTooLarge,
   };
 }

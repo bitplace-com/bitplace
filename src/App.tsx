@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { MapLayout } from "@/components/layout/MapLayout";
 import { WalletProvider } from "@/contexts/WalletContext";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import MapPage from "./pages/MapPage";
 import RulesPage from "./pages/RulesPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -23,7 +24,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             {/* Map route with collapsible sidebar */}
-            <Route path="/" element={<MapLayout><MapPage /></MapLayout>} />
+            <Route path="/" element={<ErrorBoundary><MapLayout><MapPage /></MapLayout></ErrorBoundary>} />
             {/* Other routes use MainLayout with sidebar */}
             <Route element={<MainLayout><RulesPage /></MainLayout>} path="/rules" />
             <Route element={<MainLayout><ProfilePage /></MainLayout>} path="/profile" />

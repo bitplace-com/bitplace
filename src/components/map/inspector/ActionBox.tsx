@@ -5,7 +5,7 @@ import type { GameMode, ValidateResult } from '@/hooks/useGameActions';
 
 interface ActionBoxProps {
   mode: GameMode;
-  selectedColor: string;
+  selectedColor: string | null;
   pixelCount: number;
   pePerPixel: number;
   validationResult: ValidateResult | null;
@@ -51,11 +51,17 @@ export function ActionBox({
           <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
             {config.icon}
           </div>
-          <div
-            className="h-6 w-6 rounded-md border border-white/20"
-            style={{ backgroundColor: selectedColor }}
-          />
-          <span className="text-[11px] font-mono text-muted-foreground">{selectedColor.toUpperCase()}</span>
+          {selectedColor ? (
+            <>
+              <div
+                className="h-6 w-6 rounded-md border border-white/20"
+                style={{ backgroundColor: selectedColor }}
+              />
+              <span className="text-[11px] font-mono text-muted-foreground">{selectedColor.toUpperCase()}</span>
+            </>
+          ) : (
+            <span className="text-[11px] font-mono text-muted-foreground">ERASER</span>
+          )}
         </div>
       ) : (
         <div className="flex items-center gap-2">

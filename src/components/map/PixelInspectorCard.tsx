@@ -16,7 +16,7 @@ interface PixelInspectorCardProps {
   onClose: () => void;
   onPaint: (x: number, y: number) => void;
   onDefendAttack: (x: number, y: number, mode: 'DEFEND' | 'ATTACK') => void;
-  selectedColor: string;
+  selectedColor: string | null;
   mode: GameMode;
   currentUserId?: string;
 }
