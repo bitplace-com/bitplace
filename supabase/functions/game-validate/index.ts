@@ -502,6 +502,10 @@ Deno.serve(async (req) => {
 
       // Ownership rules
       if (mode === "REINFORCE") {
+        if (isEmpty) {
+          invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
+          continue;
+        }
         if (!isOwnedByUser) {
           invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "NOT_OWNER" });
           continue;

@@ -441,16 +441,21 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString();
 
     if (mode === "REINFORCE") {
-      // Increase owner_stake_pe for each pixel
+      // Increase owner_stake_pe for each pixel owned by user
       for (const pixel of pixelStates) {
-        if (!pixel.id) continue;
+        // Skip if pixel doesn't exist or isn't owned by user
+        if (!pixel.id || pixel.owner_user_id !== userId) {
+          console.log(`[game-commit] REINFORCE skipping pixel (${pixel.x},${pixel.y}): id=${pixel.id}, owner=${pixel.owner_user_id}, userId=${userId}`);
+          continue;
+        }
         const { error } = await supabase
           .from("pixels")
           .update({ 
             owner_stake_pe: (pixel.owner_stake_pe || 0) + pePerPixel!,
             updated_at: now
           })
-          .eq("id", pixel.id);
+          .eq("id", pixel.id)
+          .eq("owner_user_id", userId); // Extra safety check
         
         if (!error) affectedPixels++;
       }
