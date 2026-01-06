@@ -49,11 +49,11 @@ export function ActionBox({
   const hasBreakdown = breakdown && validationResult?.ok;
 
   return (
-    <div className="border-t border-border/20 p-3 space-y-3 bg-background/20">
+    <div className="border-t border-white/14 p-3 space-y-3 bg-white/4">
       {/* Mode + Color inline for PAINT */}
       {mode === 'PAINT' ? (
         <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-white/10 text-white">
             {config.icon}
           </div>
           {selectedColor ? (
@@ -70,7 +70,7 @@ export function ActionBox({
         </div>
       ) : (
         <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-white/10 text-white">
             {config.icon}
           </div>
           <span className="text-xs font-medium">{config.label}</span>
@@ -141,7 +141,7 @@ export function ActionBox({
 
       {/* PE Cost Summary (shown for all modes when validated successfully) */}
       {hasBreakdown && (
-        <div className="text-[10px] space-y-1 px-2 py-1.5 rounded-md bg-muted/30">
+        <div className="text-[10px] space-y-1 px-2 py-1.5 rounded-md bg-white/6">
           {mode === 'PAINT' ? (
             <>
               <div className="text-muted-foreground font-medium mb-1">This action will lock:</div>
@@ -152,13 +152,13 @@ export function ActionBox({
                 </div>
               )}
               {breakdown.ownedByUser > 0 && (
-                <div className="flex justify-between text-green-500">
+                <div className="flex justify-between text-emerald-400">
                   <span>Recolor yours ({breakdown.ownedByUser}):</span>
                   <span className="font-medium">0 PE</span>
                 </div>
               )}
               {breakdown.ownedByOthers > 0 && (
-                <div className="flex justify-between text-amber-500">
+                <div className="flex justify-between text-amber-400">
                   <span>Takeover ({breakdown.ownedByOthers}):</span>
                   <span className="font-medium">{breakdown.pePerType?.takeover || breakdown.ownedByOthers}+ PE</span>
                 </div>
@@ -166,20 +166,20 @@ export function ActionBox({
             </>
           ) : mode === 'DEFEND' ? (
             <div className="text-muted-foreground">
-              Adding <span className="text-blue-400 font-medium">{pePerPixel} PE</span> defense to {pixelCount} pixel(s)
+              Adding <span className="text-emerald-400 font-medium">{pePerPixel} PE</span> defense to {pixelCount} pixel(s)
             </div>
           ) : mode === 'ATTACK' ? (
             <div className="text-muted-foreground">
-              Adding <span className="text-red-400 font-medium">{pePerPixel} PE</span> attack to {pixelCount} pixel(s)
+              Adding <span className="text-rose-400 font-medium">{pePerPixel} PE</span> attack to {pixelCount} pixel(s)
             </div>
           ) : mode === 'REINFORCE' ? (
             <div className="text-muted-foreground">
-              Adding <span className="text-green-400 font-medium">{pePerPixel} PE</span> stake to {pixelCount} pixel(s)
+              Adding <span className="text-emerald-400 font-medium">{pePerPixel} PE</span> stake to {pixelCount} pixel(s)
             </div>
           ) : null}
 
           {/* Total and Available PE */}
-          <div className="flex justify-between border-t border-border/20 pt-1 mt-1">
+          <div className="flex justify-between border-t border-white/14 pt-1 mt-1">
             <span className="text-muted-foreground font-medium">Total Cost:</span>
             <span className="text-foreground font-medium">{validationResult.requiredPeTotal.toLocaleString()} PE</span>
           </div>
@@ -188,7 +188,7 @@ export function ActionBox({
             <span className={cn(
               "font-medium",
               validationResult.availablePe >= validationResult.requiredPeTotal 
-                ? "text-green-500" 
+                ? "text-emerald-400" 
                 : "text-destructive"
             )}>
               {validationResult.availablePe.toLocaleString()} PE

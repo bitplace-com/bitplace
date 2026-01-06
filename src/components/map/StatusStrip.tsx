@@ -59,16 +59,16 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
         <div className="flex items-center gap-4">
           {/* Paint Queue Status */}
           {(isSpacePainting || isFlushing) && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg animate-pulse">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg animate-pulse">
               {isFlushing ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
-                  <span className="text-xs font-medium text-primary">Syncing...</span>
+                  <Loader2 className="h-3.5 w-3.5 text-white animate-spin" />
+                  <span className="text-xs font-medium text-white">Syncing...</span>
                 </>
               ) : (
                 <>
-                  <Paintbrush className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-xs font-medium text-primary tabular-nums">Painting {paintQueueSize}...</span>
+                  <Paintbrush className="h-3.5 w-3.5 text-white" />
+                  <span className="text-xs font-medium text-white tabular-nums">Painting {paintQueueSize}...</span>
                 </>
               )}
             </div>
@@ -104,7 +104,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
         <div className="flex items-center gap-4">
           {/* PE Total / Used */}
           <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-primary" />
+            <Zap className="h-4 w-4 text-white" />
             <span className="text-sm font-semibold tabular-nums">
               {isLoading ? '...' : energy.peTotal.toLocaleString()} PE
             </span>
