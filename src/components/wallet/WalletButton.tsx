@@ -53,14 +53,14 @@ export function WalletButton() {
     return (
       <GlassPanel
         padding="sm"
-        className="flex items-center gap-2.5 cursor-pointer hover:bg-white/10 transition-colors"
+        className="flex items-center gap-2.5 cursor-pointer hover:bg-accent transition-colors"
         onClick={handleSignIn}
       >
         <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
         <span className="font-mono text-xs text-foreground">
           {shortenAddress(walletAddress)}
         </span>
-        <span className="text-xs text-amber-400 font-medium">
+        <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
           Sign in →
         </span>
       </GlassPanel>
@@ -73,7 +73,7 @@ export function WalletButton() {
       <UserMenuPanel>
         <GlassPanel
           padding="sm"
-          className="flex items-center gap-2.5 cursor-pointer hover:bg-white/10 transition-colors"
+          className="flex items-center gap-2.5 cursor-pointer hover:bg-accent transition-colors"
         >
           <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="font-mono text-xs text-foreground">

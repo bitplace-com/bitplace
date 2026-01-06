@@ -29,7 +29,7 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
             key={value}
             value={value}
             aria-label={label}
-            className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-200 data-[state=on]:bg-white data-[state=on]:text-black data-[state=on]:shadow-md hover:bg-white/8"
+            className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-200 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-md hover:bg-accent"
           >
             {icon}
             <span className="text-sm font-medium hidden sm:inline">{label}</span>

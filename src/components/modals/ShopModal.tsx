@@ -13,17 +13,12 @@ interface ShopModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-// TODO: Swap SOL -> BTP when ENERGY_ASSET changes to 'BTP'
-// The ENERGY_ASSET config in src/config/energy.ts controls which asset is used for PE calculation
-// When BTP launches, change ENERGY_ASSET to 'BTP' and update the Phantom swap link accordingly
-
 export function ShopModal({ open, onOpenChange }: ShopModalProps) {
   const { walletAddress, energy, refreshEnergy, isConnected } = useWallet();
   const isMobile = useIsMobile();
   const [copied, setCopied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // TODO: Update this URL when switching to BTP
   const phantomSwapUrl = "https://phantom.app/ul/v1/swap";
 
   const truncatedAddress = walletAddress
@@ -65,13 +60,10 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
     window.open(phantomSwapUrl, "_blank");
   };
 
-  // Format PE with commas
   const formattedPE = energy?.peTotal 
     ? Math.floor(energy.peTotal).toLocaleString() 
     : "0";
 
-  // Current asset symbol based on config
-  // TODO: This will automatically update when ENERGY_ASSET changes
   const assetSymbol = ENERGY_ASSET === 'SOL' ? 'SOL' : 'BTP';
 
   return (
@@ -84,7 +76,6 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
     >
       <div className="space-y-4">
         {!isConnected ? (
-          // Not connected state
           <div className="text-center py-6">
             <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
               <Coins className="h-6 w-6 text-muted-foreground" />
@@ -99,7 +90,7 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
             {/* Current PE Display */}
             <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 text-center">
               <p className="text-xs text-muted-foreground mb-1">Your Current PE</p>
-              <p className="text-2xl font-bold text-primary">{formattedPE} PE</p>
+              <p className="text-2xl font-bold text-foreground">{formattedPE} PE</p>
             </div>
 
             {/* Wallet Address Section */}
@@ -110,7 +101,7 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
               
               {/* Address with Copy */}
               <div className="flex items-center justify-center gap-2">
-                <code className="px-3 py-2 rounded-lg bg-muted/50 font-mono text-sm">
+                <code className="px-3 py-2 rounded-lg bg-muted font-mono text-sm">
                   {truncatedAddress}
                 </code>
                 <Button
@@ -120,7 +111,7 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
                   onClick={handleCopyAddress}
                 >
                   {copied ? (
-                    <Check className="h-4 w-4 text-green-500" />
+                    <Check className="h-4 w-4 text-emerald-500" />
                   ) : (
                     <Copy className="h-4 w-4" />
                   )}
@@ -144,7 +135,6 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
 
             {/* CTA Buttons */}
             <div className="space-y-2 pt-2">
-              {/* Phantom Swap Button */}
               <Button
                 variant="outline"
                 className="w-full gap-2"
@@ -161,7 +151,6 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
                 )}
               </Button>
 
-              {/* Refresh Balance Button */}
               <Button
                 variant="default"
                 className="w-full gap-2"
@@ -174,15 +163,14 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
             </div>
 
             {/* Info Box */}
-            <div className="p-3 rounded-xl bg-muted/30 border border-border/50 space-y-2">
+            <div className="p-3 rounded-xl bg-muted border border-border space-y-2">
               <p className="text-xs text-muted-foreground">
                 <strong className="text-foreground">How PE works:</strong> Your PE is calculated from your wallet's USD value.
               </p>
               <p className="text-xs text-muted-foreground">
                 <strong className="text-foreground">Rate:</strong> $1 USD = {PE_PER_USD.toLocaleString()} PE
               </p>
-              {/* TODO: Update this text when ENERGY_ASSET changes */}
-              <p className="text-xs text-primary/80">
+              <p className="text-xs text-primary">
                 Currently using {assetSymbol} balance. This will switch to BTP when the token launches.
               </p>
             </div>

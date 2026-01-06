@@ -48,7 +48,7 @@ export function ZoomControls({
         <GlassIconButton
           variant="ghost"
           onClick={onZoomIn}
-          className="rounded-none border-b border-white/14"
+          className="rounded-none border-b border-border"
           aria-label="Zoom in"
         >
           <Plus className="h-4 w-4" />

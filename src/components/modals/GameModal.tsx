@@ -31,14 +31,14 @@ export function GameModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "bg-[hsl(0_0%_7%/0.95)] backdrop-blur-[20px] backdrop-saturate-[140%] border-white/14 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] max-w-md",
+          "bg-popover/95 backdrop-blur-[20px] backdrop-saturate-[140%] border-border rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] max-w-md",
           className
         )}
       >
         <DialogHeader className="space-y-3">
           <div className="flex items-center gap-3">
             {icon && (
-              <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-white/10 text-white">
+              <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-primary/10 text-primary">
                 {icon}
               </div>
             )}
