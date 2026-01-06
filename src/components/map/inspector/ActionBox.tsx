@@ -43,6 +43,10 @@ export function ActionBox({
   // For single-pixel PAINT, allow direct confirm without validation
   const canConfirm = (isValidated || (!needsValidation && mode === 'PAINT')) && !isCommitting;
 
+  // Extract breakdown for display
+  const breakdown = validationResult?.breakdown;
+  const hasBreakdown = breakdown && validationResult?.ok;
+
   return (
     <div className="border-t border-border/20 p-3 space-y-3 bg-background/20">
       {/* Mode + Color inline for PAINT */}
@@ -127,10 +131,39 @@ export function ActionBox({
         )}
       </div>
 
-      {/* Validation Status */}
+      {/* Validation Status - Detailed Breakdown */}
       {validationResult && !validationResult.ok && (
         <div className="text-[10px] text-destructive bg-destructive/10 px-2 py-1.5 rounded-md">
           {validationResult.invalidPixels.length} invalid pixel(s)
+        </div>
+      )}
+
+      {/* PE Cost Breakdown (only when validated successfully) */}
+      {hasBreakdown && mode === 'PAINT' && (
+        <div className="text-[10px] space-y-1 px-2 py-1.5 rounded-md bg-muted/30">
+          <div className="text-muted-foreground font-medium mb-1">This action will lock:</div>
+          {breakdown.empty > 0 && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">New pixels ({breakdown.empty}):</span>
+              <span className="text-foreground font-medium">{breakdown.empty} PE</span>
+            </div>
+          )}
+          {breakdown.ownedByUser > 0 && (
+            <div className="flex justify-between text-green-500">
+              <span>Recolor yours ({breakdown.ownedByUser}):</span>
+              <span className="font-medium">0 PE</span>
+            </div>
+          )}
+          {breakdown.ownedByOthers > 0 && (
+            <div className="flex justify-between text-amber-500">
+              <span>Takeover ({breakdown.ownedByOthers}):</span>
+              <span className="font-medium">{breakdown.pePerType?.takeover || breakdown.ownedByOthers}+ PE</span>
+            </div>
+          )}
+          <div className="flex justify-between border-t border-border/20 pt-1 mt-1">
+            <span className="text-muted-foreground font-medium">Total:</span>
+            <span className="text-foreground font-medium">{validationResult.requiredPeTotal} PE</span>
+          </div>
         </div>
       )}
     </div>

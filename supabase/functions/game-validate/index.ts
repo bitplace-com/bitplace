@@ -243,9 +243,25 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body: ValidateRequest = await req.json();
-    const { mode, pixels, color, pePerPixel } = body;
+    const { mode, pixels: rawPixels, color, pePerPixel } = body;
 
-    console.log("[game-validate] Request:", { userId, mode, pixelCount: pixels?.length, color, pePerPixel });
+    // ===== DEDUPLICATE PIXELS BY COORDINATE KEY =====
+    const pixelSet = new Set<string>();
+    const pixels = (rawPixels || []).filter((p: { x: number; y: number }) => {
+      const key = `${p.x}:${p.y}`;
+      if (pixelSet.has(key)) {
+        return false;
+      }
+      pixelSet.add(key);
+      return true;
+    });
+
+    const duplicatesRemoved = (rawPixels?.length || 0) - pixels.length;
+    if (duplicatesRemoved > 0) {
+      console.warn(`[game-validate] Deduplicated ${duplicatesRemoved} duplicate pixels from request`);
+    }
+
+    console.log("[game-validate] Request:", { userId, mode, rawCount: rawPixels?.length, dedupedCount: pixels.length, color, pePerPixel });
 
     // Input validation
     if (!mode || !pixels || !Array.isArray(pixels) || pixels.length === 0) {
