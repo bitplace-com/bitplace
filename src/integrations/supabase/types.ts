@@ -443,6 +443,7 @@ export type Database = {
           rebalance_ends_at: string | null
           rebalance_started_at: string | null
           rebalance_target_multiplier: number | null
+          wallet_short: string | null
         }
         Insert: {
           alliance_tag?: string | null
@@ -456,6 +457,7 @@ export type Database = {
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
           rebalance_target_multiplier?: number | null
+          wallet_short?: never
         }
         Update: {
           alliance_tag?: string | null
@@ -469,6 +471,7 @@ export type Database = {
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
           rebalance_target_multiplier?: number | null
+          wallet_short?: never
         }
         Relationships: []
       }
@@ -480,6 +483,7 @@ export type Database = {
           display_name: string | null
           id: string | null
           level: number | null
+          wallet_short: string | null
           xp: number | null
         }
         Insert: {
@@ -489,6 +493,7 @@ export type Database = {
           display_name?: string | null
           id?: string | null
           level?: number | null
+          wallet_short?: never
           xp?: number | null
         }
         Update: {
@@ -498,6 +503,7 @@ export type Database = {
           display_name?: string | null
           id?: string | null
           level?: number | null
+          wallet_short?: never
           xp?: number | null
         }
         Relationships: []
