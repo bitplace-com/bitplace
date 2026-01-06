@@ -65,7 +65,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent
         align="end"
-        className="w-80 p-0 bg-[hsl(0_0%_7%/0.95)] backdrop-blur-xl border-white/14 rounded-2xl shadow-xl z-50"
+        className="w-80 p-0 bg-popover/95 backdrop-blur-xl border-border rounded-2xl shadow-xl z-50"
       >
         {/* User Header */}
         <div className="p-4">
@@ -75,11 +75,11 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               <img
                 src={user.avatar_url}
                 alt="Avatar"
-                className="h-12 w-12 rounded-full object-cover border-2 border-white/14"
+                className="h-12 w-12 rounded-full object-cover border-2 border-border"
               />
             ) : (
               <div
-                className="h-12 w-12 rounded-full flex items-center justify-center text-white font-bold text-lg border-2 border-white/14"
+                className="h-12 w-12 rounded-full flex items-center justify-center text-white font-bold text-lg border-2 border-border"
                 style={{ background: avatarGradient }}
               >
                 {avatarInitial}
@@ -97,7 +97,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                   >
                     {shortenAddress(walletAddress)}
                     {copied ? (
-                      <Check className="h-3 w-3 text-emerald-400" />
+                      <Check className="h-3 w-3 text-emerald-500" />
                     ) : (
                       <Copy className="h-3 w-3" />
                     )}
@@ -111,8 +111,8 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               )}
               {user?.alliance_tag && (
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <Users className="h-3 w-3 text-white" />
-                  <span className="text-xs font-medium font-mono text-white">
+                  <Users className="h-3 w-3 text-foreground" />
+                  <span className="text-xs font-medium font-mono text-foreground">
                     [{user.alliance_tag}]
                   </span>
                 </div>
@@ -121,7 +121,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           </div>
         </div>
 
-        <Separator className="bg-white/14" />
+        <Separator className="bg-border" />
 
         {/* Level & Progress */}
         <div className="p-4 space-y-3">
@@ -152,11 +152,11 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           </div>
         </div>
 
-        <Separator className="bg-white/14" />
+        <Separator className="bg-border" />
 
         {/* Stats */}
         <div className="p-4 grid grid-cols-2 gap-3">
-          <div className="p-2.5 rounded-xl bg-white/6 border border-white/14">
+          <div className="p-2.5 rounded-xl bg-accent border border-border">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
               Pixels Owned
             </p>
@@ -164,7 +164,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               {pixelStats.pixelsOwned.toLocaleString()}
             </p>
           </div>
-          <div className="p-2.5 rounded-xl bg-white/6 border border-white/14">
+          <div className="p-2.5 rounded-xl bg-accent border border-border">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
               Total PE
             </p>
@@ -172,7 +172,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               {energy.peTotal.toLocaleString()}
             </p>
           </div>
-          <div className="p-2.5 rounded-xl bg-white/6 border border-white/14">
+          <div className="p-2.5 rounded-xl bg-accent border border-border">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
               {energy.nativeSymbol}
             </p>
@@ -180,7 +180,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               {energy.nativeBalance.toFixed(4)}
             </p>
           </div>
-          <div className="p-2.5 rounded-xl bg-white/6 border border-white/14">
+          <div className="p-2.5 rounded-xl bg-accent border border-border">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
               PE Used
             </p>
@@ -190,13 +190,13 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           </div>
         </div>
 
-        <Separator className="bg-white/14" />
+        <Separator className="bg-border" />
 
         {/* Quick Links */}
         <div className="p-2">
           <Button
             variant="ghost"
-            className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-white/8"
+            className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
             onClick={() => navigate("/profile")}
           >
             <User className="h-4 w-4" />
@@ -204,7 +204,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           </Button>
           <Button
             variant="ghost"
-            className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-white/8"
+            className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
             onClick={() => navigate("/leaderboard")}
           >
             <BarChart3 className="h-4 w-4" />
@@ -212,7 +212,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           </Button>
           <Button
             variant="ghost"
-            className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-white/8"
+            className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
             onClick={() => navigate("/rules")}
           >
             <BookOpen className="h-4 w-4" />
@@ -220,7 +220,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           </Button>
         </div>
 
-        <Separator className="bg-white/14" />
+        <Separator className="bg-border" />
 
         {/* Settings */}
         <div className="p-3">
@@ -233,7 +233,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           </div>
         </div>
 
-        <Separator className="bg-white/14" />
+        <Separator className="bg-border" />
 
         {/* Disconnect */}
         <div className="p-2">

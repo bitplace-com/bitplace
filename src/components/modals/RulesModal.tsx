@@ -17,7 +17,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
     >
       <div className="space-y-4 text-sm text-foreground/80">
         <div className="flex items-start gap-3">
-          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-primary shrink-0">
+          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-foreground shrink-0">
             <Paintbrush className="h-4 w-4" />
           </div>
           <div>
@@ -27,7 +27,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
         </div>
         
         <div className="flex items-start gap-3">
-          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-primary shrink-0">
+          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-foreground shrink-0">
             <Shield className="h-4 w-4" />
           </div>
           <div>
@@ -37,7 +37,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
         </div>
         
         <div className="flex items-start gap-3">
-          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-primary shrink-0">
+          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-foreground shrink-0">
             <Swords className="h-4 w-4" />
           </div>
           <div>
@@ -47,7 +47,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
         </div>
         
         <div className="flex items-start gap-3">
-          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-primary shrink-0">
+          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-foreground shrink-0">
             <Plus className="h-4 w-4" />
           </div>
           <div>
@@ -56,7 +56,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
           </div>
         </div>
         
-        <div className="pt-2 border-t border-border/50">
+        <div className="pt-2 border-t border-border">
           <p className="text-xs text-muted-foreground">
             Zoom in to paint level (z16+) to start placing pixels. Your PE (Pixel Energy) is derived from your SOL holdings.
           </p>

@@ -59,16 +59,16 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
         <div className="flex items-center gap-4">
           {/* Paint Queue Status */}
           {(isSpacePainting || isFlushing) && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg animate-pulse">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg animate-pulse">
               {isFlushing ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 text-white animate-spin" />
-                  <span className="text-xs font-medium text-white">Syncing...</span>
+                  <Loader2 className="h-3.5 w-3.5 text-foreground animate-spin" />
+                  <span className="text-xs font-medium text-foreground">Syncing...</span>
                 </>
               ) : (
                 <>
-                  <Paintbrush className="h-3.5 w-3.5 text-white" />
-                  <span className="text-xs font-medium text-white tabular-nums">Painting {paintQueueSize}...</span>
+                  <Paintbrush className="h-3.5 w-3.5 text-foreground" />
+                  <span className="text-xs font-medium text-foreground tabular-nums">Painting {paintQueueSize}...</span>
                 </>
               )}
             </div>
@@ -92,8 +92,8 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             <span className={cn(
               "px-1.5 py-0.5 text-[10px] font-semibold uppercase rounded",
               energy.cluster === 'mainnet' 
-                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                : "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30"
             )}>
               {energy.cluster}
             </span>
@@ -104,7 +104,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
         <div className="flex items-center gap-4">
           {/* PE Total / Used */}
           <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-white" />
+            <Zap className="h-4 w-4 text-foreground" />
             <span className="text-sm font-semibold tabular-nums">
               {isLoading ? '...' : energy.peTotal.toLocaleString()} PE
             </span>
@@ -126,7 +126,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
           {hasInsufficientPe && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
               <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-              <span className="text-xs font-medium text-amber-600">Add SOL to play</span>
+              <span className="text-xs font-medium text-amber-600 dark:text-amber-500">Add SOL to play</span>
             </div>
           )}
 
@@ -134,7 +134,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
           {isContributionsUnderCollateralized && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
               <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-              <span className="text-xs font-medium text-amber-600">DEF/ATK at risk</span>
+              <span className="text-xs font-medium text-amber-600 dark:text-amber-500">DEF/ATK at risk</span>
             </div>
           )}
 

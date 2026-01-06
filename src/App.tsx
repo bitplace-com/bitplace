@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { MapLayout } from "@/components/layout/MapLayout";
 import { WalletProvider } from "@/contexts/WalletContext";
@@ -16,25 +17,32 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <WalletProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Map route with collapsible sidebar */}
-            <Route path="/" element={<ErrorBoundary><MapLayout><MapPage /></MapLayout></ErrorBoundary>} />
-            {/* Other routes use MainLayout with sidebar */}
-            <Route element={<MainLayout><RulesPage /></MainLayout>} path="/rules" />
-            <Route element={<MainLayout><ProfilePage /></MainLayout>} path="/profile" />
-            <Route element={<MainLayout><LeaderboardPage /></MainLayout>} path="/leaderboard" />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </WalletProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ThemeProvider
+    attribute="class"
+    defaultTheme="light"
+    storageKey="bitplace_theme"
+    enableSystem={false}
+  >
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <WalletProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              {/* Map route with collapsible sidebar */}
+              <Route path="/" element={<ErrorBoundary><MapLayout><MapPage /></MapLayout></ErrorBoundary>} />
+              {/* Other routes use MainLayout with sidebar */}
+              <Route element={<MainLayout><RulesPage /></MainLayout>} path="/rules" />
+              <Route element={<MainLayout><ProfilePage /></MainLayout>} path="/profile" />
+              <Route element={<MainLayout><LeaderboardPage /></MainLayout>} path="/leaderboard" />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </WalletProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;

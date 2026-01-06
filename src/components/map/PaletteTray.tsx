@@ -62,8 +62,8 @@ export function PaletteTray({
     >
       <div 
         className={cn(
-          "pointer-events-auto bg-[hsl(0_0%_7%/0.95)] backdrop-blur-md rounded-xl border border-white/14 shadow-xl overflow-hidden transition-all duration-200",
-          isEyedropperActive && "ring-2 ring-white/50"
+          "pointer-events-auto bg-popover/95 backdrop-blur-md rounded-xl border border-border shadow-xl overflow-hidden transition-all duration-200",
+          isEyedropperActive && "ring-2 ring-ring"
         )}
       >
         {/* Header - always visible */}
@@ -71,12 +71,12 @@ export function PaletteTray({
           {/* Selected color preview */}
           <div className="flex items-center gap-3">
             {isEraser ? (
-              <div className="h-9 w-9 rounded-md border border-white/20 flex items-center justify-center bg-[repeating-conic-gradient(#808080_0%_25%,_#404040_25%_50%)] bg-[length:6px_6px]">
+              <div className="h-9 w-9 rounded-md border border-border flex items-center justify-center bg-[repeating-conic-gradient(#808080_0%_25%,_#404040_25%_50%)] bg-[length:6px_6px]">
                 <Eraser className="h-4 w-4 text-white drop-shadow-md" />
               </div>
             ) : (
               <div
-                className="h-9 w-9 rounded-md border border-white/20 shadow-sm flex-shrink-0"
+                className="h-9 w-9 rounded-md border border-border shadow-sm flex-shrink-0"
                 style={{ backgroundColor: selectedColor }}
               />
             )}
@@ -93,7 +93,7 @@ export function PaletteTray({
                 className={cn(
                   "px-2 py-0.5 text-[10px] font-medium transition-colors border-b-2",
                   activeTab === 'all'
-                    ? "border-white text-foreground"
+                    ? "border-primary text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -104,7 +104,7 @@ export function PaletteTray({
                 className={cn(
                   "px-2 py-0.5 text-[10px] font-medium transition-colors border-b-2",
                   activeTab === 'used'
-                    ? "border-white text-foreground"
+                    ? "border-primary text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -117,13 +117,13 @@ export function PaletteTray({
           <div className="flex items-center gap-1.5">
             {/* Compact Drag/Draw mode toggle */}
             {canPaint && (
-              <div className="flex items-center gap-0.5 bg-white/6 rounded-lg p-1">
+              <div className="flex items-center gap-0.5 bg-accent rounded-lg p-1">
                 <button
                   onClick={() => onInteractionModeChange('drag')}
                   className={cn(
                     "p-1.5 rounded-md transition-colors",
                     interactionMode === 'drag' 
-                      ? "bg-white text-black" 
+                      ? "bg-primary text-primary-foreground" 
                       : "text-muted-foreground hover:text-foreground"
                   )}
                   title="Hand mode: Pan map, click to inspect"
@@ -135,7 +135,7 @@ export function PaletteTray({
                   className={cn(
                     "p-1.5 rounded-md transition-colors",
                     interactionMode === 'draw' 
-                      ? "bg-white text-black" 
+                      ? "bg-primary text-primary-foreground" 
                       : "text-muted-foreground hover:text-foreground"
                   )}
                   title="Brush mode: Click/drag to paint"
@@ -153,7 +153,7 @@ export function PaletteTray({
                 disabled={!canPaint}
                 className={cn(
                   "h-8 w-8 rounded-md",
-                  isEyedropperActive && "bg-white text-black"
+                  isEyedropperActive && "bg-primary text-primary-foreground"
                 )}
                 title="Eyedropper (Alt+Click)"
               >
@@ -181,10 +181,10 @@ export function PaletteTray({
             {/* Keyboard hints */}
             {canPaint && (
               <div className="flex gap-2 mb-3 flex-wrap">
-                <span className="text-[10px] text-muted-foreground bg-white/6 px-2 py-1 rounded">
+                <span className="text-[10px] text-muted-foreground bg-accent px-2 py-1 rounded">
                   SPACE to paint
                 </span>
-                <span className="text-[10px] text-muted-foreground bg-white/6 px-2 py-1 rounded">
+                <span className="text-[10px] text-muted-foreground bg-accent px-2 py-1 rounded">
                   SHIFT+drag to select
                 </span>
               </div>
@@ -192,7 +192,7 @@ export function PaletteTray({
             
             {/* Zoom hint */}
             {!canPaint && (
-              <div className="text-center py-1.5 mb-3 text-[11px] text-muted-foreground bg-white/6 rounded-md">
+              <div className="text-center py-1.5 mb-3 text-[11px] text-muted-foreground bg-accent rounded-md">
                 Zoom in to paint
               </div>
             )}
@@ -209,12 +209,12 @@ export function PaletteTray({
                     onClick={() => handleColorClick(null)}
                     disabled={!canPaint}
                     className={cn(
-                      "aspect-square min-w-[28px] rounded-lg border flex items-center justify-center transition-all duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/35",
+                      "aspect-square min-w-[28px] rounded-lg border flex items-center justify-center transition-all duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       "bg-[repeating-conic-gradient(#808080_0%_25%,_#404040_25%_50%)] bg-[length:6px_6px]",
                       canPaint && "hover:scale-105",
                       isEraser
-                        ? "border-white ring-2 ring-white/40 scale-105 z-10"
-                        : "border-white/10 hover:border-white/30",
+                        ? "border-primary ring-2 ring-primary/40 scale-105 z-10"
+                        : "border-border hover:border-primary/50",
                       !canPaint && "opacity-40 cursor-not-allowed"
                     )}
                     title="Eraser"
@@ -231,11 +231,11 @@ export function PaletteTray({
                         onClick={() => handleColorClick(color)}
                         disabled={!canPaint}
                         className={cn(
-                          "aspect-square min-w-[28px] rounded-lg border transition-all duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/35",
+                          "aspect-square min-w-[28px] rounded-lg border transition-all duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           canPaint && "hover:scale-105",
                           isSelected
-                            ? "border-white ring-2 ring-white/40 scale-105 z-10"
-                            : "border-white/10 hover:border-white/30",
+                            ? "border-primary ring-2 ring-primary/40 scale-105 z-10"
+                            : "border-border hover:border-primary/50",
                           !canPaint && "opacity-40 cursor-not-allowed"
                         )}
                         style={{ backgroundColor: color }}

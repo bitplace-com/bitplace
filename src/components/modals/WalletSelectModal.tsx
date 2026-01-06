@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Wallet, ExternalLink, Smartphone, X } from 'lucide-react';
 import {
   Dialog,
@@ -46,8 +46,8 @@ export function WalletSelectModal({
   const [phantomInstalled, setPhantomInstalled] = useState<boolean | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
-  useEffect(() => {
-    // Check on mount and after a short delay (extension might load late)
+  // Check on mount and after a short delay (extension might load late)
+  useState(() => {
     const check = () => {
       setPhantomInstalled(!!getPhantomProvider());
       setIsMobile(isMobileDevice());
@@ -56,7 +56,7 @@ export function WalletSelectModal({
     check();
     const timeout = setTimeout(check, 500);
     return () => clearTimeout(timeout);
-  }, [open]);
+  });
 
   const handlePhantomClick = () => {
     if (isMobile && !phantomInstalled) {
@@ -78,7 +78,7 @@ export function WalletSelectModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md bg-popover/95 backdrop-blur-xl border-border">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wallet className="h-5 w-5" />
@@ -94,7 +94,7 @@ export function WalletSelectModal({
           <button
             onClick={handlePhantomClick}
             disabled={isConnecting}
-            className="w-full flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:bg-accent/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
+            className="w-full flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
           >
             {/* Phantom Logo */}
             <div className="h-10 w-10 rounded-lg bg-[#AB9FF2] flex items-center justify-center flex-shrink-0">
