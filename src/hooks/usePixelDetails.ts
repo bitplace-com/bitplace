@@ -138,7 +138,29 @@ export function usePixelDetails(x: number | null, y: number | null) {
       setPixel({ x, y, color: pixelData.color, owner, owner_stake_pe: ownerStake, defTotal, atkTotal, vNow, threshold: Math.max(0, vNow) + 1, defenders, attackers, ownerHealthMultiplier: healthMultiplier, ownerRebalanceActive: rebalanceActive, ownerRebalanceEndsAt: owner?.rebalance_ends_at ? new Date(owner.rebalance_ends_at) : null, effectiveOwnerStake, nextTickTime, multiplierAtNextTick, vFloorNext6h, thresholdWithFloor, isFloorBased });
     } catch (error) {
       console.error('Error fetching pixel details:', error);
-      setPixel(null);
+      // Return safe defaults on error instead of null - prevents UI crashes
+      setPixel({
+        x: x ?? 0,
+        y: y ?? 0,
+        color: null,
+        owner: null,
+        owner_stake_pe: 0,
+        defTotal: 0,
+        atkTotal: 0,
+        vNow: 0,
+        threshold: 1,
+        defenders: [],
+        attackers: [],
+        ownerHealthMultiplier: 1,
+        ownerRebalanceActive: false,
+        ownerRebalanceEndsAt: null,
+        effectiveOwnerStake: 0,
+        nextTickTime: null,
+        multiplierAtNextTick: 1,
+        vFloorNext6h: null,
+        thresholdWithFloor: 1,
+        isFloorBased: false,
+      });
     } finally {
       setIsLoading(false);
     }
