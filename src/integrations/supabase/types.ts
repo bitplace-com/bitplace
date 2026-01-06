@@ -254,8 +254,10 @@ export type Database = {
       }
       pixels: {
         Row: {
+          atk_total: number
           color: string
           created_at: string | null
+          def_total: number
           id: number
           owner_stake_pe: number
           owner_user_id: string | null
@@ -264,8 +266,10 @@ export type Database = {
           y: number
         }
         Insert: {
+          atk_total?: number
           color: string
           created_at?: string | null
+          def_total?: number
           id?: number
           owner_stake_pe?: number
           owner_user_id?: string | null
@@ -274,8 +278,10 @@ export type Database = {
           y: number
         }
         Update: {
+          atk_total?: number
           color?: string
           created_at?: string | null
+          def_total?: number
           id?: number
           owner_stake_pe?: number
           owner_user_id?: string | null

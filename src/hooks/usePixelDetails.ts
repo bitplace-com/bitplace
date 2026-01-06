@@ -67,13 +67,23 @@ export function usePixelDetails(x: number | null, y: number | null) {
     setIsLoading(true);
 
     try {
-      const { data: pixelData } = await supabase.from('pixels').select('id, x, y, color, owner_user_id, owner_stake_pe').eq('x', x).eq('y', y).maybeSingle();
+      // Fetch pixels with denormalized def_total and atk_total columns
+      const { data: pixelData } = await supabase
+        .from('pixels')
+        .select('id, x, y, color, owner_user_id, owner_stake_pe, def_total, atk_total')
+        .eq('x', x)
+        .eq('y', y)
+        .maybeSingle();
 
       if (!pixelData) {
         setPixel({ x, y, color: null, owner: null, owner_stake_pe: 0, defTotal: 0, atkTotal: 0, vNow: 0, threshold: 1, defenders: [], attackers: [], ownerHealthMultiplier: 1, ownerRebalanceActive: false, ownerRebalanceEndsAt: null, effectiveOwnerStake: 0, nextTickTime: null, multiplierAtNextTick: 1, vFloorNext6h: null, thresholdWithFloor: 1, isFloorBased: false });
         setIsLoading(false);
         return;
       }
+      
+      // Use denormalized totals from pixels table (auto-updated by trigger)
+      const defTotal = Number((pixelData as any).def_total ?? 0);
+      const atkTotal = Number((pixelData as any).atk_total ?? 0);
 
       let owner: OwnerProfile | null = null;
       if (pixelData.owner_user_id) {
@@ -110,12 +120,13 @@ export function usePixelDetails(x: number | null, y: number | null) {
         (users as any[])?.forEach(u => { userMap[u.id] = u.display_name; });
       }
 
+      // Fetch contribution details for display (list of defenders/attackers)
+      // Totals come from denormalized columns, not summed here
       const defenders: Contribution[] = [], attackers: Contribution[] = [];
-      let defTotal = 0, atkTotal = 0;
       contributions?.forEach(c => {
         const contribution = { user_id: c.user_id, display_name: userMap[c.user_id] || null, amount_pe: Number(c.amount_pe) };
-        if (c.side === 'DEF') { defenders.push(contribution); defTotal += contribution.amount_pe; }
-        else if (c.side === 'ATK') { attackers.push(contribution); atkTotal += contribution.amount_pe; }
+        if (c.side === 'DEF') { defenders.push(contribution); }
+        else if (c.side === 'ATK') { attackers.push(contribution); }
       });
 
       const ownerStake = Number(pixelData.owner_stake_pe);
