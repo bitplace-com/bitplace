@@ -272,7 +272,87 @@ Deno.serve(async (req) => {
 
     console.log(`[energy-refresh] User ${userId}: ${solBalance} SOL × $${solPrice} = $${walletUsd.toFixed(2)} = ${peTotal} PE (${cluster})`);
 
-    // Update user record with cluster info
+    // ===== COLLATERAL ENFORCEMENT =====
+    
+    // 1. Compute owner_used (sum of owner_stake_pe for owned pixels)
+    const { data: ownedPixels } = await supabase
+      .from("pixels")
+      .select("owner_stake_pe")
+      .eq("owner_user_id", userId);
+
+    const ownerUsed = (ownedPixels || []).reduce(
+      (sum, p) => sum + Number(p.owner_stake_pe || 0), 0
+    );
+
+    // 2. Compute contrib_used (sum of pixel_contributions for this user)
+    const { data: userContribs } = await supabase
+      .from("pixel_contributions")
+      .select("amount_pe")
+      .eq("user_id", userId);
+
+    const contribUsed = (userContribs || []).reduce(
+      (sum, c) => sum + Number(c.amount_pe || 0), 0
+    );
+
+    console.log(`[energy-refresh] User ${userId}: pe_total=${peTotal}, owner_used=${ownerUsed}, contrib_used=${contribUsed}`);
+
+    // 3. If pe_total < owner_used + contrib_used, DELETE all contributions immediately
+    if (peTotal < ownerUsed + contribUsed) {
+      console.log(`[energy-refresh] User ${userId} under-collateralized (${peTotal} < ${ownerUsed + contribUsed}), purging all contributions`);
+      const { error: deleteError } = await supabase
+        .from("pixel_contributions")
+        .delete()
+        .eq("user_id", userId);
+      
+      if (deleteError) {
+        console.error("[energy-refresh] Failed to delete contributions:", deleteError);
+      }
+      // Note: Trigger will auto-update pixels.def_total and atk_total
+    }
+
+    // 4. Fetch current rebalance state
+    const { data: currentUser } = await supabase
+      .from("users")
+      .select("rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier")
+      .eq("id", userId)
+      .single();
+
+    // 5. Check if owner stake requires rebalancing
+    const isOwnerUnderCollateralized = peTotal < ownerUsed;
+    let rebalanceUpdate: Record<string, any> = {};
+
+    if (isOwnerUnderCollateralized && ownerUsed > 0) {
+      // Start or continue rebalance
+      if (!currentUser?.rebalance_active) {
+        const targetMultiplier = Math.max(0, peTotal / ownerUsed);
+        const nowDate = new Date();
+        const endsAt = new Date(nowDate.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days
+        
+        rebalanceUpdate = {
+          rebalance_active: true,
+          rebalance_started_at: nowDate.toISOString(),
+          rebalance_ends_at: endsAt.toISOString(),
+          rebalance_target_multiplier: targetMultiplier,
+          owner_health_multiplier: 1, // Starts at 1, decays over time
+        };
+        
+        console.log(`[energy-refresh] Started rebalance for ${userId}: target=${targetMultiplier.toFixed(4)}`);
+      }
+      // If already active, let rebalance-tick handle the multiplier updates
+    } else if (currentUser?.rebalance_active) {
+      // Re-collateralized - stop rebalance immediately
+      rebalanceUpdate = {
+        rebalance_active: false,
+        owner_health_multiplier: 1,
+        rebalance_started_at: null,
+        rebalance_ends_at: null,
+        rebalance_target_multiplier: null,
+      };
+      
+      console.log(`[energy-refresh] Stopped rebalance for ${userId} (re-collateralized)`);
+    }
+
+    // Update user record with cluster info and rebalance state
     const syncAt = new Date().toISOString();
     const { error: updateError } = await supabase
       .from("users")
@@ -285,6 +365,7 @@ Deno.serve(async (req) => {
         pe_total_pe: peTotal,
         sol_cluster: cluster,
         last_energy_sync_at: syncAt,
+        ...rebalanceUpdate,
       })
       .eq("id", userId);
 

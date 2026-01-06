@@ -1,4 +1,4 @@
-import { Copy, X, Share2, Palette, Shield, Swords, RefreshCw, Clock } from 'lucide-react';
+import { Copy, X, Share2, Palette, Shield, Swords, RefreshCw, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { GlassPanel } from '@/components/ui/glass-panel';
@@ -19,6 +19,18 @@ interface PixelInspectorCardProps {
   selectedColor: string | null;
   mode: GameMode;
   currentUserId?: string;
+}
+
+function formatTimeUntil(targetTime: Date): string {
+  const now = new Date();
+  const diffMs = targetTime.getTime() - now.getTime();
+  if (diffMs <= 0) return "Now";
+  
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
 }
 
 export function PixelInspectorCard({
@@ -56,7 +68,6 @@ export function PixelInspectorCard({
     onClose();
   };
 
-  // FIXED: Correct null check - pixel must exist AND have an owner
   const isOwned = pixel !== null && pixel.owner !== null;
   const isOwnPixel = pixel?.owner?.id === currentUserId;
   const country = pixel?.owner?.country_code ? getCountryByCode(pixel.owner.country_code) : null;
@@ -88,13 +99,11 @@ export function PixelInspectorCard({
       {/* Content */}
       <div className="px-3 py-3">
         {isLoading ? (
-          /* Loading State */
           <div className="space-y-3">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-8 w-2/3" />
           </div>
         ) : !pixel ? (
-          /* Error State - pixel failed to load */
           <div className="flex flex-col items-center py-4 gap-3">
             <div className="text-sm text-muted-foreground text-center">
               Couldn't load pixel data
@@ -105,7 +114,6 @@ export function PixelInspectorCard({
             </Button>
           </div>
         ) : !isOwned ? (
-          /* Unclaimed Pixel */
           <div className="flex flex-col items-center py-4 gap-2">
             <div
               className="w-10 h-10 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center"
@@ -117,7 +125,6 @@ export function PixelInspectorCard({
             <span className="text-xs text-muted-foreground">Cost: 1 PE (~$0.001)</span>
           </div>
         ) : (
-          /* Owned Pixel */
           <div className="space-y-3">
             {/* Owner Info */}
             <div className="flex items-center gap-3">
@@ -144,6 +151,11 @@ export function PixelInspectorCard({
                       {country.flag}
                     </span>
                   )}
+                  {pixel.ownerRebalanceActive && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                      {Math.round(pixel.ownerHealthMultiplier * 100)}% HP
+                    </span>
+                  )}
                 </div>
                 {isOwnPixel && (
                   <span className="text-xs text-muted-foreground">Your pixel</span>
@@ -164,26 +176,61 @@ export function PixelInspectorCard({
                   {isOwnPixel ? 'Repaint' : 'Takeover'}
                 </div>
                 <div className="text-sm font-semibold text-foreground">
-                  {isOwnPixel ? '0 PE' : `${pixel.threshold.toLocaleString()} PE`}
+                  {isOwnPixel ? '0 PE' : `${pixel.thresholdWithFloor.toLocaleString()} PE`}
                 </div>
-                <div className="text-[10px] text-muted-foreground">
-                  {isOwnPixel ? 'Free' : `~$${(pixel.threshold * 0.001).toFixed(3)}`}
-                </div>
+                {pixel.isFloorBased && !isOwnPixel && (
+                  <div className="text-[10px] text-amber-500 flex items-center gap-0.5">
+                    <AlertTriangle className="w-2.5 h-2.5" />
+                    Floor-based
+                  </div>
+                )}
+                {!pixel.isFloorBased && !isOwnPixel && (
+                  <div className="text-[10px] text-muted-foreground">
+                    ~${(pixel.thresholdWithFloor * 0.001).toFixed(3)}
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Health Status (if owner is in rebalance) */}
+            {pixel.ownerRebalanceActive && (
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                    <AlertTriangle className="h-3 w-3" />
+                    <span>Owner Rebalancing</span>
+                  </div>
+                  <div className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                    {Math.round(pixel.ownerHealthMultiplier * 100)}%
+                  </div>
+                </div>
+                
+                {/* Progress bar */}
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-amber-500 transition-all duration-300"
+                    style={{ width: `${pixel.ownerHealthMultiplier * 100}%` }}
+                  />
+                </div>
+                
+                {/* Next tick info */}
+                {pixel.nextTickTime && (
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-muted-foreground">
+                      Next tick: {formatTimeUntil(pixel.nextTickTime)}
+                    </span>
+                    {pixel.vFloorNext6h !== null && (
+                      <span className="text-muted-foreground">
+                        V → {Math.floor(pixel.vFloorNext6h).toLocaleString()} PE
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
-
-      {/* Mode-specific action hint for non-Paint modes */}
-      {mode !== 'PAINT' && pixel && (
-        <div className="mx-3 mb-3 bg-muted/50 rounded-lg p-2.5 text-center">
-          <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="w-3.5 h-3.5" />
-            <span>{mode} mode actions coming soon</span>
-          </div>
-        </div>
-      )}
 
       {/* Actions */}
       <div className="flex items-center gap-2 px-3 py-2.5 border-t border-border/50">
@@ -197,26 +244,24 @@ export function PixelInspectorCard({
             Paint
           </Button>
         ) : (
-          <>
-            <Button
-              size="sm"
-              variant={mode === 'DEFEND' ? 'default' : 'outline'}
-              className="flex-1"
-              onClick={handleDefendAttack}
-            >
-              {mode === 'DEFEND' ? (
-                <>
-                  <Shield className="w-4 h-4 mr-1.5" />
-                  Defend
-                </>
-              ) : (
-                <>
-                  <Swords className="w-4 h-4 mr-1.5" />
-                  Attack
-                </>
-              )}
-            </Button>
-          </>
+          <Button
+            size="sm"
+            variant={mode === 'DEFEND' ? 'default' : 'outline'}
+            className="flex-1"
+            onClick={handleDefendAttack}
+          >
+            {mode === 'DEFEND' ? (
+              <>
+                <Shield className="w-4 h-4 mr-1.5" />
+                Defend
+              </>
+            ) : (
+              <>
+                <Swords className="w-4 h-4 mr-1.5" />
+                Attack
+              </>
+            )}
+          </Button>
         )}
         <Button
           size="sm"
@@ -229,10 +274,4 @@ export function PixelInspectorCard({
       </div>
     </GlassPanel>
   );
-}
-
-function truncateWallet(address?: string | null): string {
-  if (!address) return 'Unknown';
-  if (address.length <= 12) return address;
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
