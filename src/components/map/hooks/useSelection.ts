@@ -14,6 +14,7 @@ export interface SelectionState {
   isSelecting: boolean;
   bounds: SelectionBounds | null;
   pixelCount: number;
+  type: 'single' | 'rect' | null;
 }
 
 export function useSelection() {
@@ -21,6 +22,7 @@ export function useSelection() {
     isSelecting: false,
     bounds: null,
     pixelCount: 0,
+    type: null,
   });
 
   const startSelection = useCallback((x: number, y: number) => {
@@ -28,6 +30,7 @@ export function useSelection() {
       isSelecting: true,
       bounds: { startX: x, startY: y, endX: x, endY: y },
       pixelCount: 1,
+      type: 'single', // Start as single, becomes 'rect' if dragged
     });
   }, []);
 
@@ -42,10 +45,14 @@ export function useSelection() {
       
       const pixelCount = (maxX - minX + 1) * (maxY - minY + 1);
       
+      // If moved from start position, it's a rect selection
+      const isRect = x !== prev.bounds.startX || y !== prev.bounds.startY;
+      
       return {
         isSelecting: true,
         bounds: { ...prev.bounds, endX: x, endY: y },
         pixelCount,
+        type: isRect ? 'rect' : 'single',
       };
     });
   }, []);
@@ -62,6 +69,7 @@ export function useSelection() {
       isSelecting: false,
       bounds: null,
       pixelCount: 0,
+      type: null,
     });
   }, []);
 

@@ -1,4 +1,4 @@
-import { Copy, X, Share2, Palette, Shield, Swords } from 'lucide-react';
+import { Copy, X, Share2, Palette, Shield, Swords, RefreshCw, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { GlassPanel } from '@/components/ui/glass-panel';
@@ -31,7 +31,7 @@ export function PixelInspectorCard({
   mode,
   currentUserId,
 }: PixelInspectorCardProps) {
-  const { pixel, isLoading } = usePixelDetails(x, y);
+  const { pixel, isLoading, refetch } = usePixelDetails(x, y);
 
   const handleCopyCoords = async () => {
     const success = await copyPixelCoords(x, y);
@@ -56,7 +56,8 @@ export function PixelInspectorCard({
     onClose();
   };
 
-  const isOwned = pixel?.owner !== null;
+  // FIXED: Correct null check - pixel must exist AND have an owner
+  const isOwned = pixel !== null && pixel.owner !== null;
   const isOwnPixel = pixel?.owner?.id === currentUserId;
   const country = pixel?.owner?.country_code ? getCountryByCode(pixel.owner.country_code) : null;
 
@@ -87,21 +88,33 @@ export function PixelInspectorCard({
       {/* Content */}
       <div className="px-3 py-3">
         {isLoading ? (
+          /* Loading State */
           <div className="space-y-3">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-8 w-2/3" />
           </div>
+        ) : !pixel ? (
+          /* Error State - pixel failed to load */
+          <div className="flex flex-col items-center py-4 gap-3">
+            <div className="text-sm text-muted-foreground text-center">
+              Couldn't load pixel data
+            </div>
+            <Button size="sm" variant="outline" onClick={() => refetch()}>
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+              Retry
+            </Button>
+          </div>
         ) : !isOwned ? (
-          /* Empty Pixel */
+          /* Unclaimed Pixel */
           <div className="flex flex-col items-center py-4 gap-2">
             <div
               className="w-10 h-10 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center"
-              style={{ backgroundColor: selectedColor }}
+              style={{ backgroundColor: selectedColor ?? undefined }}
             >
               <Palette className="w-5 h-5 text-white/80" />
             </div>
             <span className="text-sm font-medium text-foreground">Unclaimed Pixel</span>
-            <span className="text-xs text-muted-foreground">Cost: 1 PE</span>
+            <span className="text-xs text-muted-foreground">Cost: 1 PE (~$0.001)</span>
           </div>
         ) : (
           /* Owned Pixel */
@@ -147,15 +160,30 @@ export function PixelInspectorCard({
                 </div>
               </div>
               <div className="bg-muted/30 rounded-lg px-3 py-2">
-                <div className="text-xs text-muted-foreground">Takeover</div>
+                <div className="text-xs text-muted-foreground">
+                  {isOwnPixel ? 'Repaint' : 'Takeover'}
+                </div>
                 <div className="text-sm font-semibold text-foreground">
-                  {pixel.threshold.toLocaleString()} PE
+                  {isOwnPixel ? '0 PE' : `${pixel.threshold.toLocaleString()} PE`}
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  {isOwnPixel ? 'Free' : `~$${(pixel.threshold * 0.001).toFixed(3)}`}
                 </div>
               </div>
             </div>
           </div>
         )}
       </div>
+
+      {/* Mode-specific action hint for non-Paint modes */}
+      {mode !== 'PAINT' && pixel && (
+        <div className="mx-3 mb-3 bg-muted/50 rounded-lg p-2.5 text-center">
+          <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+            <Clock className="w-3.5 h-3.5" />
+            <span>{mode} mode actions coming soon</span>
+          </div>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex items-center gap-2 px-3 py-2.5 border-t border-border/50">

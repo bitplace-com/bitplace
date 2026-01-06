@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GlassPanel } from '@/components/ui/glass-panel';
@@ -7,6 +7,7 @@ import { PixelTab } from './PixelTab';
 import { AreaTab } from './AreaTab';
 import { ActionBox } from './ActionBox';
 import { InvalidPixelList } from './InvalidPixelList';
+import { MAX_SELECTION_PIXELS } from '../hooks/useSelection';
 import type { GameMode, ValidateResult, InvalidPixel } from '@/hooks/useGameActions';
 
 interface InspectorPanelProps {
@@ -47,9 +48,54 @@ export function InspectorPanel({
   const hasSelection = selectedPixels.length > 0;
   const isSinglePixel = selectedPixels.length === 1;
   const activeTab = isSinglePixel ? 'pixel' : 'area';
+  const isSelectionTooLarge = selectedPixels.length > MAX_SELECTION_PIXELS;
 
   if (!hasSelection) {
     return null;
+  }
+
+  // Selection too large - show warning and disable actions
+  if (isSelectionTooLarge) {
+    return (
+      <div className="w-72 glass border-l-0 rounded-none flex flex-col h-full overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border/20">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-foreground/80">
+              {selectedPixels.length.toLocaleString()} pixels
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 rounded-md hover:bg-destructive/10 hover:text-destructive"
+            onClick={onClearSelection}
+            title="Clear selection"
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+        
+        {/* Warning */}
+        <div className="flex-1 flex flex-col items-center justify-center p-4 gap-3">
+          <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center">
+            <AlertTriangle className="w-6 h-6 text-amber-500" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-medium text-foreground">Selection too large</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Max: {MAX_SELECTION_PIXELS.toLocaleString()} pixels
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Zoom in or select a smaller area
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={onClearSelection} className="mt-2">
+            Clear Selection
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   if (isCollapsed) {
