@@ -3,8 +3,10 @@ import { toast } from 'sonner';
 import { useGameActions } from '@/hooks/useGameActions';
 import { useWallet } from '@/contexts/WalletContext';
 import { soundEngine } from '@/lib/soundEngine';
+
 const BATCH_INTERVAL_MS = 250;
 const MAX_BATCH_SIZE = 200;
+const RECENTLY_COMMITTED_TTL_MS = 500; // 500ms cooldown per pixel
 
 interface UsePaintQueueResult {
   queue: Set<string>;
@@ -33,10 +35,22 @@ export function usePaintQueue(
   const currentColorRef = useRef<string>('#FFFFFF');
   const flushingRef = useRef(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Track recently committed pixels to prevent double-commit
+  const recentlyCommittedRef = useRef<Map<string, number>>(new Map());
 
   const addToQueue = useCallback((x: number, y: number, color: string) => {
     currentColorRef.current = color;
     const key = `${x}:${y}`;
+    
+    // Check if pixel was recently committed (TTL guard)
+    const now = Date.now();
+    const lastCommitted = recentlyCommittedRef.current.get(key);
+    if (lastCommitted && (now - lastCommitted) < RECENTLY_COMMITTED_TTL_MS) {
+      // Skip - already committed recently, prevent double-charge
+      return;
+    }
+    
     setQueue(prev => {
       if (prev.has(key)) return prev;
       const next = new Set(prev);
@@ -52,8 +66,6 @@ export function usePaintQueue(
   }, []);
 
   const flushQueue = useCallback(async () => {
-    if (flushingRef.current) return;
-    
     // Safety check - don't flush if not authenticated
     const token = localStorage.getItem('bitplace_session_token');
     if (!token) {
@@ -62,60 +74,78 @@ export function usePaintQueue(
       return;
     }
     
+    // Atomic capture: get queue, check flushing, clear queue all in one operation
+    let pixelsToCommit: { x: number; y: number }[] = [];
+    let shouldProcess = false;
+    
     setQueue(currentQueue => {
-      if (currentQueue.size === 0) return currentQueue;
+      // Already flushing or empty queue - no-op
+      if (flushingRef.current || currentQueue.size === 0) {
+        return currentQueue;
+      }
       
-      flushingRef.current = true;
-      setIsFlushing(true);
-      
-      const pixels = Array.from(currentQueue).map(key => {
+      // Capture pixels
+      pixelsToCommit = Array.from(currentQueue).map(key => {
         const [x, y] = key.split(':').map(Number);
         return { x, y };
       });
       
-      const color = currentColorRef.current;
+      // Set flushing flag
+      flushingRef.current = true;
+      shouldProcess = true;
       
-      // Process async
-      (async () => {
-        try {
-          const validateResult = await validate({ mode: 'PAINT', pixels, color });
-          
-          if (!validateResult?.ok) {
-            setIsSpacePainting(false);
-            return;
-          }
-          
-          const commitResult = await commit({
-            mode: 'PAINT',
-            pixels,
-            color,
-            snapshotHash: validateResult.snapshotHash,
-          });
-          
-          if (commitResult) {
-            pixels.forEach(({ x, y }) => confirmPixel(x, y));
-            // Update PE status from commit response
-            if (commitResult.peStatus) {
-              updatePeStatus(commitResult.peStatus);
-            }
-            refreshUser();
-            soundEngine.play('paint_commit');
-          } else {
-            setIsSpacePainting(false);
-          }
-        } catch (err) {
-          console.error('[usePaintQueue] Flush error:', err);
-          toast.error('Paint batch failed');
-          setIsSpacePainting(false);
-        } finally {
-          flushingRef.current = false;
-          setIsFlushing(false);
-        }
-      })();
-      
-      // Clear queue immediately after capturing pixels
+      // Clear queue immediately after capturing
       return new Set();
     });
+    
+    // Process outside of setState if we captured pixels
+    if (!shouldProcess || pixelsToCommit.length === 0) {
+      return;
+    }
+    
+    setIsFlushing(true);
+    const color = currentColorRef.current;
+    
+    try {
+      const validateResult = await validate({ mode: 'PAINT', pixels: pixelsToCommit, color });
+      
+      if (!validateResult?.ok) {
+        setIsSpacePainting(false);
+        return;
+      }
+      
+      const commitResult = await commit({
+        mode: 'PAINT',
+        pixels: pixelsToCommit,
+        color,
+        snapshotHash: validateResult.snapshotHash,
+      });
+      
+      if (commitResult) {
+        // Mark all committed pixels with timestamp for TTL guard
+        const now = Date.now();
+        pixelsToCommit.forEach(({ x, y }) => {
+          confirmPixel(x, y);
+          recentlyCommittedRef.current.set(`${x}:${y}`, now);
+        });
+        
+        // Update PE status from commit response (server truth)
+        if (commitResult.peStatus) {
+          updatePeStatus(commitResult.peStatus);
+        }
+        refreshUser();
+        soundEngine.play('paint_commit');
+      } else {
+        setIsSpacePainting(false);
+      }
+    } catch (err) {
+      console.error('[usePaintQueue] Flush error:', err);
+      toast.error('Paint batch failed');
+      setIsSpacePainting(false);
+    } finally {
+      flushingRef.current = false;
+      setIsFlushing(false);
+    }
   }, [validate, commit, confirmPixel, refreshUser, updatePeStatus]);
 
   const startSpacePaint = useCallback(() => {
@@ -156,6 +186,20 @@ export function usePaintQueue(
       flushQueue();
     }
   }, [queue.size, flushQueue]);
+
+  // Cleanup stale TTL entries periodically
+  useEffect(() => {
+    const cleanup = setInterval(() => {
+      const now = Date.now();
+      const staleThreshold = RECENTLY_COMMITTED_TTL_MS * 2;
+      recentlyCommittedRef.current.forEach((timestamp, key) => {
+        if (now - timestamp > staleThreshold) {
+          recentlyCommittedRef.current.delete(key);
+        }
+      });
+    }, 1000);
+    return () => clearInterval(cleanup);
+  }, []);
 
   return {
     queue,
