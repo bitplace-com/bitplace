@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ENERGY_ASSET, ENERGY_CONFIG } from '@/config/energy';
@@ -51,19 +51,37 @@ interface EnergyState {
   isStale: boolean;
 }
 
+// Wallet State Machine
+export type WalletState = 
+  | 'DISCONNECTED'      // No wallet connected
+  | 'CONNECTING'        // User clicked connect, waiting for Phantom
+  | 'CONNECTED'         // Wallet connected via trusted reconnect, checking session
+  | 'AUTH_REQUIRED'     // Connected but needs signature to authenticate
+  | 'AUTHENTICATING'    // Signature in progress
+  | 'AUTHENTICATED'     // Fully connected and authenticated
+  | 'ERROR';            // Something failed
+
 interface WalletContextType {
-  isConnected: boolean;
-  isConnecting: boolean;
+  // FSM state
+  walletState: WalletState;
   walletAddress: string | null;
   user: User | null;
   energy: EnergyState;
+  
+  // Actions
   connect: () => Promise<void>;
+  signIn: () => Promise<void>;
   disconnect: () => void;
   updateUser: (updates: Partial<Pick<User, 'display_name' | 'country_code' | 'alliance_tag' | 'avatar_url'>>) => Promise<void>;
   refreshUser: () => Promise<void>;
   refreshEnergy: () => Promise<void>;
   refreshPeStatus: () => Promise<void>;
   updatePeStatus: (peStatus: { total: number; used: number; available: number }) => void;
+  
+  // Derived helpers for backward compatibility
+  isConnected: boolean;
+  isConnecting: boolean;
+  needsSignature: boolean;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
@@ -106,6 +124,7 @@ const SESSION_TOKEN_KEY = 'bitplace_session_token';
 const WALLET_ADDRESS_KEY = 'bitplace_wallet_address';
 const USER_DATA_KEY = 'bitplace_user_data';
 const ENERGY_STALE_THRESHOLD_MS = 60 * 1000; // 60 seconds
+const COOLDOWN_MS = 10000; // 10 second cooldown after failure
 
 const defaultEnergyState: EnergyState = {
   energyAsset: ENERGY_ASSET,
@@ -128,7 +147,7 @@ const parseJwtPayload = (token: string): { wallet: string; userId: string; exp: 
     const parts = token.split('.');
     if (parts.length !== 3) return null;
     
-    const payloadB64 = parts[1]; // FIX: Get payload (index 1), not header (index 0)
+    const payloadB64 = parts[1];
     // Handle URL-safe base64
     const decoded = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
     const payload = JSON.parse(atob(decoded));
@@ -144,16 +163,31 @@ const parseJwtPayload = (token: string): { wallet: string; userId: string; exp: 
 };
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
+  // FSM state
+  const [walletState, setWalletState] = useState<WalletState>('DISCONNECTED');
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [energy, setEnergy] = useState<EnergyState>(defaultEnergyState);
+  const [lastError, setLastError] = useState<string | null>(null);
+
+  // In-flight guards to prevent concurrent calls
+  const connectInFlightRef = useRef(false);
+  const signInFlightRef = useRef(false);
+  const restoreInFlightRef = useRef(false);
+  
+  // Cooldown timestamps
+  const lastConnectAttemptRef = useRef<number>(0);
+  const lastSignAttemptRef = useRef<number>(0);
+
+  // Derived state for backward compatibility
+  const isConnected = walletState === 'AUTHENTICATED';
+  const isConnecting = walletState === 'CONNECTING' || walletState === 'AUTHENTICATING';
+  const needsSignature = walletState === 'AUTH_REQUIRED';
 
   // Use the new balance hook for immediate balance fetching (no auth required)
   const balance = useBalance({ 
     walletAddress, 
-    enabled: isConnected 
+    enabled: walletState === 'AUTHENTICATED' 
   });
 
   const getSessionToken = () => localStorage.getItem(SESSION_TOKEN_KEY);
@@ -176,6 +210,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(WALLET_ADDRESS_KEY);
     localStorage.removeItem(USER_DATA_KEY);
   };
+
+  // Debug state logging
+  useEffect(() => {
+    walletDebug('state_change', {
+      walletState,
+      walletAddress: walletAddress?.substring(0, 8),
+      hasUser: !!user,
+      lastConnectAttempt: lastConnectAttemptRef.current,
+      lastSignAttempt: lastSignAttemptRef.current,
+      connectInFlight: connectInFlightRef.current,
+      signInFlight: signInFlightRef.current,
+      lastError,
+    });
+  }, [walletState, walletAddress, user, lastError]);
 
   // Sync balance hook state to energy state
   useEffect(() => {
@@ -216,6 +264,35 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       isRefreshing: false,
       isStale,
     }));
+  }, []);
+
+  // Refresh PE status from pe-status edge function
+  const refreshPeStatus = useCallback(async () => {
+    const token = getSessionToken();
+    if (!token) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('pe-status', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (error) {
+        console.error('[WalletContext] PE status refresh error:', error);
+        return;
+      }
+
+      if (data?.ok) {
+        setEnergy(prev => ({
+          ...prev,
+          peUsed: data.pe_used || 0,
+          peAvailable: data.pe_available || 0,
+        }));
+      }
+    } catch (err) {
+      console.error('[WalletContext] PE status refresh exception:', err);
+    }
   }, []);
 
   // Refresh energy from edge function (authenticated)
@@ -279,7 +356,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       console.error('[WalletContext] Energy refresh exception:', err);
       setEnergy(prev => ({ ...prev, isRefreshing: false }));
     }
-  }, [balance]);
+  }, [balance, refreshPeStatus]);
 
   const refreshUser = useCallback(async () => {
     const token = getSessionToken();
@@ -320,35 +397,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Refresh PE status from pe-status edge function
-  const refreshPeStatus = useCallback(async () => {
-    const token = getSessionToken();
-    if (!token) return;
-
-    try {
-      const { data, error } = await supabase.functions.invoke('pe-status', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (error) {
-        console.error('[WalletContext] PE status refresh error:', error);
-        return;
-      }
-
-      if (data?.ok) {
-        setEnergy(prev => ({
-          ...prev,
-          peUsed: data.pe_used || 0,
-          peAvailable: data.pe_available || 0,
-        }));
-      }
-    } catch (err) {
-      console.error('[WalletContext] PE status refresh exception:', err);
-    }
-  }, []);
-
   // Update PE status directly (called after game-commit response)
   const updatePeStatus = useCallback((peStatus: { total: number; used: number; available: number }) => {
     setEnergy(prev => ({
@@ -376,13 +424,31 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Re-authenticate with Phantom (nonce -> sign -> verify)
-  const performReauthentication = useCallback(async (wallet: string): Promise<boolean> => {
+  // Perform authentication with Phantom signature (called ONLY on user intent)
+  const performAuthentication = useCallback(async (wallet: string): Promise<boolean> => {
     const phantom = getPhantom();
     if (!phantom) return false;
     
+    // Check cooldown
+    const now = Date.now();
+    if (now - lastSignAttemptRef.current < COOLDOWN_MS) {
+      walletDebug('auth_cooldown', { remaining: COOLDOWN_MS - (now - lastSignAttemptRef.current) });
+      toast.info('Please wait before trying again');
+      return false;
+    }
+    
+    // Check in-flight guard
+    if (signInFlightRef.current) {
+      walletDebug('auth_skip', { reason: 'in_flight' });
+      return false;
+    }
+    
+    signInFlightRef.current = true;
+    lastSignAttemptRef.current = now;
+    setWalletState('AUTHENTICATING');
+    
     try {
-      walletDebug('reauth_nonce_start');
+      walletDebug('auth_nonce_start');
       
       // Get nonce
       const { data: nonceData, error: nonceError } = await supabase.functions.invoke('auth-nonce', {
@@ -390,24 +456,45 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       });
       
       if (nonceError || !nonceData?.nonce) {
-        walletDebug('reauth_nonce_error', { error: nonceError });
+        walletDebug('auth_nonce_error', { error: nonceError });
+        setLastError('nonce_fetch_failed');
+        setWalletState('AUTH_REQUIRED');
+        toast.error('Authentication failed', { description: 'Could not get authentication nonce' });
         return false;
       }
       
       // Sign nonce
-      walletDebug('reauth_sign_start');
-      const messageBytes = new TextEncoder().encode(nonceData.nonce);
-      const signResult = await phantom.signMessage(messageBytes);
-      const signatureB64 = btoa(String.fromCharCode(...signResult.signature));
+      walletDebug('auth_sign_start');
+      let signature: Uint8Array;
+      try {
+        const messageBytes = new TextEncoder().encode(nonceData.nonce);
+        const signResult = await phantom.signMessage(messageBytes);
+        signature = signResult.signature;
+        walletDebug('auth_sign_success');
+      } catch (signError: any) {
+        walletDebug('auth_sign_rejected', { code: signError?.code });
+        setLastError('user_rejected_signature');
+        setWalletState('AUTH_REQUIRED');
+        
+        if (signError?.code === 4001 || signError?.message?.includes('User rejected')) {
+          toast.error('Signature cancelled', { description: 'You cancelled the signature request' });
+        }
+        return false;
+      }
+      
+      const signatureB64 = btoa(String.fromCharCode(...signature));
       
       // Verify and get token
-      walletDebug('reauth_verify_start');
+      walletDebug('auth_verify_start');
       const { data: authData, error: authError } = await supabase.functions.invoke('auth-verify', {
         body: { wallet, signature: signatureB64, nonce: nonceData.nonce },
       });
       
       if (authError || !authData?.token) {
-        walletDebug('reauth_verify_error', { error: authError });
+        walletDebug('auth_verify_error', { error: authError });
+        setLastError('verify_failed');
+        setWalletState('AUTH_REQUIRED');
+        toast.error('Authentication failed', { description: 'Server could not verify your signature' });
         return false;
       }
       
@@ -417,13 +504,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setWalletAddress(wallet);
       setUser(authData.user as User);
       setCachedUser(authData.user as User);
-      setIsConnected(true);
+      setWalletState('AUTHENTICATED');
+      setLastError(null);
       
       if (authData.user) {
         updateEnergyFromUser(authData.user as User);
       }
       
-      walletDebug('reauth_complete');
+      walletDebug('auth_complete');
+      toast.success('Signed in successfully');
       
       // Refresh energy + PE status
       setTimeout(() => {
@@ -433,70 +522,112 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       
       return true;
     } catch (err) {
-      walletDebug('reauth_exception', { error: err });
+      walletDebug('auth_exception', { error: err });
+      setLastError('auth_exception');
+      setWalletState('AUTH_REQUIRED');
       return false;
+    } finally {
+      signInFlightRef.current = false;
     }
   }, [updateEnergyFromUser, refreshEnergy, refreshPeStatus]);
 
-  // Comprehensive session restore on mount
+  // Sign in (for AUTH_REQUIRED state) - triggered by user clicking "Sign in"
+  const signIn = useCallback(async () => {
+    if (walletState !== 'AUTH_REQUIRED' || !walletAddress) {
+      walletDebug('signIn_invalid_state', { walletState, hasWallet: !!walletAddress });
+      return;
+    }
+    
+    await performAuthentication(walletAddress);
+  }, [walletState, walletAddress, performAuthentication]);
+
+  // Session restore on mount (runs ONCE)
   useEffect(() => {
+    // Guard against multiple executions
+    if (restoreInFlightRef.current) {
+      walletDebug('session_restore_skip', { reason: 'already_in_flight' });
+      return;
+    }
+    
     const restoreSession = async () => {
-      const token = getSessionToken();
-      const storedWallet = localStorage.getItem(WALLET_ADDRESS_KEY);
+      restoreInFlightRef.current = true;
       
-      walletDebug('session_restore_start', { hasToken: !!token, hasWallet: !!storedWallet });
-      
-      // Step 1: Try Phantom trusted reconnect
-      const phantomWallet = await attemptTrustedReconnect();
-      
-      if (!phantomWallet) {
-        // Phantom not available or not trusted - clear and wait for manual connect
-        walletDebug('session_restore_no_phantom');
-        clearSession();
-        return;
-      }
-      
-      // Step 2: Check if we have a valid token for this wallet
-      if (token && storedWallet === phantomWallet) {
-        const payload = parseJwtPayload(token);
+      try {
+        const token = getSessionToken();
+        const storedWallet = localStorage.getItem(WALLET_ADDRESS_KEY);
         
-        if (payload && payload.exp > Date.now()) {
-          // Token still valid - restore session
-          walletDebug('session_restore_valid_token', { expiresIn: payload.exp - Date.now() });
-          
-          setWalletAddress(phantomWallet);
-          setIsConnected(true);
-          
-          // Load cached user immediately for fast UI
-          const cachedUser = getCachedUser();
-          if (cachedUser) {
-            setUser(cachedUser);
-            updateEnergyFromUser(cachedUser);
-          }
-          
-          // Fetch fresh data in parallel
-          Promise.all([
-            refreshUser(),
-            refreshEnergy(),
-            refreshPeStatus(),
-          ]).catch(err => walletDebug('session_restore_refresh_error', { error: err }));
-          
+        walletDebug('session_restore_start', { hasToken: !!token, hasWallet: !!storedWallet });
+        
+        setWalletState('CONNECTING');
+        
+        // Step 1: Try Phantom trusted reconnect (silent, no popup)
+        const phantomWallet = await attemptTrustedReconnect();
+        
+        if (!phantomWallet) {
+          // Phantom not available or not trusted - clear and wait for manual connect
+          walletDebug('session_restore_no_phantom');
+          clearSession();
+          setWalletState('DISCONNECTED');
           return;
         }
-      }
-      
-      // Step 3: Token missing/expired/mismatched - re-authenticate
-      walletDebug('session_restore_reauth_start');
-      const success = await performReauthentication(phantomWallet);
-      
-      if (!success) {
-        walletDebug('session_restore_reauth_failed');
-        clearSession();
+        
+        // Wallet is connected via trusted reconnect
+        setWalletAddress(phantomWallet);
+        
+        // Step 2: Check if we have a valid token for this wallet
+        if (token && storedWallet === phantomWallet) {
+          const payload = parseJwtPayload(token);
+          
+          if (payload && payload.exp > Date.now()) {
+            // Token still valid - fully restore
+            walletDebug('session_restore_valid_token', { expiresIn: payload.exp - Date.now() });
+            
+            setWalletState('AUTHENTICATED');
+            
+            // Load cached user immediately for fast UI
+            const cachedUser = getCachedUser();
+            if (cachedUser) {
+              setUser(cachedUser);
+              updateEnergyFromUser(cachedUser);
+            }
+            
+            // Fetch fresh data in parallel
+            Promise.all([
+              refreshUser(),
+              refreshEnergy(),
+              refreshPeStatus(),
+            ]).catch(err => walletDebug('session_restore_refresh_error', { error: err }));
+            
+            return;
+          }
+        }
+        
+        // Step 3: Token missing/expired/mismatched - DO NOT auto-sign!
+        // Just set state to AUTH_REQUIRED and show UI prompt
+        walletDebug('session_restore_auth_required', { 
+          reason: !token ? 'no_token' : storedWallet !== phantomWallet ? 'wallet_mismatch' : 'token_expired' 
+        });
+        
+        // Load cached user for UI display (but not authenticated)
+        const cachedUser = getCachedUser();
+        if (cachedUser && cachedUser.wallet_address === phantomWallet) {
+          setUser(cachedUser);
+          updateEnergyFromUser(cachedUser);
+        }
+        
+        setWalletState('AUTH_REQUIRED');
+        // User must click "Sign in" to trigger signature popup
+        
+      } catch (err) {
+        walletDebug('session_restore_error', { error: err });
+        setWalletState('ERROR');
+        setLastError('session_restore_failed');
       }
     };
     
     restoreSession();
-  }, [attemptTrustedReconnect, performReauthentication, updateEnergyFromUser, refreshUser, refreshEnergy, refreshPeStatus]);
+    // Empty deps - run once on mount. The guard prevents re-runs.
+  }, []);
 
   // Listen for Phantom disconnect
   useEffect(() => {
@@ -504,7 +635,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (!phantom) return;
 
     const handleDisconnect = () => {
-      setIsConnected(false);
+      setWalletState('DISCONNECTED');
       setWalletAddress(null);
       setUser(null);
       setEnergy(defaultEnergyState);
@@ -517,7 +648,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   // Periodically check if energy is stale
   useEffect(() => {
-    if (!isConnected) return;
+    if (walletState !== 'AUTHENTICATED') return;
 
     const interval = setInterval(() => {
       setEnergy(prev => {
@@ -531,7 +662,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [isConnected]);
+  }, [walletState]);
 
   const connect = async () => {
     const phantom = getPhantom();
@@ -548,7 +679,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setIsConnecting(true);
+    // Check cooldown
+    const now = Date.now();
+    if (now - lastConnectAttemptRef.current < COOLDOWN_MS) {
+      walletDebug('connect_cooldown', { remaining: COOLDOWN_MS - (now - lastConnectAttemptRef.current) });
+      toast.info('Please wait before trying again');
+      return;
+    }
+    
+    // Check in-flight guard
+    if (connectInFlightRef.current) {
+      walletDebug('connect_skip', { reason: 'in_flight' });
+      return;
+    }
+
+    connectInFlightRef.current = true;
+    lastConnectAttemptRef.current = now;
+    setWalletState('CONNECTING');
     walletDebug('connect_start');
 
     try {
@@ -572,101 +719,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           toast.error('Connection cancelled', {
             description: 'You rejected the connection request',
           });
+          setWalletState('DISCONNECTED');
+          setLastError('user_rejected_connect');
           return;
         }
         throw connectError;
       }
 
       const wallet = publicKey.toBase58();
+      setWalletAddress(wallet);
       walletDebug('wallet_address', { wallet: wallet.substring(0, 8) + '...' });
 
-      // Get nonce from server
-      walletDebug('nonce_fetch_start');
-      const { data: nonceData, error: nonceError } = await supabase.functions.invoke('auth-nonce', {
-        body: { wallet },
-      });
-
-      if (nonceError || !nonceData?.nonce) {
-        walletDebug('nonce_fetch_error', { error: nonceError, data: nonceData });
-        toast.error('Could not start authentication', {
-          description: 'Failed to get authentication nonce from server',
-        });
-        return;
-      }
-      walletDebug('nonce_fetch_success', { nonceLength: nonceData.nonce.length });
-
-      // Sign the nonce
-      walletDebug('sign_start');
-      let signature: Uint8Array;
-      try {
-        const messageBytes = new TextEncoder().encode(nonceData.nonce);
-        const signResult = await phantom.signMessage(messageBytes);
-        signature = signResult.signature;
-        walletDebug('sign_success', { signatureLength: signature.length });
-      } catch (signError: any) {
-        walletDebug('sign_error', { code: signError?.code, message: signError?.message });
-        
-        // User rejected signature
-        if (signError?.code === 4001 || signError?.message?.includes('User rejected')) {
-          toast.error('Signature cancelled', {
-            description: 'You cancelled the signature request',
-          });
-          return;
-        }
-        throw signError;
-      }
-
-      const signatureB64 = btoa(String.fromCharCode(...signature));
-
-      // Verify signature and get token
-      walletDebug('verify_start');
-      const { data: authData, error: authError } = await supabase.functions.invoke('auth-verify', {
-        body: {
-          wallet,
-          signature: signatureB64,
-          nonce: nonceData.nonce,
-        },
-      });
-
-      if (authError) {
-        walletDebug('verify_error', { error: authError });
-        toast.error('Authentication failed', {
-          description: 'Server could not verify your signature. Please try again.',
-        });
-        return;
-      }
-
-      if (!authData?.token) {
-        walletDebug('verify_error', { reason: 'no_token', data: authData });
-        toast.error('Authentication failed', {
-          description: authData?.error || 'No session token received',
-        });
-        return;
-      }
-
-      walletDebug('verify_success', { userId: authData.user?.id });
-
-      // Store session
-      setSessionToken(authData.token);
-      localStorage.setItem(WALLET_ADDRESS_KEY, wallet);
+      // Now proceed to authentication (signature)
+      // For connect(), we go straight to authentication since user explicitly clicked Connect
+      const authSuccess = await performAuthentication(wallet);
       
-      setWalletAddress(wallet);
-      setUser(authData.user as User);
-      setCachedUser(authData.user as User); // Cache user for fast restore on reload
-      setIsConnected(true);
-      
-      // Update energy state from auth response
-      if (authData.user) {
-        updateEnergyFromUser(authData.user as User);
+      if (!authSuccess) {
+        // Authentication failed or was cancelled - state already set by performAuthentication
+        walletDebug('connect_auth_failed');
       }
-
-      toast.success('Wallet connected successfully');
-
-      // Trigger energy + PE status refresh after connection (don't await)
-      setTimeout(() => {
-        refreshEnergy();
-        refreshPeStatus();
-      }, 500);
 
     } catch (error: any) {
       walletDebug('connect_exception', { error: error?.message || error });
@@ -674,8 +745,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       toast.error('Failed to connect wallet', {
         description: error instanceof Error ? error.message : 'Unknown error occurred',
       });
+      setWalletState('ERROR');
+      setLastError('connect_exception');
     } finally {
-      setIsConnecting(false);
+      connectInFlightRef.current = false;
     }
   };
 
@@ -685,10 +758,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       phantom.disconnect();
     }
     
-    setIsConnected(false);
+    setWalletState('DISCONNECTED');
     setWalletAddress(null);
     setUser(null);
     setEnergy(defaultEnergyState);
+    setLastError(null);
     clearSession();
     
     toast.success('Wallet disconnected');
@@ -726,18 +800,21 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   return (
     <WalletContext.Provider
       value={{
-        isConnected,
-        isConnecting,
+        walletState,
         walletAddress,
         user,
         energy,
         connect,
+        signIn,
         disconnect,
         updateUser,
         refreshUser,
         refreshEnergy,
         refreshPeStatus,
         updatePeStatus,
+        isConnected,
+        isConnecting,
+        needsSignature,
       }}
     >
       {children}

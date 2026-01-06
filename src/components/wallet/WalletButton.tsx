@@ -11,7 +11,16 @@ function shortenAddress(address: string): string {
 }
 
 export function WalletButton() {
-  const { isConnected, isConnecting, walletAddress, connect, energy } = useWallet();
+  const { 
+    walletState, 
+    walletAddress, 
+    energy, 
+    connect, 
+    signIn,
+    isConnected,
+    isConnecting,
+    needsSignature 
+  } = useWallet();
   const [modalOpen, setModalOpen] = useState(false);
 
   const handleConnectClick = () => {
@@ -23,15 +32,42 @@ export function WalletButton() {
     setModalOpen(false);
   };
 
+  const handleSignIn = async () => {
+    await signIn();
+  };
+
+  // Connecting or Authenticating state
   if (isConnecting) {
     return (
       <GlassPanel padding="sm" className="flex items-center gap-2">
         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        <span className="text-sm text-muted-foreground">Connecting...</span>
+        <span className="text-sm text-muted-foreground">
+          {walletState === 'AUTHENTICATING' ? 'Signing in...' : 'Connecting...'}
+        </span>
       </GlassPanel>
     );
   }
 
+  // AUTH_REQUIRED state - wallet connected but needs signature
+  if (needsSignature && walletAddress) {
+    return (
+      <GlassPanel
+        padding="sm"
+        className="flex items-center gap-2.5 cursor-pointer hover:bg-muted/80 transition-colors"
+        onClick={handleSignIn}
+      >
+        <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+        <span className="font-mono text-xs text-foreground">
+          {shortenAddress(walletAddress)}
+        </span>
+        <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+          Sign in →
+        </span>
+      </GlassPanel>
+    );
+  }
+
+  // Fully authenticated state
   if (isConnected && walletAddress) {
     return (
       <UserMenuPanel>
@@ -53,6 +89,7 @@ export function WalletButton() {
     );
   }
 
+  // Disconnected state - show connect button
   return (
     <>
       <Button
