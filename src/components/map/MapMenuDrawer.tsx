@@ -38,7 +38,7 @@ export function MapMenuDrawer() {
       </SheetTrigger>
       <SheetContent
         side="left"
-        className="w-72 bg-[hsl(0_0%_97%/0.92)] backdrop-blur-[24px] backdrop-saturate-[140%] border-r-[hsl(0_0%_70%/0.35)]"
+        className="w-72"
       >
         <SheetHeader className="text-left">
           <SheetTitle className="text-lg font-semibold text-foreground">
@@ -54,8 +54,8 @@ export function MapMenuDrawer() {
                 variant="ghost"
                 onClick={() => handleNavigate(path)}
                 className={cn(
-                  "w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-muted/50",
-                  isActive && "bg-primary/10 text-primary font-medium hover:bg-primary/15 hover:text-primary"
+                  "w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-white/8",
+                  isActive && "bg-white/10 text-white font-medium hover:bg-white/15 hover:text-white"
                 )}
               >
                 <Icon className="h-5 w-5" />

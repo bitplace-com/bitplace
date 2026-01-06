@@ -75,14 +75,14 @@ export function PixelInspectorCard({
   return (
     <GlassPanel className="w-80 max-w-[calc(100vw-2rem)]" padding="none">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/50">
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/14">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground">
             Pixel: {x.toLocaleString()}, {y.toLocaleString()}
           </span>
           <button
             onClick={handleCopyCoords}
-            className="p-1 rounded hover:bg-muted/50 transition-colors"
+            className="p-1 rounded hover:bg-white/8 transition-colors"
             title="Copy coordinates"
           >
             <Copy className="w-3.5 h-3.5 text-muted-foreground" />
@@ -90,7 +90,7 @@ export function PixelInspectorCard({
         </div>
         <button
           onClick={onClose}
-          className="p-1 rounded hover:bg-muted/50 transition-colors"
+          className="p-1 rounded hover:bg-white/8 transition-colors"
         >
           <X className="w-4 h-4 text-muted-foreground" />
         </button>
@@ -142,7 +142,7 @@ export function PixelInspectorCard({
                     {pixel.owner?.display_name || pixel.owner?.wallet_short || 'Unknown'}
                   </span>
                   {pixel.owner?.alliance_tag && (
-                    <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                    <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-white/10 text-white">
                       [{pixel.owner.alliance_tag}]
                     </span>
                   )}
@@ -152,7 +152,7 @@ export function PixelInspectorCard({
                     </span>
                   )}
                   {pixel.ownerRebalanceActive && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400">
                       {Math.round(pixel.ownerHealthMultiplier * 100)}% HP
                     </span>
                   )}
@@ -165,13 +165,13 @@ export function PixelInspectorCard({
 
             {/* Value Stats */}
             <div className="grid grid-cols-2 gap-2">
-              <div className="bg-muted/30 rounded-lg px-3 py-2">
+              <div className="bg-white/6 rounded-lg px-3 py-2">
                 <div className="text-xs text-muted-foreground">Value</div>
                 <div className="text-sm font-semibold text-foreground">
                   {pixel.vNow.toLocaleString()} PE
                 </div>
               </div>
-              <div className="bg-muted/30 rounded-lg px-3 py-2">
+              <div className="bg-white/6 rounded-lg px-3 py-2">
                 <div className="text-xs text-muted-foreground">
                   {isOwnPixel ? 'Repaint' : 'Takeover'}
                 </div>
@@ -196,17 +196,17 @@ export function PixelInspectorCard({
             {pixel.ownerRebalanceActive && (
               <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5 space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                  <div className="flex items-center gap-1.5 text-xs text-amber-400">
                     <AlertTriangle className="h-3 w-3" />
                     <span>Owner Rebalancing</span>
                   </div>
-                  <div className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                  <div className="text-xs font-semibold text-amber-400">
                     {Math.round(pixel.ownerHealthMultiplier * 100)}%
                   </div>
                 </div>
                 
                 {/* Progress bar */}
-                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-amber-500 transition-all duration-300"
                     style={{ width: `${pixel.ownerHealthMultiplier * 100}%` }}
@@ -233,7 +233,7 @@ export function PixelInspectorCard({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 px-3 py-2.5 border-t border-border/50">
+      <div className="flex items-center gap-2 px-3 py-2.5 border-t border-white/14">
         {mode === 'PAINT' ? (
           <Button
             size="sm"

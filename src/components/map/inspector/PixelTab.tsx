@@ -59,7 +59,7 @@ export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
       </div>
 
       {/* Owner Section */}
-      <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+      <div className="bg-white/6 rounded-lg p-3 space-y-2">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <User className="h-3 w-3" />
           <span>Owner</span>
@@ -74,13 +74,13 @@ export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
             <div className="flex items-center gap-2">
               {pixel.color && (
                 <div
-                  className="h-4 w-4 rounded border border-border"
+                  className="h-4 w-4 rounded border border-white/14"
                   style={{ backgroundColor: pixel.color }}
                 />
               )}
               <span className={cn(
                 "text-sm font-medium",
-                isOwnedByUser && "text-primary"
+                isOwnedByUser && "text-white"
               )}>
                 {pixel.owner?.display_name || pixel.owner?.wallet_short || truncateWallet(pixel.owner?.id)}
                 {isOwnedByUser && " (You)"}
@@ -109,7 +109,7 @@ export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
       {!isEmpty && (
         <>
           <div className="grid grid-cols-2 gap-2">
-            <div className="bg-muted/50 rounded-lg p-3">
+            <div className="bg-white/6 rounded-lg p-3">
               <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                 <Coins className="h-3 w-3" />
                 <span>Owner Stake</span>
@@ -120,7 +120,7 @@ export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
               </div>
             </div>
             
-            <div className="bg-muted/50 rounded-lg p-3">
+            <div className="bg-white/6 rounded-lg p-3">
               <div className="text-xs text-muted-foreground mb-1">
                 Pixel Value
               </div>
@@ -158,17 +158,17 @@ export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
       {!isEmpty && pixel.ownerRebalanceActive && (
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+            <div className="flex items-center gap-1.5 text-xs text-amber-400">
               <AlertTriangle className="h-3 w-3" />
               <span>Owner Rebalancing</span>
             </div>
-            <div className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+            <div className="text-sm font-semibold text-amber-400">
               {Math.round(pixel.ownerHealthMultiplier * 100)}% Health
             </div>
           </div>
           
           {/* Progress bar */}
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+          <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
             <div 
               className="h-full bg-amber-500 transition-all duration-300"
               style={{ width: `${pixel.ownerHealthMultiplier * 100}%` }}
@@ -192,11 +192,11 @@ export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
       )}
 
       {/* Takeover Threshold */}
-      <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
-        <div className="text-xs text-primary mb-1">
+      <div className="bg-white/10 border border-white/20 rounded-lg p-3">
+        <div className="text-xs text-white mb-1">
           {isEmpty ? 'Claim Cost' : 'Takeover Threshold'}
         </div>
-        <div className="text-xl font-bold text-primary">
+        <div className="text-xl font-bold text-white">
           {pixel.thresholdWithFloor.toLocaleString()}
           <span className="text-sm font-normal ml-1">PE</span>
         </div>
@@ -223,11 +223,11 @@ interface ContributionCardProps {
 
 function ContributionCard({ icon, label, total, contributors, variant }: ContributionCardProps) {
   const colorClass = variant === 'defend' 
-    ? 'text-emerald-500 dark:text-emerald-400' 
-    : 'text-rose-500 dark:text-rose-400';
+    ? 'text-emerald-400' 
+    : 'text-rose-400';
 
   return (
-    <div className="bg-muted/50 rounded-lg p-3">
+    <div className="bg-white/6 rounded-lg p-3">
       <div className={cn("flex items-center gap-1 text-xs mb-1", colorClass)}>
         {icon}
         <span>{label}</span>

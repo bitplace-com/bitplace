@@ -24,10 +24,10 @@ export function AppSidebar() {
   const isCollapsed = state === "collapsed";
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border/50">
+    <Sidebar collapsible="icon" className="border-r border-white/14">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-md">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-black font-bold text-sm shadow-md">
             B
           </div>
           {!isCollapsed && (
@@ -48,8 +48,8 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       end={item.url === "/"}
-                      className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-foreground/70 transition-all hover:bg-muted hover:text-foreground"
-                      activeClassName="bg-primary/10 text-primary font-medium hover:bg-primary/10 hover:text-primary"
+                      className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-foreground/70 transition-all hover:bg-white/8 hover:text-foreground"
+                      activeClassName="bg-white/10 text-white font-medium hover:bg-white/15 hover:text-white"
                     >
                       <item.icon className="h-4 w-4 shrink-0" />
                       {!isCollapsed && <span className="text-sm">{item.title}</span>}
