@@ -125,9 +125,14 @@ serve(async (req) => {
 
     if (!user) {
       console.log('Creating new user for wallet');
+      // Generate wallet_short as default display_name
+      const walletShort = `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
       const { data: newUser, error: createError } = await supabase
         .from('users')
-        .insert({ wallet_address: wallet })
+        .insert({ 
+          wallet_address: wallet,
+          display_name: walletShort,  // Default to shortened wallet
+        })
         .select()
         .single();
 

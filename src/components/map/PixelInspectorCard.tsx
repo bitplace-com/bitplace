@@ -127,12 +127,12 @@ export function PixelInspectorCard({
                   background: pixel.color || generateAvatarGradient(pixel.owner?.id || 'unknown'),
                 }}
               >
-                {getAvatarInitial(pixel.owner?.display_name, pixel.owner?.wallet_address)}
+                {getAvatarInitial(pixel.owner?.display_name, pixel.owner?.wallet_short)}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-medium text-sm text-foreground truncate">
-                    {pixel.owner?.display_name || truncateWallet(pixel.owner?.wallet_address)}
+                    {pixel.owner?.display_name || pixel.owner?.wallet_short || 'Unknown'}
                   </span>
                   {pixel.owner?.alliance_tag && (
                     <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary">

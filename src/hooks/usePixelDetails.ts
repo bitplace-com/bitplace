@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface OwnerProfile {
   id: string;
   display_name: string | null;
-  wallet_address: string | null;
+  wallet_short: string | null;  // Truncated wallet for display (4J2k...Za7C)
   country_code: string | null;
   alliance_tag: string | null;
   owner_health_multiplier: number;
@@ -77,10 +77,10 @@ export function usePixelDetails(x: number | null, y: number | null) {
 
       let owner: OwnerProfile | null = null;
       if (pixelData.owner_user_id) {
-        // Use public_pixel_owner_info view - safe public fields only (no wallet/financial data)
+        // Use public_pixel_owner_info view - safe public fields only (wallet_short, not full address)
         const { data: ownerData } = await supabase
           .from('public_pixel_owner_info' as any)
-          .select('id, display_name, country_code, alliance_tag, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier')
+          .select('id, display_name, wallet_short, country_code, alliance_tag, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier')
           .eq('id', pixelData.owner_user_id)
           .maybeSingle();
         
@@ -89,7 +89,7 @@ export function usePixelDetails(x: number | null, y: number | null) {
           owner = {
             id: data.id,
             display_name: data.display_name,
-            wallet_address: null,
+            wallet_short: data.wallet_short,  // Truncated wallet from view
             country_code: data.country_code,
             alliance_tag: data.alliance_tag,
             owner_health_multiplier: data.owner_health_multiplier ?? 1,

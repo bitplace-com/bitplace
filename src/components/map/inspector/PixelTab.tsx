@@ -70,7 +70,7 @@ export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
                 "text-sm font-medium",
                 isOwnedByUser && "text-primary"
               )}>
-                {pixel.owner?.display_name || truncateWallet(pixel.owner?.wallet_address)}
+                {pixel.owner?.display_name || pixel.owner?.wallet_short || truncateWallet(pixel.owner?.id)}
                 {isOwnedByUser && " (You)"}
               </span>
             </div>
