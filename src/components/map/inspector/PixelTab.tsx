@@ -1,4 +1,4 @@
-import { User, Flag, Users, Shield, Swords, Coins, RefreshCw } from 'lucide-react';
+import { User, Flag, Users, Shield, Swords, Coins, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { usePixelDetails } from '@/hooks/usePixelDetails';
@@ -8,6 +8,18 @@ interface PixelTabProps {
   x: number;
   y: number;
   currentUserId?: string;
+}
+
+function formatTimeUntil(targetTime: Date): string {
+  const now = new Date();
+  const diffMs = targetTime.getTime() - now.getTime();
+  if (diffMs <= 0) return "Now";
+  
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
 }
 
 export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
@@ -142,19 +154,58 @@ export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
         </>
       )}
 
+      {/* Health Status (if owner is in rebalance) */}
+      {!isEmpty && pixel.ownerRebalanceActive && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-3 w-3" />
+              <span>Owner Rebalancing</span>
+            </div>
+            <div className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+              {Math.round(pixel.ownerHealthMultiplier * 100)}% Health
+            </div>
+          </div>
+          
+          {/* Progress bar */}
+          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-amber-500 transition-all duration-300"
+              style={{ width: `${pixel.ownerHealthMultiplier * 100}%` }}
+            />
+          </div>
+          
+          {/* Next tick info */}
+          {pixel.nextTickTime && (
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">
+                Next tick in: {formatTimeUntil(pixel.nextTickTime)}
+              </span>
+              {pixel.vFloorNext6h !== null && (
+                <span className="text-muted-foreground">
+                  V → {Math.floor(pixel.vFloorNext6h).toLocaleString()} PE
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Takeover Threshold */}
       <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
         <div className="text-xs text-primary mb-1">
           {isEmpty ? 'Claim Cost' : 'Takeover Threshold'}
         </div>
         <div className="text-xl font-bold text-primary">
-          {pixel.threshold.toLocaleString()}
+          {pixel.thresholdWithFloor.toLocaleString()}
           <span className="text-sm font-normal ml-1">PE</span>
         </div>
         <div className="text-xs text-muted-foreground mt-1">
           {isEmpty 
             ? 'PE required to claim this pixel'
-            : 'PE required to take over this pixel'
+            : pixel.isFloorBased
+              ? 'Floor-based threshold (owner rebalancing)'
+              : 'PE required to take over this pixel'
           }
         </div>
       </div>
