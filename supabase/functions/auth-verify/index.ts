@@ -3,10 +3,23 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import nacl from "https://esm.sh/tweetnacl@1.0.3";
 import bs58 from "https://esm.sh/bs58@5.0.0";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Allowed origins for CORS (restrict to known origins for authenticated endpoints)
+const ALLOWED_ORIGINS = [
+  "https://bitplace.app",
+  "https://www.bitplace.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+];
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") || "";
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Credentials": "true",
+  };
+}
 
 // JWT token signing using HMAC (3-part format: header.payload.signature)
 async function signToken(payload: object, secret: string): Promise<string> {
@@ -43,6 +56,8 @@ async function signToken(payload: object, secret: string): Promise<string> {
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
