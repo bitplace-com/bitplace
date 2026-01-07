@@ -82,6 +82,9 @@ interface WalletContextType {
   isConnected: boolean;
   isConnecting: boolean;
   needsSignature: boolean;
+  // NEW: Explicit gameplay gating flags
+  isWalletConnected: boolean;
+  isAuthenticated: boolean;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
@@ -179,10 +182,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const lastConnectAttemptRef = useRef<number>(0);
   const lastSignAttemptRef = useRef<number>(0);
 
-  // Derived state for backward compatibility
+  // Derived state for backward compatibility and explicit auth checks
   const isConnected = walletState === 'AUTHENTICATED';
   const isConnecting = walletState === 'CONNECTING' || walletState === 'AUTHENTICATING';
   const needsSignature = walletState === 'AUTH_REQUIRED';
+  
+  // NEW: Explicit flags for gameplay gating
+  const isWalletConnected = ['CONNECTED', 'AUTH_REQUIRED', 'AUTHENTICATING', 'AUTHENTICATED'].includes(walletState) && !!walletAddress;
+  const isAuthenticated = walletState === 'AUTHENTICATED' && !!user;
 
   // Use the new balance hook for immediate balance fetching (no auth required)
   const balance = useBalance({ 
@@ -836,6 +843,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         isConnected,
         isConnecting,
         needsSignature,
+        isWalletConnected,
+        isAuthenticated,
       }}
     >
       {children}

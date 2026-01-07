@@ -37,7 +37,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
   // Use usePeBalance for rebalance status only
   const { isLoading, rebalanceActive, healthMultiplier, rebalanceEndsAt, isContributionsUnderCollateralized } = usePeBalance(userId);
   // Use WalletContext for PE totals (server truth)
-  const { energy, refreshEnergy } = useWallet();
+  const { energy, refreshEnergy, needsSignature, signIn } = useWallet();
 
   if (!userId) {
     return (
@@ -57,6 +57,17 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
       <div className="h-11 glass flex items-center justify-between px-4 border-t-0 rounded-none">
         {/* Left side - SOL Balance & Cluster */}
         <div className="flex items-center gap-4">
+          {/* Sign-in required pill */}
+          {needsSignature && (
+            <button
+              onClick={() => signIn()}
+              className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg hover:bg-amber-500/20 transition-colors cursor-pointer"
+            >
+              <Wallet className="h-3.5 w-3.5 text-amber-500" />
+              <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Sign in required</span>
+            </button>
+          )}
+          
           {/* Paint Queue Status */}
           {(isSpacePainting || isFlushing) && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg animate-pulse">

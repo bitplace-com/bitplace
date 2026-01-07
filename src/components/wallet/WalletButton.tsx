@@ -51,19 +51,15 @@ export function WalletButton() {
   // AUTH_REQUIRED state - wallet connected but needs signature
   if (needsSignature && walletAddress) {
     return (
-      <GlassPanel
-        padding="sm"
-        className="flex items-center gap-2.5 cursor-pointer hover:bg-accent transition-colors"
+      <Button
         onClick={handleSignIn}
+        variant="outline"
+        size="sm"
+        className="gap-2 border-amber-500/50 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
       >
-        <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-        <span className="font-mono text-xs text-foreground">
-          {shortenAddress(walletAddress)}
-        </span>
-        <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-          Sign in →
-        </span>
-      </GlassPanel>
+        <Wallet className="h-4 w-4" />
+        Sign to Continue
+      </Button>
     );
   }
 

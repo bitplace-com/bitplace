@@ -15,7 +15,7 @@ interface UsePaintQueueResult {
   isFlushing: boolean;
   startSpacePaint: () => void;
   stopSpacePaint: () => void;
-  addToQueue: (x: number, y: number, color: string) => void;
+  addToQueue: (x: number, y: number, color: string) => boolean;
   flushQueue: () => Promise<void>;
   clearQueue: () => void;
 }
@@ -39,7 +39,15 @@ export function usePaintQueue(
   // Track recently committed pixels to prevent double-commit
   const recentlyCommittedRef = useRef<Map<string, number>>(new Map());
 
-  const addToQueue = useCallback((x: number, y: number, color: string) => {
+  const addToQueue = useCallback((x: number, y: number, color: string): boolean => {
+    // CRITICAL: Check auth before any optimistic paint
+    const token = localStorage.getItem('bitplace_session_token');
+    if (!token) {
+      // Don't paint, don't queue - caller should handle auth prompt
+      console.warn('[usePaintQueue] No session token, blocking paint');
+      return false;
+    }
+    
     currentColorRef.current = color;
     const key = `${x}:${y}`;
     
@@ -48,7 +56,7 @@ export function usePaintQueue(
     const lastCommitted = recentlyCommittedRef.current.get(key);
     if (lastCommitted && (now - lastCommitted) < RECENTLY_COMMITTED_TTL_MS) {
       // Skip - already committed recently, prevent double-charge
-      return;
+      return false;
     }
     
     setQueue(prev => {
@@ -57,8 +65,9 @@ export function usePaintQueue(
       next.add(key);
       return next;
     });
-    // Optimistic local paint
+    // Optimistic local paint (only if authenticated)
     paintPixel(x, y, color);
+    return true;
   }, [paintPixel]);
 
   const clearQueue = useCallback(() => {
@@ -69,7 +78,9 @@ export function usePaintQueue(
     // Safety check - don't flush if not authenticated
     const token = localStorage.getItem('bitplace_session_token');
     if (!token) {
-      console.warn('[usePaintQueue] No session token, clearing queue');
+      // Show error instead of silent clear
+      toast.error('Sign in to save your artwork');
+      setIsSpacePainting(false);
       setQueue(new Set());
       return;
     }

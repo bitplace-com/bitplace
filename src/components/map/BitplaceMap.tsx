@@ -263,18 +263,19 @@ export function BitplaceMap() {
   }, [selection.bounds, getSelectedPixels]);
 
   const executeSinglePixelAction = useCallback(async (x: number, y: number) => {
-    if (!user) { toast.error('Please connect wallet first'); return; }
+    // Auth check FIRST via requireWallet
+    if (!requireWallet('paint')) return;
     if (selectedColor === null) { toast.info('Select a color to paint'); return; }
     const gameMode = getGameMode(mode);
     if (gameMode === 'PAINT') {
       // Use paint queue for consistency with hover-paint
-      addToQueue(x, y, selectedColor);
-      flushQueue();
+      const queued = addToQueue(x, y, selectedColor);
+      if (queued) flushQueue();
       return;
     }
     startSelection(x, y);
     setPendingPixels([{ x, y }]);
-  }, [user, mode, selectedColor, addToQueue, flushQueue, getGameMode, startSelection]);
+  }, [requireWallet, mode, selectedColor, addToQueue, flushQueue, getGameMode, startSelection]);
 
   // Eyedropper: pick color from pixel
   const handleEyedropperPick = useCallback((x: number, y: number) => {
