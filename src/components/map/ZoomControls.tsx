@@ -23,20 +23,17 @@ export function ZoomControls({
       {/* Art Opacity Toggle */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <GlassPanel padding="none" className="overflow-hidden">
-            <GlassIconButton
-              variant={isReduced ? "active" : "default"}
-              onClick={onToggleArtOpacity}
-              className="rounded-none w-full border-0"
-              aria-label={isReduced ? "Show art" : "Reduce art opacity"}
-            >
-              {isReduced ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-            </GlassIconButton>
-          </GlassPanel>
+          <GlassIconButton
+            variant={isReduced ? "active" : "default"}
+            onClick={onToggleArtOpacity}
+            aria-label={isReduced ? "Show art" : "Reduce art opacity"}
+          >
+            {isReduced ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+          </GlassIconButton>
         </TooltipTrigger>
         <TooltipContent side="left">
           {isReduced ? "Show pixel art" : "Reduce pixel art opacity"}
@@ -44,24 +41,20 @@ export function ZoomControls({
       </Tooltip>
 
       {/* Zoom Controls */}
-      <GlassPanel padding="none" className="overflow-hidden flex flex-col">
-        <GlassIconButton
-          variant="default"
-          onClick={onZoomIn}
-          className="rounded-none border-0"
-          aria-label="Zoom in"
-        >
-          <Plus className="h-4 w-4" />
-        </GlassIconButton>
-        <GlassIconButton
-          variant="default"
-          onClick={onZoomOut}
-          className="rounded-none border-0"
-          aria-label="Zoom out"
-        >
-          <Minus className="h-4 w-4" />
-        </GlassIconButton>
-      </GlassPanel>
+      <GlassIconButton
+        variant="default"
+        onClick={onZoomIn}
+        aria-label="Zoom in"
+      >
+        <Plus className="h-4 w-4" />
+      </GlassIconButton>
+      <GlassIconButton
+        variant="default"
+        onClick={onZoomOut}
+        aria-label="Zoom out"
+      >
+        <Minus className="h-4 w-4" />
+      </GlassIconButton>
     </div>
   );
 }
