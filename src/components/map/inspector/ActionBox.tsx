@@ -1,4 +1,4 @@
-import { Paintbrush, Shield, Swords, Zap, Loader2 } from 'lucide-react';
+import { Paintbrush, Shield, Swords, Zap, Loader2, Eraser } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PeInput } from '../PeInput';
 import type { GameMode, ValidateResult } from '@/hooks/useGameActions';
@@ -23,6 +23,7 @@ const modeConfig: Record<GameMode, { icon: React.ReactNode; label: string }> = {
   DEFEND: { icon: <Shield className="h-3.5 w-3.5" />, label: 'Defend' },
   ATTACK: { icon: <Swords className="h-3.5 w-3.5" />, label: 'Attack' },
   REINFORCE: { icon: <Zap className="h-3.5 w-3.5" />, label: 'Reinforce' },
+  ERASE: { icon: <Eraser className="h-3.5 w-3.5" />, label: 'Erase' },
 };
 
 export function ActionBox({
@@ -50,13 +51,15 @@ export function ActionBox({
 
   return (
     <div className="border-t border-border p-3 space-y-3 bg-muted/50">
-      {/* Mode + Color inline for PAINT */}
-      {mode === 'PAINT' ? (
+      {/* Mode + Color inline for PAINT/ERASE */}
+      {(mode === 'PAINT' || mode === 'ERASE') ? (
         <div className="flex items-center gap-2">
           <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-foreground">
-            {config.icon}
+            {mode === 'ERASE' ? <Eraser className="h-3.5 w-3.5" /> : config.icon}
           </div>
-          {selectedColor ? (
+          {mode === 'ERASE' ? (
+            <span className="text-[11px] font-mono text-muted-foreground">ERASER</span>
+          ) : selectedColor ? (
             <>
               <div
                 className="h-6 w-6 rounded-md border border-white/20"
@@ -77,8 +80,8 @@ export function ActionBox({
         </div>
       )}
 
-      {/* PE Input for non-PAINT modes */}
-      {mode !== 'PAINT' && (
+      {/* PE Input for non-PAINT/ERASE modes */}
+      {mode !== 'PAINT' && mode !== 'ERASE' && (
         <div className="space-y-1.5">
           <PeInput 
             value={pePerPixel} 
@@ -164,6 +167,10 @@ export function ActionBox({
                 </div>
               )}
             </>
+          ) : mode === 'ERASE' ? (
+            <div className="text-muted-foreground">
+              Erasing <span className="text-amber-400 font-medium">{breakdown.ownedByUser}</span> owned pixel(s). PE will be refunded.
+            </div>
           ) : mode === 'DEFEND' ? (
             <div className="text-muted-foreground">
               Adding <span className="text-emerald-400 font-medium">{pePerPixel} PE</span> defense to {pixelCount} pixel(s)

@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 
 const SESSION_TOKEN_KEY = 'bitplace_session_token';
 
-export type GameMode = 'PAINT' | 'DEFEND' | 'ATTACK' | 'REINFORCE';
+export type GameMode = 'PAINT' | 'DEFEND' | 'ATTACK' | 'REINFORCE' | 'ERASE';
 
 export interface InvalidPixel {
   x: number;
@@ -246,5 +246,6 @@ function formatMode(mode: GameMode): string {
     case 'DEFEND': return 'Defended';
     case 'ATTACK': return 'Attacked';
     case 'REINFORCE': return 'Reinforced';
+    case 'ERASE': return 'Erased';
   }
 }
