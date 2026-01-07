@@ -104,21 +104,39 @@ serve(async (req) => {
     }
     
     if (country_code !== undefined) {
-      if (country_code && (typeof country_code !== 'string' || country_code.length > 5)) {
-        return new Response(
-          JSON.stringify({ error: 'Country code must be a string under 5 characters' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      if (country_code) {
+        if (typeof country_code !== 'string') {
+          return new Response(
+            JSON.stringify({ error: 'Country code must be a string' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        // Validate ISO 3166-1 alpha-2 format (2 uppercase letters)
+        if (!/^[A-Z]{2}$/.test(country_code)) {
+          return new Response(
+            JSON.stringify({ error: 'Country code must be 2 uppercase letters (ISO format)' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
       updates.country_code = country_code || null;
     }
     
     if (alliance_tag !== undefined) {
-      if (alliance_tag && (typeof alliance_tag !== 'string' || alliance_tag.length > 10)) {
-        return new Response(
-          JSON.stringify({ error: 'Alliance tag must be a string under 10 characters' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      if (alliance_tag) {
+        if (typeof alliance_tag !== 'string') {
+          return new Response(
+            JSON.stringify({ error: 'Alliance tag must be a string' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        // Validate alliance tag format: 2-5 uppercase letters only
+        if (!/^[A-Z]{2,5}$/.test(alliance_tag)) {
+          return new Response(
+            JSON.stringify({ error: 'Alliance tag must be 2-5 uppercase letters' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
       updates.alliance_tag = alliance_tag || null;
     }
