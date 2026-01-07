@@ -38,12 +38,14 @@ export function usePaintQueue(
   
   // Track recently committed pixels to prevent double-commit
   const recentlyCommittedRef = useRef<Map<string, number>>(new Map());
+  
+  // CRITICAL: Track pending pixels synchronously (not subject to React batching)
+  const pendingPixelsRef = useRef<Map<string, string>>(new Map()); // key -> color
 
   const addToQueue = useCallback((x: number, y: number, color: string): boolean => {
     // CRITICAL: Check auth before any optimistic paint
     const token = localStorage.getItem('bitplace_session_token');
     if (!token) {
-      // Don't paint, don't queue - caller should handle auth prompt
       console.warn('[usePaintQueue] No session token, blocking paint');
       return false;
     }
@@ -55,75 +57,77 @@ export function usePaintQueue(
     const now = Date.now();
     const lastCommitted = recentlyCommittedRef.current.get(key);
     if (lastCommitted && (now - lastCommitted) < RECENTLY_COMMITTED_TTL_MS) {
-      // Skip - already committed recently, prevent double-charge
       return false;
     }
     
+    // CRITICAL: Add to ref synchronously (not subject to React batching)
+    pendingPixelsRef.current.set(key, color);
+    
+    // Also update React state for UI display
     setQueue(prev => {
       if (prev.has(key)) return prev;
       const next = new Set(prev);
       next.add(key);
       return next;
     });
-    // Optimistic local paint (only if authenticated)
+    
+    // Optimistic local paint
     paintPixel(x, y, color);
     return true;
   }, [paintPixel]);
 
   const clearQueue = useCallback(() => {
+    pendingPixelsRef.current.clear();
     setQueue(new Set());
   }, []);
 
   const flushQueue = useCallback(async () => {
-    // Safety check - don't flush if not authenticated
     const token = localStorage.getItem('bitplace_session_token');
     if (!token) {
-      // Show error instead of silent clear
       toast.error('Sign in to save your artwork');
       setIsSpacePainting(false);
+      pendingPixelsRef.current.clear();
       setQueue(new Set());
       return;
     }
     
-    // Atomic capture: get queue, check flushing, clear queue all in one operation
-    let pixelsToCommit: { x: number; y: number }[] = [];
-    let shouldProcess = false;
-    
-    setQueue(currentQueue => {
-      // Already flushing or empty queue - no-op
-      if (flushingRef.current || currentQueue.size === 0) {
-        return currentQueue;
-      }
-      
-      // Capture pixels
-      pixelsToCommit = Array.from(currentQueue).map(key => {
-        const [x, y] = key.split(':').map(Number);
-        return { x, y };
-      });
-      
-      // Set flushing flag
-      flushingRef.current = true;
-      shouldProcess = true;
-      
-      // Clear queue immediately after capturing
-      return new Set();
-    });
-    
-    // Process outside of setState if we captured pixels
-    if (!shouldProcess || pixelsToCommit.length === 0) {
+    // Check if already flushing
+    if (flushingRef.current) {
       return;
     }
     
-    setIsFlushing(true);
+    // CRITICAL: Read from ref (synchronous, not subject to React batching)
+    const pendingMap = pendingPixelsRef.current;
+    if (pendingMap.size === 0) {
+      return;
+    }
+    
+    // Atomically capture and clear
+    const pixelsToCommit = Array.from(pendingMap.keys()).map(key => {
+      const [x, y] = key.split(':').map(Number);
+      return { x, y };
+    });
     const color = currentColorRef.current;
     
+    // Clear pending ref immediately
+    pendingPixelsRef.current = new Map();
+    setQueue(new Set());
+    
+    flushingRef.current = true;
+    setIsFlushing(true);
+    
     try {
+      console.log('[usePaintQueue] Flushing', pixelsToCommit.length, 'pixels');
+      
       const validateResult = await validate({ mode: 'PAINT', pixels: pixelsToCommit, color });
       
       if (!validateResult?.ok) {
+        console.warn('[usePaintQueue] Validation failed:', validateResult);
         setIsSpacePainting(false);
         return;
       }
+      
+      console.log('[usePaintQueue] Validation passed, committing...');
       
       const commitResult = await commit({
         mode: 'PAINT',
@@ -133,23 +137,20 @@ export function usePaintQueue(
       });
       
       if (commitResult) {
-        // Mark all committed pixels with timestamp for TTL guard
+        console.log('[usePaintQueue] Commit successful:', commitResult);
         const now = Date.now();
         pixelsToCommit.forEach(({ x, y }) => {
           confirmPixel(x, y);
           recentlyCommittedRef.current.set(`${x}:${y}`, now);
         });
         
-        // Update PE status from commit response (server truth)
         if (commitResult.peStatus) {
-          console.log('[usePaintQueue] Commit peStatus:', commitResult.peStatus);
           updatePeStatus(commitResult.peStatus);
-        } else {
-          console.warn('[usePaintQueue] No peStatus in commit response');
         }
         refreshUser();
         soundEngine.play('paint_commit');
       } else {
+        console.warn('[usePaintQueue] Commit returned null');
         setIsSpacePainting(false);
       }
     } catch (err) {
