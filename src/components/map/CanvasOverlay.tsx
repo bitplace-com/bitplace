@@ -7,7 +7,7 @@ import {
 } from './hooks/usePixelStore';
 import { type SelectionState } from './hooks/useSelection';
 import { lngLatToGridFloat, lngLatToGridInt, getCellSize, roundToDevicePixel } from '@/lib/pixelGrid';
-import type { InvalidPixel } from '@/hooks/useGameActions';
+import type { InvalidPixel, GameMode } from '@/hooks/useGameActions';
 
 interface CanvasOverlayProps {
   map: MapLibreMap | null;
@@ -17,7 +17,18 @@ interface CanvasOverlayProps {
   canPaint: boolean;
   invalidPixels?: InvalidPixel[];
   artOpacity?: number;
+  mode?: GameMode;
 }
+
+// Mode-specific hover and selection colors
+const getModeColors = (mode: GameMode = 'PAINT') => {
+  switch (mode) {
+    case 'DEFEND': return { hover: 'rgba(74, 222, 128, 0.4)', border: 'rgba(74, 222, 128, 0.8)', fill: 'rgba(74, 222, 128, 0.15)' };
+    case 'ATTACK': return { hover: 'rgba(248, 113, 113, 0.4)', border: 'rgba(248, 113, 113, 0.8)', fill: 'rgba(248, 113, 113, 0.15)' };
+    case 'REINFORCE': return { hover: 'rgba(96, 165, 250, 0.4)', border: 'rgba(96, 165, 250, 0.8)', fill: 'rgba(96, 165, 250, 0.15)' };
+    default: return { hover: 'rgba(255, 255, 255, 0.3)', border: 'rgba(0, 200, 255, 0.8)', fill: 'rgba(0, 200, 255, 0.15)' };
+  }
+};
 
 export function CanvasOverlay({
   map,
@@ -27,7 +38,9 @@ export function CanvasOverlay({
   canPaint,
   invalidPixels = [],
   artOpacity = 1,
+  mode = 'PAINT',
 }: CanvasOverlayProps) {
+  const modeColors = getModeColors(mode);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const draw = useCallback(() => {
@@ -141,7 +154,7 @@ export function CanvasOverlay({
       }
     }
 
-    // Draw hover highlight at paint zoom
+    // Draw hover highlight at paint zoom with mode-specific colors
     if (hoverPixel && canPaint && cellSize > 1) {
       const screenX = (hoverPixel.x - tlGrid.x) * cellSize;
       const screenY = (hoverPixel.y - tlGrid.y) * cellSize;
@@ -152,11 +165,11 @@ export function CanvasOverlay({
       const isInvalid = invalidSet.has(`${hoverPixel.x}:${hoverPixel.y}`);
       
       if (!isInvalid) {
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.strokeStyle = mode === 'PAINT' ? 'rgba(255, 255, 255, 0.8)' : modeColors.border;
         ctx.lineWidth = 2;
         ctx.strokeRect(rx, ry, rSize, rSize);
         
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.fillStyle = mode === 'PAINT' ? 'rgba(255, 255, 255, 0.1)' : modeColors.hover;
         ctx.fillRect(rx, ry, rSize, rSize);
       }
     }
@@ -180,17 +193,17 @@ export function CanvasOverlay({
       const rectWidth = roundToDevicePixel(bottomRightScreenX - topLeftScreenX, dpr);
       const rectHeight = roundToDevicePixel(bottomRightScreenY - topLeftScreenY, dpr);
 
-      // Selection fill - different color if has invalid pixels
+      // Selection fill - mode-specific colors, different if has invalid pixels
       const hasInvalid = invalidPixels.length > 0;
       ctx.fillStyle = hasInvalid 
         ? 'rgba(255, 100, 100, 0.15)' 
-        : 'rgba(0, 200, 255, 0.15)';
+        : modeColors.fill;
       ctx.fillRect(rectX, rectY, rectWidth, rectHeight);
 
-      // Selection border
+      // Selection border - mode-specific
       ctx.strokeStyle = hasInvalid 
         ? 'rgba(255, 100, 100, 0.8)' 
-        : 'rgba(0, 200, 255, 0.8)';
+        : modeColors.border;
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 4]);
       ctx.strokeRect(rectX, rectY, rectWidth, rectHeight);
@@ -213,13 +226,15 @@ export function CanvasOverlay({
         ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 4);
         ctx.fill();
 
-        ctx.fillStyle = hasInvalid ? '#FF6464' : '#00C8FF';
+        // Badge text color based on mode
+        const badgeColor = hasInvalid ? '#FF6464' : (mode === 'DEFEND' ? '#4ade80' : mode === 'ATTACK' ? '#f87171' : mode === 'REINFORCE' ? '#60a5fa' : '#00C8FF');
+        ctx.fillStyle = badgeColor;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY + badgeHeight / 2);
       }
     }
-  }, [map, pixels, selection, hoverPixel, canPaint, invalidPixels, artOpacity]);
+  }, [map, pixels, selection, hoverPixel, canPaint, invalidPixels, artOpacity, mode, modeColors]);
 
   useEffect(() => {
     if (!map) return;

@@ -319,8 +319,8 @@ export function BitplaceMap() {
             lastPaintedPixelRef.current = pixel;
           }
         }
-        // SHIFT held + dragging: update selection
-        else if (isShiftHeld && isDraggingRef.current && dragStartRef.current) {
+        // SHIFT held or non-PAINT mode dragging: update selection
+        else if ((isShiftHeld || mode !== 'paint') && isDraggingRef.current && dragStartRef.current) {
           updateSelection(pixel.x, pixel.y);
         }
         // DRAW mode continuous painting (skip if eraser, silent user check - modal shown on mousedown)
@@ -344,8 +344,10 @@ export function BitplaceMap() {
       
       const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
       
-      // SHIFT held: start area selection
-      if (isShiftHeld) {
+      // SHIFT held or non-PAINT mode: start area selection (DEFEND/ATTACK/REINFORCE)
+      if (isShiftHeld || mode !== 'paint') {
+        // Gate behind wallet for non-paint modes
+        if (mode !== 'paint' && !requireWallet('interact')) return;
         isDraggingRef.current = true;
         dragStartRef.current = { x: pixel.x, y: pixel.y, screenX: e.point.x, screenY: e.point.y };
         map.dragPan.disable();
@@ -384,10 +386,23 @@ export function BitplaceMap() {
         return;
       }
       
-      // End SHIFT area selection
-      if (isShiftHeld && isDraggingRef.current) {
+      // End SHIFT area selection or non-PAINT mode selection
+      if ((isShiftHeld || mode !== 'paint') && isDraggingRef.current) {
+        const dragDistance = dragStartRef.current ? Math.sqrt(
+          Math.pow(e.point.x - dragStartRef.current.screenX, 2) + 
+          Math.pow(e.point.y - dragStartRef.current.screenY, 2)
+        ) : 0;
+        
         endSelection();
         isDraggingRef.current = false;
+        
+        // For non-paint modes, single click selects the pixel for action
+        if (mode !== 'paint' && dragDistance < 5 && dragStartRef.current) {
+          const { x, y } = dragStartRef.current;
+          setPendingPixels([{ x, y }]);
+          playSound('pixel_select');
+        }
+        
         dragStartRef.current = null;
         map.dragPan.enable();
         return;
@@ -406,14 +421,14 @@ export function BitplaceMap() {
         const { x, y } = dragStartRef.current;
         
         // In Paint mode with Brush tool, single click paints the pixel
-        // In Hand mode or other modes, click opens inspector
+        // In Hand mode, click opens inspector
         if (mode === 'paint' && interactionMode === 'draw') {
           // Gate behind wallet connection
           if (!requireWallet('paint')) return;
           executeSinglePixelAction(x, y);
           playSound('pixel_select');
-        } else {
-          // Hand mode or other game modes: click opens inspector
+        } else if (mode === 'paint') {
+          // Hand mode: open inspector
           setInspectedPixel({ x, y });
           playSound('pixel_select');
         }
@@ -500,7 +515,7 @@ export function BitplaceMap() {
           <div ref={containerRef} className="absolute inset-0" />
 
           {mapReady && (
-            <CanvasOverlay map={mapRef.current} pixels={pixels} selection={selection} hoverPixel={hoverPixel} canPaint={canPaint} invalidPixels={invalidPixels} artOpacity={artOpacity} />
+            <CanvasOverlay map={mapRef.current} pixels={pixels} selection={selection} hoverPixel={hoverPixel} canPaint={canPaint} invalidPixels={invalidPixels} artOpacity={artOpacity} mode={getGameMode(mode)} />
           )}
 
           {/* HUD Overlay */}
