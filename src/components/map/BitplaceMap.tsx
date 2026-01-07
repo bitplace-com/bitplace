@@ -156,12 +156,23 @@ export function BitplaceMap() {
     return () => window.removeEventListener('bitplace:navigate', handleNavigate);
   }, [setUrlPosition]);
 
-  // SPACE key handling for hover-paint, SHIFT for selection
+  // SPACE key handling for hover-paint, SHIFT for selection, ESC to cancel
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // ESC: cancel selection in any mode
+      if (e.key === 'Escape') {
+        if (pendingPixels.length > 0) {
+          clearSelection();
+          clearValidation();
+          setPendingPixels([]);
+          playSound('pixel_deselect');
+        }
+        return;
+      }
+      
       // SPACE: enable hover-paint mode (Paint mode only, Brush mode only)
       if (e.code === 'Space' && mode === 'paint' && canPaint && !isSpaceHeld) {
         e.preventDefault();
@@ -241,7 +252,7 @@ export function BitplaceMap() {
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [mapReady, mode, canPaint, user, isSpaceHeld, isShiftHeld, interactionMode, selection.isSelecting, endSelection, hoverPixel, selectedColor, addToQueue, startSpacePaint, stopSpacePaint, requireWallet]);
+  }, [mapReady, mode, canPaint, user, isSpaceHeld, isShiftHeld, interactionMode, selection.isSelecting, endSelection, hoverPixel, selectedColor, addToQueue, startSpacePaint, stopSpacePaint, requireWallet, pendingPixels.length, clearSelection, clearValidation, playSound]);
 
   // Update dragPan when interaction mode changes
   useEffect(() => {
@@ -474,6 +485,8 @@ export function BitplaceMap() {
     await validate({ mode: gameMode, pixels: pendingPixels, color: gameMode === 'PAINT' ? selectedColor : undefined, pePerPixel: gameMode !== 'PAINT' ? pePerPixel : undefined });
   }, [user, mode, pendingPixels, selectedColor, pePerPixel, validate, getGameMode]);
 
+  const handleClearSelection = useCallback(() => { clearSelection(); clearValidation(); setPendingPixels([]); playSound('pixel_deselect'); }, [clearSelection, clearValidation, playSound]);
+
   const handleConfirm = useCallback(async () => {
     const gameMode = getGameMode(mode);
     if (!validationResult?.ok) {
@@ -481,18 +494,31 @@ export function BitplaceMap() {
         const result = await validate({ mode: 'PAINT', pixels: pendingPixels, color: selectedColor });
         if (!result?.ok) return;
         const success = await commit({ mode: 'PAINT', pixels: pendingPixels, color: selectedColor, snapshotHash: result.snapshotHash });
-        if (success) { pendingPixels.forEach(({ x, y }) => { paintPixel(x, y, selectedColor); confirmPixel(x, y); }); refreshUser(); handleClearSelection(); }
+        if (success) { 
+          pendingPixels.forEach(({ x, y }) => { paintPixel(x, y, selectedColor); confirmPixel(x, y); }); 
+          refreshUser(); 
+          handleClearSelection();
+          playSound('paint_commit');
+        }
       }
       return;
     }
     const success = await commit({ mode: gameMode, pixels: pendingPixels, color: gameMode === 'PAINT' ? selectedColor : undefined, pePerPixel: gameMode !== 'PAINT' ? pePerPixel : undefined, snapshotHash: validationResult.snapshotHash });
     if (success) {
-      if (gameMode === 'PAINT') pendingPixels.forEach(({ x, y }) => { paintPixel(x, y, selectedColor); confirmPixel(x, y); });
-      refreshUser(); handleClearSelection();
+      if (gameMode === 'PAINT') {
+        pendingPixels.forEach(({ x, y }) => { paintPixel(x, y, selectedColor); confirmPixel(x, y); });
+        playSound('paint_commit');
+      } else if (gameMode === 'DEFEND') {
+        playSound('defend_success');
+      } else if (gameMode === 'ATTACK') {
+        playSound('attack_success');
+      } else if (gameMode === 'REINFORCE') {
+        playSound('reinforce_success');
+      }
+      refreshUser(); 
+      handleClearSelection();
     }
-  }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, validate, getGameMode, paintPixel, confirmPixel, refreshUser]);
-
-  const handleClearSelection = useCallback(() => { clearSelection(); clearValidation(); setPendingPixels([]); playSound('pixel_deselect'); }, [clearSelection, clearValidation, playSound]);
+  }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, validate, getGameMode, paintPixel, confirmPixel, refreshUser, handleClearSelection, playSound]);
 
   // Inspector card handlers
   const handleInspectorPaint = useCallback(async (x: number, y: number) => {
@@ -511,60 +537,63 @@ export function BitplaceMap() {
 
   return (
     <div className="relative w-full h-full flex flex-col">
-      <div className="flex-1 flex relative overflow-hidden">
-        <div className="flex-1 relative">
-          <div ref={containerRef} className="absolute inset-0" />
+      <div className="flex-1 relative overflow-hidden">
+        <div ref={containerRef} className="absolute inset-0" />
 
-          {mapReady && (
-            <CanvasOverlay map={mapRef.current} pixels={pixels} selection={selection} hoverPixel={hoverPixel} canPaint={canPaint} invalidPixels={invalidPixels} artOpacity={artOpacity} mode={getGameMode(mode)} />
-          )}
+        {mapReady && (
+          <CanvasOverlay map={mapRef.current} pixels={pixels} selection={selection} hoverPixel={hoverPixel} canPaint={canPaint} invalidPixels={invalidPixels} artOpacity={artOpacity} mode={getGameMode(mode)} />
+        )}
 
-          {/* HUD Overlay */}
-          <HudOverlay>
-            <HudSlot position="top-left">
-              <GlassPanel padding="none" className="overflow-hidden">
-                <SidebarTrigger className="h-9 w-9" />
-              </GlassPanel>
-            </HudSlot>
-            <HudSlot position="top-center">
-              <MapToolbar mode={mode} onModeChange={setMode} />
-            </HudSlot>
-            <HudSlot position="top-right">
-              <WalletButton />
-            </HudSlot>
-            <HudSlot position="bottom-right">
-              <ZoomControls onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} artOpacity={artOpacity} onToggleArtOpacity={toggleArtOpacity} />
-            </HudSlot>
-          </HudOverlay>
+        {/* HUD Overlay */}
+        <HudOverlay>
+          <HudSlot position="top-left">
+            <GlassPanel padding="none" className="overflow-hidden">
+              <SidebarTrigger className="h-9 w-9" />
+            </GlassPanel>
+          </HudSlot>
+          <HudSlot position="top-center">
+            <MapToolbar mode={mode} onModeChange={setMode} />
+          </HudSlot>
+          <HudSlot position="top-right">
+            <WalletButton />
+          </HudSlot>
+          <HudSlot position="bottom-right">
+            <ZoomControls onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} artOpacity={artOpacity} onToggleArtOpacity={toggleArtOpacity} />
+          </HudSlot>
+        </HudOverlay>
 
-          {/* Palette Tray - always visible in paint mode */}
-          {mode === 'paint' && (
-            <PaletteTray
-              selectedColor={selectedColor}
-              onColorSelect={setSelectedColor}
-              viewportPixels={pixels}
-              onEyedropperToggle={setIsEyedropperActive}
-              isEyedropperActive={isEyedropperActive}
-              zoom={zoom}
-              interactionMode={interactionMode}
-              onInteractionModeChange={setInteractionMode}
-            />
-          )}
-
-          {/* Pixel Inspector Card/Drawer */}
-          <PixelInspectorDrawer
-            pixel={inspectedPixel}
-            onClose={handleCloseInspector}
-            onPaint={handleInspectorPaint}
-            onDefendAttack={handleInspectorDefendAttack}
+        {/* Palette Tray - always visible in paint mode */}
+        {mode === 'paint' && (
+          <PaletteTray
             selectedColor={selectedColor}
-            mode={getGameMode(mode)}
-            currentUserId={user?.id}
+            onColorSelect={setSelectedColor}
+            viewportPixels={pixels}
+            onEyedropperToggle={setIsEyedropperActive}
+            isEyedropperActive={isEyedropperActive}
+            zoom={zoom}
+            interactionMode={interactionMode}
+            onInteractionModeChange={setInteractionMode}
           />
-        </div>
+        )}
 
-        {canPaint && (
-          <InspectorPanel selectedPixels={pendingPixels} mode={getGameMode(mode)} selectedColor={selectedColor} currentUserId={user?.id} validationResult={validationResult} invalidPixels={invalidPixels} pePerPixel={pePerPixel} onPePerPixelChange={setPePerPixel} onColorSelect={setSelectedColor} onValidate={handleValidate} onConfirm={handleConfirm} onClearSelection={handleClearSelection} isValidating={isValidating} isCommitting={isCommitting} />
+        {/* Pixel Inspector Card/Drawer */}
+        <PixelInspectorDrawer
+          pixel={inspectedPixel}
+          onClose={handleCloseInspector}
+          onPaint={handleInspectorPaint}
+          onDefendAttack={handleInspectorDefendAttack}
+          selectedColor={selectedColor}
+          mode={getGameMode(mode)}
+          currentUserId={user?.id}
+        />
+
+        {/* Inspector Panel - absolute positioned to not shift map */}
+        {canPaint && pendingPixels.length > 0 && (
+          <div className="absolute right-0 top-0 h-full z-20 pointer-events-none">
+            <div className="pointer-events-auto h-full">
+              <InspectorPanel selectedPixels={pendingPixels} mode={getGameMode(mode)} selectedColor={selectedColor} currentUserId={user?.id} validationResult={validationResult} invalidPixels={invalidPixels} pePerPixel={pePerPixel} onPePerPixelChange={setPePerPixel} onColorSelect={setSelectedColor} onValidate={handleValidate} onConfirm={handleConfirm} onClearSelection={handleClearSelection} isValidating={isValidating} isCommitting={isCommitting} />
+            </div>
+          </div>
         )}
       </div>
       <StatusStrip userId={user?.id} paintQueueSize={queueSize} isSpacePainting={isSpacePainting || isDrawingRef.current} isFlushing={isFlushing} />

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Map, FileText, User, Trophy, Users, Search, ShoppingBag, Settings } from "lucide-react";
+import { Map, FileText, User, Trophy, Users, Search, ShoppingBag } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -116,23 +116,21 @@ export function MapSidebar() {
           </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter className="px-2 pb-4 space-y-1">
+        <SidebarFooter className="p-2">
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
-                tooltip="Settings"
+                tooltip="Theme"
                 className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-foreground/70 transition-all hover:bg-accent hover:text-foreground cursor-pointer"
+                onClick={() => {
+                  const themeToggle = document.querySelector('[data-theme-toggle]') as HTMLButtonElement;
+                  themeToggle?.click();
+                }}
               >
-                <Settings className="h-4 w-4 shrink-0" />
-                {!isCollapsed && <span className="text-sm">Settings</span>}
+                <ThemeToggle collapsed={isCollapsed} />
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
-          
-          {/* Theme Toggle */}
-          <div className={isCollapsed ? "flex justify-center" : "px-1"}>
-            <ThemeToggle collapsed={isCollapsed} />
-          </div>
         </SidebarFooter>
       </Sidebar>
 
