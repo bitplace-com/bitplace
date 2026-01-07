@@ -20,15 +20,16 @@ const PRICE_CACHE_TTL_MS = 30 * 1000; // 30 seconds
 // PE rate: 1 PE = $0.001
 const PE_PER_USD = 1000;
 
-// Auth token verification using HMAC-SHA256 (same as other edge functions)
+// Auth token verification using HMAC-SHA256 (3-part JWT format: header.payload.signature)
 async function verifyToken(token: string, secret: string): Promise<{ userId: string; wallet: string; exp: number } | null> {
   try {
-    const [payloadB64, signatureB64] = token.split('.');
-    if (!payloadB64 || !signatureB64) {
-      console.error("[energy-refresh] Invalid token format");
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      console.error("[energy-refresh] Invalid token format: expected 3 parts, got", parts.length);
       return null;
     }
 
+    const [headerB64, payloadB64, signatureB64] = parts;
     const encoder = new TextEncoder();
     
     // Import the secret key for HMAC
@@ -40,15 +41,17 @@ async function verifyToken(token: string, secret: string): Promise<{ userId: str
       ['verify']
     );
 
-    // Decode the signature from base64
-    const signatureBytes = Uint8Array.from(atob(signatureB64), c => c.charCodeAt(0));
+    // Decode the signature from base64url
+    const signatureB64Std = signatureB64.replace(/-/g, '+').replace(/_/g, '/');
+    const signatureBytes = Uint8Array.from(atob(signatureB64Std), c => c.charCodeAt(0));
 
-    // Verify the signature
+    // Verify the signature against header.payload
+    const signatureInput = `${headerB64}.${payloadB64}`;
     const isValid = await crypto.subtle.verify(
       'HMAC',
       key,
       signatureBytes,
-      encoder.encode(payloadB64)
+      encoder.encode(signatureInput)
     );
 
     if (!isValid) {
@@ -56,8 +59,9 @@ async function verifyToken(token: string, secret: string): Promise<{ userId: str
       return null;
     }
 
-    // Decode and parse payload
-    const payload = JSON.parse(atob(payloadB64));
+    // Decode and parse payload (handle base64url)
+    const payloadB64Std = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(payloadB64Std));
 
     // Check expiration
     if (payload.exp && payload.exp < Date.now()) {
