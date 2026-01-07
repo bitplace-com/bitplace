@@ -35,7 +35,7 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
   }
 }
 
-type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE";
+type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE";
 
 interface ValidateRequest {
   mode: GameMode;
@@ -73,8 +73,6 @@ interface PixelData {
 }
 
 // Rate limiting: in-memory store per instance
-// Note: Edge functions are stateless, so this only works per instance
-// For production, use Redis or database-based rate limiting
 const rateLimits = new Map<string, { 
   validateCount: number; 
   validateWindowStart: number;
@@ -110,18 +108,12 @@ function checkValidateRateLimit(userId: string): { ok: boolean; retryAfter?: num
 // Constants for rebalance calculations
 const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
-/**
- * Get the next tick time (rounded up to next 6h boundary).
- */
 function getNextTickTime(now: Date): Date {
   const ms = now.getTime();
   const nextTick = Math.ceil(ms / TICK_INTERVAL_MS) * TICK_INTERVAL_MS;
   return new Date(nextTick);
 }
 
-/**
- * Calculate multiplier at a specific time during rebalance.
- */
 function calculateMultiplierAtTime(
   startedAt: Date,
   endsAt: Date,
@@ -138,10 +130,6 @@ function calculateMultiplierAtTime(
   return 1 - (1 - targetMultiplier) * progress;
 }
 
-/**
- * Calculate threshold for taking over a pixel.
- * Uses floor-based calculation for rebalancing owners.
- */
 function calculateThreshold(pixel: PixelData): { threshold: number; vFloor?: number; isFloorBased: boolean } {
   const ownerStake = pixel.owner_stake_pe || 0;
   const defSum = pixel.defSum;
@@ -149,13 +137,11 @@ function calculateThreshold(pixel: PixelData): { threshold: number; vFloor?: num
   const owner = pixel.ownerData;
 
   if (!owner || !owner.rebalance_active) {
-    // Owner is healthy - use current value
     const vNow = ownerStake + defSum - atkSum;
     const vClamped = Math.max(0, vNow);
     return { threshold: vClamped + 1, isFloorBased: false };
   }
 
-  // Owner is in rebalance - calculate floor at next tick
   const now = new Date();
   const nextTick = getNextTickTime(now);
   
@@ -178,14 +164,12 @@ function calculateThreshold(pixel: PixelData): { threshold: number; vFloor?: num
     };
   }
 
-  // Fallback to current multiplier
   const effectiveStake = ownerStake * owner.owner_health_multiplier;
   const vNow = effectiveStake + defSum - atkSum;
   const vClamped = Math.max(0, vNow);
   return { threshold: vClamped + 1, isFloorBased: true };
 }
 
-// Generate a hash from pixel states for optimistic locking
 function generateSnapshotHash(pixelStates: PixelData[]): string {
   const data = pixelStates.map(p => {
     const multiplier = p.ownerData?.owner_health_multiplier || 1;
@@ -206,7 +190,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify JWT token from Authorization header
     const authHeader = req.headers.get("authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       console.log("[game-validate] Missing or invalid Authorization header");
@@ -235,7 +218,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Extract userId from verified token - DO NOT trust request body for userId
     const userId = payload.userId;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -245,23 +227,16 @@ Deno.serve(async (req) => {
     const body: ValidateRequest = await req.json();
     const { mode, pixels: rawPixels, color, pePerPixel } = body;
 
-    // ===== DEDUPLICATE PIXELS BY COORDINATE KEY =====
+    // Deduplicate pixels
     const pixelSet = new Set<string>();
     const pixels = (rawPixels || []).filter((p: { x: number; y: number }) => {
       const key = `${p.x}:${p.y}`;
-      if (pixelSet.has(key)) {
-        return false;
-      }
+      if (pixelSet.has(key)) return false;
       pixelSet.add(key);
       return true;
     });
 
-    const duplicatesRemoved = (rawPixels?.length || 0) - pixels.length;
-    if (duplicatesRemoved > 0) {
-      console.warn(`[game-validate] Deduplicated ${duplicatesRemoved} duplicate pixels from request`);
-    }
-
-    console.log("[game-validate] Request:", { userId, mode, rawCount: rawPixels?.length, dedupedCount: pixels.length, color, pePerPixel });
+    console.log("[game-validate] Request:", { userId, mode, pixelCount: pixels.length, color, pePerPixel });
 
     // Input validation
     if (!mode || !pixels || !Array.isArray(pixels) || pixels.length === 0) {
@@ -281,11 +256,7 @@ Deno.serve(async (req) => {
         message: `Too many requests. Retry in ${rateCheck.retryAfter}s` 
       }), {
         status: 429,
-        headers: { 
-          ...corsHeaders, 
-          "Content-Type": "application/json", 
-          "Retry-After": String(rateCheck.retryAfter) 
-        },
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(rateCheck.retryAfter) },
       });
     }
 
@@ -296,7 +267,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!["PAINT", "DEFEND", "ATTACK", "REINFORCE"].includes(mode)) {
+    if (!["PAINT", "DEFEND", "ATTACK", "REINFORCE", "ERASE"].includes(mode)) {
       return new Response(JSON.stringify({ ok: false, error: "INVALID_MODE" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -311,6 +282,8 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+    } else if (mode === "ERASE") {
+      // ERASE mode doesn't require color or pePerPixel
     } else {
       if (!pePerPixel || pePerPixel < 1 || !Number.isInteger(pePerPixel)) {
         return new Response(JSON.stringify({ ok: false, error: "INVALID_PE", message: `${mode} requires positive integer pePerPixel` }), {
@@ -349,13 +322,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create a map of existing pixels
     const pixelMap = new Map<string, typeof existingPixels[0]>();
     (existingPixels || []).forEach(p => {
       pixelMap.set(`${p.x}:${p.y}`, p);
     });
 
-    // Fetch owner data for all pixel owners (for rebalance status)
+    // Fetch owner data for all pixel owners
     const ownerIds = [...new Set((existingPixels || []).map(p => p.owner_user_id).filter(Boolean))];
     const ownerDataMap = new Map<string, OwnerData>();
     
@@ -380,9 +352,7 @@ Deno.serve(async (req) => {
         .select("pixel_id, user_id, side, amount_pe")
         .in("pixel_id", pixelIds);
       
-      if (contribsError) {
-        console.error("[game-validate] Contributions fetch error:", contribsError);
-      } else {
+      if (!contribsError) {
         contributions = contribs || [];
       }
     }
@@ -391,68 +361,49 @@ Deno.serve(async (req) => {
     const contribsByPixel = new Map<number, { defSum: number; atkSum: number; userSide?: "DEF" | "ATK" }>();
     contributions.forEach(c => {
       const existing = contribsByPixel.get(c.pixel_id) || { defSum: 0, atkSum: 0 };
-      if (c.side === "DEF") {
-        existing.defSum += c.amount_pe;
-      } else if (c.side === "ATK") {
-        existing.atkSum += c.amount_pe;
-      }
-      if (c.user_id === userId) {
-        existing.userSide = c.side as "DEF" | "ATK";
-      }
+      if (c.side === "DEF") existing.defSum += c.amount_pe;
+      else if (c.side === "ATK") existing.atkSum += c.amount_pe;
+      if (c.user_id === userId) existing.userSide = c.side as "DEF" | "ATK";
       contribsByPixel.set(c.pixel_id, existing);
     });
 
-    // Fetch all user's staked PE (owned pixels + contributions)
-    const { data: userOwnedPixels, error: ownedError } = await supabase
+    // Fetch user's staked PE
+    const { data: userOwnedPixels } = await supabase
       .from("pixels")
       .select("owner_stake_pe")
       .eq("owner_user_id", userId);
 
-    const { data: userContributions, error: userContribError } = await supabase
+    const { data: userContributions } = await supabase
       .from("pixel_contributions")
       .select("amount_pe")
       .eq("user_id", userId);
 
     const ownedStakeSum = (userOwnedPixels || []).reduce((sum, p) => sum + (p.owner_stake_pe || 0), 0);
     const contributionsSum = (userContributions || []).reduce((sum, c) => sum + c.amount_pe, 0);
-    
-    // Check if user's contributions are under-collateralized
-    // DEF/ATK have NO decay - they disappear immediately
+
+    // Check under-collateralized contributions
     let contributionsPurged = false;
     let purgedContributionCount = 0;
     
     if (contributionsSum > user.pe_total_pe) {
-      console.log(`[game-validate] User ${userId} contributions under-collateralized: PE=${user.pe_total_pe}, contributions=${contributionsSum}`);
+      console.log(`[game-validate] User ${userId} contributions under-collateralized`);
       
-      // Delete all user's contributions immediately
       const { data: deleted, error: delError } = await supabase
         .from("pixel_contributions")
         .delete()
         .eq("user_id", userId)
         .select("id");
       
-      if (delError) {
-        console.error("[game-validate] Failed to purge contributions:", delError);
-      } else {
+      if (!delError) {
         purgedContributionCount = deleted?.length || 0;
         contributionsPurged = true;
-        console.log(`[game-validate] Purged ${purgedContributionCount} contributions for under-collateralized user`);
-        
-        // Update contributions map to remove user's contributions
         contributions = contributions.filter(c => c.user_id !== userId);
         
-        // Recalculate contribsByPixel without user's contributions
         contribsByPixel.clear();
         contributions.forEach(c => {
           const existing = contribsByPixel.get(c.pixel_id) || { defSum: 0, atkSum: 0 };
-          if (c.side === "DEF") {
-            existing.defSum += c.amount_pe;
-          } else if (c.side === "ATK") {
-            existing.atkSum += c.amount_pe;
-          }
-          if (c.user_id === userId) {
-            existing.userSide = c.side as "DEF" | "ATK";
-          }
+          if (c.side === "DEF") existing.defSum += c.amount_pe;
+          else if (c.side === "ATK") existing.atkSum += c.amount_pe;
           contribsByPixel.set(c.pixel_id, existing);
         });
       }
@@ -460,8 +411,6 @@ Deno.serve(async (req) => {
 
     const peStaked = ownedStakeSum + (contributionsPurged ? 0 : contributionsSum);
     const peFree = user.pe_total_pe - peStaked;
-
-    console.log("[game-validate] PE status:", { total: user.pe_total_pe, staked: peStaked, free: peFree, contributionsPurged });
 
     // Build enriched pixel data
     const pixelStates: PixelData[] = pixels.map(p => {
@@ -500,8 +449,19 @@ Deno.serve(async (req) => {
       else if (isOwnedByUser) ownedByUser++;
       else ownedByOthers++;
 
-      // Ownership rules
-      if (mode === "REINFORCE") {
+      if (mode === "ERASE") {
+        // ERASE: Only own pixels can be erased
+        if (isEmpty) {
+          invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
+          continue;
+        }
+        if (!isOwnedByUser) {
+          invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "NOT_OWNER" });
+          continue;
+        }
+        // ERASE doesn't cost PE - it refunds PE
+        // No requiredPeTotal addition
+      } else if (mode === "REINFORCE") {
         if (isEmpty) {
           invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
           continue;
@@ -520,7 +480,6 @@ Deno.serve(async (req) => {
           invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "IS_OWNER" });
           continue;
         }
-        // Side restriction
         const oppositeSide = mode === "DEFEND" ? "ATK" : "DEF";
         if (pixel.userContributionSide === oppositeSide) {
           invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "OPPOSITE_SIDE" });
@@ -532,10 +491,8 @@ Deno.serve(async (req) => {
           requiredPeTotal += 1;
           breakdown["empty"] = (breakdown["empty"] || 0) + 1;
         } else if (isOwnedByUser) {
-          // Just color change, no PE required
           breakdown["colorChange"] = (breakdown["colorChange"] || 0) + 1;
         } else {
-          // Takeover - calculate threshold using floor if applicable
           const { threshold, isFloorBased } = calculateThreshold(pixel);
           requiredPeTotal += threshold;
           breakdown["takeover"] = (breakdown["takeover"] || 0) + 1;
@@ -545,8 +502,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Check PE availability
-    if (invalidPixels.length === 0 && requiredPeTotal > peFree) {
+    // Check PE availability (not needed for ERASE since it refunds PE)
+    if (mode !== "ERASE" && invalidPixels.length === 0 && requiredPeTotal > peFree) {
       return new Response(JSON.stringify({
         ok: false,
         error: "INSUFFICIENT_PE",
@@ -560,7 +517,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Generate snapshot hash for optimistic locking
     const snapshotHash = generateSnapshotHash(pixelStates);
 
     const result = {
@@ -581,7 +537,7 @@ Deno.serve(async (req) => {
       purgedContributionCount,
     };
 
-    console.log("[game-validate] Result:", { ok: result.ok, requiredPeTotal, invalidCount: invalidPixels.length, floorBasedCount, contributionsPurged });
+    console.log("[game-validate] Result:", { ok: result.ok, requiredPeTotal, invalidCount: invalidPixels.length });
 
     return new Response(JSON.stringify(result), {
       status: 200,

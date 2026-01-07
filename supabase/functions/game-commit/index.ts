@@ -5,7 +5,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Verify JWT token - extract userId from token instead of trusting request body
 async function verifyToken(token: string, secret: string): Promise<{ wallet: string; userId: string; exp: number } | null> {
   try {
     const [headerB64, payloadB64, signatureB64] = token.split(".");
@@ -26,7 +25,6 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
     if (!valid) return null;
 
     const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
-    // Token expiry is in milliseconds (from auth-verify)
     if (payload.exp && Date.now() > payload.exp) return null;
 
     return payload;
@@ -35,7 +33,7 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
   }
 }
 
-type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE";
+type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE";
 
 interface CommitRequest {
   mode: GameMode;
@@ -66,9 +64,8 @@ interface PixelData {
   ownerData?: OwnerData;
 }
 
-// Rate limiting: in-memory store per instance
 const commitTimestamps = new Map<string, number>();
-const COMMIT_COOLDOWN_MS = 2000; // min 2 seconds between commits
+const COMMIT_COOLDOWN_MS = 2000;
 
 function checkCommitRateLimit(userId: string): { ok: boolean; retryAfter?: number } {
   const now = Date.now();
@@ -84,21 +81,14 @@ function checkCommitRateLimit(userId: string): { ok: boolean; retryAfter?: numbe
   return { ok: true };
 }
 
-// Constants for rebalance calculations
-const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
-/**
- * Get the next tick time (rounded up to next 6h boundary).
- */
 function getNextTickTime(now: Date): Date {
   const ms = now.getTime();
   const nextTick = Math.ceil(ms / TICK_INTERVAL_MS) * TICK_INTERVAL_MS;
   return new Date(nextTick);
 }
 
-/**
- * Calculate multiplier at a specific time during rebalance.
- */
 function calculateMultiplierAtTime(
   startedAt: Date,
   endsAt: Date,
@@ -115,10 +105,6 @@ function calculateMultiplierAtTime(
   return 1 - (1 - targetMultiplier) * progress;
 }
 
-/**
- * Calculate threshold for taking over a pixel.
- * Uses floor-based calculation for rebalancing owners.
- */
 function calculateThreshold(pixel: PixelData): number {
   const ownerStake = pixel.owner_stake_pe || 0;
   const defSum = pixel.defSum;
@@ -126,12 +112,10 @@ function calculateThreshold(pixel: PixelData): number {
   const owner = pixel.ownerData;
 
   if (!owner || !owner.rebalance_active) {
-    // Owner is healthy - use current value
     const vNow = ownerStake + defSum - atkSum;
     return Math.max(0, vNow) + 1;
   }
 
-  // Owner is in rebalance - calculate floor at next tick
   const now = new Date();
   const nextTick = getNextTickTime(now);
   
@@ -148,7 +132,6 @@ function calculateThreshold(pixel: PixelData): number {
     return Math.max(0, vFloor) + 1;
   }
 
-  // Fallback to current multiplier
   const effectiveStake = ownerStake * owner.owner_health_multiplier;
   const vNow = effectiveStake + defSum - atkSum;
   return Math.max(0, vNow) + 1;
@@ -174,10 +157,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify JWT token from Authorization header
     const authHeader = req.headers.get("authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.log("[game-commit] Missing or invalid Authorization header");
       return new Response(JSON.stringify({ ok: false, error: "UNAUTHORIZED", message: "Missing authentication token" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -187,7 +168,6 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const authSecret = Deno.env.get("AUTH_SECRET");
     if (!authSecret) {
-      console.error("[game-commit] AUTH_SECRET not configured");
       return new Response(JSON.stringify({ ok: false, error: "SERVER_ERROR" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -196,14 +176,12 @@ Deno.serve(async (req) => {
 
     const payload = await verifyToken(token, authSecret);
     if (!payload) {
-      console.log("[game-commit] Invalid or expired token");
       return new Response(JSON.stringify({ ok: false, error: "UNAUTHORIZED", message: "Invalid or expired token" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Extract userId from verified token - DO NOT trust request body for userId
     const userId = payload.userId;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -213,25 +191,17 @@ Deno.serve(async (req) => {
     const body: CommitRequest = await req.json();
     const { mode, pixels: rawPixels, color, pePerPixel, snapshotHash } = body;
 
-    // ===== DEDUPLICATE PIXELS BY COORDINATE KEY =====
+    // Deduplicate pixels
     const pixelSet = new Set<string>();
     const pixels = (rawPixels || []).filter((p: { x: number; y: number }) => {
       const key = `${p.x}:${p.y}`;
-      if (pixelSet.has(key)) {
-        return false;
-      }
+      if (pixelSet.has(key)) return false;
       pixelSet.add(key);
       return true;
     });
 
-    const duplicatesRemoved = (rawPixels?.length || 0) - pixels.length;
-    if (duplicatesRemoved > 0) {
-      console.warn(`[game-commit] Deduplicated ${duplicatesRemoved} duplicate pixels from request`);
-    }
+    console.log("[game-commit] Request:", { userId, mode, pixelCount: pixels.length, snapshotHash });
 
-    console.log("[game-commit] Request:", { userId, mode, rawCount: rawPixels?.length, dedupedCount: pixels.length, snapshotHash });
-
-    // Input validation
     if (!mode || !pixels || !Array.isArray(pixels) || pixels.length === 0 || !snapshotHash) {
       return new Response(JSON.stringify({ ok: false, error: "INVALID_INPUT" }), {
         status: 400,
@@ -239,21 +209,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Rate limiting check
     const rateCheck = checkCommitRateLimit(userId);
     if (!rateCheck.ok) {
-      console.log(`[game-commit] Rate limited user ${userId}`);
       return new Response(JSON.stringify({ 
         ok: false, 
         error: "RATE_LIMITED", 
         message: `Please wait ${rateCheck.retryAfter}s before next action` 
       }), {
         status: 429,
-        headers: { 
-          ...corsHeaders, 
-          "Content-Type": "application/json", 
-          "Retry-After": String(rateCheck.retryAfter) 
-        },
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(rateCheck.retryAfter) },
       });
     }
 
@@ -264,7 +228,6 @@ Deno.serve(async (req) => {
       .or(pixels.map(p => `and(x.eq.${p.x},y.eq.${p.y})`).join(","));
 
     if (pixelsError) {
-      console.error("[game-commit] Pixels fetch error:", pixelsError);
       return new Response(JSON.stringify({ ok: false, error: "DB_ERROR" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -276,7 +239,6 @@ Deno.serve(async (req) => {
       pixelMap.set(`${p.x}:${p.y}`, p);
     });
 
-    // Fetch user data to check contribution collateral
     const { data: user, error: userError } = await supabase
       .from("users")
       .select("id, pe_total_pe")
@@ -284,14 +246,13 @@ Deno.serve(async (req) => {
       .single();
 
     if (userError || !user) {
-      console.error("[game-commit] User fetch error:", userError);
       return new Response(JSON.stringify({ ok: false, error: "USER_NOT_FOUND" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Fetch owner data for rebalance status
+    // Fetch owner data
     const ownerIds = [...new Set((existingPixels || []).map(p => p.owner_user_id).filter(Boolean))];
     const ownerDataMap = new Map<string, OwnerData>();
     
@@ -306,7 +267,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch ALL user's contributions to check collateral
+    // Check user's contributions for under-collateralization
     const { data: allUserContribs } = await supabase
       .from("pixel_contributions")
       .select("amount_pe")
@@ -314,29 +275,21 @@ Deno.serve(async (req) => {
 
     const userContribTotal = (allUserContribs || []).reduce((sum, c) => sum + c.amount_pe, 0);
 
-    // Check if user's contributions are under-collateralized
     let contributionsPurged = false;
     let purgedContributionCount = 0;
 
     if (userContribTotal > user.pe_total_pe) {
-      console.log(`[game-commit] User ${userId} contributions under-collateralized: PE=${user.pe_total_pe}, contributions=${userContribTotal}`);
-      
-      // Delete all user's contributions immediately
       const { data: deleted, error: delError } = await supabase
         .from("pixel_contributions")
         .delete()
         .eq("user_id", userId)
         .select("id");
       
-      if (delError) {
-        console.error("[game-commit] Failed to purge contributions:", delError);
-      } else {
+      if (!delError) {
         purgedContributionCount = deleted?.length || 0;
         contributionsPurged = true;
-        console.log(`[game-commit] Purged ${purgedContributionCount} contributions for under-collateralized user`);
       }
 
-      // Return error for DEF/ATK modes since user can't contribute
       if (mode === "DEFEND" || mode === "ATTACK") {
         return new Response(JSON.stringify({
           ok: false,
@@ -363,12 +316,11 @@ Deno.serve(async (req) => {
       contributions = contribs || [];
     }
 
-    // Check for under-collateralized contributors on these pixels and filter them out
+    // Check contributors' collateral
     const contributorIds = [...new Set(contributions.map(c => c.user_id))];
-    const contributorTotals = new Map<string, number>();
-    
     if (contributorIds.length > 0) {
-      // Get all contributions for these users (not just on selected pixels)
+      const contributorTotals = new Map<string, number>();
+      
       const { data: allContribs } = await supabase
         .from("pixel_contributions")
         .select("user_id, amount_pe")
@@ -379,23 +331,19 @@ Deno.serve(async (req) => {
         contributorTotals.set(c.user_id, current + c.amount_pe);
       });
 
-      // Fetch PE totals for contributors
       const { data: contributorUsers } = await supabase
         .from("users")
         .select("id, pe_total_pe")
         .in("id", contributorIds);
 
-      // Find under-collateralized contributors
       const underCollateralizedContributors = new Set<string>();
       (contributorUsers || []).forEach(u => {
         const contribTotal = contributorTotals.get(u.id) || 0;
         if (u.pe_total_pe < contribTotal) {
           underCollateralizedContributors.add(u.id);
-          console.log(`[game-commit] Contributor ${u.id} under-collateralized, excluding their contributions`);
         }
       });
 
-      // Filter out contributions from under-collateralized users
       if (underCollateralizedContributors.size > 0) {
         contributions = contributions.filter(c => !underCollateralizedContributors.has(c.user_id));
       }
@@ -429,7 +377,6 @@ Deno.serve(async (req) => {
 
     const currentHash = generateSnapshotHash(pixelStates);
     if (currentHash !== snapshotHash) {
-      console.log("[game-commit] Hash mismatch:", { expected: snapshotHash, got: currentHash });
       return new Response(JSON.stringify({ ok: false, error: "STATE_CHANGED", message: "Pixel state changed, please re-validate" }), {
         status: 409,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -440,14 +387,32 @@ Deno.serve(async (req) => {
     let affectedPixels = 0;
     const now = new Date().toISOString();
 
-    if (mode === "REINFORCE") {
-      // Increase owner_stake_pe for each pixel owned by user
+    if (mode === "ERASE") {
+      // ERASE: Delete owned pixels and their contributions
+      // PE is automatically "refunded" since it's no longer locked
       for (const pixel of pixelStates) {
-        // Skip if pixel doesn't exist or isn't owned by user
-        if (!pixel.id || pixel.owner_user_id !== userId) {
-          console.log(`[game-commit] REINFORCE skipping pixel (${pixel.x},${pixel.y}): id=${pixel.id}, owner=${pixel.owner_user_id}, userId=${userId}`);
-          continue;
-        }
+        if (!pixel.id || pixel.owner_user_id !== userId) continue;
+        
+        // 1. Delete all contributions on this pixel (DEF and ATK)
+        // Contributors get their PE back (unlocked)
+        await supabase
+          .from("pixel_contributions")
+          .delete()
+          .eq("pixel_id", pixel.id);
+        
+        // 2. Delete the pixel itself
+        // Owner gets their owner_stake_pe back (unlocked)
+        const { error } = await supabase
+          .from("pixels")
+          .delete()
+          .eq("id", pixel.id)
+          .eq("owner_user_id", userId);
+        
+        if (!error) affectedPixels++;
+      }
+    } else if (mode === "REINFORCE") {
+      for (const pixel of pixelStates) {
+        if (!pixel.id || pixel.owner_user_id !== userId) continue;
         const { error } = await supabase
           .from("pixels")
           .update({ 
@@ -455,7 +420,7 @@ Deno.serve(async (req) => {
             updated_at: now
           })
           .eq("id", pixel.id)
-          .eq("owner_user_id", userId); // Extra safety check
+          .eq("owner_user_id", userId);
         
         if (!error) affectedPixels++;
       }
@@ -465,7 +430,6 @@ Deno.serve(async (req) => {
       for (const pixel of pixelStates) {
         if (!pixel.id) continue;
         
-        // Check if user already has contribution on this pixel
         const { data: existing } = await supabase
           .from("pixel_contributions")
           .select("id, amount_pe")
@@ -475,14 +439,12 @@ Deno.serve(async (req) => {
           .single();
 
         if (existing) {
-          // Add to existing contribution
           const { error } = await supabase
             .from("pixel_contributions")
             .update({ amount_pe: existing.amount_pe + pePerPixel! })
             .eq("id", existing.id);
           if (!error) affectedPixels++;
         } else {
-          // Create new contribution
           const { error } = await supabase
             .from("pixel_contributions")
             .insert({
@@ -500,7 +462,6 @@ Deno.serve(async (req) => {
         const isOwnedByUser = pixel.owner_user_id === userId;
 
         if (isEmpty) {
-          // Insert new pixel with stake of 1
           const { error } = await supabase
             .from("pixels")
             .insert({
@@ -514,17 +475,15 @@ Deno.serve(async (req) => {
             });
           if (!error) affectedPixels++;
         } else if (isOwnedByUser) {
-          // Just update color
           const { error } = await supabase
             .from("pixels")
             .update({ color: color!, updated_at: now })
             .eq("id", pixel.id);
           if (!error) affectedPixels++;
         } else {
-          // Takeover - use floor-based threshold
           const threshold = calculateThreshold(pixel);
 
-          // 1. Delete all DEF contributions (refund defenders)
+          // Delete DEF contributions
           if (pixel.id) {
             await supabase
               .from("pixel_contributions")
@@ -533,7 +492,7 @@ Deno.serve(async (req) => {
               .eq("side", "DEF");
           }
 
-          // 2. Convert ATK to DEF (attackers become defenders)
+          // Convert ATK to DEF
           if (pixel.id) {
             await supabase
               .from("pixel_contributions")
@@ -542,7 +501,7 @@ Deno.serve(async (req) => {
               .eq("side", "ATK");
           }
 
-          // 3. Update pixel with new owner
+          // Update pixel with new owner
           const { error } = await supabase
             .from("pixels")
             .update({
@@ -572,23 +531,21 @@ Deno.serve(async (req) => {
     let xpEarned = 0;
     
     if (mode === "PAINT") {
-      // Count paints vs takeovers
       for (const pixel of pixelStates) {
         const isEmpty = !pixel.id;
         const isOwnedByUser = pixel.owner_user_id === userId;
         
         if (isEmpty || isOwnedByUser) {
-          xpEarned += 1; // +1 XP for new paint or repaint
+          xpEarned += 1;
         } else {
-          xpEarned += 2; // +2 XP for takeover
+          xpEarned += 2;
         }
       }
     } else if (mode === "DEFEND" || mode === "ATTACK") {
-      xpEarned = Math.floor(affectedPixels / 10); // +1 XP per 10 pixels
+      xpEarned = Math.floor(affectedPixels / 10);
     }
-    // REINFORCE gives no XP
+    // REINFORCE and ERASE give no XP
     
-    // Update user XP and level if earned
     if (xpEarned > 0) {
       const { data: userData } = await supabase
         .from("users")
@@ -600,20 +557,14 @@ Deno.serve(async (req) => {
       const newXp = currentXp + xpEarned;
       const newLevel = 1 + Math.floor(Math.sqrt(newXp / 50));
       
-      const { error: xpError } = await supabase
+      await supabase
         .from("users")
         .update({ xp: newXp, level: newLevel })
         .eq("id", userId);
-      
-      if (xpError) {
-        console.error("[game-commit] XP update error:", xpError);
-      } else {
-        console.log(`[game-commit] User ${userId} earned ${xpEarned} XP, now at ${newXp} XP (level ${newLevel})`);
-      }
     }
 
     // Log paint event
-    const { data: eventData, error: eventError } = await supabase
+    const { data: eventData } = await supabase
       .from("paint_events")
       .insert({
         user_id: userId,
@@ -626,11 +577,7 @@ Deno.serve(async (req) => {
       .select("id")
       .single();
 
-    if (eventError) {
-      console.error("[game-commit] Event log error:", eventError);
-    }
-
-    // Calculate updated PE status after commit
+    // Calculate updated PE status
     const { data: updatedPixelStakes } = await supabase
       .from("pixels")
       .select("owner_stake_pe")
@@ -654,7 +601,7 @@ Deno.serve(async (req) => {
     const peUsed = updatedPixelStakeTotal + updatedContribTotal;
     const peAvailable = Math.max(0, user.pe_total_pe - peUsed);
 
-    console.log("[game-commit] Success:", { affectedPixels, xpEarned, eventId: eventData?.id, peUsed, peAvailable });
+    console.log("[game-commit] Success:", { mode, affectedPixels, xpEarned, peUsed, peAvailable });
 
     return new Response(JSON.stringify({
       ok: true,

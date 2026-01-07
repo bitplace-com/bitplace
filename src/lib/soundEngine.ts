@@ -10,7 +10,8 @@ type SoundType =
   | 'wallet_connect'
   | 'defend_success'
   | 'attack_success'
-  | 'reinforce_success';
+  | 'reinforce_success'
+  | 'erase_success';
 
 const STORAGE_KEY = 'bitplace_sound_enabled';
 
@@ -89,6 +90,10 @@ class SoundEngine {
       case 'reinforce_success':
         // Energy sound - rising energy sweep
         this.playEnergy(ctx, now);
+        break;
+      case 'erase_success':
+        // Erase sound - descending sweep with fade
+        this.playErase(ctx, now);
         break;
     }
   }
@@ -287,6 +292,40 @@ class SoundEngine {
     shimmerGain.connect(ctx.destination);
     shimmer.start(startTime);
     shimmer.stop(startTime + duration);
+  }
+
+  // Erase sound - descending sweep with soft fade
+  private playErase(ctx: AudioContext, startTime: number): void {
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    const duration = 0.18;
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600, startTime);
+    osc.frequency.exponentialRampToValueAtTime(200, startTime + duration);
+
+    gainNode.gain.setValueAtTime(0, startTime);
+    gainNode.gain.linearRampToValueAtTime(0.08, startTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+
+    // Add subtle whoosh
+    const whoosh = ctx.createOscillator();
+    const whooshGain = ctx.createGain();
+    whoosh.type = 'triangle';
+    whoosh.frequency.setValueAtTime(400, startTime);
+    whoosh.frequency.exponentialRampToValueAtTime(100, startTime + duration);
+    whooshGain.gain.setValueAtTime(0.04, startTime);
+    whooshGain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    whoosh.connect(whooshGain);
+    whooshGain.connect(ctx.destination);
+    whoosh.start(startTime);
+    whoosh.stop(startTime + duration);
   }
 
   public setEnabled(enabled: boolean): void {

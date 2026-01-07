@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Map, FileText, User, Trophy, Users, Search, ShoppingBag } from "lucide-react";
-import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
   SidebarContent,
@@ -18,13 +17,15 @@ import {
 import { AllianceModal } from "@/components/modals/AllianceModal";
 import { SearchModal } from "@/components/modals/SearchModal";
 import { ShopModal } from "@/components/modals/ShopModal";
+import { RulesModal } from "@/components/modals/RulesModal";
+import { LeaderboardModal } from "@/components/modals/LeaderboardModal";
+import { ProfileModal } from "@/components/modals/ProfileModal";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
-const navItems = [
-  { title: "Map", url: "/", icon: Map },
-  { title: "Rules", url: "/rules", icon: FileText },
-  { title: "Profile", url: "/profile", icon: User },
-  { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
+const modalItems = [
+  { title: "Rules", icon: FileText, action: "rules" as const },
+  { title: "Profile", icon: User, action: "profile" as const },
+  { title: "Leaderboard", icon: Trophy, action: "leaderboard" as const },
 ];
 
 const utilityItems = [
@@ -33,7 +34,7 @@ const utilityItems = [
   { title: "Shop", icon: ShoppingBag, action: "shop" as const },
 ];
 
-type ModalType = "alliance" | "search" | "shop" | null;
+type ModalType = "alliance" | "search" | "shop" | "rules" | "leaderboard" | "profile" | null;
 
 export function MapSidebar() {
   const { state } = useSidebar();
@@ -69,18 +70,27 @@ export function MapSidebar() {
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu className="space-y-1">
-                {navItems.map((item) => (
+                {/* Map link - only one that navigates */}
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    tooltip="Map"
+                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-foreground/70 transition-all hover:bg-accent hover:text-foreground cursor-pointer bg-primary/10 text-foreground font-medium"
+                  >
+                    <Map className="h-4 w-4 shrink-0" />
+                    {!isCollapsed && <span className="text-sm">Map</span>}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                
+                {/* Modal items */}
+                {modalItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild tooltip={item.title}>
-                      <NavLink
-                        to={item.url}
-                        end={item.url === "/"}
-                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-foreground/70 transition-all hover:bg-accent hover:text-foreground"
-                        activeClassName="bg-primary/10 text-foreground font-medium hover:bg-primary/15"
-                      >
-                        <item.icon className="h-4 w-4 shrink-0" />
-                        {!isCollapsed && <span className="text-sm">{item.title}</span>}
-                      </NavLink>
+                    <SidebarMenuButton
+                      tooltip={item.title}
+                      onClick={() => handleOpenModal(item.action)}
+                      className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-foreground/70 transition-all hover:bg-accent hover:text-foreground cursor-pointer"
+                    >
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      {!isCollapsed && <span className="text-sm">{item.title}</span>}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -138,6 +148,9 @@ export function MapSidebar() {
       <AllianceModal open={activeModal === "alliance"} onOpenChange={(open) => !open && handleCloseModal()} />
       <SearchModal open={activeModal === "search"} onOpenChange={(open) => !open && handleCloseModal()} />
       <ShopModal open={activeModal === "shop"} onOpenChange={(open) => !open && handleCloseModal()} />
+      <RulesModal open={activeModal === "rules"} onOpenChange={(open) => !open && handleCloseModal()} />
+      <LeaderboardModal open={activeModal === "leaderboard"} onOpenChange={(open) => !open && handleCloseModal()} />
+      <ProfileModal open={activeModal === "profile"} onOpenChange={(open) => !open && handleCloseModal()} />
     </>
   );
 }

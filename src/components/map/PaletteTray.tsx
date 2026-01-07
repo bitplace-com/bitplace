@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { ChevronUp, ChevronDown, Pipette, Eraser, Hand, Paintbrush } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { GlassPanel } from '@/components/ui/glass-panel';
+import { GlassIconButton } from '@/components/ui/glass-icon-button';
 import { COLOR_PALETTE, type InteractionMode } from './hooks/useMapState';
 import { useUsedColors } from './hooks/useUsedColors';
 import { useSound } from '@/hooks/useSound';
@@ -60,9 +61,10 @@ export function PaletteTray({
       className="fixed bottom-14 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
       style={{ width: isExpanded ? 'min(85%, 580px)' : 'auto' }}
     >
-      <div 
+      <GlassPanel 
+        padding="none"
         className={cn(
-          "pointer-events-auto bg-popover/95 backdrop-blur-md rounded-xl border border-border shadow-xl overflow-hidden transition-all duration-200",
+          "pointer-events-auto overflow-hidden transition-all duration-200",
           isEyedropperActive && "ring-2 ring-ring"
         )}
       >
@@ -117,61 +119,52 @@ export function PaletteTray({
           <div className="flex items-center gap-1.5">
             {/* Compact Drag/Draw mode toggle */}
             {canPaint && (
-              <div className="flex items-center gap-0.5 bg-accent rounded-lg p-1">
-                <button
+              <div className="flex items-center gap-0.5 bg-accent/50 rounded-lg p-0.5">
+                <GlassIconButton
+                  variant={interactionMode === 'drag' ? 'active' : 'ghost'}
+                  size="sm"
                   onClick={() => onInteractionModeChange('drag')}
-                  className={cn(
-                    "p-1.5 rounded-md transition-colors",
-                    interactionMode === 'drag' 
-                      ? "bg-primary text-primary-foreground" 
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
+                  className="rounded-md"
                   title="Hand mode: Pan map, click to inspect"
                 >
                   <Hand className="h-4 w-4" />
-                </button>
-                <button
+                </GlassIconButton>
+                <GlassIconButton
+                  variant={interactionMode === 'draw' ? 'active' : 'ghost'}
+                  size="sm"
                   onClick={() => onInteractionModeChange('draw')}
-                  className={cn(
-                    "p-1.5 rounded-md transition-colors",
-                    interactionMode === 'draw' 
-                      ? "bg-primary text-primary-foreground" 
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
+                  className="rounded-md"
                   title="Brush mode: Click/drag to paint"
                 >
                   <Paintbrush className="h-4 w-4" />
-                </button>
+                </GlassIconButton>
               </div>
             )}
             
             {isExpanded && (
-              <Button
-                variant="ghost"
-                size="icon"
+              <GlassIconButton
+                variant={isEyedropperActive ? 'active' : 'ghost'}
+                size="sm"
                 onClick={handleEyedropperClick}
                 disabled={!canPaint}
-                className={cn(
-                  "h-8 w-8 rounded-md",
-                  isEyedropperActive && "bg-primary text-primary-foreground"
-                )}
+                className="rounded-md"
                 title="Eyedropper (Alt+Click)"
               >
                 <Pipette className="h-4 w-4" />
-              </Button>
+              </GlassIconButton>
             )}
-            <Button
+            <GlassIconButton
               variant="ghost"
-              size="icon"
+              size="sm"
               onClick={handleToggleExpand}
-              className="h-8 w-8 rounded-md"
+              className="rounded-md"
             >
               {isExpanded ? (
                 <ChevronDown className="h-4 w-4" />
               ) : (
                 <ChevronUp className="h-4 w-4" />
               )}
-            </Button>
+            </GlassIconButton>
           </div>
         </div>
 
@@ -248,7 +241,7 @@ export function PaletteTray({
             )}
           </div>
         )}
-      </div>
+      </GlassPanel>
     </div>
   );
 }

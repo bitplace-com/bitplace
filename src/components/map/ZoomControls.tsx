@@ -25,9 +25,9 @@ export function ZoomControls({
         <TooltipTrigger asChild>
           <GlassPanel padding="none" className="overflow-hidden">
             <GlassIconButton
-              variant={isReduced ? "active" : "ghost"}
+              variant={isReduced ? "active" : "default"}
               onClick={onToggleArtOpacity}
-              className="rounded-none w-full"
+              className="rounded-none w-full border-0"
               aria-label={isReduced ? "Show art" : "Reduce art opacity"}
             >
               {isReduced ? (
@@ -46,17 +46,17 @@ export function ZoomControls({
       {/* Zoom Controls */}
       <GlassPanel padding="none" className="overflow-hidden flex flex-col">
         <GlassIconButton
-          variant="ghost"
+          variant="default"
           onClick={onZoomIn}
-          className="rounded-none"
+          className="rounded-none border-0"
           aria-label="Zoom in"
         >
           <Plus className="h-4 w-4" />
         </GlassIconButton>
         <GlassIconButton
-          variant="ghost"
+          variant="default"
           onClick={onZoomOut}
-          className="rounded-none"
+          className="rounded-none border-0"
           aria-label="Zoom out"
         >
           <Minus className="h-4 w-4" />
