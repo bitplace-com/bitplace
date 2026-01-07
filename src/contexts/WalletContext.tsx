@@ -327,20 +327,31 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       const lastSyncAt = data.lastSyncAt ? new Date(data.lastSyncAt) : null;
       
-      setEnergy(prev => ({
+      // energy-refresh now returns peUsed and peAvailable directly
+      const peUsed = data.peUsed ?? 0;
+      const peAvailable = data.peAvailable ?? Math.max(0, (data.peTotal || 0) - peUsed);
+      
+      console.log('[WalletContext] Energy refresh result:', { 
+        peTotal: data.peTotal, 
+        peUsed, 
+        peAvailable,
+        stale: data.stale 
+      });
+      
+      setEnergy({
         energyAsset: (data.energyAsset as 'SOL' | 'BTP') || ENERGY_ASSET,
         nativeSymbol: data.nativeSymbol || ENERGY_CONFIG[ENERGY_ASSET].symbol,
         nativeBalance: data.nativeBalance || 0,
         usdPrice: data.usdPrice || 0,
         walletUsd: data.walletUsd || 0,
         peTotal: data.peTotal || 0,
-        peUsed: prev.peUsed,
-        peAvailable: Math.max(0, (data.peTotal || 0) - prev.peUsed),
+        peUsed,
+        peAvailable,
         cluster: data.cluster || null,
         lastSyncAt,
         isRefreshing: false,
         isStale: data.stale ?? false,
-      }));
+      });
 
       // Also update user's pe_total_pe
       setUser(prev => prev ? { ...prev, pe_total_pe: data.peTotal } : null);
@@ -349,14 +360,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         toast.success('Balance updated', { 
           description: `${data.nativeBalance.toFixed(4)} ${data.nativeSymbol} = ${data.peTotal.toLocaleString()} PE`
         });
-        // Also refresh PE status to update used/available
-        setTimeout(() => refreshPeStatus(), 100);
       }
     } catch (err) {
       console.error('[WalletContext] Energy refresh exception:', err);
       setEnergy(prev => ({ ...prev, isRefreshing: false }));
     }
-  }, [balance, refreshPeStatus]);
+  }, [balance]);
 
   const refreshUser = useCallback(async () => {
     const token = getSessionToken();
@@ -371,23 +380,31 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       });
 
       if (!error && data?.ok) {
-        // Energy refresh returns user data, update energy state
+        // Energy refresh returns user data including peUsed/peAvailable
         const lastSyncAt = data.lastSyncAt ? new Date(data.lastSyncAt) : null;
+        const peUsed = data.peUsed ?? 0;
+        const peAvailable = data.peAvailable ?? Math.max(0, (data.peTotal || 0) - peUsed);
         
-        setEnergy(prev => ({
+        console.log('[WalletContext] refreshUser result:', { 
+          peTotal: data.peTotal, 
+          peUsed, 
+          peAvailable 
+        });
+        
+        setEnergy({
           energyAsset: (data.energyAsset as 'SOL' | 'BTP') || ENERGY_ASSET,
           nativeSymbol: data.nativeSymbol || ENERGY_CONFIG[ENERGY_ASSET].symbol,
           nativeBalance: data.nativeBalance || 0,
           usdPrice: data.usdPrice || 0,
           walletUsd: data.walletUsd || 0,
           peTotal: data.peTotal || 0,
-          peUsed: prev.peUsed,
-          peAvailable: Math.max(0, (data.peTotal || 0) - prev.peUsed),
+          peUsed,
+          peAvailable,
           cluster: data.cluster || null,
           lastSyncAt,
           isRefreshing: false,
           isStale: data.stale ?? false,
-        }));
+        });
 
         // Update user's pe_total_pe
         setUser(prev => prev ? { ...prev, pe_total_pe: data.peTotal } : null);
@@ -399,12 +416,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   // Update PE status directly (called after game-commit response)
   const updatePeStatus = useCallback((peStatus: { total: number; used: number; available: number }) => {
+    console.log('[WalletContext] updatePeStatus called:', peStatus);
     setEnergy(prev => ({
       ...prev,
       peTotal: peStatus.total,
       peUsed: peStatus.used,
       peAvailable: peStatus.available,
     }));
+    
+    // Also update user's pe_total_pe
+    setUser(prev => prev ? { ...prev, pe_total_pe: peStatus.total } : null);
   }, []);
 
   // Attempt Phantom trusted reconnect (silent, no popup)

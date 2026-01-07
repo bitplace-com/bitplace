@@ -131,7 +131,10 @@ export function usePaintQueue(
         
         // Update PE status from commit response (server truth)
         if (commitResult.peStatus) {
+          console.log('[usePaintQueue] Commit peStatus:', commitResult.peStatus);
           updatePeStatus(commitResult.peStatus);
+        } else {
+          console.warn('[usePaintQueue] No peStatus in commit response');
         }
         refreshUser();
         soundEngine.play('paint_commit');
