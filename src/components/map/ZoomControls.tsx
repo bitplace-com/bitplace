@@ -44,11 +44,11 @@ export function ZoomControls({
       </Tooltip>
 
       {/* Zoom Controls */}
-      <GlassPanel padding="none" className="overflow-hidden">
+      <GlassPanel padding="none" className="overflow-hidden flex flex-col">
         <GlassIconButton
           variant="ghost"
           onClick={onZoomIn}
-          className="rounded-none border-b border-border"
+          className="rounded-none"
           aria-label="Zoom in"
         >
           <Plus className="h-4 w-4" />

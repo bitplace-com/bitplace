@@ -15,40 +15,34 @@ export function ThemeToggle({ collapsed = false }: ThemeToggleProps) {
   };
 
   if (collapsed) {
-    // Compact icon-only version for collapsed sidebar
+    // Compact icon-only version for collapsed sidebar - just icons, no wrapper button
     return (
-      <button
-        onClick={toggleTheme}
-        className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-accent text-muted-foreground hover:text-foreground"
-        aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      >
+      <>
         {isDark ? (
-          <Sun className="h-4 w-4" />
+          <Sun className="h-4 w-4 shrink-0" />
         ) : (
-          <Moon className="h-4 w-4" />
+          <Moon className="h-4 w-4 shrink-0" />
         )}
-      </button>
+        <span data-theme-toggle className="hidden" onClick={toggleTheme} />
+      </>
     );
   }
 
   // Full toggle with labels
   return (
-    <button
-      onClick={toggleTheme}
-      className="flex items-center gap-2 px-3 py-2 w-full rounded-lg text-sm transition-colors hover:bg-accent text-muted-foreground hover:text-foreground"
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-    >
+    <>
       {isDark ? (
         <>
-          <Sun className="h-4 w-4" />
-          <span>Day Mode</span>
+          <Sun className="h-4 w-4 shrink-0" />
+          <span className="text-sm">Day Mode</span>
         </>
       ) : (
         <>
-          <Moon className="h-4 w-4" />
-          <span>Night Mode</span>
+          <Moon className="h-4 w-4 shrink-0" />
+          <span className="text-sm">Night Mode</span>
         </>
       )}
-    </button>
+      <span data-theme-toggle className="hidden" onClick={toggleTheme} />
+    </>
   );
 }

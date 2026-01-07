@@ -1,4 +1,4 @@
-import { Paintbrush, Shield, Swords, Plus, Loader2 } from 'lucide-react';
+import { Paintbrush, Shield, Swords, Zap, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PeInput } from '../PeInput';
 import type { GameMode, ValidateResult } from '@/hooks/useGameActions';
@@ -22,7 +22,7 @@ const modeConfig: Record<GameMode, { icon: React.ReactNode; label: string }> = {
   PAINT: { icon: <Paintbrush className="h-3.5 w-3.5" />, label: 'Paint' },
   DEFEND: { icon: <Shield className="h-3.5 w-3.5" />, label: 'Defend' },
   ATTACK: { icon: <Swords className="h-3.5 w-3.5" />, label: 'Attack' },
-  REINFORCE: { icon: <Plus className="h-3.5 w-3.5" />, label: 'Reinforce' },
+  REINFORCE: { icon: <Zap className="h-3.5 w-3.5" />, label: 'Reinforce' },
 };
 
 export function ActionBox({
@@ -49,11 +49,11 @@ export function ActionBox({
   const hasBreakdown = breakdown && validationResult?.ok;
 
   return (
-    <div className="border-t border-white/14 p-3 space-y-3 bg-white/4">
+    <div className="border-t border-border p-3 space-y-3 bg-muted/50">
       {/* Mode + Color inline for PAINT */}
       {mode === 'PAINT' ? (
         <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-white/10 text-white">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-foreground">
             {config.icon}
           </div>
           {selectedColor ? (
@@ -70,7 +70,7 @@ export function ActionBox({
         </div>
       ) : (
         <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-white/10 text-white">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-foreground">
             {config.icon}
           </div>
           <span className="text-xs font-medium">{config.label}</span>
@@ -141,7 +141,7 @@ export function ActionBox({
 
       {/* PE Cost Summary (shown for all modes when validated successfully) */}
       {hasBreakdown && (
-        <div className="text-[10px] space-y-1 px-2 py-1.5 rounded-md bg-white/6">
+        <div className="text-[10px] space-y-1 px-2 py-1.5 rounded-md bg-muted/50">
           {mode === 'PAINT' ? (
             <>
               <div className="text-muted-foreground font-medium mb-1">This action will lock:</div>
@@ -179,7 +179,7 @@ export function ActionBox({
           ) : null}
 
           {/* Total and Available PE */}
-          <div className="flex justify-between border-t border-white/14 pt-1 mt-1">
+          <div className="flex justify-between border-t border-border pt-1 mt-1">
             <span className="text-muted-foreground font-medium">Total Cost:</span>
             <span className="text-foreground font-medium">{validationResult.requiredPeTotal.toLocaleString()} PE</span>
           </div>

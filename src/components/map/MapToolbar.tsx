@@ -1,4 +1,4 @@
-import { Paintbrush, Shield, Swords, Plus } from 'lucide-react';
+import { Paintbrush, Shield, Swords, Zap } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -13,7 +13,7 @@ const modes: { value: MapMode; icon: React.ReactNode; label: string; hint: strin
   { value: 'paint', icon: <Paintbrush className="h-4 w-4" />, label: 'Paint', hint: 'Click or drag to paint pixels' },
   { value: 'defend', icon: <Shield className="h-4 w-4" />, label: 'Defend', hint: 'Click pixels to add defense' },
   { value: 'attack', icon: <Swords className="h-4 w-4" />, label: 'Attack', hint: 'Click pixels to attack them' },
-  { value: 'reinforce', icon: <Plus className="h-4 w-4" />, label: 'Reinforce', hint: 'Click your pixels to reinforce' },
+  { value: 'reinforce', icon: <Zap className="h-4 w-4" />, label: 'Reinforce', hint: 'Click your pixels to reinforce' },
 ];
 
 export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {

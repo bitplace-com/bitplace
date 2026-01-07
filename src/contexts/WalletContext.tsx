@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ENERGY_ASSET, ENERGY_CONFIG } from '@/config/energy';
 import { useBalance } from '@/hooks/useBalance';
+import { soundEngine } from '@/lib/soundEngine';
 
 interface PhantomProvider {
   isPhantom?: boolean;
@@ -541,6 +542,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       
       walletDebug('auth_complete');
       toast.success('Signed in successfully');
+      soundEngine.play('wallet_connect');
       
       // Refresh energy + PE status
       setTimeout(() => {
