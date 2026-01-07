@@ -87,15 +87,25 @@ export function usePixelDetails(x: number | null, y: number | null) {
 
       let owner: OwnerProfile | null = null;
       if (pixelData.owner_user_id) {
+        console.log('[usePixelDetails] Fetching owner profile for:', pixelData.owner_user_id);
         // Use public_pixel_owner_info view - safe public fields only (wallet_short, not full address)
-        const { data: ownerData } = await supabase
+        const { data: ownerData, error: ownerError } = await supabase
           .from('public_pixel_owner_info' as any)
           .select('id, display_name, wallet_short, country_code, alliance_tag, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier')
           .eq('id', pixelData.owner_user_id)
           .maybeSingle();
         
+        if (ownerError) {
+          console.error('[usePixelDetails] Owner fetch error:', ownerError);
+        }
+        
         if (ownerData) {
           const data = ownerData as Record<string, any>;
+          console.log('[usePixelDetails] Owner data found:', { 
+            id: data.id, 
+            display_name: data.display_name, 
+            wallet_short: data.wallet_short 
+          });
           owner = {
             id: data.id,
             display_name: data.display_name,
@@ -108,6 +118,8 @@ export function usePixelDetails(x: number | null, y: number | null) {
             rebalance_ends_at: data.rebalance_ends_at,
             rebalance_target_multiplier: data.rebalance_target_multiplier,
           };
+        } else {
+          console.warn('[usePixelDetails] No owner profile found for:', pixelData.owner_user_id);
         }
       }
 

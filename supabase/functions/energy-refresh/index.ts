@@ -237,6 +237,29 @@ Deno.serve(async (req) => {
       const waitTime = Math.ceil((RATE_LIMIT_MS - timeSinceLastRefresh) / 1000);
       console.log(`[energy-refresh] Rate limited for user ${userId}, wait ${waitTime}s`);
       
+      // Still fetch PE used/available for stale response
+      const { data: pixelStakes } = await supabase
+        .from("pixels")
+        .select("owner_stake_pe")
+        .eq("owner_user_id", userId);
+
+      const pixelStakeTotal = (pixelStakes || []).reduce(
+        (sum, p) => sum + Number(p.owner_stake_pe || 0), 0
+      );
+
+      const { data: contribs } = await supabase
+        .from("pixel_contributions")
+        .select("amount_pe")
+        .eq("user_id", userId);
+
+      const contribTotal = (contribs || []).reduce(
+        (sum, c) => sum + Number(c.amount_pe || 0), 0
+      );
+
+      const peTotal = Number(userData.pe_total_pe) || 0;
+      const peUsed = pixelStakeTotal + contribTotal;
+      const peAvailable = Math.max(0, peTotal - peUsed);
+      
       return new Response(
         JSON.stringify({
           ok: true,
@@ -247,7 +270,9 @@ Deno.serve(async (req) => {
           nativeBalance: Number(userData.native_balance) || 0,
           usdPrice: Number(userData.usd_price) || 0,
           walletUsd: Number(userData.wallet_usd) || 0,
-          peTotal: Number(userData.pe_total_pe) || 0,
+          peTotal,
+          peUsed,
+          peAvailable,
           cluster: userData.sol_cluster || 'mainnet',
           lastSyncAt: userData.last_energy_sync_at,
         }),
@@ -374,6 +399,30 @@ Deno.serve(async (req) => {
       throw new Error("Failed to update user energy");
     }
 
+    // Calculate final PE used/available after any collateral changes
+    const { data: finalPixelStakes } = await supabase
+      .from("pixels")
+      .select("owner_stake_pe")
+      .eq("owner_user_id", userId);
+
+    const finalOwnerUsed = (finalPixelStakes || []).reduce(
+      (sum, p) => sum + Number(p.owner_stake_pe || 0), 0
+    );
+
+    const { data: finalContribs } = await supabase
+      .from("pixel_contributions")
+      .select("amount_pe")
+      .eq("user_id", userId);
+
+    const finalContribUsed = (finalContribs || []).reduce(
+      (sum, c) => sum + Number(c.amount_pe || 0), 0
+    );
+
+    const peUsed = finalOwnerUsed + finalContribUsed;
+    const peAvailable = Math.max(0, peTotal - peUsed);
+
+    console.log(`[energy-refresh] Final PE status: total=${peTotal}, used=${peUsed}, available=${peAvailable}`);
+
     return new Response(
       JSON.stringify({
         ok: true,
@@ -384,6 +433,8 @@ Deno.serve(async (req) => {
         usdPrice: solPrice,
         walletUsd,
         peTotal,
+        peUsed,
+        peAvailable,
         cluster,
         lastSyncAt: syncAt,
       }),
