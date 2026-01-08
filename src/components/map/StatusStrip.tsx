@@ -1,9 +1,10 @@
-import { Wallet, AlertTriangle, Heart, RefreshCw, Zap, Paintbrush, Loader2 } from 'lucide-react';
+import { Wallet, Heart, RefreshCw, Zap, Paintbrush, Loader2 } from 'lucide-react';
 import { usePeBalance } from '@/hooks/usePeBalance';
 import { useWallet } from '@/contexts/WalletContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { StatusAlerts } from './StatusAlerts';
 
 interface StatusStripProps {
   userId?: string;
@@ -36,7 +37,7 @@ function formatLastSync(date: Date | null): string {
 
 export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = false, isFlushing = false, draftCount = 0 }: StatusStripProps) {
   // Use usePeBalance for rebalance status only
-  const { isLoading, rebalanceActive, healthMultiplier, rebalanceEndsAt, isContributionsUnderCollateralized } = usePeBalance(userId);
+  const { isLoading, rebalanceActive, healthMultiplier, rebalanceEndsAt } = usePeBalance(userId);
   // Use WalletContext for PE totals (server truth)
   const { energy, refreshEnergy, needsSignature, signIn } = useWallet();
 
@@ -147,21 +148,13 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             </span>
           )}
 
-          {/* Warning: Insufficient PE */}
-          {hasInsufficientPe && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-              <span className="text-xs font-medium text-amber-600 dark:text-amber-500">Add SOL to play</span>
-            </div>
-          )}
-
-          {/* Warning: Contributions under-collateralized */}
-          {isContributionsUnderCollateralized && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-              <span className="text-xs font-medium text-amber-600 dark:text-amber-500">DEF/ATK at risk</span>
-            </div>
-          )}
+          {/* Status Alerts - actionable chips for Lost/Under Attack/Contested */}
+          <StatusAlerts 
+            userId={userId} 
+            onJumpToPixel={(x, y) => {
+              window.dispatchEvent(new CustomEvent('bitplace:inspect', { detail: { x, y } }));
+            }} 
+          />
 
           {/* Rebalance status */}
           {rebalanceActive && (
