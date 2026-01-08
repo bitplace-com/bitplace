@@ -1,5 +1,6 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PEIcon } from '@/components/ui/pe-icon';
 
 interface PeInputProps {
   value: number;
@@ -9,19 +10,19 @@ interface PeInputProps {
   label?: string;
 }
 
-export function PeInput({ value, onChange, pixelCount, availablePe, label = 'PE per pixel' }: PeInputProps) {
-  const total = value * pixelCount;
-  const isInsufficient = availablePe !== undefined && total > availablePe;
+export function PeInput({ value, onChange, pixelCount, availablePe, label = 'per pixel' }: PeInputProps) {
+  const isInsufficient = availablePe !== undefined && (value * pixelCount) > availablePe;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <Label htmlFor="pe-input" className="text-xs text-muted-foreground">
+        <Label htmlFor="pe-input" className="text-xs text-muted-foreground flex items-center gap-1">
+          <PEIcon size="xs" />
           {label}
         </Label>
         {availablePe !== undefined && (
-          <span className="text-xs text-muted-foreground">
-            Available: {availablePe.toLocaleString()} PE
+          <span className="text-xs text-muted-foreground tabular-nums">
+            avail {availablePe.toLocaleString()}
           </span>
         )}
       </div>
@@ -31,12 +32,11 @@ export function PeInput({ value, onChange, pixelCount, availablePe, label = 'PE 
         min={1}
         value={value}
         onChange={(e) => onChange(Math.max(1, parseInt(e.target.value) || 1))}
-        className="h-8 text-sm"
+        className="h-8 text-sm tabular-nums"
       />
-      <div className={`text-xs ${isInsufficient ? 'text-destructive' : 'text-muted-foreground'}`}>
-        Total: {total.toLocaleString()} PE × {pixelCount} pixel{pixelCount > 1 ? 's' : ''}
-        {isInsufficient && ' (insufficient)'}
-      </div>
+      {isInsufficient && (
+        <div className="text-[10px] text-destructive">Insufficient PE</div>
+      )}
     </div>
   );
 }

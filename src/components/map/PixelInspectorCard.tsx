@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Copy, X, Share2, Palette, Shield, Swords, RefreshCw, AlertTriangle, Eraser, ArrowUpFromLine, Loader2 } from 'lucide-react';
+import { PEIcon } from '@/components/ui/pe-icon';
 import { toast } from 'sonner';
 
 import { GlassPanel } from '@/components/ui/glass-panel';
@@ -145,7 +146,9 @@ export function PixelInspectorCard({
               <Palette className="w-5 h-5 text-white/80" />
             </div>
             <span className="text-sm font-medium text-foreground">Unclaimed Pixel</span>
-            <span className="text-xs text-muted-foreground">Cost: 1 PE (~$0.001)</span>
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              Cost: 1 <PEIcon size="xs" /> (~$0.001)
+            </span>
           </div>
         ) : (
           <div className="space-y-3">
@@ -190,16 +193,18 @@ export function PixelInspectorCard({
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-accent rounded-lg px-3 py-2">
                 <div className="text-xs text-muted-foreground">Value</div>
-                <div className="text-sm font-semibold text-foreground">
-                  {pixel.vNow.toLocaleString()} PE
+                <div className="text-sm font-semibold text-foreground flex items-center gap-1">
+                  {pixel.vNow.toLocaleString()}
+                  <PEIcon size="xs" className="text-muted-foreground" />
                 </div>
               </div>
               <div className="bg-accent rounded-lg px-3 py-2">
                 <div className="text-xs text-muted-foreground">
                   {isOwnPixel ? 'Repaint' : 'Takeover'}
                 </div>
-                <div className="text-sm font-semibold text-foreground">
-                  {isOwnPixel ? '0 PE' : `${pixel.thresholdWithFloor.toLocaleString()} PE`}
+                <div className="text-sm font-semibold text-foreground flex items-center gap-1">
+                  {isOwnPixel ? '0' : pixel.thresholdWithFloor.toLocaleString()}
+                  <PEIcon size="xs" className="text-muted-foreground" />
                 </div>
                 {pixel.isFloorBased && !isOwnPixel && (
                   <div className="text-[10px] text-amber-600 dark:text-amber-500 flex items-center gap-0.5">
@@ -262,8 +267,9 @@ export function PixelInspectorCard({
                     ) : (
                       <Swords className="h-4 w-4 text-rose-400" />
                     )}
-                    <span className="text-sm font-medium">
-                      Your {pixel.myContribution.side}: {pixel.myContribution.amount_pe.toLocaleString()} PE
+                    <span className="text-sm font-medium flex items-center gap-1">
+                      Your {pixel.myContribution.side}: {pixel.myContribution.amount_pe.toLocaleString()}
+                      <PEIcon size="xs" className="text-muted-foreground" />
                     </span>
                   </div>
                 </div>

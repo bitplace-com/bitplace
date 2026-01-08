@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Skull, Swords, AlertTriangle, MapPin, X } from 'lucide-react';
+import { PEIcon } from '@/components/ui/pe-icon';
 import { useStatusAlerts, StatusAlert } from '@/hooks/useStatusAlerts';
 import { pixelToLngLat } from '@/lib/coordinates';
 import { cn } from '@/lib/utils';
@@ -80,13 +81,13 @@ export function StatusAlerts({ userId, onJumpToPixel }: StatusAlertsProps) {
                   ({alert.x.toLocaleString()}, {alert.y.toLocaleString()})
                 </div>
                 {alert.details?.atkTotal && (
-                  <div className="text-[10px] text-muted-foreground">
-                    ATK: {alert.details.atkTotal} PE
+                  <div className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                    ATK: {alert.details.atkTotal} <PEIcon size="xs" />
                   </div>
                 )}
                 {alert.details?.side && (
-                  <div className="text-[10px] text-muted-foreground">
-                    Your {alert.details.side} · ATK: {alert.details.atkTotal} / DEF: {alert.details.defTotal}
+                  <div className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                    Your {alert.details.side} · ATK: {alert.details.atkTotal} / DEF: {alert.details.defTotal} <PEIcon size="xs" />
                   </div>
                 )}
                 {alert.timestamp && (
