@@ -616,7 +616,7 @@ export function BitplaceMap() {
         {canPaint && pendingPixels.length > 0 && (
           <div className="absolute right-0 top-0 h-full z-20 pointer-events-none">
             <div className="pointer-events-auto h-full">
-              <InspectorPanel selectedPixels={pendingPixels} mode={getGameMode(mode)} selectedColor={selectedColor} currentUserId={user?.id} validationResult={validationResult} invalidPixels={invalidPixels} pePerPixel={pePerPixel} onPePerPixelChange={setPePerPixel} onColorSelect={setSelectedColor} onValidate={handleValidate} onConfirm={handleConfirm} onClearSelection={handleClearSelection} isValidating={isValidating} isCommitting={isCommitting} />
+              <InspectorPanel selectedPixels={pendingPixels} mode={(mode === 'paint' && selectedColor === null) ? 'ERASE' : getGameMode(mode)} selectedColor={selectedColor} currentUserId={user?.id} validationResult={validationResult} invalidPixels={invalidPixels} pePerPixel={pePerPixel} onPePerPixelChange={setPePerPixel} onColorSelect={setSelectedColor} onValidate={handleValidate} onConfirm={handleConfirm} onClearSelection={handleClearSelection} isValidating={isValidating} isCommitting={isCommitting} />
             </div>
           </div>
         )}

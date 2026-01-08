@@ -59,7 +59,7 @@ export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
       </div>
 
       {/* Owner Section */}
-      <div className="bg-white/6 rounded-lg p-3 space-y-2">
+      <div className="bg-muted/50 rounded-lg p-3 space-y-2">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <User className="h-3 w-3" />
           <span>Owner</span>
@@ -80,7 +80,7 @@ export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
               )}
               <span className={cn(
                 "text-sm font-medium",
-                isOwnedByUser && "text-white"
+                isOwnedByUser && "text-primary"
               )}>
                 {pixel.owner?.display_name || pixel.owner?.wallet_short || truncateWallet(pixel.owner?.id)}
                 {isOwnedByUser && " (You)"}
@@ -109,7 +109,7 @@ export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
       {!isEmpty && (
         <>
           <div className="grid grid-cols-2 gap-2">
-            <div className="bg-white/6 rounded-lg p-3">
+            <div className="bg-muted/50 rounded-lg p-3">
               <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                 <Coins className="h-3 w-3" />
                 <span>Owner Stake</span>
@@ -120,7 +120,7 @@ export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
               </div>
             </div>
             
-            <div className="bg-white/6 rounded-lg p-3">
+            <div className="bg-muted/50 rounded-lg p-3">
               <div className="text-xs text-muted-foreground mb-1">
                 Pixel Value
               </div>
@@ -192,11 +192,11 @@ export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
       )}
 
       {/* Takeover Threshold */}
-      <div className="bg-white/10 border border-white/20 rounded-lg p-3">
-        <div className="text-xs text-white mb-1">
+      <div className="bg-muted/70 border border-border rounded-lg p-3">
+        <div className="text-xs text-foreground mb-1">
           {isEmpty ? 'Claim Cost' : 'Takeover Threshold'}
         </div>
-        <div className="text-xl font-bold text-white">
+        <div className="text-xl font-bold text-foreground">
           {pixel.thresholdWithFloor.toLocaleString()}
           <span className="text-sm font-normal ml-1">PE</span>
         </div>
@@ -227,7 +227,7 @@ function ContributionCard({ icon, label, total, contributors, variant }: Contrib
     : 'text-rose-400';
 
   return (
-    <div className="bg-white/6 rounded-lg p-3">
+    <div className="bg-muted/50 rounded-lg p-3">
       <div className={cn("flex items-center gap-1 text-xs mb-1", colorClass)}>
         {icon}
         <span>{label}</span>
