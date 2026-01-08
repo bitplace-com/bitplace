@@ -1,10 +1,12 @@
-import { Copy, X, Share2, Palette, Shield, Swords, RefreshCw, AlertTriangle, Eraser } from 'lucide-react';
+import { useState } from 'react';
+import { Copy, X, Share2, Palette, Shield, Swords, RefreshCw, AlertTriangle, Eraser, ArrowUpFromLine, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePixelDetails } from '@/hooks/usePixelDetails';
+import { useWithdrawContribution } from '@/hooks/useWithdrawContribution';
 import { generateAvatarGradient, getAvatarInitial } from '@/lib/avatar';
 import { getCountryByCode } from '@/lib/countries';
 import { copyPixelCoords, copyPixelLink } from '@/lib/shareLink';
@@ -45,7 +47,9 @@ export function PixelInspectorCard({
   mode,
   currentUserId,
 }: PixelInspectorCardProps) {
-  const { pixel, isLoading, refetch } = usePixelDetails(x, y);
+  const { pixel, isLoading, refetch } = usePixelDetails(x, y, currentUserId);
+  const { isCommitting, commit } = useWithdrawContribution();
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   const handleCopyCoords = async () => {
     const success = await copyPixelCoords(x, y);
@@ -73,6 +77,18 @@ export function PixelInspectorCard({
   const handleErase = () => {
     onErase(x, y);
     onClose();
+  };
+
+  const handleWithdraw = async () => {
+    setIsWithdrawing(true);
+    try {
+      const result = await commit([{ x, y }]);
+      if (result?.ok) {
+        refetch(); // Refresh pixel details after withdraw
+      }
+    } finally {
+      setIsWithdrawing(false);
+    }
   };
 
   const isOwned = pixel !== null && pixel.owner !== null;
@@ -233,6 +249,38 @@ export function PixelInspectorCard({
                     )}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* User's Contribution Section */}
+            {pixel.myContribution && (
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {pixel.myContribution.side === 'DEF' ? (
+                      <Shield className="h-4 w-4 text-emerald-400" />
+                    ) : (
+                      <Swords className="h-4 w-4 text-rose-400" />
+                    )}
+                    <span className="text-sm font-medium">
+                      Your {pixel.myContribution.side}: {pixel.myContribution.amount_pe.toLocaleString()} PE
+                    </span>
+                  </div>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={handleWithdraw}
+                  disabled={isWithdrawing || isCommitting}
+                >
+                  {isWithdrawing ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <ArrowUpFromLine className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  Withdraw
+                </Button>
               </div>
             )}
           </div>

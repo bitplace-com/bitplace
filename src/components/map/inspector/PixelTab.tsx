@@ -1,7 +1,9 @@
-import { User, Flag, Users, Shield, Swords, Coins, RefreshCw, AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
+import { User, Flag, Users, Shield, Swords, Coins, RefreshCw, AlertTriangle, ArrowUpFromLine, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { usePixelDetails } from '@/hooks/usePixelDetails';
+import { useWithdrawContribution } from '@/hooks/useWithdrawContribution';
 import { cn } from '@/lib/utils';
 
 interface PixelTabProps {
@@ -23,7 +25,21 @@ function formatTimeUntil(targetTime: Date): string {
 }
 
 export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
-  const { pixel, isLoading, refetch } = usePixelDetails(x, y);
+  const { pixel, isLoading, refetch } = usePixelDetails(x, y, currentUserId);
+  const { isCommitting, commit } = useWithdrawContribution();
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+
+  const handleWithdraw = async () => {
+    setIsWithdrawing(true);
+    try {
+      const result = await commit([{ x, y }]);
+      if (result?.ok) {
+        refetch();
+      }
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -151,6 +167,38 @@ export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
               variant="attack"
             />
           </div>
+
+          {/* User's Contribution Section */}
+          {pixel.myContribution && (
+            <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {pixel.myContribution.side === 'DEF' ? (
+                    <Shield className="h-4 w-4 text-emerald-400" />
+                  ) : (
+                    <Swords className="h-4 w-4 text-rose-400" />
+                  )}
+                  <span className="text-sm font-medium">
+                    Your {pixel.myContribution.side}: {pixel.myContribution.amount_pe.toLocaleString()} PE
+                  </span>
+                </div>
+              </div>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="w-full"
+                onClick={handleWithdraw}
+                disabled={isWithdrawing || isCommitting}
+              >
+                {isWithdrawing ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ) : (
+                  <ArrowUpFromLine className="h-3.5 w-3.5 mr-1.5" />
+                )}
+                Withdraw
+              </Button>
+            </div>
+          )}
         </>
       )}
 
