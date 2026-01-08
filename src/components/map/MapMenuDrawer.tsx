@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Menu, Map, Book, ShoppingBag, Settings, Moon, Sun, Bell } from "lucide-react";
+import { Menu, Map, Book, ShoppingBag, Settings, Moon, Sun, Bell, Users } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from "next-themes";
 import {
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { RulesModal } from "@/components/modals/RulesModal";
 import { ShopModal } from "@/components/modals/ShopModal";
 import { NotificationsPanel } from "@/components/modals/NotificationsPanel";
+import { AllianceModal } from "@/components/modals/AllianceModal";
 import { useWallet } from "@/contexts/WalletContext";
 import { useAllianceInvites } from "@/hooks/useAllianceInvites";
 
@@ -23,6 +24,7 @@ export function MapMenuDrawer() {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [allianceOpen, setAllianceOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, setTheme } = useTheme();
@@ -93,6 +95,19 @@ export function MapMenuDrawer() {
               )}
             </Button>
 
+            {/* Alliance - opens modal */}
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setAllianceOpen(true);
+                setOpen(false);
+              }}
+              className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
+            >
+              <Users className="h-5 w-5" />
+              Alliance
+            </Button>
+
             {/* Rules - opens modal */}
             <Button
               variant="ghost"
@@ -146,6 +161,7 @@ export function MapMenuDrawer() {
       <RulesModal open={rulesOpen} onOpenChange={setRulesOpen} />
       <ShopModal open={shopOpen} onOpenChange={setShopOpen} />
       <NotificationsPanel open={notificationsOpen} onOpenChange={setNotificationsOpen} />
+      <AllianceModal open={allianceOpen} onOpenChange={setAllianceOpen} />
     </>
   );
 }
