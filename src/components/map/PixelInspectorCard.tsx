@@ -1,4 +1,4 @@
-import { Copy, X, Share2, Palette, Shield, Swords, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Copy, X, Share2, Palette, Shield, Swords, RefreshCw, AlertTriangle, Eraser } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { GlassPanel } from '@/components/ui/glass-panel';
@@ -16,6 +16,7 @@ interface PixelInspectorCardProps {
   onClose: () => void;
   onPaint: (x: number, y: number) => void;
   onDefendAttack: (x: number, y: number, mode: 'DEFEND' | 'ATTACK') => void;
+  onErase: (x: number, y: number) => void;
   selectedColor: string | null;
   mode: GameMode;
   currentUserId?: string;
@@ -39,6 +40,7 @@ export function PixelInspectorCard({
   onClose,
   onPaint,
   onDefendAttack,
+  onErase,
   selectedColor,
   mode,
   currentUserId,
@@ -65,6 +67,11 @@ export function PixelInspectorCard({
   const handleDefendAttack = () => {
     const targetMode = mode === 'DEFEND' ? 'DEFEND' : 'ATTACK';
     onDefendAttack(x, y, targetMode);
+    onClose();
+  };
+
+  const handleErase = () => {
+    onErase(x, y);
     onClose();
   };
 
@@ -234,16 +241,36 @@ export function PixelInspectorCard({
 
       {/* Actions */}
       <div className="flex items-center gap-2 px-3 py-2.5 border-t border-border">
-        {mode === 'PAINT' ? (
-          <Button
-            size="sm"
-            className="flex-1"
-            onClick={handlePaint}
-          >
+        {mode === 'PAINT' && !isOwnPixel && (
+          <Button size="sm" className="flex-1" onClick={handlePaint}>
             <Palette className="w-4 h-4 mr-1.5" />
             Paint
           </Button>
-        ) : (
+        )}
+        {mode === 'PAINT' && isOwnPixel && (
+          <>
+            <Button size="sm" variant="outline" className="flex-1" onClick={handlePaint}>
+              <Palette className="w-4 h-4 mr-1.5" />
+              Repaint
+            </Button>
+            <Button size="sm" variant="destructive" onClick={handleErase}>
+              <Eraser className="w-4 h-4 mr-1.5" />
+              Erase
+            </Button>
+          </>
+        )}
+        {mode === 'ERASE' && isOwnPixel && (
+          <Button size="sm" variant="destructive" className="flex-1" onClick={handleErase}>
+            <Eraser className="w-4 h-4 mr-1.5" />
+            Erase
+          </Button>
+        )}
+        {mode === 'ERASE' && !isOwnPixel && (
+          <div className="flex-1 text-xs text-muted-foreground text-center py-1">
+            You can only erase your own pixels
+          </div>
+        )}
+        {(mode === 'DEFEND' || mode === 'ATTACK') && (
           <Button
             size="sm"
             variant={mode === 'DEFEND' ? 'default' : 'outline'}

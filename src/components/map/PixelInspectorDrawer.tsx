@@ -12,6 +12,7 @@ interface PixelInspectorDrawerProps {
   onClose: () => void;
   onPaint: (x: number, y: number) => void;
   onDefendAttack: (x: number, y: number, mode: 'DEFEND' | 'ATTACK') => void;
+  onErase: (x: number, y: number) => void;
   selectedColor: string | null;
   mode: GameMode;
   currentUserId?: string;
@@ -78,6 +79,7 @@ export function PixelInspectorDrawer({
   onClose,
   onPaint,
   onDefendAttack,
+  onErase,
   selectedColor,
   mode,
   currentUserId,
@@ -94,6 +96,7 @@ export function PixelInspectorDrawer({
         onClose={onClose}
         onPaint={onPaint}
         onDefendAttack={onDefendAttack}
+        onErase={onErase}
         selectedColor={selectedColor}
         mode={mode}
         currentUserId={currentUserId}

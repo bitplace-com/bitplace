@@ -46,7 +46,7 @@ export function BitplaceMap() {
   const { getUrlPosition, setUrlPosition } = useMapUrl();
   const { localPixels, paintPixel, mergePixels, confirmPixel } = usePixelStore();
   const { selection, startSelection, updateSelection, endSelection, clearSelection, getNormalizedBounds, getSelectedPixels } = useSelection();
-  const { mode, selectedColor, zoom, artOpacity, interactionMode, setMode, setSelectedColor, setZoom, toggleArtOpacity, setInteractionMode, canPaint } = useMapState();
+  const { mode, selectedColor, paintTool, zoom, artOpacity, interactionMode, setMode, setSelectedColor, setZoom, toggleArtOpacity, setInteractionMode, canPaint } = useMapState();
   const { dbPixels, updateViewport } = useSupabasePixels(zoom);
   const { validate, commit, validationResult, invalidPixels, isValidating, isCommitting, clearValidation } = useGameActions();
   const { queue: paintQueue, queueSize, isSpacePainting, isFlushing, startSpacePaint, stopSpacePaint, addToQueue, flushQueue } = usePaintQueue(paintPixel, confirmPixel);
@@ -307,14 +307,16 @@ export function BitplaceMap() {
   }, [requireWallet, validate, commit, refreshUser, playSound]);
 
   const executeSinglePixelAction = useCallback(async (x: number, y: number) => {
-    // Auth check FIRST via requireWallet
-    if (!requireWallet('paint')) return;
-    
-    // Eraser mode: execute erase directly (like PAINT with queue)
-    if (selectedColor === null) {
-      executeErase(x, y);
+    // Eraser mode: open InspectorPanel for validate/confirm flow
+    if (paintTool === 'ERASER' || selectedColor === null) {
+      if (!requireWallet('erase')) return;
+      startSelection(x, y);
+      setPendingPixels([{ x, y }]);
       return;
     }
+    
+    // Auth check for paint
+    if (!requireWallet('paint')) return;
     
     const gameMode = getGameMode(mode);
     if (gameMode === 'PAINT') {
@@ -325,7 +327,7 @@ export function BitplaceMap() {
     }
     startSelection(x, y);
     setPendingPixels([{ x, y }]);
-  }, [requireWallet, mode, selectedColor, addToQueue, flushQueue, getGameMode, startSelection, executeErase]);
+  }, [requireWallet, mode, selectedColor, paintTool, addToQueue, flushQueue, getGameMode, startSelection]);
 
   // Eyedropper: pick color from pixel
   const handleEyedropperPick = useCallback((x: number, y: number) => {
@@ -412,9 +414,17 @@ export function BitplaceMap() {
         return;
       }
       
-      // DRAW mode: start painting (skip if eraser for now)
-      if (interactionMode === 'draw' && mode === 'paint' && selectedColor !== null) {
-        // Gate behind wallet connection
+      // DRAW mode: start painting or erasing
+      if (interactionMode === 'draw' && mode === 'paint') {
+        if (paintTool === 'ERASER' || selectedColor === null) {
+          // Eraser mode in DRAW: select for validate/confirm
+          if (!requireWallet('erase')) return;
+          startSelection(pixel.x, pixel.y);
+          setPendingPixels([{ x: pixel.x, y: pixel.y }]);
+          playSound('pixel_select');
+          return;
+        }
+        // Brush mode: start painting
         if (!requireWallet('paint')) return;
         isDrawingRef.current = true;
         startSpacePaint(); // Use paint queue
@@ -472,16 +482,25 @@ export function BitplaceMap() {
         const { x, y } = dragStartRef.current;
         
         // In Paint mode with Brush tool, single click paints the pixel
-        // In Hand mode, click opens inspector
+        // In Hand mode, click opens inspector (or select for erase if eraser active)
         if (mode === 'paint' && interactionMode === 'draw') {
           // Gate behind wallet connection
-          if (!requireWallet('paint')) return;
+          const action = (paintTool === 'ERASER' || selectedColor === null) ? 'erase' : 'paint';
+          if (!requireWallet(action)) return;
           executeSinglePixelAction(x, y);
           playSound('pixel_select');
         } else if (mode === 'paint') {
-          // Hand mode: open inspector
-          setInspectedPixel({ x, y });
-          playSound('pixel_select');
+          // Hand mode: if eraser is active, select for erase action
+          if (paintTool === 'ERASER' || selectedColor === null) {
+            if (!requireWallet('erase')) return;
+            startSelection(x, y);
+            setPendingPixels([{ x, y }]);
+            playSound('pixel_select');
+          } else {
+            // Normal hand mode: open inspector
+            setInspectedPixel({ x, y });
+            playSound('pixel_select');
+          }
         }
       }
       
@@ -586,6 +605,14 @@ export function BitplaceMap() {
     setPendingPixels([{ x, y }]);
   }, [setMode, startSelection]);
 
+  const handleInspectorErase = useCallback((x: number, y: number) => {
+    // Close inspector and open InspectorPanel with ERASE mode
+    setInspectedPixel(null);
+    setSelectedColor(null); // This sets paintTool to ERASER
+    startSelection(x, y);
+    setPendingPixels([{ x, y }]);
+  }, [startSelection, setSelectedColor]);
+
   const handleCloseInspector = useCallback(() => {
     setInspectedPixel(null);
   }, []);
@@ -638,8 +665,9 @@ export function BitplaceMap() {
           onClose={handleCloseInspector}
           onPaint={handleInspectorPaint}
           onDefendAttack={handleInspectorDefendAttack}
+          onErase={handleInspectorErase}
           selectedColor={selectedColor}
-          mode={getGameMode(mode)}
+          mode={paintTool === 'ERASER' ? 'ERASE' : getGameMode(mode)}
           currentUserId={user?.id}
         />
 

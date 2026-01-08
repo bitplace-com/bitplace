@@ -3,10 +3,12 @@ import { canInteractAtZoom } from '@/lib/pixelGrid';
 
 export type MapMode = 'paint' | 'defend' | 'attack' | 'reinforce';
 export type InteractionMode = 'drag' | 'draw';
+export type PaintTool = 'BRUSH' | 'ERASER';
 
 export interface MapState {
   mode: MapMode;
   selectedColor: string | null;
+  paintTool: PaintTool;
   zoom: number;
   artOpacity: number;
   interactionMode: InteractionMode;
@@ -41,6 +43,7 @@ export function useMapState() {
   const [state, setState] = useState<MapState>({
     mode: 'paint',
     selectedColor: COLOR_PALETTE[2],
+    paintTool: 'BRUSH',
     zoom: 2,
     artOpacity: getInitialArtOpacity(),
     interactionMode: 'drag',
@@ -51,7 +54,11 @@ export function useMapState() {
   }, []);
 
   const setSelectedColor = useCallback((color: string | null) => {
-    setState((prev) => ({ ...prev, selectedColor: color }));
+    setState((prev) => ({
+      ...prev,
+      selectedColor: color,
+      paintTool: color === null ? 'ERASER' : 'BRUSH',
+    }));
   }, []);
 
   const setZoom = useCallback((zoom: number) => {
@@ -72,6 +79,14 @@ export function useMapState() {
 
   const canPaint = canInteractAtZoom(state.zoom);
 
+  const setPaintTool = useCallback((tool: PaintTool) => {
+    setState((prev) => ({
+      ...prev,
+      paintTool: tool,
+      selectedColor: tool === 'ERASER' ? null : prev.selectedColor,
+    }));
+  }, []);
+
   return {
     ...state,
     setMode,
@@ -79,6 +94,7 @@ export function useMapState() {
     setZoom,
     toggleArtOpacity,
     setInteractionMode,
+    setPaintTool,
     canPaint,
   };
 }
