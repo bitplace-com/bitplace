@@ -1,0 +1,116 @@
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
+const SESSION_TOKEN_KEY = 'bitplace_session_token';
+
+export interface AllianceInvite {
+  id: string;
+  allianceId: string;
+  allianceName: string;
+  allianceTag: string;
+  invitedByName: string;
+  createdAt: string;
+}
+
+interface UseAllianceInvitesResult {
+  invites: AllianceInvite[];
+  isLoading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+  acceptInvite: (inviteId: string) => Promise<boolean>;
+  declineInvite: (inviteId: string) => Promise<boolean>;
+}
+
+export function useAllianceInvites(userId: string | undefined): UseAllianceInvitesResult {
+  const [invites, setInvites] = useState<AllianceInvite[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchInvites = useCallback(async () => {
+    if (!userId) {
+      setInvites([]);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const token = localStorage.getItem(SESSION_TOKEN_KEY);
+      if (!token) {
+        setInvites([]);
+        return;
+      }
+
+      const { data, error: fnError } = await supabase.functions.invoke("alliance-manage", {
+        body: { action: "get-invites" },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (fnError) {
+        console.error("[useAllianceInvites] Error:", fnError);
+        setError("Failed to fetch invites");
+        return;
+      }
+
+      setInvites(data.invites || []);
+    } catch (err) {
+      console.error("[useAllianceInvites] Error:", err);
+      setError("Failed to fetch invites");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId]);
+
+  const acceptInvite = useCallback(async (inviteId: string): Promise<boolean> => {
+    try {
+      const token = localStorage.getItem(SESSION_TOKEN_KEY);
+      if (!token) return false;
+
+      const { data, error } = await supabase.functions.invoke("alliance-manage", {
+        body: { action: "accept-invite", inviteId },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (error || data?.error) {
+        console.error("[useAllianceInvites] Accept error:", data?.error || error);
+        return false;
+      }
+
+      await fetchInvites();
+      return true;
+    } catch (err) {
+      console.error("[useAllianceInvites] Accept error:", err);
+      return false;
+    }
+  }, [fetchInvites]);
+
+  const declineInvite = useCallback(async (inviteId: string): Promise<boolean> => {
+    try {
+      const token = localStorage.getItem(SESSION_TOKEN_KEY);
+      if (!token) return false;
+
+      const { data, error } = await supabase.functions.invoke("alliance-manage", {
+        body: { action: "decline-invite", inviteId },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (error || data?.error) {
+        console.error("[useAllianceInvites] Decline error:", data?.error || error);
+        return false;
+      }
+
+      await fetchInvites();
+      return true;
+    } catch (err) {
+      console.error("[useAllianceInvites] Decline error:", err);
+      return false;
+    }
+  }, [fetchInvites]);
+
+  useEffect(() => {
+    fetchInvites();
+  }, [fetchInvites]);
+
+  return { invites, isLoading, error, refetch: fetchInvites, acceptInvite, declineInvite };
+}

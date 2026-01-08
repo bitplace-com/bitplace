@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Menu, Map, Book, ShoppingBag, Settings, Moon, Sun } from "lucide-react";
+import { Menu, Map, Book, ShoppingBag, Settings, Moon, Sun, Bell } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from "next-themes";
 import {
@@ -14,15 +14,23 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RulesModal } from "@/components/modals/RulesModal";
 import { ShopModal } from "@/components/modals/ShopModal";
+import { NotificationsPanel } from "@/components/modals/NotificationsPanel";
+import { useWallet } from "@/contexts/WalletContext";
+import { useAllianceInvites } from "@/hooks/useAllianceInvites";
 
 export function MapMenuDrawer() {
   const [open, setOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, setTheme } = useTheme();
   const isDark = theme === "dark";
+  
+  const { user } = useWallet();
+  const { invites } = useAllianceInvites(user?.id);
+  const notificationCount = invites.length;
 
   const handleNavigateToMap = () => {
     if (location.pathname !== "/") {
@@ -65,6 +73,24 @@ export function MapMenuDrawer() {
             >
               <Map className="h-5 w-5" />
               Map
+            </Button>
+
+            {/* Notifications - with badge */}
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setNotificationsOpen(true);
+                setOpen(false);
+              }}
+              className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8 relative"
+            >
+              <Bell className="h-5 w-5" />
+              Notifications
+              {notificationCount > 0 && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium flex items-center justify-center">
+                  {notificationCount > 99 ? "99+" : notificationCount}
+                </span>
+              )}
             </Button>
 
             {/* Rules - opens modal */}
@@ -119,6 +145,7 @@ export function MapMenuDrawer() {
 
       <RulesModal open={rulesOpen} onOpenChange={setRulesOpen} />
       <ShopModal open={shopOpen} onOpenChange={setShopOpen} />
+      <NotificationsPanel open={notificationsOpen} onOpenChange={setNotificationsOpen} />
     </>
   );
 }

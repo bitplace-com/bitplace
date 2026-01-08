@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Allowed origins for CORS (restrict to known origins for authenticated endpoints)
+// Allowed origins for CORS
 const ALLOWED_ORIGINS = [
   "https://bitplace.app",
   "https://www.bitplace.app",
@@ -42,23 +42,12 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
     if (!valid) return null;
 
     const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
-    // Token expiry is in milliseconds (from auth-verify)
     if (payload.exp && Date.now() > payload.exp) return null;
 
     return payload;
   } catch {
     return null;
   }
-}
-
-// Generate random invite code
-function generateInviteCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Avoid confusing chars
-  let code = "";
-  for (let i = 0; i < 8; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
 }
 
 // Validate alliance name: 3-30 chars, alphanumeric + spaces
@@ -127,11 +116,9 @@ Deno.serve(async (req) => {
 
     const userId = payload.userId;
 
-    // Parse request body
     const body = await req.json();
     const { action } = body;
 
-    // Initialize Supabase client
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -159,7 +146,6 @@ Deno.serve(async (req) => {
         .eq("id", membership.alliance_id)
         .single();
 
-      // Only select public profile data - exclude sensitive wallet_address
       const { data: members } = await supabase
         .from("alliance_members")
         .select(`
@@ -203,7 +189,6 @@ Deno.serve(async (req) => {
     if (action === "create") {
       const { name, tag } = body;
 
-      // Check if user already in alliance
       const { data: existing } = await supabase
         .from("alliance_members")
         .select("id")
@@ -217,7 +202,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Validate inputs
       const nameCheck = validateName(name);
       if (!nameCheck.valid) {
         return new Response(JSON.stringify({ error: nameCheck.error }), {
@@ -236,7 +220,6 @@ Deno.serve(async (req) => {
 
       const finalTag = tag.trim().toUpperCase();
 
-      // Check if tag is taken
       const { data: tagExists } = await supabase
         .from("alliances")
         .select("id")
@@ -250,28 +233,12 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Generate unique invite code
-      let inviteCode = generateInviteCode();
-      let attempts = 0;
-      while (attempts < 10) {
-        const { data: codeExists } = await supabase
-          .from("alliances")
-          .select("id")
-          .eq("invite_code", inviteCode)
-          .maybeSingle();
-        if (!codeExists) break;
-        inviteCode = generateInviteCode();
-        attempts++;
-      }
-
-      // Create alliance
       const { data: alliance, error: allianceError } = await supabase
         .from("alliances")
         .insert({
           name: name.trim(),
           tag: finalTag,
           created_by: userId,
-          invite_code: inviteCode,
         })
         .select()
         .single();
@@ -284,14 +251,12 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Add creator as leader
       await supabase.from("alliance_members").insert({
         user_id: userId,
         alliance_id: alliance.id,
         role: "leader",
       });
 
-      // Update user's alliance_tag
       await supabase
         .from("users")
         .update({ alliance_tag: finalTag })
@@ -307,18 +272,224 @@ Deno.serve(async (req) => {
       });
     }
 
-    // JOIN - Join alliance via invite code
-    if (action === "join") {
-      const { inviteCode } = body;
+    // INVITE - Invite a player by username or wallet_short
+    if (action === "invite") {
+      const { searchQuery } = body;
 
-      if (!inviteCode || typeof inviteCode !== "string") {
-        return new Response(JSON.stringify({ error: "Invite code required" }), {
+      if (!searchQuery || typeof searchQuery !== "string" || searchQuery.trim().length < 2) {
+        return new Response(JSON.stringify({ error: "Search query too short" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Check if user already in alliance
+      // Verify user is in an alliance
+      const { data: membership } = await supabase
+        .from("alliance_members")
+        .select("alliance_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (!membership) {
+        return new Response(JSON.stringify({ error: "Not in an alliance" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const query = searchQuery.trim();
+
+      // Search by display_name or wallet_address (partial match)
+      const { data: foundUsers } = await supabase
+        .from("users")
+        .select("id, display_name, level, wallet_address")
+        .or(`display_name.ilike.%${query}%,wallet_address.ilike.%${query}%`)
+        .neq("id", userId)
+        .limit(10);
+
+      if (!foundUsers || foundUsers.length === 0) {
+        return new Response(JSON.stringify({ error: "No users found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Return found users for selection
+      return new Response(JSON.stringify({
+        users: foundUsers.map(u => ({
+          id: u.id,
+          displayName: u.display_name,
+          walletShort: u.wallet_address ? `${u.wallet_address.slice(0, 4)}...${u.wallet_address.slice(-4)}` : null,
+          level: u.level || 1,
+        })),
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // SEND-INVITE - Actually send an invite to a specific user
+    if (action === "send-invite") {
+      const { targetUserId } = body;
+
+      if (!targetUserId) {
+        return new Response(JSON.stringify({ error: "Target user required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Verify user is in an alliance
+      const { data: membership } = await supabase
+        .from("alliance_members")
+        .select("alliance_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (!membership) {
+        return new Response(JSON.stringify({ error: "Not in an alliance" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Verify target exists
+      const { data: targetUser } = await supabase
+        .from("users")
+        .select("id, display_name")
+        .eq("id", targetUserId)
+        .maybeSingle();
+
+      if (!targetUser) {
+        return new Response(JSON.stringify({ error: "User not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check if target is already in an alliance
+      const { data: targetMembership } = await supabase
+        .from("alliance_members")
+        .select("id")
+        .eq("user_id", targetUserId)
+        .maybeSingle();
+
+      if (targetMembership) {
+        return new Response(JSON.stringify({ error: "User is already in an alliance" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check if already invited (pending)
+      const { data: existingInvite } = await supabase
+        .from("alliance_invites")
+        .select("id")
+        .eq("alliance_id", membership.alliance_id)
+        .eq("invited_user_id", targetUserId)
+        .eq("status", "PENDING")
+        .maybeSingle();
+
+      if (existingInvite) {
+        return new Response(JSON.stringify({ error: "User already has a pending invite" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Create invite
+      const { error: inviteError } = await supabase
+        .from("alliance_invites")
+        .insert({
+          alliance_id: membership.alliance_id,
+          invited_user_id: targetUserId,
+          invited_by_user_id: userId,
+          status: "PENDING",
+        });
+
+      if (inviteError) {
+        console.error("[alliance-manage] Invite error:", inviteError);
+        return new Response(JSON.stringify({ error: "Failed to send invite" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      console.log(`[alliance-manage] User ${userId} invited ${targetUserId}`);
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // GET-INVITES - Get pending invites for current user
+    if (action === "get-invites") {
+      const { data: invites } = await supabase
+        .from("alliance_invites")
+        .select(`
+          id,
+          alliance_id,
+          invited_by_user_id,
+          created_at,
+          alliances:alliance_id (
+            name,
+            tag
+          ),
+          inviter:invited_by_user_id (
+            display_name
+          )
+        `)
+        .eq("invited_user_id", userId)
+        .eq("status", "PENDING")
+        .order("created_at", { ascending: false });
+
+      return new Response(JSON.stringify({
+        invites: invites?.map(inv => ({
+          id: inv.id,
+          allianceId: inv.alliance_id,
+          allianceName: (inv.alliances as any)?.name,
+          allianceTag: (inv.alliances as any)?.tag,
+          invitedByName: (inv.inviter as any)?.display_name || "Unknown",
+          createdAt: inv.created_at,
+        })) || [],
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ACCEPT-INVITE - Accept an alliance invite
+    if (action === "accept-invite") {
+      const { inviteId } = body;
+
+      if (!inviteId) {
+        return new Response(JSON.stringify({ error: "Invite ID required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Get the invite
+      const { data: invite } = await supabase
+        .from("alliance_invites")
+        .select("id, alliance_id, status")
+        .eq("id", inviteId)
+        .eq("invited_user_id", userId)
+        .maybeSingle();
+
+      if (!invite) {
+        return new Response(JSON.stringify({ error: "Invite not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (invite.status !== "PENDING") {
+        return new Response(JSON.stringify({ error: "Invite already processed" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check if already in alliance
       const { data: existing } = await supabase
         .from("alliance_members")
         .select("id")
@@ -332,44 +503,86 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Find alliance by invite code
+      // Get alliance tag
       const { data: alliance } = await supabase
         .from("alliances")
-        .select("*")
-        .eq("invite_code", inviteCode.trim().toUpperCase())
-        .maybeSingle();
+        .select("tag")
+        .eq("id", invite.alliance_id)
+        .single();
 
-      if (!alliance) {
-        return new Response(JSON.stringify({ error: "Invalid invite code" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Join alliance
+      // Add to alliance
       await supabase.from("alliance_members").insert({
         user_id: userId,
-        alliance_id: alliance.id,
+        alliance_id: invite.alliance_id,
         role: "member",
       });
 
       // Update user's alliance_tag
       await supabase
         .from("users")
-        .update({ alliance_tag: alliance.tag })
+        .update({ alliance_tag: alliance?.tag })
         .eq("id", userId);
 
-      const { count } = await supabase
-        .from("alliance_members")
-        .select("*", { count: "exact", head: true })
-        .eq("alliance_id", alliance.id);
+      // Mark invite as accepted
+      await supabase
+        .from("alliance_invites")
+        .update({ status: "ACCEPTED" })
+        .eq("id", inviteId);
 
-      console.log(`[alliance-manage] User ${userId} joined ${alliance.name}`);
+      // Decline all other pending invites for this user
+      await supabase
+        .from("alliance_invites")
+        .update({ status: "DECLINED" })
+        .eq("invited_user_id", userId)
+        .eq("status", "PENDING");
 
-      return new Response(JSON.stringify({
-        success: true,
-        alliance: { ...alliance, memberCount: count || 1, isLeader: false },
-      }), {
+      console.log(`[alliance-manage] User ${userId} accepted invite ${inviteId}`);
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // DECLINE-INVITE - Decline an alliance invite
+    if (action === "decline-invite") {
+      const { inviteId } = body;
+
+      if (!inviteId) {
+        return new Response(JSON.stringify({ error: "Invite ID required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: invite } = await supabase
+        .from("alliance_invites")
+        .select("id, status")
+        .eq("id", inviteId)
+        .eq("invited_user_id", userId)
+        .maybeSingle();
+
+      if (!invite) {
+        return new Response(JSON.stringify({ error: "Invite not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (invite.status !== "PENDING") {
+        return new Response(JSON.stringify({ error: "Invite already processed" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      await supabase
+        .from("alliance_invites")
+        .update({ status: "DECLINED" })
+        .eq("id", inviteId);
+
+      console.log(`[alliance-manage] User ${userId} declined invite ${inviteId}`);
+
+      return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -413,20 +626,23 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Remove member
       await supabase
         .from("alliance_members")
         .delete()
         .eq("user_id", userId);
 
-      // Clear user's alliance_tag
       await supabase
         .from("users")
         .update({ alliance_tag: null })
         .eq("id", userId);
 
-      // If last member, delete alliance
+      // If last member, delete alliance and all pending invites
       if ((count || 0) <= 1) {
+        await supabase
+          .from("alliance_invites")
+          .delete()
+          .eq("alliance_id", membership.alliance_id);
+          
         await supabase
           .from("alliances")
           .delete()
