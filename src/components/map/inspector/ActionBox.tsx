@@ -1,5 +1,6 @@
-import { Paintbrush, Shield, Swords, Zap, Loader2, Eraser, Undo2, Trash2 } from 'lucide-react';
+import { Paintbrush, Shield, Swords, Loader2, Eraser, Undo2, Trash2, Check, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PEIcon } from '@/components/ui/pe-icon';
 import { PeInput } from '../PeInput';
 import type { GameMode, ValidateResult } from '@/hooks/useGameActions';
 import { cn } from '@/lib/utils';
@@ -27,7 +28,7 @@ const modeConfig: Record<GameMode, { icon: React.ReactNode; label: string }> = {
   PAINT: { icon: <Paintbrush className="h-3.5 w-3.5" />, label: 'Paint' },
   DEFEND: { icon: <Shield className="h-3.5 w-3.5" />, label: 'Defend' },
   ATTACK: { icon: <Swords className="h-3.5 w-3.5" />, label: 'Attack' },
-  REINFORCE: { icon: <Zap className="h-3.5 w-3.5" />, label: 'Reinforce' },
+  REINFORCE: { icon: <PEIcon size="sm" />, label: 'Reinforce' },
   ERASE: { icon: <Eraser className="h-3.5 w-3.5" />, label: 'Erase' },
 };
 
@@ -49,15 +50,14 @@ export function ActionBox({
   onClearDraft,
 }: ActionBoxProps) {
   const config = modeConfig[mode];
-  // ERASE always requires validation to confirm which pixels will be erased
   const needsValidation = mode === 'ERASE' || mode !== 'PAINT' || pixelCount > 1;
   const isValidated = validationResult?.ok === true;
-  // ERASE and non-PAINT modes require validation before confirm
   const canConfirm = isValidated && !isCommitting;
 
-  // Extract breakdown for display
-  const breakdown = validationResult?.breakdown;
-  const hasBreakdown = breakdown && validationResult?.ok;
+  // Calculate PE values
+  const requiredPe = validationResult?.requiredPeTotal ?? (mode === 'PAINT' ? draftCount : pePerPixel * pixelCount);
+  const availablePe = validationResult?.availablePe ?? 0;
+  const hasSufficientPe = validationResult ? availablePe >= requiredPe : true;
 
   return (
     <div className="border-t border-border p-3 space-y-3 bg-muted/50">
@@ -114,24 +114,83 @@ export function ActionBox({
         </div>
       )}
 
-      {/* Draft info for PAINT mode */}
+      {/* Draft count for PAINT mode */}
       {isDraftMode && mode === 'PAINT' && draftCount > 0 && (
-        <div className="text-[10px] text-muted-foreground px-1">
-          Minimum: <span className="font-medium text-foreground">{draftCount} PE</span> (1 PE per empty pixel)
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-muted-foreground">Draft</span>
+          <span className="font-medium text-foreground">{draftCount.toLocaleString()} px</span>
         </div>
       )}
 
       {/* PE Input for non-PAINT/ERASE modes */}
       {mode !== 'PAINT' && mode !== 'ERASE' && (
-        <div className="space-y-1.5">
-          <PeInput 
-            value={pePerPixel} 
-            onChange={onPePerPixelChange} 
-            pixelCount={pixelCount}
-          />
-          <div className="text-[10px] text-muted-foreground">
-            Total: <span className="font-medium text-foreground">{(pePerPixel * pixelCount).toLocaleString()} PE</span> × {pixelCount}px
+        <PeInput 
+          value={pePerPixel} 
+          onChange={onPePerPixelChange} 
+          pixelCount={pixelCount}
+        />
+      )}
+
+      {/* PE Summary - clean structure */}
+      {(validationResult || (isDraftMode && draftCount > 0) || (mode !== 'PAINT' && mode !== 'ERASE' && pixelCount > 0)) && (
+        <div className="space-y-1.5 px-2 py-2 rounded-lg bg-muted/30">
+          {/* Required PE */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <PEIcon size="xs" />
+              <span>Required</span>
+            </div>
+            <span className="text-base font-semibold tabular-nums">
+              {requiredPe.toLocaleString()}
+            </span>
           </div>
+
+          {/* Available PE - only show after validation */}
+          {validationResult && (
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-muted-foreground">Available</span>
+              <span className={cn(
+                "text-sm font-medium tabular-nums",
+                hasSufficientPe ? "text-emerald-500" : "text-destructive"
+              )}>
+                {availablePe.toLocaleString()}
+              </span>
+            </div>
+          )}
+
+          {/* Result message */}
+          {validationResult && (
+            <div className={cn(
+              "flex items-center gap-1.5 text-[11px] pt-1 border-t border-border/50",
+              validationResult.ok ? "text-emerald-500" : "text-destructive"
+            )}>
+              {validationResult.ok ? (
+                <>
+                  <Check className="h-3 w-3" />
+                  <span>Ready to commit</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="h-3 w-3" />
+                  <span>
+                    {validationResult.invalidPixels?.length > 0 
+                      ? `${validationResult.invalidPixels.length} invalid pixel(s)`
+                      : !hasSufficientPe 
+                        ? 'Insufficient PE'
+                        : 'Validation failed'}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ERASE refund info */}
+          {mode === 'ERASE' && validationResult?.ok && validationResult.unlockPeTotal !== undefined && validationResult.unlockPeTotal > 0 && (
+            <div className="flex items-center justify-between text-[11px] pt-1 border-t border-border/50">
+              <span className="text-emerald-500">PE Refund</span>
+              <span className="text-emerald-500 font-semibold">+{validationResult.unlockPeTotal.toLocaleString()}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -175,83 +234,6 @@ export function ActionBox({
           </Button>
         )}
       </div>
-
-      {/* Validation Status - Invalid pixels */}
-      {validationResult && !validationResult.ok && (
-        <div className="text-[10px] text-destructive bg-destructive/10 px-2 py-1.5 rounded-md">
-          {validationResult.invalidPixels.length} invalid pixel(s)
-        </div>
-      )}
-
-      {/* PE Cost Summary (shown for all modes when validated successfully) */}
-      {hasBreakdown && (
-        <div className="text-[10px] space-y-1 px-2 py-1.5 rounded-md bg-muted/50">
-          {mode === 'PAINT' ? (
-            <>
-              <div className="text-muted-foreground font-medium mb-1">This action will lock:</div>
-              {breakdown.empty > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">New pixels ({breakdown.empty}):</span>
-                  <span className="text-foreground font-medium">{breakdown.empty} PE</span>
-                </div>
-              )}
-              {breakdown.ownedByUser > 0 && (
-                <div className="flex justify-between text-emerald-400">
-                  <span>Recolor yours ({breakdown.ownedByUser}):</span>
-                  <span className="font-medium">0 PE</span>
-                </div>
-              )}
-              {breakdown.ownedByOthers > 0 && (
-                <div className="flex justify-between text-amber-400">
-                  <span>Takeover ({breakdown.ownedByOthers}):</span>
-                  <span className="font-medium">{breakdown.pePerType?.takeover || breakdown.ownedByOthers}+ PE</span>
-                </div>
-              )}
-            </>
-          ) : mode === 'ERASE' ? (
-            <div className="space-y-1">
-              <div className="text-muted-foreground">
-                Erasing <span className="text-amber-400 font-medium">{breakdown.ownedByUser}</span> owned pixel(s).
-              </div>
-              {validationResult?.unlockPeTotal !== undefined && validationResult.unlockPeTotal > 0 && (
-                <div className="flex justify-between text-emerald-400">
-                  <span>PE Refund:</span>
-                  <span className="font-bold">+{validationResult.unlockPeTotal.toLocaleString()} PE</span>
-                </div>
-              )}
-            </div>
-          ) : mode === 'DEFEND' ? (
-            <div className="text-muted-foreground">
-              Adding <span className="text-emerald-400 font-medium">{pePerPixel} PE</span> defense to {pixelCount} pixel(s)
-            </div>
-          ) : mode === 'ATTACK' ? (
-            <div className="text-muted-foreground">
-              Adding <span className="text-rose-400 font-medium">{pePerPixel} PE</span> attack to {pixelCount} pixel(s)
-            </div>
-          ) : mode === 'REINFORCE' ? (
-            <div className="text-muted-foreground">
-              Adding <span className="text-emerald-400 font-medium">{pePerPixel} PE</span> stake to {pixelCount} pixel(s)
-            </div>
-          ) : null}
-
-          {/* Total and Available PE */}
-          <div className="flex justify-between border-t border-border pt-1 mt-1">
-            <span className="text-muted-foreground font-medium">Total Cost:</span>
-            <span className="text-foreground font-medium">{validationResult.requiredPeTotal.toLocaleString()} PE</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground font-medium">Available:</span>
-            <span className={cn(
-              "font-medium",
-              validationResult.availablePe >= validationResult.requiredPeTotal 
-                ? "text-emerald-400" 
-                : "text-destructive"
-            )}>
-              {validationResult.availablePe.toLocaleString()} PE
-            </span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

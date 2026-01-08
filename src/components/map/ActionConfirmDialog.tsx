@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { PEIcon } from '@/components/ui/pe-icon';
 import { PeInput } from './PeInput';
 import type { GameMode, ValidateResult } from '@/hooks/useGameActions';
 import { Loader2 } from 'lucide-react';
@@ -90,9 +91,11 @@ export function ActionConfirmDialog({
           {validationResult && (
             <>
               <div className="border-t pt-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total PE required</span>
-                  <span className="font-medium">{requiredPe.toLocaleString()} PE</span>
+              <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <PEIcon size="xs" /> Required
+                  </span>
+                  <span className="font-medium tabular-nums">{requiredPe.toLocaleString()}</span>
                 </div>
 
                 {mode === 'PAINT' && validationResult.breakdown && (
@@ -153,7 +156,7 @@ export function ActionConfirmDialog({
               disabled={isCommitting}
             >
               {isCommitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Confirm ({requiredPe} PE)
+              Confirm
             </Button>
           )}
         </DialogFooter>

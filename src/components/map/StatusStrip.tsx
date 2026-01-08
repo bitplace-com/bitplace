@@ -1,4 +1,5 @@
-import { Wallet, Heart, RefreshCw, Zap, Paintbrush, Loader2 } from 'lucide-react';
+import { Wallet, Heart, RefreshCw, Paintbrush, Loader2 } from 'lucide-react';
+import { PEIcon } from '@/components/ui/pe-icon';
 import { usePeBalance } from '@/hooks/usePeBalance';
 import { useWallet } from '@/contexts/WalletContext';
 import { cn } from '@/lib/utils';
@@ -75,10 +76,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg">
               <Paintbrush className="h-3.5 w-3.5 text-foreground" />
               <span className="text-xs font-medium text-foreground tabular-nums">
-                Draft: {draftCount.toLocaleString()}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                ~{draftCount} PE min
+                Draft: {draftCount.toLocaleString()} px
               </span>
             </div>
           )}
@@ -130,9 +128,9 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
         <div className="flex items-center gap-4">
           {/* PE Total / Used */}
           <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-foreground" />
+            <PEIcon size="md" className="text-foreground" />
             <span className="text-sm font-semibold tabular-nums">
-              {isLoading ? '...' : energy.peTotal.toLocaleString()} PE
+              {isLoading ? '...' : energy.peTotal.toLocaleString()}
             </span>
             {peUsed > 0 && (
               <span className="text-xs text-muted-foreground">
@@ -143,9 +141,10 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
 
           {/* Available PE - smaller muted */}
           {peAvailable > 0 && peAvailable !== energy.peTotal && (
-            <span className="text-xs text-muted-foreground">
-              available {peAvailable.toLocaleString()}
-            </span>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span>avail</span>
+              <span className="tabular-nums">{peAvailable.toLocaleString()}</span>
+            </div>
           )}
 
           {/* Status Alerts - actionable chips for Lost/Under Attack/Contested */}

@@ -1,4 +1,5 @@
 import { User, LogOut, BarChart3, Copy, Check, BookOpen, Users, Volume2, VolumeX, Wallet } from "lucide-react";
+import { PEIcon } from "@/components/ui/pe-icon";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import {
@@ -162,18 +163,18 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             </p>
           </div>
           <div className="p-2.5 rounded-xl bg-accent border border-border">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              PE Total
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+              <PEIcon size="xs" /> Total
             </p>
-            <p className="text-sm font-semibold text-foreground">
+            <p className="text-sm font-semibold text-foreground tabular-nums">
               {energy.peTotal.toLocaleString()}
             </p>
           </div>
           <div className="p-2.5 rounded-xl bg-accent border border-border">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              PE Available
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+              <PEIcon size="xs" /> Available
             </p>
-            <p className="text-sm font-semibold text-foreground">
+            <p className="text-sm font-semibold text-foreground tabular-nums">
               {peAvailable.toLocaleString()}
             </p>
           </div>

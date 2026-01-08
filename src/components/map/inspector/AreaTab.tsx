@@ -1,4 +1,5 @@
-import { Grid3X3, User, Users, Coins } from 'lucide-react';
+import { Grid3X3, User, Users } from 'lucide-react';
+import { PEIcon } from '@/components/ui/pe-icon';
 import type { ValidateResult } from '@/hooks/useGameActions';
 
 interface AreaTabProps {
@@ -50,10 +51,10 @@ export function AreaTab({ pixelCount, validationResult, currentUserId }: AreaTab
         <div className="bg-primary/10 border border-primary/20 rounded-lg px-3 py-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-primary">
-              <Coins className="h-3.5 w-3.5" />
-              <span className="text-[11px] uppercase tracking-wider">PE Required</span>
+              <PEIcon size="sm" className="text-primary" />
+              <span className="text-[11px] uppercase tracking-wider">Required</span>
             </div>
-            <div className="text-lg font-semibold text-primary">
+            <div className="text-lg font-semibold text-primary tabular-nums">
               {validationResult.requiredPeTotal.toLocaleString()}
             </div>
           </div>
