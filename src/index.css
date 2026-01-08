@@ -238,3 +238,15 @@
     min-width: 44px;
   }
 }
+
+/* MapToolbar active button state */
+.map-toolbar-btn[data-state="on"] {
+  background-color: hsl(var(--foreground)) !important;
+  color: hsl(var(--background)) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.dark .map-toolbar-btn[data-state="on"] {
+  background-color: hsl(var(--foreground)) !important;
+  color: hsl(var(--background)) !important;
+}
