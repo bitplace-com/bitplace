@@ -520,6 +520,7 @@ Deno.serve(async (req) => {
           }
 
           // Update pixel with new owner
+          const previousOwnerId = pixel.owner_user_id;
           const { error } = await supabase
             .from("pixels")
             .update({
@@ -530,7 +531,19 @@ Deno.serve(async (req) => {
             })
             .eq("id", pixel.id);
           
-          if (!error) affectedPixels++;
+          if (!error) {
+            affectedPixels++;
+            // Notify previous owner about takeover
+            if (previousOwnerId && previousOwnerId !== userId) {
+              await supabase.from("notifications").insert({
+                user_id: previousOwnerId,
+                type: "PIXEL_TAKEOVER",
+                title: "Your pixel was taken!",
+                body: `Someone painted over your pixel at (${pixel.x}, ${pixel.y})`,
+                meta: { pixel_x: pixel.x, pixel_y: pixel.y, actor_id: userId, color }
+              });
+            }
+          }
         }
       }
     }

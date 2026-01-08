@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const glassIconButtonVariants = cva(
-  "inline-flex items-center justify-center rounded-xl backdrop-blur-[12px] backdrop-saturate-[140%] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center rounded-xl backdrop-blur-[12px] backdrop-saturate-[140%] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 touch-target",
   {
     variants: {
       variant: {
@@ -15,9 +15,9 @@ const glassIconButtonVariants = cva(
           "bg-transparent hover:bg-accent text-foreground",
       },
       size: {
-        default: "h-9 w-9",
-        sm: "h-8 w-8",
-        lg: "h-10 w-10",
+        default: "h-11 w-11",
+        sm: "h-9 w-9",
+        lg: "h-12 w-12",
       },
     },
     defaultVariants: {

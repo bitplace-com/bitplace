@@ -58,8 +58,8 @@ export function PaletteTray({
 
   return (
     <div 
-      className="fixed bottom-14 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
-      style={{ width: isExpanded ? 'min(85%, 580px)' : 'auto' }}
+      className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none bottom-[calc(2.75rem+env(safe-area-inset-bottom))] max-w-[calc(100vw-1rem)] sm:max-w-[580px]"
+      style={{ width: isExpanded ? '100%' : 'auto' }}
     >
       <GlassPanel 
         padding="none"
