@@ -1,4 +1,4 @@
-import { User, LogOut, BarChart3, Star, Copy, Check, BookOpen, Users, Volume2, VolumeX } from "lucide-react";
+import { User, LogOut, BarChart3, Copy, Check, BookOpen, Users, Volume2, VolumeX, Wallet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import {
@@ -8,22 +8,12 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { useWallet } from "@/contexts/WalletContext";
 import { usePixelStats } from "@/hooks/usePixelStats";
 import { useSound } from "@/hooks/useSound";
 import { getCountryByCode } from "@/lib/countries";
 import { generateAvatarGradient, getAvatarInitial } from "@/lib/avatar";
-import {
-  calculateLevel,
-  levelProgress,
-  xpForLevel,
-  xpForNextLevel,
-  getStatusTitle,
-  getStatusColor,
-  getStatusBgColor,
-} from "@/lib/progression";
 import { cn } from "@/lib/utils";
 
 interface UserMenuPanelProps {
@@ -34,6 +24,18 @@ function shortenAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+function formatRelativeTime(date: Date | null): string {
+  if (!date) return "never";
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export function UserMenuPanel({ children }: UserMenuPanelProps) {
   const navigate = useNavigate();
   const { user, walletAddress, disconnect, energy } = useWallet();
@@ -42,15 +44,12 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
   const { enabled: soundEnabled, toggle: toggleSound } = useSound();
 
   const country = getCountryByCode(user?.country_code);
-  const xp = user?.xp || 0;
-  const level = user?.level || calculateLevel(xp);
-  const progress = levelProgress(xp);
-  const statusTitle = getStatusTitle(level);
-  const currentLevelXp = xpForLevel(level);
-  const nextLevelXp = xpForNextLevel(level);
-
   const avatarGradient = generateAvatarGradient(walletAddress || "default");
   const avatarInitial = getAvatarInitial(user?.display_name, walletAddress);
+
+  // Calculate PE Available = PE Total - PE Used (staked + defending + attacking)
+  const peUsed = pixelStats.totalStaked + pixelStats.totalDefending + pixelStats.totalAttacking;
+  const peAvailable = Math.max(0, energy.peTotal - peUsed);
 
   const handleCopyAddress = async () => {
     if (walletAddress) {
@@ -123,38 +122,28 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
 
         <Separator className="bg-border" />
 
-        {/* Level & Progress */}
-        <div className="p-4 space-y-3">
+        {/* Wallet Section */}
+        <div className="p-4 space-y-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+            <Wallet className="h-3.5 w-3.5" />
+            <span className="uppercase tracking-wider font-medium">Wallet</span>
+          </div>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className={cn("p-1.5 rounded-lg", getStatusBgColor(level))}>
-                <Star className={cn("h-4 w-4", getStatusColor(level))} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold">Level {level}</p>
-                <p className={cn("text-xs font-medium", getStatusColor(level))}>
-                  {statusTitle}
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">
-                {xp.toLocaleString()} XP
-              </p>
-            </div>
+            <span className="text-sm font-mono font-semibold text-foreground">
+              {energy.nativeBalance.toFixed(4)} {energy.nativeSymbol}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              ${energy.walletUsd.toFixed(2)}
+            </span>
           </div>
-          <div className="space-y-1">
-            <Progress value={progress} className="h-2" />
-            <div className="flex justify-between text-[10px] text-muted-foreground">
-              <span>{currentLevelXp.toLocaleString()}</span>
-              <span>{nextLevelXp.toLocaleString()}</span>
-            </div>
-          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Synced {formatRelativeTime(energy.lastSyncAt)}
+          </p>
         </div>
 
         <Separator className="bg-border" />
 
-        {/* Stats */}
+        {/* Stats - 4 gameplay-critical items */}
         <div className="p-4 grid grid-cols-2 gap-3">
           <div className="p-2.5 rounded-xl bg-accent border border-border">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
@@ -166,7 +155,15 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           </div>
           <div className="p-2.5 rounded-xl bg-accent border border-border">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              Total PE
+              Total Staked
+            </p>
+            <p className="text-sm font-semibold text-foreground">
+              {pixelStats.totalStaked.toLocaleString()}
+            </p>
+          </div>
+          <div className="p-2.5 rounded-xl bg-accent border border-border">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+              PE Total
             </p>
             <p className="text-sm font-semibold text-foreground">
               {energy.peTotal.toLocaleString()}
@@ -174,18 +171,10 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           </div>
           <div className="p-2.5 rounded-xl bg-accent border border-border">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              {energy.nativeSymbol}
+              PE Available
             </p>
             <p className="text-sm font-semibold text-foreground">
-              {energy.nativeBalance.toFixed(4)}
-            </p>
-          </div>
-          <div className="p-2.5 rounded-xl bg-accent border border-border">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              PE Used
-            </p>
-            <p className="text-sm font-semibold text-foreground">
-              {energy.peUsed.toLocaleString()}
+              {peAvailable.toLocaleString()}
             </p>
           </div>
         </div>
