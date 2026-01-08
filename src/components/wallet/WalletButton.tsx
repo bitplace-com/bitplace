@@ -54,7 +54,7 @@ export function WalletButton() {
       <Button
         onClick={handleSignIn}
         size="sm"
-        className="gap-2 rounded-xl shadow-lg backdrop-blur-md bg-white/90 text-black border border-white/20 hover:bg-white dark:bg-white/10 dark:text-white dark:border-white/10 dark:hover:bg-white/20"
+        className="gap-2 rounded-xl shadow-lg backdrop-blur-md bg-white/90 text-black border border-white/20 hover:bg-white dark:bg-black/80 dark:text-white dark:border-white/10 dark:hover:bg-black/90"
       >
         <Wallet className="h-4 w-4" />
         Connect Wallet
@@ -90,7 +90,7 @@ export function WalletButton() {
       <Button
         onClick={handleConnectClick}
         size="sm"
-        className="gap-2 rounded-xl shadow-lg backdrop-blur-md bg-white/90 text-black border border-white/20 hover:bg-white dark:bg-white/10 dark:text-white dark:border-white/10 dark:hover:bg-white/20"
+        className="gap-2 rounded-xl shadow-lg backdrop-blur-md bg-white/90 text-black border border-white/20 hover:bg-white dark:bg-black/80 dark:text-white dark:border-white/10 dark:hover:bg-black/90"
       >
         <Wallet className="h-4 w-4" />
         Connect Wallet
