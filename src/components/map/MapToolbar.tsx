@@ -17,12 +17,16 @@ const modes: { value: MapMode; icon: React.ReactNode; label: string; hint: strin
 ];
 
 export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
+  console.log('[MapToolbar] current mode:', mode);
   return (
     <GlassPanel variant="hud" padding="sm" className="shadow-lg">
       <ToggleGroup
         type="single"
         value={mode}
-        onValueChange={(value) => value && onModeChange(value as MapMode)}
+        onValueChange={(value) => {
+          console.log('[MapToolbar] onValueChange:', value);
+          if (value) onModeChange(value as MapMode);
+        }}
         className="gap-1"
       >
         {modes.map(({ value, icon, label, hint }) => (
