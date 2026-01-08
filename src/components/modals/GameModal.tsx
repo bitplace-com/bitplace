@@ -86,7 +86,7 @@ export function GameModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "bg-popover/95 backdrop-blur-[20px] backdrop-saturate-[140%] border-border rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] max-h-[80vh] flex flex-col",
+          "bg-background/80 backdrop-blur-2xl backdrop-saturate-150 border border-border/50 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)] max-h-[80vh] flex flex-col",
           sizeClasses[size],
           className
         )}
