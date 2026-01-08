@@ -12,7 +12,6 @@ import { HudOverlay, HudSlot } from './HudOverlay';
 import { PixelInspectorDrawer } from './PixelInspectorDrawer';
 import { PaletteTray } from './PaletteTray';
 import { GlassPanel } from '@/components/ui/glass-panel';
-import { SidebarTrigger } from '@/components/ui/sidebar';
 import { WalletButton } from '@/components/wallet/WalletButton';
 import { WalletSelectModal } from '@/components/modals/WalletSelectModal';
 import { usePixelStore, pixelKey } from './hooks/usePixelStore';
@@ -546,11 +545,6 @@ export function BitplaceMap() {
 
         {/* HUD Overlay */}
         <HudOverlay>
-          <HudSlot position="top-left">
-            <GlassPanel padding="none" className="overflow-hidden">
-              <SidebarTrigger className="h-9 w-9" />
-            </GlassPanel>
-          </HudSlot>
           <HudSlot position="top-center">
             <MapToolbar mode={mode} onModeChange={setMode} />
           </HudSlot>
