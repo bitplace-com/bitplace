@@ -19,6 +19,7 @@ import { usePixelStore, pixelKey, parsePixelKey } from './hooks/usePixelStore';
 import { useSelection } from './hooks/useSelection';
 import { useMapState } from './hooks/useMapState';
 import { usePaintQueue } from './hooks/usePaintQueue';
+import { useDraftPaint } from './hooks/useDraftPaint';
 import { useBrushSelection, MAX_BRUSH_SELECTION } from './hooks/useBrushSelection';
 import { useSupabasePixels } from '@/hooks/useSupabasePixels';
 import { useGameActions, type GameMode } from '@/hooks/useGameActions';
@@ -53,8 +54,12 @@ export function BitplaceMap() {
   const { dbPixels, updateViewport } = useSupabasePixels(zoom);
   const { validate, commit, validationResult, invalidPixels, isValidating, isCommitting, clearValidation } = useGameActions();
   const { queue: paintQueue, queueSize, isSpacePainting, isFlushing, startSpacePaint, stopSpacePaint, addToQueue, flushQueue } = usePaintQueue(paintPixel, confirmPixel);
+  const { draft: draftPixels, draftCount, draftColor, isAtLimit: isDraftAtLimit, draftDirty, addToDraft, removeFromDraft, removeInvalidFromDraft, undoLast: undoDraft, clearDraft, getDraftPixels, setDraftDirty } = useDraftPaint();
   const { brushSelection, selectionCount, isSelectionAtLimit, hasShownLimitToast, startBrushSelection, addToBrushSelection, endBrushSelection, clearBrushSelection, getSelectedPixels: getBrushSelectedPixels, setFromRectSelection } = useBrushSelection();
   const { play: playSound } = useSound();
+
+  // Ref for last drafted pixel to prevent duplicates during hover-paint
+  const lastDraftedPixelRef = useRef<{ x: number; y: number } | null>(null);
 
   const pixels = useMemo(() => mergePixels(dbPixels), [mergePixels, dbPixels]);
 
@@ -169,13 +174,15 @@ export function BitplaceMap() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // ESC: cancel selection in any mode
       if (e.key === 'Escape') {
-        if (pendingPixels.length > 0 || brushSelection.pixels.size > 0) {
+        if (pendingPixels.length > 0 || brushSelection.pixels.size > 0 || draftCount > 0) {
           clearSelection();
           clearValidation();
           clearBrushSelection();
+          clearDraft();
           setPendingPixels([]);
           setPreviewHiddenPixels(new Set());
           setValidatedActionPixels(null);
+          lastDraftedPixelRef.current = null;
           playSound('pixel_deselect');
         }
         return;
@@ -199,7 +206,7 @@ export function BitplaceMap() {
             startBrushSelection(hoverPixel.x, hoverPixel.y);
           }
         } else {
-          // PAINT mode with brush: hover-paint mode
+          // PAINT mode with brush: DRAFT mode (no backend calls)
           if (interactionMode !== 'draw') {
             toast.info('Switch to Brush to paint');
             return;
@@ -208,11 +215,10 @@ export function BitplaceMap() {
           setIsSpaceHeld(true);
           map.dragPan.disable();
           map.getCanvas().style.cursor = 'crosshair';
-          startSpacePaint();
-          // Paint first pixel if hovering
+          // Add first pixel to draft if hovering
           if (hoverPixel && selectedColor !== null) {
-            addToQueue(hoverPixel.x, hoverPixel.y, selectedColor);
-            lastPaintedPixelRef.current = hoverPixel;
+            addToDraft(hoverPixel.x, hoverPixel.y, selectedColor);
+            lastDraftedPixelRef.current = hoverPixel;
           }
         }
       }
@@ -242,9 +248,9 @@ export function BitplaceMap() {
             setValidatedActionPixels(null);
           }
         } else {
-          // End hover-paint mode
-          stopSpacePaint();
-          lastPaintedPixelRef.current = null;
+          // End PAINT draft mode - no auto-commit, just end the SPACE mode
+          // Draft pixels remain and user must validate/confirm
+          lastDraftedPixelRef.current = null;
         }
         
         // Restore dragPan
@@ -270,8 +276,8 @@ export function BitplaceMap() {
     const handleBlur = () => {
       if (isSpaceHeld) {
         setIsSpaceHeld(false);
-        stopSpacePaint();
-        lastPaintedPixelRef.current = null;
+        // For PAINT mode, don't auto-commit on blur - keep draft
+        lastDraftedPixelRef.current = null;
         if (interactionMode === 'drag') {
           map.dragPan.enable();
         }
@@ -294,7 +300,7 @@ export function BitplaceMap() {
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [mapReady, mode, canPaint, user, isSpaceHeld, isShiftHeld, interactionMode, selection.isSelecting, endSelection, hoverPixel, selectedColor, addToQueue, startSpacePaint, stopSpacePaint, requireWallet, pendingPixels.length, clearSelection, clearValidation, playSound, paintTool, brushSelection.pixels.size, startBrushSelection, endBrushSelection, getBrushSelectedPixels, clearBrushSelection]);
+  }, [mapReady, mode, canPaint, user, isSpaceHeld, isShiftHeld, interactionMode, selection.isSelecting, endSelection, hoverPixel, selectedColor, addToDraft, requireWallet, pendingPixels.length, clearSelection, clearValidation, playSound, paintTool, brushSelection.pixels.size, startBrushSelection, endBrushSelection, getBrushSelectedPixels, clearBrushSelection, draftCount, clearDraft]);
 
   // Update dragPan when interaction mode changes
   useEffect(() => {
@@ -417,12 +423,12 @@ export function BitplaceMap() {
             hasShownLimitToast.current = true;
           }
         }
-        // SPACE held in PAINT mode with brush: hover-paint
+        // SPACE held in PAINT mode with brush: add to draft (no backend)
         else if (isSpaceHeld && mode === 'paint' && selectedColor !== null && user) {
-          const last = lastPaintedPixelRef.current;
+          const last = lastDraftedPixelRef.current;
           if (!last || last.x !== pixel.x || last.y !== pixel.y) {
-            addToQueue(pixel.x, pixel.y, selectedColor);
-            lastPaintedPixelRef.current = pixel;
+            addToDraft(pixel.x, pixel.y, selectedColor);
+            lastDraftedPixelRef.current = pixel;
           }
         }
         // Click+drag brush selection (isBrushSelectingRef)
@@ -437,9 +443,9 @@ export function BitplaceMap() {
         else if ((isShiftHeld || mode !== 'paint') && isDraggingRef.current && dragStartRef.current) {
           updateSelection(pixel.x, pixel.y);
         }
-        // DRAW mode continuous painting (skip if eraser, silent user check - modal shown on mousedown)
+        // DRAW mode continuous painting - add to draft (no backend)
         else if (interactionMode === 'draw' && isDrawingRef.current && mode === 'paint' && selectedColor !== null && user) {
-          addToQueue(pixel.x, pixel.y, selectedColor);
+          addToDraft(pixel.x, pixel.y, selectedColor);
         }
       } else { 
         setHoverPixel(null); 
@@ -505,13 +511,12 @@ export function BitplaceMap() {
         return;
       }
       
-      // DRAW mode in PAINT: start painting
+      // DRAW mode in PAINT: start drafting (no backend)
       if (interactionMode === 'draw' && mode === 'paint') {
-        // Brush mode: start painting
+        // Brush mode: start drafting
         if (!requireWallet('paint')) return;
         isDrawingRef.current = true;
-        startSpacePaint();
-        addToQueue(pixel.x, pixel.y, selectedColor!);
+        addToDraft(pixel.x, pixel.y, selectedColor!);
         return;
       }
       
@@ -523,10 +528,10 @@ export function BitplaceMap() {
     };
 
     const handleMapMouseUp = async (e: maplibregl.MapMouseEvent) => {
-      // End DRAW mode painting
+      // End DRAW mode drafting (no auto-commit for PAINT)
       if (isDrawingRef.current) {
         isDrawingRef.current = false;
-        stopSpacePaint();
+        // Draft pixels remain - user must validate/confirm
         return;
       }
       
@@ -613,7 +618,7 @@ export function BitplaceMap() {
       }
       if (isDrawingRef.current) {
         isDrawingRef.current = false;
-        stopSpacePaint();
+        // Draft pixels remain - no auto-commit
       }
     };
 
@@ -628,7 +633,7 @@ export function BitplaceMap() {
       map.off('mouseup', handleMapMouseUp);
       canvas.removeEventListener('mouseleave', handleMapMouseLeave);
     };
-  }, [mapReady, mode, selectedColor, interactionMode, isSpaceHeld, isShiftHeld, updateSelection, startSelection, endSelection, clearSelection, isEyedropperActive, handleEyedropperPick, addToQueue, startSpacePaint, stopSpacePaint, canPaint, user, executeSinglePixelAction, playSound, requireWallet]);
+  }, [mapReady, mode, selectedColor, interactionMode, isSpaceHeld, isShiftHeld, updateSelection, startSelection, endSelection, clearSelection, isEyedropperActive, handleEyedropperPick, addToDraft, canPaint, user, executeSinglePixelAction, playSound, requireWallet]);
 
   const handleZoomIn = useCallback(() => mapRef.current?.zoomIn(), []);
   const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), []);
@@ -730,6 +735,7 @@ export function BitplaceMap() {
             mode={(mode === 'paint' && selectedColor === null) ? 'ERASE' : getGameMode(mode)}
             brushSelectionPixels={brushSelection.pixels}
             previewHiddenPixels={previewHiddenPixels}
+            draftPixels={draftCount > 0 ? new Map(Array.from(draftPixels.entries()).map(([k, v]) => [k, { color: v.color }])) : undefined}
           />
         )}
 
@@ -778,16 +784,35 @@ export function BitplaceMap() {
           currentUserId={user?.id}
         />
 
-        {/* Inspector Panel - absolute positioned to not shift map */}
-        {canPaint && pendingPixels.length > 0 && (
+        {/* Inspector Panel for draft or pending pixels */}
+        {canPaint && (pendingPixels.length > 0 || draftCount > 0) && (
           <div className="absolute right-0 top-0 h-full z-20 pointer-events-none">
             <div className="pointer-events-auto h-full">
-              <InspectorPanel selectedPixels={pendingPixels} mode={(mode === 'paint' && selectedColor === null) ? 'ERASE' : getGameMode(mode)} selectedColor={selectedColor} currentUserId={user?.id} validationResult={validationResult} invalidPixels={invalidPixels} pePerPixel={pePerPixel} onPePerPixelChange={setPePerPixel} onColorSelect={setSelectedColor} onValidate={handleValidate} onConfirm={handleConfirm} onClearSelection={handleClearSelection} isValidating={isValidating} isCommitting={isCommitting} />
+              <InspectorPanel 
+                selectedPixels={draftCount > 0 ? getDraftPixels() : pendingPixels} 
+                mode={(mode === 'paint' && selectedColor === null) ? 'ERASE' : getGameMode(mode)} 
+                selectedColor={draftCount > 0 ? draftColor : selectedColor} 
+                currentUserId={user?.id} 
+                validationResult={validationResult} 
+                invalidPixels={invalidPixels} 
+                pePerPixel={pePerPixel} 
+                onPePerPixelChange={setPePerPixel} 
+                onColorSelect={setSelectedColor} 
+                onValidate={handleValidate} 
+                onConfirm={handleConfirm} 
+                onClearSelection={draftCount > 0 ? clearDraft : handleClearSelection} 
+                isValidating={isValidating} 
+                isCommitting={isCommitting}
+                isDraftMode={draftCount > 0}
+                draftCount={draftCount}
+                onUndoDraft={undoDraft}
+                onClearDraft={clearDraft}
+              />
             </div>
           </div>
         )}
       </div>
-      <StatusStrip userId={user?.id} paintQueueSize={queueSize} isSpacePainting={isSpacePainting || isDrawingRef.current} isFlushing={isFlushing} />
+      <StatusStrip userId={user?.id} paintQueueSize={queueSize} isSpacePainting={isSpacePainting || isDrawingRef.current} isFlushing={isFlushing} draftCount={draftCount} />
       
       {/* Wallet Connect Modal - triggered when trying to paint without connection */}
       <WalletSelectModal
