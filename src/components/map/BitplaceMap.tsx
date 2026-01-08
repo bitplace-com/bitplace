@@ -11,7 +11,8 @@ import { StatusStrip } from './StatusStrip';
 import { HudOverlay, HudSlot } from './HudOverlay';
 import { PixelInspectorDrawer } from './PixelInspectorDrawer';
 import { PaletteTray } from './PaletteTray';
-import { GlassPanel } from '@/components/ui/glass-panel';
+import { MapMenuDrawer } from './MapMenuDrawer';
+import { QuickActions } from './QuickActions';
 import { WalletButton } from '@/components/wallet/WalletButton';
 import { WalletSelectModal } from '@/components/modals/WalletSelectModal';
 import { usePixelStore, pixelKey } from './hooks/usePixelStore';
@@ -545,11 +546,17 @@ export function BitplaceMap() {
 
         {/* HUD Overlay */}
         <HudOverlay>
+          <HudSlot position="top-left">
+            <MapMenuDrawer />
+          </HudSlot>
           <HudSlot position="top-center">
             <MapToolbar mode={mode} onModeChange={setMode} />
           </HudSlot>
           <HudSlot position="top-right">
-            <WalletButton />
+            <div className="flex flex-col items-end gap-2">
+              <WalletButton />
+              <QuickActions />
+            </div>
           </HudSlot>
           <HudSlot position="bottom-right">
             <ZoomControls onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} artOpacity={artOpacity} onToggleArtOpacity={toggleArtOpacity} />

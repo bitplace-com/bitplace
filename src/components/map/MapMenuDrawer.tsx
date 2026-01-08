@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Menu, Map, Book, User, BarChart3 } from "lucide-react";
+import { Menu, Map, Book, User } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Sheet,
@@ -16,7 +16,6 @@ const navItems = [
   { path: "/", label: "Map", icon: Map },
   { path: "/rules", label: "Rules", icon: Book },
   { path: "/profile", label: "Profile", icon: User },
-  { path: "/leaderboard", label: "Leaderboard", icon: BarChart3 },
 ];
 
 export function MapMenuDrawer() {
