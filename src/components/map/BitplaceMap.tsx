@@ -143,13 +143,13 @@ export function BitplaceMap() {
     return () => { map.remove(); mapRef.current = null; };
   }, []);
 
-  // Listen for navigation events from SearchModal
+  // Listen for navigation events from SearchModal and StatusAlerts
   useEffect(() => {
     const handleNavigate = (e: Event) => {
-      const detail = (e as CustomEvent<{ lat: number; lng: number; zoom?: number }>).detail;
+      const detail = (e as CustomEvent<{ lat: number; lng: number; zoom?: number; pixelX?: number; pixelY?: number }>).detail;
       if (!mapRef.current || !detail) return;
       
-      const { lat, lng, zoom: targetZoom } = detail;
+      const { lat, lng, zoom: targetZoom, pixelX, pixelY } = detail;
       const finalZoom = targetZoom || Math.max(8, mapRef.current.getZoom());
       
       mapRef.current.flyTo({ 
@@ -160,10 +160,29 @@ export function BitplaceMap() {
       
       // Update URL
       setUrlPosition(lat, lng, finalZoom);
+      
+      // Open inspector after flyTo if pixel coords provided
+      if (pixelX !== undefined && pixelY !== undefined) {
+        setTimeout(() => {
+          setInspectedPixel({ x: pixelX, y: pixelY });
+        }, 2100); // After flyTo animation completes
+      }
+    };
+
+    // Listen for direct inspect events (from StatusAlerts jump)
+    const handleInspect = (e: Event) => {
+      const detail = (e as CustomEvent<{ x: number; y: number }>).detail;
+      if (detail) {
+        setInspectedPixel({ x: detail.x, y: detail.y });
+      }
     };
 
     window.addEventListener('bitplace:navigate', handleNavigate);
-    return () => window.removeEventListener('bitplace:navigate', handleNavigate);
+    window.addEventListener('bitplace:inspect', handleInspect);
+    return () => {
+      window.removeEventListener('bitplace:navigate', handleNavigate);
+      window.removeEventListener('bitplace:inspect', handleInspect);
+    };
   }, [setUrlPosition]);
 
   // SPACE key handling for hover-paint, SHIFT for selection, ESC to cancel

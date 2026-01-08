@@ -473,6 +473,31 @@ Deno.serve(async (req) => {
             });
           if (!error) affectedPixels++;
         }
+
+        // Notify pixel owner about defend/attack (only if not the owner themselves)
+        if (pixel.owner_user_id && pixel.owner_user_id !== userId) {
+          const notificationType = mode === "DEFEND" ? "PIXEL_DEFENDED" : "PIXEL_ATTACKED";
+          const notificationTitle = mode === "DEFEND" 
+            ? "Your pixel was defended!" 
+            : "Your pixel is under attack!";
+          const notificationBody = mode === "DEFEND"
+            ? `Someone added ${pePerPixel} PE defense to (${pixel.x}, ${pixel.y})`
+            : `Someone added ${pePerPixel} PE attack to (${pixel.x}, ${pixel.y})`;
+
+          await supabase.from("notifications").insert({
+            user_id: pixel.owner_user_id,
+            type: notificationType,
+            title: notificationTitle,
+            body: notificationBody,
+            meta: { 
+              pixel_x: pixel.x, 
+              pixel_y: pixel.y, 
+              actor_id: userId, 
+              amount: pePerPixel,
+              side 
+            }
+          });
+        }
       }
     } else if (mode === "PAINT") {
       for (const pixel of pixelStates) {
