@@ -273,15 +273,46 @@ export function BitplaceMap() {
     if (selectedPixels.length > 0) setPendingPixels(selectedPixels);
   }, [selection.bounds, getSelectedPixels]);
 
+  // Execute single-pixel erase with auto validate+commit
+  const executeErase = useCallback(async (x: number, y: number) => {
+    if (!requireWallet('erase')) return;
+    
+    // Validate the erase action
+    const result = await validate({ mode: 'ERASE', pixels: [{ x, y }] });
+    if (!result?.ok) {
+      if (result?.invalidPixels?.length) {
+        const reason = result.invalidPixels[0]?.reason;
+        if (reason === 'NOT_OWNER') {
+          toast.error('You can only erase your own pixels');
+        } else if (reason === 'EMPTY_PIXEL') {
+          toast.info('This pixel is already empty');
+        } else {
+          toast.error('Cannot erase this pixel');
+        }
+      }
+      return;
+    }
+    
+    // Commit the erase
+    const success = await commit({ 
+      mode: 'ERASE', 
+      pixels: [{ x, y }], 
+      snapshotHash: result.snapshotHash 
+    });
+    
+    if (success) {
+      refreshUser();
+      playSound('erase_success');
+    }
+  }, [requireWallet, validate, commit, refreshUser, playSound]);
+
   const executeSinglePixelAction = useCallback(async (x: number, y: number) => {
     // Auth check FIRST via requireWallet
     if (!requireWallet('paint')) return;
     
-    // Eraser mode: select pixel for ERASE action
+    // Eraser mode: execute erase directly (like PAINT with queue)
     if (selectedColor === null) {
-      setMode('paint'); // Ensure we're in paint mode for erase
-      startSelection(x, y);
-      setPendingPixels([{ x, y }]);
+      executeErase(x, y);
       return;
     }
     
@@ -294,7 +325,7 @@ export function BitplaceMap() {
     }
     startSelection(x, y);
     setPendingPixels([{ x, y }]);
-  }, [requireWallet, mode, selectedColor, addToQueue, flushQueue, getGameMode, startSelection, setMode]);
+  }, [requireWallet, mode, selectedColor, addToQueue, flushQueue, getGameMode, startSelection, executeErase]);
 
   // Eyedropper: pick color from pixel
   const handleEyedropperPick = useCallback((x: number, y: number) => {
