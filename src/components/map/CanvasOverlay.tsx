@@ -18,6 +18,8 @@ interface CanvasOverlayProps {
   invalidPixels?: InvalidPixel[];
   artOpacity?: number;
   mode?: GameMode;
+  brushSelectionPixels?: Set<string>;
+  previewHiddenPixels?: Set<string>;
 }
 
 // Mode-specific hover and selection colors
@@ -39,6 +41,8 @@ export function CanvasOverlay({
   invalidPixels = [],
   artOpacity = 1,
   mode = 'PAINT',
+  brushSelectionPixels,
+  previewHiddenPixels,
 }: CanvasOverlayProps) {
   const modeColors = getModeColors(mode);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -87,6 +91,9 @@ export function CanvasOverlay({
       const colorBatches = new Map<string, { x: number; y: number }[]>();
       
       pixels.forEach((data, key) => {
+        // Skip preview hidden pixels (erase preview)
+        if (previewHiddenPixels?.has(key)) return;
+        
         const { x, y } = parsePixelKey(key);
         
         // Quick bounds check with margin
@@ -149,6 +156,28 @@ export function CanvasOverlay({
           const ry = roundToDevicePixel(screenY, dpr);
           const rSize = Math.max(1, roundToDevicePixel(cellSize, dpr));
           
+          ctx.strokeRect(rx, ry, rSize, rSize);
+        });
+      }
+
+      // Draw brush selection highlights (Set-based selection)
+      if (brushSelectionPixels && brushSelectionPixels.size > 0 && cellSize > 1) {
+        ctx.fillStyle = mode === 'ERASE' ? 'rgba(248, 113, 113, 0.3)' : modeColors.fill;
+        ctx.strokeStyle = mode === 'ERASE' ? 'rgba(248, 113, 113, 0.8)' : modeColors.border;
+        ctx.lineWidth = 1;
+        
+        brushSelectionPixels.forEach(key => {
+          const [x, y] = key.split(':').map(Number);
+          if (x < topLeft.x - 1 || x > brGrid.x + 1) return;
+          if (y < topLeft.y - 1 || y > brGrid.y + 1) return;
+          
+          const screenX = (x - tlGrid.x) * cellSize;
+          const screenY = (y - tlGrid.y) * cellSize;
+          const rx = roundToDevicePixel(screenX, dpr);
+          const ry = roundToDevicePixel(screenY, dpr);
+          const rSize = Math.max(1, roundToDevicePixel(cellSize, dpr));
+          
+          ctx.fillRect(rx, ry, rSize, rSize);
           ctx.strokeRect(rx, ry, rSize, rSize);
         });
       }
@@ -234,7 +263,7 @@ export function CanvasOverlay({
         ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY + badgeHeight / 2);
       }
     }
-  }, [map, pixels, selection, hoverPixel, canPaint, invalidPixels, artOpacity, mode, modeColors]);
+  }, [map, pixels, selection, hoverPixel, canPaint, invalidPixels, artOpacity, mode, modeColors, brushSelectionPixels, previewHiddenPixels]);
 
   useEffect(() => {
     if (!map) return;
