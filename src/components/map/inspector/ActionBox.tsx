@@ -40,10 +40,11 @@ export function ActionBox({
   isCommitting,
 }: ActionBoxProps) {
   const config = modeConfig[mode];
-  const needsValidation = mode !== 'PAINT' || pixelCount > 1;
+  // ERASE always requires validation to confirm which pixels will be erased
+  const needsValidation = mode === 'ERASE' || mode !== 'PAINT' || pixelCount > 1;
   const isValidated = validationResult?.ok === true;
-  // For single-pixel PAINT, allow direct confirm without validation
-  const canConfirm = (isValidated || (!needsValidation && mode === 'PAINT')) && !isCommitting;
+  // ERASE and non-PAINT modes require validation before confirm
+  const canConfirm = isValidated && !isCommitting;
 
   // Extract breakdown for display
   const breakdown = validationResult?.breakdown;
