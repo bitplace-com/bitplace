@@ -53,12 +53,11 @@ export function WalletButton() {
     return (
       <Button
         onClick={handleSignIn}
-        variant="outline"
         size="sm"
-        className="gap-2 border-amber-500/50 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+        className="gap-2 rounded-xl shadow-md"
       >
         <Wallet className="h-4 w-4" />
-        Sign to Continue
+        Connect Wallet
       </Button>
     );
   }
