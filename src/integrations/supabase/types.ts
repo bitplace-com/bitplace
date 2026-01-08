@@ -370,6 +370,58 @@ export type Database = {
           },
         ]
       }
+      user_pins: {
+        Row: {
+          created_at: string | null
+          id: string
+          label: string
+          lat: number
+          lng: number
+          user_id: string
+          zoom: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          label: string
+          lat: number
+          lng: number
+          user_id: string
+          zoom?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          label?: string
+          lat?: number
+          lng?: number
+          user_id?: string
+          zoom?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_pins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_pixel_owner_info"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_pins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_pins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           alliance_tag: string | null

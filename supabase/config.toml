@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.contribution-withdraw]
 verify_jwt = false
+
+[functions.pins-manage]
+verify_jwt = false
