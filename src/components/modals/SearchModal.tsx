@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, MapPin, Clock, X, Navigation, Loader2 } from "lucide-react";
+import { Search, MapPin, Clock, X, Navigation, Loader2, Star, Pencil, Trash2 } from "lucide-react";
 import { GameModal } from "./GameModal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSearch, type PlaceResult, type RecentSearch } from "@/hooks/useSearch";
+import { usePinnedPlaces, type PinnedPlace } from "@/hooks/usePinnedPlaces";
 import { parseSearchInput, pixelToLngLat, formatCoords, formatPixel } from "@/lib/coordinates";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface SearchModalProps {
   open: boolean;
@@ -15,7 +18,10 @@ interface SearchModalProps {
 export function SearchModal({ open, onOpenChange }: SearchModalProps) {
   const [inputValue, setInputValue] = useState("");
   const [parsedType, setParsedType] = useState<string | null>(null);
+  const [editingPinId, setEditingPinId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const {
@@ -29,6 +35,15 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
     clearSearchResults,
   } = useSearch();
 
+  const {
+    pins: pinnedPlaces,
+    addPin,
+    removePin,
+    renamePin,
+    isPinned,
+    togglePin,
+  } = usePinnedPlaces();
+
   // Focus input when modal opens
   useEffect(() => {
     if (open) {
@@ -37,8 +52,16 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
       setInputValue("");
       clearSearchResults();
       setParsedType(null);
+      setEditingPinId(null);
     }
   }, [open, clearSearchResults]);
+
+  // Focus edit input when editing
+  useEffect(() => {
+    if (editingPinId) {
+      setTimeout(() => editInputRef.current?.focus(), 50);
+    }
+  }, [editingPinId]);
 
   // Parse input and trigger search with debounce
   useEffect(() => {
@@ -66,10 +89,10 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
   }, [inputValue, searchPlaces, clearSearchResults]);
 
   // Navigate to coordinates and dispatch event
-  const navigateTo = useCallback((lat: number, lng: number, displayName: string, type: 'latlng' | 'pixel' | 'place', query: string) => {
+  const navigateTo = useCallback((lat: number, lng: number, displayName: string, type: 'latlng' | 'pixel' | 'place', query: string, zoom?: number) => {
     // Dispatch navigation event
     window.dispatchEvent(new CustomEvent('bitplace:navigate', {
-      detail: { lat, lng, zoom: 12 }
+      detail: { lat, lng, zoom: zoom ?? 12 }
     }));
 
     // Add to recent searches
@@ -107,6 +130,49 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
     navigateTo(recent.lat, recent.lng, recent.displayName, recent.type, recent.query);
   }, [navigateTo]);
 
+  // Handle pinned place click
+  const handlePinnedClick = useCallback((pin: PinnedPlace) => {
+    navigateTo(pin.lat, pin.lng, pin.label, 'place', pin.label, pin.zoom);
+  }, [navigateTo]);
+
+  // Handle toggle pin from search results or recent
+  const handleTogglePin = useCallback(async (lat: number, lng: number, label: string) => {
+    const success = await togglePin({ lat, lng, label });
+    if (success) {
+      if (isPinned(lat, lng)) {
+        toast.success('Pin removed');
+      } else {
+        toast.success(`${label} pinned!`);
+      }
+    }
+  }, [togglePin, isPinned]);
+
+  // Handle start editing pin
+  const handleStartEdit = useCallback((pin: PinnedPlace) => {
+    setEditingPinId(pin.id);
+    setEditLabel(pin.label);
+  }, []);
+
+  // Handle save edit
+  const handleSaveEdit = useCallback(async () => {
+    if (!editingPinId || !editLabel.trim()) return;
+    
+    const success = await renamePin(editingPinId, editLabel.trim());
+    if (success) {
+      toast.success('Pin renamed');
+    }
+    setEditingPinId(null);
+    setEditLabel("");
+  }, [editingPinId, editLabel, renamePin]);
+
+  // Handle delete pin
+  const handleDeletePin = useCallback(async (pinId: string) => {
+    const success = await removePin(pinId);
+    if (success) {
+      toast.success('Pin removed');
+    }
+  }, [removePin]);
+
   // Handle Enter key
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -119,6 +185,16 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
     }
   }, [inputValue, handleJump, handlePlaceClick, searchResults]);
 
+  // Handle edit input key down
+  const handleEditKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      setEditingPinId(null);
+      setEditLabel("");
+    }
+  }, [handleSaveEdit]);
+
   const getTypeLabel = () => {
     switch (parsedType) {
       case 'latlng': return 'Coordinates';
@@ -129,6 +205,11 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
   };
 
   const canJump = parsedType === 'latlng' || parsedType === 'pixel';
+
+  // Filter recent searches to exclude already pinned locations
+  const filteredRecents = recentSearches.filter(
+    r => !isPinned(r.lat, r.lng)
+  );
 
   return (
     <GameModal
@@ -189,6 +270,72 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
           </div>
         )}
 
+        {/* Pinned places */}
+        {pinnedPlaces.length > 0 && !isSearching && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Pinned
+            </h4>
+            <ScrollArea className="max-h-32">
+              <div className="space-y-1">
+                {pinnedPlaces.map((pin) => (
+                  <div
+                    key={pin.id}
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group"
+                  >
+                    <Star className="h-4 w-4 text-primary fill-primary shrink-0" />
+                    
+                    {editingPinId === pin.id ? (
+                      <Input
+                        ref={editInputRef}
+                        value={editLabel}
+                        onChange={(e) => setEditLabel(e.target.value)}
+                        onKeyDown={handleEditKeyDown}
+                        onBlur={handleSaveEdit}
+                        className="h-7 text-sm flex-1"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => handlePinnedClick(pin)}
+                        className="text-sm truncate flex-1 text-left hover:text-primary transition-colors"
+                      >
+                        {pin.label}
+                      </button>
+                    )}
+                    
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => handleStartEdit(pin)}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                        onClick={() => handleDeletePin(pin.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => handlePinnedClick(pin)}
+                      >
+                        <Navigation className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+
         {/* Place results */}
         {!isSearching && searchResults.length > 0 && (
           <div className="space-y-2">
@@ -197,23 +344,44 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
             </h4>
             <ScrollArea className="max-h-48">
               <div className="space-y-1">
-                {searchResults.map((place, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handlePlaceClick(place)}
-                    className="w-full flex items-start gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors text-left"
-                  >
-                    <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                    <span className="text-sm line-clamp-2">{place.name}</span>
-                  </button>
-                ))}
+                {searchResults.map((place, i) => {
+                  const pinned = isPinned(place.lat, place.lng);
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group"
+                    >
+                      <MapPin className="h-4 w-4 text-primary shrink-0" />
+                      <button
+                        onClick={() => handlePlaceClick(place)}
+                        className="text-sm line-clamp-1 flex-1 text-left"
+                      >
+                        {place.name}
+                      </button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity",
+                          pinned && "opacity-100"
+                        )}
+                        onClick={() => handleTogglePin(place.lat, place.lng, place.name.split(',')[0])}
+                      >
+                        <Star className={cn(
+                          "h-3.5 w-3.5",
+                          pinned ? "fill-primary text-primary" : "text-muted-foreground"
+                        )} />
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             </ScrollArea>
           </div>
         )}
 
         {/* Recent searches */}
-        {recentSearches.length > 0 && !searchResults.length && !isSearching && (
+        {filteredRecents.length > 0 && !searchResults.length && !isSearching && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -230,18 +398,30 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
             </div>
             <ScrollArea className="max-h-40">
               <div className="space-y-1">
-                {recentSearches.map((recent) => (
-                  <button
+                {filteredRecents.map((recent) => (
+                  <div
                     key={recent.id}
-                    onClick={() => handleRecentClick(recent)}
-                    className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors text-left"
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group"
                   >
                     <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="text-sm truncate flex-1">{recent.query}</span>
+                    <button
+                      onClick={() => handleRecentClick(recent)}
+                      className="text-sm truncate flex-1 text-left"
+                    >
+                      {recent.query}
+                    </button>
                     <span className="text-xs text-muted-foreground capitalize">
                       {recent.type}
                     </span>
-                  </button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => handleTogglePin(recent.lat, recent.lng, recent.displayName)}
+                    >
+                      <Star className="h-3.5 w-3.5 text-muted-foreground" />
+                    </Button>
+                  </div>
                 ))}
               </div>
             </ScrollArea>
@@ -249,7 +429,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
         )}
 
         {/* Empty state */}
-        {!parsedType && !searchResults.length && !recentSearches.length && !isSearching && (
+        {!parsedType && !searchResults.length && !pinnedPlaces.length && !filteredRecents.length && !isSearching && (
           <div className="text-center py-6 text-muted-foreground">
             <Search className="h-8 w-8 mx-auto mb-2 opacity-40" />
             <p className="text-sm">Enter coordinates or a place name</p>
