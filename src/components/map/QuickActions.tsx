@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Trophy } from 'lucide-react';
+import { Globe, BarChart3 } from 'lucide-react';
 import { GlassIconButton } from '@/components/ui/glass-icon-button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { SearchModal } from '@/components/modals/SearchModal';
@@ -18,10 +18,10 @@ export function QuickActions() {
               onClick={() => setSearchOpen(true)}
               aria-label="Search location"
             >
-              <Search className="h-4 w-4" />
+              <Globe className="h-4 w-4" />
             </GlassIconButton>
           </TooltipTrigger>
-          <TooltipContent side="left">Search location</TooltipContent>
+          <TooltipContent side="right">Search location</TooltipContent>
         </Tooltip>
 
         <Tooltip>
@@ -30,10 +30,10 @@ export function QuickActions() {
               onClick={() => setLeaderboardOpen(true)}
               aria-label="Leaderboard"
             >
-              <Trophy className="h-4 w-4" />
+              <BarChart3 className="h-4 w-4" />
             </GlassIconButton>
           </TooltipTrigger>
-          <TooltipContent side="left">Leaderboard</TooltipContent>
+          <TooltipContent side="right">Leaderboard</TooltipContent>
         </Tooltip>
       </div>
 

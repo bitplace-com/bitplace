@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Menu, Map, Book, User } from "lucide-react";
+import { Menu, Map, Book, User, Settings, Moon, Sun } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useTheme } from "next-themes";
 import {
   Sheet,
   SheetContent,
@@ -22,10 +23,16 @@ export function MapMenuDrawer() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { theme, setTheme } = useTheme();
+  const isDark = theme === "dark";
 
   const handleNavigate = (path: string) => {
     navigate(path);
     setOpen(false);
+  };
+
+  const toggleTheme = () => {
+    setTheme(isDark ? "light" : "dark");
   };
 
   return (
@@ -37,14 +44,15 @@ export function MapMenuDrawer() {
       </SheetTrigger>
       <SheetContent
         side="left"
-        className="w-72"
+        className="w-72 flex flex-col"
+        hideOverlay
       >
         <SheetHeader className="text-left">
           <SheetTitle className="text-lg font-semibold text-foreground">
             Bitplace
           </SheetTitle>
         </SheetHeader>
-        <nav className="mt-6 space-y-1">
+        <nav className="mt-6 space-y-1 flex-1">
           {navItems.map(({ path, label, icon: Icon }) => {
             const isActive = location.pathname === path;
             return (
@@ -63,6 +71,27 @@ export function MapMenuDrawer() {
             );
           })}
         </nav>
+
+        {/* Footer con Settings e Theme Toggle */}
+        <div className="flex flex-col gap-1 mt-auto pt-4 border-t border-white/10">
+          <Button
+            variant="ghost"
+            onClick={() => {/* placeholder per settings */}}
+            className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-white/8"
+          >
+            <Settings className="h-5 w-5" />
+            Settings
+          </Button>
+          
+          <Button
+            variant="ghost"
+            onClick={toggleTheme}
+            className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-white/8"
+          >
+            {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            {isDark ? "Day Mode" : "Night Mode"}
+          </Button>
+        </div>
       </SheetContent>
     </Sheet>
   );
