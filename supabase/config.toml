@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.notifications-manage]
 verify_jwt = false
+
+[functions.contribution-withdraw]
+verify_jwt = false

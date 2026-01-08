@@ -35,6 +35,12 @@ function calculateMultiplierAtTime(startedAt: Date, endsAt: Date, targetMultipli
   return 1 - (1 - targetMultiplier) * (elapsed / totalDuration);
 }
 
+export interface MyContribution {
+  side: 'DEF' | 'ATK';
+  amount_pe: number;
+  contributionId: number;
+}
+
 export interface PixelDetails {
   x: number;
   y: number;
@@ -56,9 +62,10 @@ export interface PixelDetails {
   vFloorNext6h: number | null;
   thresholdWithFloor: number;
   isFloorBased: boolean;
+  myContribution: MyContribution | null;
 }
 
-export function usePixelDetails(x: number | null, y: number | null) {
+export function usePixelDetails(x: number | null, y: number | null, currentUserId?: string) {
   const [pixel, setPixel] = useState<PixelDetails | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -76,7 +83,7 @@ export function usePixelDetails(x: number | null, y: number | null) {
         .maybeSingle();
 
       if (!pixelData) {
-        setPixel({ x, y, color: null, owner: null, owner_stake_pe: 0, defTotal: 0, atkTotal: 0, vNow: 0, threshold: 1, defenders: [], attackers: [], ownerHealthMultiplier: 1, ownerRebalanceActive: false, ownerRebalanceEndsAt: null, effectiveOwnerStake: 0, nextTickTime: null, multiplierAtNextTick: 1, vFloorNext6h: null, thresholdWithFloor: 1, isFloorBased: false });
+        setPixel({ x, y, color: null, owner: null, owner_stake_pe: 0, defTotal: 0, atkTotal: 0, vNow: 0, threshold: 1, defenders: [], attackers: [], ownerHealthMultiplier: 1, ownerRebalanceActive: false, ownerRebalanceEndsAt: null, effectiveOwnerStake: 0, nextTickTime: null, multiplierAtNextTick: 1, vFloorNext6h: null, thresholdWithFloor: 1, isFloorBased: false, myContribution: null });
         setIsLoading(false);
         return;
       }
@@ -123,7 +130,7 @@ export function usePixelDetails(x: number | null, y: number | null) {
         }
       }
 
-      const { data: contributions } = await supabase.from('pixel_contributions').select('user_id, amount_pe, side').eq('pixel_id', pixelData.id);
+      const { data: contributions } = await supabase.from('pixel_contributions').select('id, user_id, amount_pe, side').eq('pixel_id', pixelData.id);
       const userIds = [...new Set(contributions?.map(c => c.user_id) || [])];
       let userMap: Record<string, string | null> = {};
       if (userIds.length > 0) {
@@ -135,10 +142,21 @@ export function usePixelDetails(x: number | null, y: number | null) {
       // Fetch contribution details for display (list of defenders/attackers)
       // Totals come from denormalized columns, not summed here
       const defenders: Contribution[] = [], attackers: Contribution[] = [];
+      let myContribution: MyContribution | null = null;
+      
       contributions?.forEach(c => {
         const contribution = { user_id: c.user_id, display_name: userMap[c.user_id] || null, amount_pe: Number(c.amount_pe) };
         if (c.side === 'DEF') { defenders.push(contribution); }
         else if (c.side === 'ATK') { attackers.push(contribution); }
+        
+        // Check if this is the current user's contribution
+        if (currentUserId && c.user_id === currentUserId && Number(c.amount_pe) > 0) {
+          myContribution = {
+            side: c.side as 'DEF' | 'ATK',
+            amount_pe: Number(c.amount_pe),
+            contributionId: c.id,
+          };
+        }
       });
 
       const ownerStake = Number(pixelData.owner_stake_pe);
@@ -158,7 +176,7 @@ export function usePixelDetails(x: number | null, y: number | null) {
         isFloorBased = true;
       }
 
-      setPixel({ x, y, color: pixelData.color, owner, owner_stake_pe: ownerStake, defTotal, atkTotal, vNow, threshold: Math.max(0, vNow) + 1, defenders, attackers, ownerHealthMultiplier: healthMultiplier, ownerRebalanceActive: rebalanceActive, ownerRebalanceEndsAt: owner?.rebalance_ends_at ? new Date(owner.rebalance_ends_at) : null, effectiveOwnerStake, nextTickTime, multiplierAtNextTick, vFloorNext6h, thresholdWithFloor, isFloorBased });
+      setPixel({ x, y, color: pixelData.color, owner, owner_stake_pe: ownerStake, defTotal, atkTotal, vNow, threshold: Math.max(0, vNow) + 1, defenders, attackers, ownerHealthMultiplier: healthMultiplier, ownerRebalanceActive: rebalanceActive, ownerRebalanceEndsAt: owner?.rebalance_ends_at ? new Date(owner.rebalance_ends_at) : null, effectiveOwnerStake, nextTickTime, multiplierAtNextTick, vFloorNext6h, thresholdWithFloor, isFloorBased, myContribution });
     } catch (error) {
       console.error('Error fetching pixel details:', error);
       // Return safe defaults on error instead of null - prevents UI crashes
@@ -183,11 +201,12 @@ export function usePixelDetails(x: number | null, y: number | null) {
         vFloorNext6h: null,
         thresholdWithFloor: 1,
         isFloorBased: false,
+        myContribution: null,
       });
     } finally {
       setIsLoading(false);
     }
-  }, [x, y]);
+  }, [x, y, currentUserId]);
 
   useEffect(() => { fetchPixelDetails(); }, [fetchPixelDetails]);
   return { pixel, isLoading, refetch: fetchPixelDetails };
