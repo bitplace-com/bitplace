@@ -547,16 +547,16 @@ export function BitplaceMap() {
         {/* HUD Overlay */}
         <HudOverlay>
           <HudSlot position="top-left">
-            <MapMenuDrawer />
+            <div className="flex flex-col gap-2">
+              <MapMenuDrawer />
+              <QuickActions />
+            </div>
           </HudSlot>
           <HudSlot position="top-center">
             <MapToolbar mode={mode} onModeChange={setMode} />
           </HudSlot>
           <HudSlot position="top-right">
-            <div className="flex flex-col items-end gap-2">
-              <WalletButton />
-              <QuickActions />
-            </div>
+            <WalletButton />
           </HudSlot>
           <HudSlot position="bottom-right">
             <ZoomControls onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} artOpacity={artOpacity} onToggleArtOpacity={toggleArtOpacity} />
