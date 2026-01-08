@@ -224,7 +224,7 @@ export function LeaderboardModal({ open, onOpenChange }: LeaderboardModalProps) 
       onOpenChange={onOpenChange}
       title="Leaderboard"
       icon={<Trophy className="h-5 w-5" />}
-      className="max-w-lg"
+      size="lg"
     >
       <Tabs
         value={scope}

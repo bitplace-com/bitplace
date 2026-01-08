@@ -14,6 +14,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
       title="Game Rules"
       description="How to play Bitplace"
       icon={<Book className="h-5 w-5" />}
+      size="lg"
     >
       <div className="space-y-4 text-sm text-foreground/80">
         <div className="flex items-start gap-3">

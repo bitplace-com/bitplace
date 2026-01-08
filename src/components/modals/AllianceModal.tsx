@@ -133,6 +133,7 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
         title="Alliances"
         description="Join forces with other players"
         icon={<Users className="h-5 w-5" />}
+        size="md"
       >
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -150,6 +151,7 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
         title="Alliances"
         description="Join forces with other players"
         icon={<Users className="h-5 w-5" />}
+        size="md"
       >
         <div className="space-y-6">
           {/* Join Section */}
@@ -225,6 +227,7 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
       title="My Alliance"
       description="You're part of an alliance"
       icon={<Users className="h-5 w-5" />}
+      size="md"
     >
       <div className="space-y-4">
         {/* Alliance Info */}
