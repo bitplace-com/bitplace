@@ -52,6 +52,14 @@
     --gray-2: 0 0% 94%;                  /* #F0F0F0 */
     --gray-3: 0 0% 90%;                  /* #E5E5E5 */
     --gray-4: 0 0% 85%;                  /* #D9D9D9 */
+    
+    /* HUD Surface Tokens - optimized for map overlay readability */
+    --hud-bg: rgba(255, 255, 255, 0.78);
+    --hud-bg-strong: rgba(255, 255, 255, 0.90);
+    --hud-border: rgba(0, 0, 0, 0.14);
+    --hud-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+    --hud-text: #111111;
+    --hud-text-muted: rgba(0, 0, 0, 0.55);
   }
 
   /* DARK THEME */
@@ -99,6 +107,14 @@
     --gray-2: 0 0% 10%;                  /* #1A1A1A */
     --gray-3: 0 0% 16%;                  /* #2A2A2A */
     --gray-4: 0 0% 23%;                  /* #3A3A3A */
+    
+    /* HUD Surface Tokens - optimized for map overlay readability */
+    --hud-bg: rgba(20, 20, 20, 0.70);
+    --hud-bg-strong: rgba(20, 20, 20, 0.82);
+    --hud-border: rgba(255, 255, 255, 0.14);
+    --hud-shadow: 0 10px 30px rgba(0, 0, 0, 0.50);
+    --hud-text: #F5F5F5;
+    --hud-text-muted: rgba(255, 255, 255, 0.55);
   }
 }
 
@@ -148,6 +164,23 @@
   background: rgba(255, 255, 255, 0.10);
   border: 1px solid rgba(255, 255, 255, 0.22);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* HUD Glass - optimized for floating overlays on map */
+.glass-hud {
+  backdrop-filter: blur(14px) saturate(140%);
+  background: var(--hud-bg);
+  border: 1px solid var(--hud-border);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-text);
+}
+
+.glass-hud-strong {
+  backdrop-filter: blur(14px) saturate(140%);
+  background: var(--hud-bg-strong);
+  border: 1px solid var(--hud-border);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-text);
 }
 
 /* Typography Scale */

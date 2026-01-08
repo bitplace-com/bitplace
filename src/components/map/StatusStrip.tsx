@@ -41,8 +41,8 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
 
   if (!userId) {
     return (
-      <div className="h-11 glass flex items-center justify-center px-4 border-t-0 rounded-none">
-        <span className="text-sm text-muted-foreground">Connect wallet to see PE balance</span>
+      <div className="h-11 glass-hud flex items-center justify-center px-4 border-t-0 rounded-none">
+        <span className="text-sm text-[var(--hud-text-muted)]">Connect wallet to see PE balance</span>
       </div>
     );
   }
@@ -54,7 +54,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
 
   return (
     <TooltipProvider>
-      <div className="h-11 glass flex items-center justify-between px-4 border-t-0 rounded-none">
+      <div className="h-11 glass-hud flex items-center justify-between px-4 border-t-0 rounded-none">
         {/* Left side - SOL Balance & Cluster */}
         <div className="flex items-center gap-4">
           {/* Sign-in required pill */}
