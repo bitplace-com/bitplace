@@ -18,7 +18,7 @@ const modes: { value: MapMode; icon: React.ReactNode; label: string; hint: strin
 
 export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
   return (
-    <GlassPanel padding="sm" className="shadow-lg">
+    <GlassPanel variant="hud" padding="sm" className="shadow-lg">
       <ToggleGroup
         type="single"
         value={mode}
@@ -31,7 +31,7 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
               <ToggleGroupItem
                 value={value}
                 aria-label={label}
-                className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-200 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-md hover:bg-accent"
+                className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10 data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-md"
               >
                 {icon}
                 <span className="text-sm font-medium hidden sm:inline">{label}</span>
