@@ -169,8 +169,16 @@ export function ActionBox({
               )}
             </>
           ) : mode === 'ERASE' ? (
-            <div className="text-muted-foreground">
-              Erasing <span className="text-amber-400 font-medium">{breakdown.ownedByUser}</span> owned pixel(s). PE will be refunded.
+            <div className="space-y-1">
+              <div className="text-muted-foreground">
+                Erasing <span className="text-amber-400 font-medium">{breakdown.ownedByUser}</span> owned pixel(s).
+              </div>
+              {validationResult?.unlockPeTotal !== undefined && validationResult.unlockPeTotal > 0 && (
+                <div className="flex justify-between text-emerald-400">
+                  <span>PE Refund:</span>
+                  <span className="font-bold">+{validationResult.unlockPeTotal.toLocaleString()} PE</span>
+                </div>
+              )}
             </div>
           ) : mode === 'DEFEND' ? (
             <div className="text-muted-foreground">

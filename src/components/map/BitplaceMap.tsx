@@ -15,10 +15,11 @@ import { MapMenuDrawer } from './MapMenuDrawer';
 import { QuickActions } from './QuickActions';
 import { WalletButton } from '@/components/wallet/WalletButton';
 import { WalletSelectModal } from '@/components/modals/WalletSelectModal';
-import { usePixelStore, pixelKey } from './hooks/usePixelStore';
+import { usePixelStore, pixelKey, parsePixelKey } from './hooks/usePixelStore';
 import { useSelection } from './hooks/useSelection';
 import { useMapState } from './hooks/useMapState';
 import { usePaintQueue } from './hooks/usePaintQueue';
+import { useBrushSelection, MAX_BRUSH_SELECTION } from './hooks/useBrushSelection';
 import { useSupabasePixels } from '@/hooks/useSupabasePixels';
 import { useGameActions, type GameMode } from '@/hooks/useGameActions';
 import { useWallet } from '@/contexts/WalletContext';
@@ -40,6 +41,8 @@ export function BitplaceMap() {
   
   const [pendingPixels, setPendingPixels] = useState<{ x: number; y: number }[]>([]);
   const [pePerPixel, setPePerPixel] = useState(1);
+  const [previewHiddenPixels, setPreviewHiddenPixels] = useState<Set<string>>(new Set());
+  const [validatedActionPixels, setValidatedActionPixels] = useState<Set<string> | null>(null);
   
   const { user, refreshUser, connect, isConnecting } = useWallet();
   const { isWalletModalOpen, setWalletModalOpen, requireWallet } = useWalletGate();
@@ -50,12 +53,14 @@ export function BitplaceMap() {
   const { dbPixels, updateViewport } = useSupabasePixels(zoom);
   const { validate, commit, validationResult, invalidPixels, isValidating, isCommitting, clearValidation } = useGameActions();
   const { queue: paintQueue, queueSize, isSpacePainting, isFlushing, startSpacePaint, stopSpacePaint, addToQueue, flushQueue } = usePaintQueue(paintPixel, confirmPixel);
+  const { brushSelection, selectionCount, isSelectionAtLimit, hasShownLimitToast, startBrushSelection, addToBrushSelection, endBrushSelection, clearBrushSelection, getSelectedPixels: getBrushSelectedPixels, setFromRectSelection } = useBrushSelection();
   const { play: playSound } = useSound();
 
   const pixels = useMemo(() => mergePixels(dbPixels), [mergePixels, dbPixels]);
 
   const isDraggingRef = useRef(false);
   const isDrawingRef = useRef(false);
+  const isBrushSelectingRef = useRef(false);
   const dragStartRef = useRef<{ x: number; y: number; screenX: number; screenY: number } | null>(null);
   const setZoomRef = useRef(setZoom);
   const updateViewportRef = useRef(updateViewport);
@@ -164,33 +169,51 @@ export function BitplaceMap() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // ESC: cancel selection in any mode
       if (e.key === 'Escape') {
-        if (pendingPixels.length > 0) {
+        if (pendingPixels.length > 0 || brushSelection.pixels.size > 0) {
           clearSelection();
           clearValidation();
+          clearBrushSelection();
           setPendingPixels([]);
+          setPreviewHiddenPixels(new Set());
+          setValidatedActionPixels(null);
           playSound('pixel_deselect');
         }
         return;
       }
       
-      // SPACE: enable hover-paint mode (Paint mode only, Brush mode only)
-      if (e.code === 'Space' && mode === 'paint' && canPaint && !isSpaceHeld) {
+      // SPACE handling depends on mode
+      if (e.code === 'Space' && canPaint && !isSpaceHeld) {
         e.preventDefault();
-        // Only allow SPACE paint in Brush (draw) mode
-        if (interactionMode !== 'draw') {
-          toast.info('Switch to Brush to paint');
-          return;
-        }
-        // Gate behind wallet connection
-        if (!requireWallet('paint')) return;
-        setIsSpaceHeld(true);
-        map.dragPan.disable();
-        map.getCanvas().style.cursor = 'crosshair';
-        startSpacePaint();
-        // Paint first pixel if hovering (only if not eraser)
-        if (hoverPixel && selectedColor !== null) {
-          addToQueue(hoverPixel.x, hoverPixel.y, selectedColor);
-          lastPaintedPixelRef.current = hoverPixel;
+        
+        // In non-PAINT modes OR ERASER tool: SPACE enables brush selection
+        const isNonPaintAction = mode !== 'paint' || paintTool === 'ERASER';
+        
+        if (isNonPaintAction) {
+          // Brush selection mode for ERASE/DEFEND/ATTACK/REINFORCE
+          if (!requireWallet('interact')) return;
+          setIsSpaceHeld(true);
+          map.dragPan.disable();
+          map.getCanvas().style.cursor = 'crosshair';
+          // Start brush selection at current hover
+          if (hoverPixel) {
+            startBrushSelection(hoverPixel.x, hoverPixel.y);
+          }
+        } else {
+          // PAINT mode with brush: hover-paint mode
+          if (interactionMode !== 'draw') {
+            toast.info('Switch to Brush to paint');
+            return;
+          }
+          if (!requireWallet('paint')) return;
+          setIsSpaceHeld(true);
+          map.dragPan.disable();
+          map.getCanvas().style.cursor = 'crosshair';
+          startSpacePaint();
+          // Paint first pixel if hovering
+          if (hoverPixel && selectedColor !== null) {
+            addToQueue(hoverPixel.x, hoverPixel.y, selectedColor);
+            lastPaintedPixelRef.current = hoverPixel;
+          }
         }
       }
       // SHIFT: enable selection mode
@@ -200,11 +223,30 @@ export function BitplaceMap() {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      // SPACE release: end hover-paint
+      // SPACE release
       if (e.code === 'Space' && isSpaceHeld) {
         setIsSpaceHeld(false);
-        stopSpacePaint();
-        lastPaintedPixelRef.current = null;
+        
+        // Check if we were in brush selection mode (non-PAINT or ERASER)
+        const isNonPaintAction = mode !== 'paint' || paintTool === 'ERASER';
+        
+        if (isNonPaintAction) {
+          // End brush selection and update pendingPixels
+          endBrushSelection();
+          const selectedPixels = getBrushSelectedPixels();
+          if (selectedPixels.length > 0) {
+            setPendingPixels(selectedPixels);
+            // Clear any previous validation since selection changed
+            clearValidation();
+            setPreviewHiddenPixels(new Set());
+            setValidatedActionPixels(null);
+          }
+        } else {
+          // End hover-paint mode
+          stopSpacePaint();
+          lastPaintedPixelRef.current = null;
+        }
+        
         // Restore dragPan
         if (interactionMode === 'drag') {
           map.dragPan.enable();
@@ -252,7 +294,7 @@ export function BitplaceMap() {
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [mapReady, mode, canPaint, user, isSpaceHeld, isShiftHeld, interactionMode, selection.isSelecting, endSelection, hoverPixel, selectedColor, addToQueue, startSpacePaint, stopSpacePaint, requireWallet, pendingPixels.length, clearSelection, clearValidation, playSound]);
+  }, [mapReady, mode, canPaint, user, isSpaceHeld, isShiftHeld, interactionMode, selection.isSelecting, endSelection, hoverPixel, selectedColor, addToQueue, startSpacePaint, stopSpacePaint, requireWallet, pendingPixels.length, clearSelection, clearValidation, playSound, paintTool, brushSelection.pixels.size, startBrushSelection, endBrushSelection, getBrushSelectedPixels, clearBrushSelection]);
 
   // Update dragPan when interaction mode changes
   useEffect(() => {
@@ -364,15 +406,34 @@ export function BitplaceMap() {
         const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
         setHoverPixel(pixel);
         
-        // SPACE held: hover-paint mode (skip if eraser, silent user check - modal shown on keydown)
-        if (isSpaceHeld && mode === 'paint' && selectedColor !== null && user) {
+        // Check if in non-PAINT action mode or ERASER
+        const isNonPaintAction = mode !== 'paint' || paintTool === 'ERASER';
+        
+        // SPACE held in non-PAINT or ERASER mode: brush selection
+        if (isSpaceHeld && isNonPaintAction && user) {
+          const { atLimit } = addToBrushSelection(pixel.x, pixel.y);
+          if (atLimit && !hasShownLimitToast.current) {
+            toast.warning(`Selection limit: ${MAX_BRUSH_SELECTION.toLocaleString()} pixels`);
+            hasShownLimitToast.current = true;
+          }
+        }
+        // SPACE held in PAINT mode with brush: hover-paint
+        else if (isSpaceHeld && mode === 'paint' && selectedColor !== null && user) {
           const last = lastPaintedPixelRef.current;
           if (!last || last.x !== pixel.x || last.y !== pixel.y) {
             addToQueue(pixel.x, pixel.y, selectedColor);
             lastPaintedPixelRef.current = pixel;
           }
         }
-        // SHIFT held or non-PAINT mode dragging: update selection
+        // Click+drag brush selection (isBrushSelectingRef)
+        else if (isBrushSelectingRef.current && isNonPaintAction) {
+          const { atLimit } = addToBrushSelection(pixel.x, pixel.y);
+          if (atLimit && !hasShownLimitToast.current) {
+            toast.warning(`Selection limit: ${MAX_BRUSH_SELECTION.toLocaleString()} pixels`);
+            hasShownLimitToast.current = true;
+          }
+        }
+        // SHIFT held or non-PAINT mode dragging: update rect selection
         else if ((isShiftHeld || mode !== 'paint') && isDraggingRef.current && dragStartRef.current) {
           updateSelection(pixel.x, pixel.y);
         }
@@ -397,38 +458,60 @@ export function BitplaceMap() {
       
       const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
       
-      // SHIFT held or non-PAINT mode: start area selection (DEFEND/ATTACK/REINFORCE)
-      if (isShiftHeld || mode !== 'paint') {
-        // Gate behind wallet for non-paint modes
+      // Check if in non-PAINT action mode or ERASER
+      const isNonPaintAction = mode !== 'paint' || paintTool === 'ERASER';
+      
+      // SHIFT held: start rect area selection
+      if (isShiftHeld) {
         if (mode !== 'paint' && !requireWallet('interact')) return;
         isDraggingRef.current = true;
         dragStartRef.current = { x: pixel.x, y: pixel.y, screenX: e.point.x, screenY: e.point.y };
         map.dragPan.disable();
-        clearValidation(); // Clear previous validation on new selection
+        clearValidation();
+        setPreviewHiddenPixels(new Set());
+        setValidatedActionPixels(null);
         startSelection(pixel.x, pixel.y);
         return;
       }
       
-      // SPACE held: already in hover-paint, ignore mousedown
+      // Non-PAINT mode (DEFEND/ATTACK/REINFORCE) or ERASER: start brush selection on click+drag
+      if (isNonPaintAction && interactionMode === 'draw') {
+        if (!requireWallet('interact')) return;
+        isBrushSelectingRef.current = true;
+        map.dragPan.disable();
+        clearValidation();
+        setPreviewHiddenPixels(new Set());
+        setValidatedActionPixels(null);
+        clearBrushSelection();
+        startBrushSelection(pixel.x, pixel.y);
+        return;
+      }
+      
+      // Non-PAINT mode with DRAG interaction: start rect selection
+      if (mode !== 'paint') {
+        if (!requireWallet('interact')) return;
+        isDraggingRef.current = true;
+        dragStartRef.current = { x: pixel.x, y: pixel.y, screenX: e.point.x, screenY: e.point.y };
+        map.dragPan.disable();
+        clearValidation();
+        setPreviewHiddenPixels(new Set());
+        setValidatedActionPixels(null);
+        startSelection(pixel.x, pixel.y);
+        return;
+      }
+      
+      // SPACE held: already in hover-paint or brush selection, ignore mousedown
       if (isSpaceHeld) {
         return;
       }
       
-      // DRAW mode: start painting or erasing
+      // DRAW mode in PAINT: start painting
       if (interactionMode === 'draw' && mode === 'paint') {
-        if (paintTool === 'ERASER' || selectedColor === null) {
-          // Eraser mode in DRAW: select for validate/confirm
-          if (!requireWallet('erase')) return;
-          startSelection(pixel.x, pixel.y);
-          setPendingPixels([{ x: pixel.x, y: pixel.y }]);
-          playSound('pixel_select');
-          return;
-        }
         // Brush mode: start painting
         if (!requireWallet('paint')) return;
         isDrawingRef.current = true;
-        startSpacePaint(); // Use paint queue
-        addToQueue(pixel.x, pixel.y, selectedColor);
+        startSpacePaint();
+        addToQueue(pixel.x, pixel.y, selectedColor!);
         return;
       }
       
@@ -447,7 +530,20 @@ export function BitplaceMap() {
         return;
       }
       
-      // End SHIFT area selection or non-PAINT mode selection
+      // End brush selection (click+drag in action modes)
+      if (isBrushSelectingRef.current) {
+        isBrushSelectingRef.current = false;
+        endBrushSelection();
+        const selectedPixels = getBrushSelectedPixels();
+        if (selectedPixels.length > 0) {
+          setPendingPixels(selectedPixels);
+          playSound('pixel_select');
+        }
+        map.dragPan.enable();
+        return;
+      }
+      
+      // End SHIFT area selection or non-PAINT mode rect selection
       if ((isShiftHeld || mode !== 'paint') && isDraggingRef.current) {
         const dragDistance = dragStartRef.current ? Math.sqrt(
           Math.pow(e.point.x - dragStartRef.current.screenX, 2) + 
@@ -623,7 +719,18 @@ export function BitplaceMap() {
         <div ref={containerRef} className="absolute inset-0" />
 
         {mapReady && (
-          <CanvasOverlay map={mapRef.current} pixels={pixels} selection={selection} hoverPixel={hoverPixel} canPaint={canPaint} invalidPixels={invalidPixels} artOpacity={artOpacity} mode={getGameMode(mode)} />
+          <CanvasOverlay 
+            map={mapRef.current} 
+            pixels={pixels} 
+            selection={selection} 
+            hoverPixel={hoverPixel} 
+            canPaint={canPaint} 
+            invalidPixels={invalidPixels} 
+            artOpacity={artOpacity} 
+            mode={(mode === 'paint' && selectedColor === null) ? 'ERASE' : getGameMode(mode)}
+            brushSelectionPixels={brushSelection.pixels}
+            previewHiddenPixels={previewHiddenPixels}
+          />
         )}
 
         {/* HUD Overlay */}

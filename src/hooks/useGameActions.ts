@@ -28,6 +28,7 @@ export interface ValidateResult {
   invalidPixels: InvalidPixel[];
   breakdown: Breakdown;
   availablePe: number;
+  unlockPeTotal?: number; // For ERASE mode - sum of owner_stake_pe being refunded
   error?: string;
   message?: string;
   contributionsPurged?: boolean;

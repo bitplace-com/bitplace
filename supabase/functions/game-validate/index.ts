@@ -478,7 +478,8 @@ Deno.serve(async (req) => {
           continue;
         }
         // ERASE doesn't cost PE - it refunds PE
-        // No requiredPeTotal addition
+        // Track the PE that will be unlocked
+        breakdown["eraseRefund"] = (breakdown["eraseRefund"] || 0) + (pixel.owner_stake_pe || 0);
       } else if (mode === "REINFORCE") {
         if (isEmpty) {
           invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
@@ -537,6 +538,9 @@ Deno.serve(async (req) => {
 
     const snapshotHash = generateSnapshotHash(pixelStates);
 
+    // Calculate unlockPeTotal for ERASE mode
+    const unlockPeTotal = mode === "ERASE" ? (breakdown["eraseRefund"] || 0) : undefined;
+
     const result = {
       ok: invalidPixels.length === 0,
       requiredPeTotal,
@@ -551,6 +555,7 @@ Deno.serve(async (req) => {
         pePerType: breakdown,
       },
       availablePe: peFree,
+      unlockPeTotal,
       contributionsPurged,
       purgedContributionCount,
     };
