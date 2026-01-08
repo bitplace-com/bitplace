@@ -1,5 +1,4 @@
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { MapSidebar } from "./MapSidebar";
+import { IconRail } from "@/components/map/IconRail";
 
 interface MapLayoutProps {
   children: React.ReactNode;
@@ -7,13 +6,11 @@ interface MapLayoutProps {
 
 export function MapLayout({ children }: MapLayoutProps) {
   return (
-    <SidebarProvider>
-      <div className="flex h-screen w-full">
-        <MapSidebar />
-        <main className="flex-1 relative overflow-hidden">
-          {children}
-        </main>
-      </div>
-    </SidebarProvider>
+    <div className="relative h-screen w-full">
+      <IconRail />
+      <main className="h-full w-full">
+        {children}
+      </main>
+    </div>
   );
 }
