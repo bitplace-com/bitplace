@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.pe-status]
 verify_jwt = false
+
+[functions.notifications-manage]
+verify_jwt = false

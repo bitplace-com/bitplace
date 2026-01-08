@@ -54,7 +54,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
 
   return (
     <TooltipProvider>
-      <div className="h-11 glass-hud flex items-center justify-between px-4 border-t-0 rounded-none">
+      <div className="h-11 glass-hud flex items-center justify-between px-4 border-t-0 rounded-none safe-bottom overflow-x-auto scrollbar-hide">
         {/* Left side - SOL Balance & Cluster */}
         <div className="flex items-center gap-4">
           {/* Sign-in required pill */}

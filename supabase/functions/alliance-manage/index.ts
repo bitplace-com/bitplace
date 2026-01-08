@@ -397,20 +397,40 @@ Deno.serve(async (req) => {
       }
 
       // Create invite
-      const { error: inviteError } = await supabase
+      const { data: newInvite, error: inviteError } = await supabase
         .from("alliance_invites")
         .insert({
           alliance_id: membership.alliance_id,
           invited_user_id: targetUserId,
           invited_by_user_id: userId,
           status: "PENDING",
-        });
+        })
+        .select("id")
+        .single();
 
       if (inviteError) {
         console.error("[alliance-manage] Invite error:", inviteError);
         return new Response(JSON.stringify({ error: "Failed to send invite" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Get alliance details for notification
+      const { data: alliance } = await supabase
+        .from("alliances")
+        .select("name, tag")
+        .eq("id", membership.alliance_id)
+        .single();
+
+      // Create notification for invited user
+      if (alliance) {
+        await supabase.from("notifications").insert({
+          user_id: targetUserId,
+          type: "ALLIANCE_INVITE",
+          title: "Alliance Invite",
+          body: `[${alliance.tag}] ${alliance.name} invited you to join!`,
+          meta: { alliance_id: membership.alliance_id, invite_id: newInvite.id, inviter_id: userId }
         });
       }
 

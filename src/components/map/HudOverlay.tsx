@@ -31,16 +31,17 @@ interface HudSlotProps {
 }
 
 const positionClasses: Record<HudSlotProps["position"], string> = {
-  "top-left": "top-4 left-4",
-  "top-center": "top-4 left-1/2 -translate-x-1/2",
-  "top-right": "top-4 right-4",
-  "bottom-left": "bottom-4 left-4",
-  "bottom-right": "bottom-4 right-4",
+  "top-left": "top-0 left-0 pt-[max(1rem,env(safe-area-inset-top))] pl-[max(1rem,env(safe-area-inset-left))]",
+  "top-center": "top-0 left-1/2 -translate-x-1/2 pt-[max(1rem,env(safe-area-inset-top))]",
+  "top-right": "top-0 right-0 pt-[max(1rem,env(safe-area-inset-top))] pr-[max(1rem,env(safe-area-inset-right))]",
+  "bottom-left": "bottom-0 left-0 pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))]",
+  "bottom-right": "bottom-0 right-0 pb-[max(1rem,env(safe-area-inset-bottom))] pr-[max(1rem,env(safe-area-inset-right))]",
 };
 
 /**
  * HudSlot positions interactive HUD elements.
  * Has pointer-events: auto so buttons work.
+ * Includes safe-area insets for iOS notch/home bar.
  */
 export function HudSlot({ children, position, className }: HudSlotProps) {
   return (
