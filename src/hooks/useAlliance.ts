@@ -7,7 +7,6 @@ export interface Alliance {
   id: string;
   name: string;
   tag: string;
-  invite_code: string;
   memberCount: number;
   created_at: string;
   isLeader: boolean;

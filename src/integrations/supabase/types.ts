@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      alliance_invites: {
+        Row: {
+          alliance_id: string
+          created_at: string | null
+          id: string
+          invited_by_user_id: string
+          invited_user_id: string
+          status: string
+        }
+        Insert: {
+          alliance_id: string
+          created_at?: string | null
+          id?: string
+          invited_by_user_id: string
+          invited_user_id: string
+          status?: string
+        }
+        Update: {
+          alliance_id?: string
+          created_at?: string | null
+          id?: string
+          invited_by_user_id?: string
+          invited_user_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
       alliance_members: {
         Row: {
           alliance_id: string
@@ -79,7 +106,6 @@ export type Database = {
           created_at: string | null
           created_by: string
           id: string
-          invite_code: string
           name: string
           tag: string
         }
@@ -87,7 +113,6 @@ export type Database = {
           created_at?: string | null
           created_by: string
           id?: string
-          invite_code: string
           name: string
           tag: string
         }
@@ -95,7 +120,6 @@ export type Database = {
           created_at?: string | null
           created_by?: string
           id?: string
-          invite_code?: string
           name?: string
           tag?: string
         }

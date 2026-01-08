@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { Users, Shield, Copy, LogOut, Crown, Loader2 } from "lucide-react";
+import { Users, Crown, LogOut, Loader2, Search, UserPlus, Check } from "lucide-react";
 import { GameModal } from "./GameModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@/contexts/WalletContext";
-import { useAlliance, Alliance, AllianceMember } from "@/hooks/useAlliance";
+import { useAlliance } from "@/hooks/useAlliance";
 import { supabase } from "@/integrations/supabase/client";
 
 const SESSION_TOKEN_KEY = 'bitplace_session_token';
@@ -18,9 +17,11 @@ interface AllianceModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-function shortenAddress(address: string): string {
-  if (!address) return "";
-  return `${address.slice(0, 4)}...${address.slice(-4)}`;
+interface SearchResult {
+  id: string;
+  displayName: string | null;
+  walletShort: string | null;
+  level: number;
 }
 
 export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
@@ -28,40 +29,15 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
   const { user, refreshUser } = useWallet();
   const { alliance, members, isLoading, refetch } = useAlliance(user?.id);
 
-  const [joinCode, setJoinCode] = useState("");
   const [createName, setCreateName] = useState("");
   const [createTag, setCreateTag] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleJoin = async () => {
-    if (!joinCode.trim()) {
-      toast({ title: "Enter an invite code", variant: "destructive" });
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const token = localStorage.getItem(SESSION_TOKEN_KEY);
-      const { data, error } = await supabase.functions.invoke("alliance-manage", {
-        body: { action: "join", inviteCode: joinCode.trim() },
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (error || data?.error) {
-        toast({ title: data?.error || "Failed to join", variant: "destructive" });
-        return;
-      }
-
-      toast({ title: `Joined ${data.alliance.name}!` });
-      setJoinCode("");
-      await refetch();
-      await refreshUser();
-    } catch (err) {
-      toast({ title: "Failed to join alliance", variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  // Invite search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [invitingId, setInvitingId] = useState<string | null>(null);
 
   const handleCreate = async () => {
     if (!createName.trim() || !createTag.trim()) {
@@ -118,10 +94,58 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
     }
   };
 
-  const copyInviteCode = () => {
-    if (alliance?.invite_code) {
-      navigator.clipboard.writeText(alliance.invite_code);
-      toast({ title: "Invite code copied!" });
+  const handleSearch = async () => {
+    if (!searchQuery.trim() || searchQuery.trim().length < 2) {
+      toast({ title: "Enter at least 2 characters", variant: "destructive" });
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchResults([]);
+    try {
+      const token = localStorage.getItem(SESSION_TOKEN_KEY);
+      const { data, error } = await supabase.functions.invoke("alliance-manage", {
+        body: { action: "invite", searchQuery: searchQuery.trim() },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (error || data?.error) {
+        toast({ title: data?.error || "Search failed", variant: "destructive" });
+        return;
+      }
+
+      setSearchResults(data.users || []);
+      if (data.users?.length === 0) {
+        toast({ title: "No users found" });
+      }
+    } catch (err) {
+      toast({ title: "Search failed", variant: "destructive" });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSendInvite = async (targetUserId: string, displayName: string | null) => {
+    setInvitingId(targetUserId);
+    try {
+      const token = localStorage.getItem(SESSION_TOKEN_KEY);
+      const { data, error } = await supabase.functions.invoke("alliance-manage", {
+        body: { action: "send-invite", targetUserId },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (error || data?.error) {
+        toast({ title: data?.error || "Failed to send invite", variant: "destructive" });
+        return;
+      }
+
+      toast({ title: `Invite sent to ${displayName || "user"}!` });
+      setSearchResults(prev => prev.filter(u => u.id !== targetUserId));
+      setSearchQuery("");
+    } catch (err) {
+      toast({ title: "Failed to send invite", variant: "destructive" });
+    } finally {
+      setInvitingId(null);
     }
   };
 
@@ -142,47 +166,18 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
     );
   }
 
-  // Not in alliance - show join/create UI
+  // Not in alliance - show create UI only
   if (!alliance) {
     return (
       <GameModal
         open={open}
         onOpenChange={onOpenChange}
         title="Alliances"
-        description="Join forces with other players"
+        description="Create an alliance and invite players"
         icon={<Users className="h-5 w-5" />}
         size="md"
       >
         <div className="space-y-6">
-          {/* Join Section */}
-          <div className="p-4 rounded-xl bg-muted/30 border border-border/50 space-y-3">
-            <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-primary" />
-              <span className="font-medium text-sm">Join an Alliance</span>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Invite Code</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  placeholder="ABC123XY"
-                  maxLength={8}
-                  className="font-mono uppercase"
-                />
-                <Button onClick={handleJoin} disabled={isSubmitting} size="sm">
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Join"}
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Separator className="flex-1" />
-            <span className="text-xs text-muted-foreground">or</span>
-            <Separator className="flex-1" />
-          </div>
-
           {/* Create Section */}
           <div className="p-4 rounded-xl bg-muted/30 border border-border/50 space-y-3">
             <div className="flex items-center gap-2">
@@ -214,18 +209,22 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
               </Button>
             </div>
           </div>
+
+          <p className="text-xs text-center text-muted-foreground">
+            Create an alliance and invite other players to join.
+          </p>
         </div>
       </GameModal>
     );
   }
 
-  // In alliance - show details
+  // In alliance - show details + invite player
   return (
     <GameModal
       open={open}
       onOpenChange={onOpenChange}
       title="My Alliance"
-      description="You're part of an alliance"
+      description="Manage your alliance"
       icon={<Users className="h-5 w-5" />}
       size="md"
     >
@@ -242,19 +241,58 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
           </p>
         </div>
 
-        {/* Invite Code */}
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Invite Code</Label>
+        {/* Invite Player */}
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground flex items-center gap-1">
+            <UserPlus className="h-3.5 w-3.5" />
+            Invite Player
+          </Label>
           <div className="flex gap-2">
             <Input
-              value={alliance.invite_code}
-              readOnly
-              className="font-mono text-center"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by username or wallet..."
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             />
-            <Button onClick={copyInviteCode} size="icon" variant="outline">
-              <Copy className="h-4 w-4" />
+            <Button onClick={handleSearch} size="icon" variant="outline" disabled={isSearching}>
+              {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             </Button>
           </div>
+
+          {/* Search Results */}
+          {searchResults.length > 0 && (
+            <div className="rounded-lg border border-border/50 bg-muted/20 p-2 space-y-1">
+              {searchResults.map((result) => (
+                <div
+                  key={result.id}
+                  className="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-muted/40 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm truncate block">
+                      {result.displayName || result.walletShort || "Unknown"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">Lv.{result.level}</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="shrink-0"
+                    onClick={() => handleSendInvite(result.id, result.displayName)}
+                    disabled={invitingId === result.id}
+                  >
+                    {invitingId === result.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4 mr-1" />
+                        Invite
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Members List */}
@@ -272,7 +310,7 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
                       <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
                     )}
                     <span className="text-sm truncate">
-                      {member.displayName || shortenAddress(member.walletAddress)}
+                      {member.displayName || "Unknown"}
                     </span>
                   </div>
                   <span className="text-xs text-muted-foreground shrink-0">
