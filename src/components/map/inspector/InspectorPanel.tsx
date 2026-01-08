@@ -27,6 +27,11 @@ interface InspectorPanelProps {
   onClearSelection: () => void;
   isValidating: boolean;
   isCommitting: boolean;
+  // Draft-specific props
+  isDraftMode?: boolean;
+  draftCount?: number;
+  onUndoDraft?: () => void;
+  onClearDraft?: () => void;
 }
 
 export function InspectorPanel({
@@ -44,6 +49,10 @@ export function InspectorPanel({
   onClearSelection,
   isValidating,
   isCommitting,
+  isDraftMode = false,
+  draftCount = 0,
+  onUndoDraft,
+  onClearDraft,
 }: InspectorPanelProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isMobile = useIsMobile();
@@ -116,6 +125,10 @@ export function InspectorPanel({
         onConfirm={onConfirm}
         isValidating={isValidating}
         isCommitting={isCommitting}
+        isDraftMode={isDraftMode}
+        draftCount={draftCount}
+        onUndoDraft={onUndoDraft}
+        onClearDraft={onClearDraft}
       />
     </>
   );

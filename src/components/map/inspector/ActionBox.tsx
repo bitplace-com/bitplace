@@ -1,4 +1,4 @@
-import { Paintbrush, Shield, Swords, Zap, Loader2, Eraser } from 'lucide-react';
+import { Paintbrush, Shield, Swords, Zap, Loader2, Eraser, Undo2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PeInput } from '../PeInput';
 import type { GameMode, ValidateResult } from '@/hooks/useGameActions';
@@ -16,6 +16,11 @@ interface ActionBoxProps {
   onConfirm: () => void;
   isValidating: boolean;
   isCommitting: boolean;
+  // Draft-specific props
+  isDraftMode?: boolean;
+  draftCount?: number;
+  onUndoDraft?: () => void;
+  onClearDraft?: () => void;
 }
 
 const modeConfig: Record<GameMode, { icon: React.ReactNode; label: string }> = {
@@ -38,6 +43,10 @@ export function ActionBox({
   onConfirm,
   isValidating,
   isCommitting,
+  isDraftMode = false,
+  draftCount = 0,
+  onUndoDraft,
+  onClearDraft,
 }: ActionBoxProps) {
   const config = modeConfig[mode];
   // ERASE always requires validation to confirm which pixels will be erased
@@ -78,6 +87,37 @@ export function ActionBox({
             {config.icon}
           </div>
           <span className="text-xs font-medium">{config.label}</span>
+        </div>
+      )}
+
+      {/* Draft Undo/Clear buttons for PAINT mode */}
+      {isDraftMode && mode === 'PAINT' && draftCount > 0 && (
+        <div className="flex gap-1.5">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onUndoDraft}
+            disabled={draftCount === 0}
+            className="flex-1 h-7 text-xs"
+          >
+            <Undo2 className="h-3 w-3 mr-1" /> Undo
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onClearDraft}
+            disabled={draftCount === 0}
+            className="flex-1 h-7 text-xs text-destructive hover:text-destructive"
+          >
+            <Trash2 className="h-3 w-3 mr-1" /> Clear
+          </Button>
+        </div>
+      )}
+
+      {/* Draft info for PAINT mode */}
+      {isDraftMode && mode === 'PAINT' && draftCount > 0 && (
+        <div className="text-[10px] text-muted-foreground px-1">
+          Minimum: <span className="font-medium text-foreground">{draftCount} PE</span> (1 PE per empty pixel)
         </div>
       )}
 

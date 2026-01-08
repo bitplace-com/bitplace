@@ -20,6 +20,7 @@ interface CanvasOverlayProps {
   mode?: GameMode;
   brushSelectionPixels?: Set<string>;
   previewHiddenPixels?: Set<string>;
+  draftPixels?: Map<string, { color: string }>;
 }
 
 // Mode-specific hover and selection colors
@@ -43,6 +44,7 @@ export function CanvasOverlay({
   mode = 'PAINT',
   brushSelectionPixels,
   previewHiddenPixels,
+  draftPixels,
 }: CanvasOverlayProps) {
   const modeColors = getModeColors(mode);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -160,6 +162,55 @@ export function CanvasOverlay({
         });
       }
 
+      // Draw draft pixels (preview layer with slight transparency)
+      if (draftPixels && draftPixels.size > 0 && cellSize > 0.5) {
+        // Batch draft pixels by color
+        const draftBatches = new Map<string, { x: number; y: number }[]>();
+        draftPixels.forEach((data, key) => {
+          const [x, y] = key.split(':').map(Number);
+          if (x < topLeft.x - 1 || x > brGrid.x + 1) return;
+          if (y < topLeft.y - 1 || y > brGrid.y + 1) return;
+          
+          if (!draftBatches.has(data.color)) {
+            draftBatches.set(data.color, []);
+          }
+          draftBatches.get(data.color)!.push({ x, y });
+        });
+        
+        // Draw with slight transparency to indicate draft
+        ctx.globalAlpha = 0.85;
+        draftBatches.forEach((positions, color) => {
+          ctx.fillStyle = color;
+          positions.forEach(({ x, y }) => {
+            const screenX = (x - tlGrid.x) * cellSize;
+            const screenY = (y - tlGrid.y) * cellSize;
+            const rx = roundToDevicePixel(screenX, dpr);
+            const ry = roundToDevicePixel(screenY, dpr);
+            const rSize = Math.max(1, roundToDevicePixel(cellSize, dpr));
+            ctx.fillRect(rx, ry, rSize, rSize);
+          });
+        });
+        ctx.globalAlpha = 1;
+        
+        // Draw dashed border around draft pixels
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 2]);
+        draftPixels.forEach((data, key) => {
+          const [x, y] = key.split(':').map(Number);
+          if (x < topLeft.x - 1 || x > brGrid.x + 1) return;
+          if (y < topLeft.y - 1 || y > brGrid.y + 1) return;
+          
+          const screenX = (x - tlGrid.x) * cellSize;
+          const screenY = (y - tlGrid.y) * cellSize;
+          const rx = roundToDevicePixel(screenX, dpr);
+          const ry = roundToDevicePixel(screenY, dpr);
+          const rSize = Math.max(1, roundToDevicePixel(cellSize, dpr));
+          ctx.strokeRect(rx, ry, rSize, rSize);
+        });
+        ctx.setLineDash([]);
+      }
+
       // Draw brush selection highlights (Set-based selection)
       if (brushSelectionPixels && brushSelectionPixels.size > 0 && cellSize > 1) {
         ctx.fillStyle = mode === 'ERASE' ? 'rgba(248, 113, 113, 0.3)' : modeColors.fill;
@@ -263,7 +314,7 @@ export function CanvasOverlay({
         ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY + badgeHeight / 2);
       }
     }
-  }, [map, pixels, selection, hoverPixel, canPaint, invalidPixels, artOpacity, mode, modeColors, brushSelectionPixels, previewHiddenPixels]);
+  }, [map, pixels, selection, hoverPixel, canPaint, invalidPixels, artOpacity, mode, modeColors, brushSelectionPixels, previewHiddenPixels, draftPixels]);
 
   useEffect(() => {
     if (!map) return;

@@ -10,6 +10,7 @@ interface StatusStripProps {
   paintQueueSize?: number;
   isSpacePainting?: boolean;
   isFlushing?: boolean;
+  draftCount?: number;
 }
 
 function formatTimeRemaining(endsAt: Date): string {
@@ -33,7 +34,7 @@ function formatLastSync(date: Date | null): string {
   return date.toLocaleTimeString();
 }
 
-export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = false, isFlushing = false }: StatusStripProps) {
+export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = false, isFlushing = false, draftCount = 0 }: StatusStripProps) {
   // Use usePeBalance for rebalance status only
   const { isLoading, rebalanceActive, healthMultiplier, rebalanceEndsAt, isContributionsUnderCollateralized } = usePeBalance(userId);
   // Use WalletContext for PE totals (server truth)
@@ -68,8 +69,21 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             </button>
           )}
           
-          {/* Paint Queue Status */}
-          {(isSpacePainting || isFlushing) && (
+          {/* Draft Counter */}
+          {draftCount > 0 && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg">
+              <Paintbrush className="h-3.5 w-3.5 text-foreground" />
+              <span className="text-xs font-medium text-foreground tabular-nums">
+                Draft: {draftCount.toLocaleString()}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                ~{draftCount} PE min
+              </span>
+            </div>
+          )}
+          
+          {/* Paint Queue Status (legacy, will be removed) */}
+          {(isSpacePainting || isFlushing) && draftCount === 0 && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg animate-pulse">
               {isFlushing ? (
                 <>
