@@ -276,7 +276,15 @@ export function BitplaceMap() {
   const executeSinglePixelAction = useCallback(async (x: number, y: number) => {
     // Auth check FIRST via requireWallet
     if (!requireWallet('paint')) return;
-    if (selectedColor === null) { toast.info('Select a color to paint'); return; }
+    
+    // Eraser mode: select pixel for ERASE action
+    if (selectedColor === null) {
+      setMode('paint'); // Ensure we're in paint mode for erase
+      startSelection(x, y);
+      setPendingPixels([{ x, y }]);
+      return;
+    }
+    
     const gameMode = getGameMode(mode);
     if (gameMode === 'PAINT') {
       // Use paint queue for consistency with hover-paint
@@ -286,7 +294,7 @@ export function BitplaceMap() {
     }
     startSelection(x, y);
     setPendingPixels([{ x, y }]);
-  }, [requireWallet, mode, selectedColor, addToQueue, flushQueue, getGameMode, startSelection]);
+  }, [requireWallet, mode, selectedColor, addToQueue, flushQueue, getGameMode, startSelection, setMode]);
 
   // Eyedropper: pick color from pixel
   const handleEyedropperPick = useCallback((x: number, y: number) => {
@@ -481,14 +489,19 @@ export function BitplaceMap() {
 
   const handleValidate = useCallback(async () => {
     if (!user) { toast.error('Please connect wallet first'); return; }
-    const gameMode = getGameMode(mode);
-    await validate({ mode: gameMode, pixels: pendingPixels, color: gameMode === 'PAINT' ? selectedColor : undefined, pePerPixel: gameMode !== 'PAINT' ? pePerPixel : undefined });
+    // Check if eraser is active (selectedColor === null) in paint mode
+    const isEraseAction = mode === 'paint' && selectedColor === null;
+    const gameMode = isEraseAction ? 'ERASE' : getGameMode(mode);
+    await validate({ mode: gameMode as GameMode, pixels: pendingPixels, color: gameMode === 'PAINT' ? selectedColor : undefined, pePerPixel: gameMode !== 'PAINT' && gameMode !== 'ERASE' ? pePerPixel : undefined });
   }, [user, mode, pendingPixels, selectedColor, pePerPixel, validate, getGameMode]);
 
   const handleClearSelection = useCallback(() => { clearSelection(); clearValidation(); setPendingPixels([]); playSound('pixel_deselect'); }, [clearSelection, clearValidation, playSound]);
 
   const handleConfirm = useCallback(async () => {
-    const gameMode = getGameMode(mode);
+    // Check if eraser is active (selectedColor === null) in paint mode
+    const isEraseAction = mode === 'paint' && selectedColor === null;
+    const gameMode = isEraseAction ? 'ERASE' : getGameMode(mode);
+    
     if (!validationResult?.ok) {
       if (gameMode === 'PAINT') {
         const result = await validate({ mode: 'PAINT', pixels: pendingPixels, color: selectedColor });
@@ -500,14 +513,25 @@ export function BitplaceMap() {
           handleClearSelection();
           playSound('paint_commit');
         }
+      } else if (gameMode === 'ERASE') {
+        const result = await validate({ mode: 'ERASE', pixels: pendingPixels });
+        if (!result?.ok) return;
+        const success = await commit({ mode: 'ERASE', pixels: pendingPixels, snapshotHash: result.snapshotHash });
+        if (success) { 
+          refreshUser(); 
+          handleClearSelection();
+          playSound('erase_success');
+        }
       }
       return;
     }
-    const success = await commit({ mode: gameMode, pixels: pendingPixels, color: gameMode === 'PAINT' ? selectedColor : undefined, pePerPixel: gameMode !== 'PAINT' ? pePerPixel : undefined, snapshotHash: validationResult.snapshotHash });
+    const success = await commit({ mode: gameMode as GameMode, pixels: pendingPixels, color: gameMode === 'PAINT' ? selectedColor : undefined, pePerPixel: gameMode !== 'PAINT' && gameMode !== 'ERASE' ? pePerPixel : undefined, snapshotHash: validationResult.snapshotHash });
     if (success) {
       if (gameMode === 'PAINT') {
         pendingPixels.forEach(({ x, y }) => { paintPixel(x, y, selectedColor); confirmPixel(x, y); });
         playSound('paint_commit');
+      } else if (gameMode === 'ERASE') {
+        playSound('erase_success');
       } else if (gameMode === 'DEFEND') {
         playSound('defend_success');
       } else if (gameMode === 'ATTACK') {

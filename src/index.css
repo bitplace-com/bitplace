@@ -142,26 +142,26 @@
 
 /* Light mode glass */
 :root .glass {
-  background: rgba(255, 255, 255, 0.70);
+  background: rgba(255, 255, 255, 0.92);
   border: 1px solid hsl(var(--border));
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
 }
 
 :root .glass-strong {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.96);
   border: 1px solid hsl(var(--border));
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
 
 /* Dark mode glass */
 .dark .glass {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(20, 20, 20, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .dark .glass-strong {
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(20, 20, 20, 0.96);
   border: 1px solid rgba(255, 255, 255, 0.22);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
