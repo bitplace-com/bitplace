@@ -158,7 +158,7 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
                 disabled={isRefreshing}
               >
                 <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span>{isRefreshing ? "Refreshing..." : "I've added SOL — Refresh Balance"}</span>
+                <span>{isRefreshing ? "Refreshing..." : "Refresh Balance"}</span>
               </Button>
             </div>
 
