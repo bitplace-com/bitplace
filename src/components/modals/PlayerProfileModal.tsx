@@ -1,7 +1,7 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { 
   User, Globe, Twitter, Instagram, MapPin, 
-  Calendar, Zap, Crown, X, ExternalLink 
+  Calendar, Zap, Crown, X, ExternalLink, UserPlus, UserMinus, Users
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -15,10 +15,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { PEIcon } from "@/components/ui/pe-icon";
 import { usePlayerProfile, PlayerPixel } from "@/hooks/usePlayerProfile";
+import { useFollows, useFollowerCount } from "@/hooks/useFollows";
+import { useWallet } from "@/contexts/WalletContext";
 import { generateAvatarGradient } from "@/lib/avatar";
 import { getCountryByCode } from "@/lib/countries";
 import { getStatusTitle } from "@/lib/progression";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 interface PlayerProfileModalProps {
   open: boolean;
@@ -134,6 +137,38 @@ function StatCard({
 
 export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfileModalProps) {
   const { profile, isLoading, error } = usePlayerProfile(open ? playerId : null);
+  const { user } = useWallet();
+  const userId = user?.id;
+  const { isFollowing, follow, unfollow } = useFollows();
+  const { count: followerCount } = useFollowerCount(open ? playerId : null);
+  const { toast } = useToast();
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const isOwnProfile = userId && playerId === userId;
+  const following = playerId ? isFollowing(playerId) : false;
+
+  const handleFollowToggle = async () => {
+    if (!playerId || isOwnProfile) return;
+    
+    setIsProcessing(true);
+    try {
+      if (following) {
+        const success = await unfollow(playerId);
+        if (success) {
+          toast({ title: "Unfollowed player" });
+        }
+      } else {
+        const success = await follow(playerId);
+        if (success) {
+          toast({ title: "Following player", description: "You'll get notified when they paint" });
+        }
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to update follow status", variant: "destructive" });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const avatarGradient = generateAvatarGradient(profile?.id || playerId || '');
   const country = profile?.countryCode ? getCountryByCode(profile.countryCode) : null;
@@ -220,7 +255,38 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
                   )}
                 </div>
               </div>
+
+              {/* Follow button */}
+              {!isOwnProfile && userId && (
+                <Button
+                  variant={following ? "outline" : "default"}
+                  size="sm"
+                  onClick={handleFollowToggle}
+                  disabled={isProcessing}
+                  className="shrink-0"
+                >
+                  {following ? (
+                    <>
+                      <UserMinus className="h-4 w-4 mr-1.5" />
+                      Unfollow
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4 mr-1.5" />
+                      Follow
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
+
+            {/* Followers count */}
+            {followerCount > 0 && (
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Users className="h-4 w-4" />
+                {followerCount} follower{followerCount !== 1 ? 's' : ''}
+              </div>
+            )}
 
             {/* Bio */}
             {profile.bio && (
