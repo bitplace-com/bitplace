@@ -145,11 +145,10 @@ export function ActionTray({
       >
         {/* Header - always visible */}
         <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-          {/* Left: Tool Switch */}
+          {/* Left: Interaction mode toggle (always Hand/Draw only when collapsed) */}
           <div className="flex items-center gap-1.5">
-            {/* Interaction mode toggle */}
             {canPaint && (
-              <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5 mr-1">
+              <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5">
                 <button
                   onClick={() => onInteractionModeChange('drag')}
                   className={cn(
@@ -173,48 +172,6 @@ export function ActionTray({
                   title={isPaintMode ? "Draw mode: Click/drag to paint" : `${mode} mode: Click/drag to select`}
                 >
                   <ModeIcon mapMode={mode} className="h-4 w-4" />
-                </button>
-              </div>
-            )}
-            
-            {/* Tool switch (Brush 1x / Brush 2x2 / Eraser) - only in paint mode */}
-            {isPaintMode && canPaint && (
-              <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5">
-                <button
-                  onClick={() => handleToolClick('BRUSH', '1x')}
-                  className={cn(
-                    "w-7 h-7 rounded-md flex items-center justify-center transition-colors",
-                    paintTool === 'BRUSH' && brushSize === '1x'
-                      ? "bg-foreground text-background" 
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  title="Brush 1x"
-                >
-                  <Paintbrush className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => handleToolClick('BRUSH', '2x2')}
-                  className={cn(
-                    "w-7 h-7 rounded-md flex items-center justify-center transition-colors",
-                    paintTool === 'BRUSH' && brushSize === '2x2'
-                      ? "bg-foreground text-background" 
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  title="Brush 2×2"
-                >
-                  <Grid2X2 className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => handleToolClick('ERASER')}
-                  className={cn(
-                    "w-7 h-7 rounded-md flex items-center justify-center transition-colors",
-                    paintTool === 'ERASER'
-                      ? "bg-foreground text-background" 
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  title="Eraser"
-                >
-                  <Eraser className="h-4 w-4" />
                 </button>
               </div>
             )}
@@ -309,31 +266,75 @@ export function ActionTray({
                 "transition-opacity",
                 isEraser && "opacity-40 pointer-events-none"
               )}>
-                {/* Tab switch */}
-                <div className="flex gap-1 mb-2">
-                  <button
-                    onClick={() => setPaletteTab('colors')}
-                    className={cn(
-                      "px-3 py-1 text-xs rounded-md transition-colors",
-                      paletteTab === 'colors' 
-                        ? "bg-foreground text-background" 
-                        : "bg-muted text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    Colors
-                  </button>
-                  <button
-                    onClick={() => setPaletteTab('special')}
-                    className={cn(
-                      "px-3 py-1 text-xs rounded-md transition-colors",
-                      paletteTab === 'special' 
-                        ? "bg-foreground text-background" 
-                        : "bg-muted text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    Special
-                  </button>
-                </div>
+                {/* Tool switch - Brush 1x / Brush 2x2 / Eraser - NOW INSIDE EXPANDED */}
+                {canPaint && (
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5">
+                      <button
+                        onClick={() => handleToolClick('BRUSH', '1x')}
+                        className={cn(
+                          "w-7 h-7 rounded-md flex items-center justify-center transition-colors",
+                          paintTool === 'BRUSH' && brushSize === '1x'
+                            ? "bg-foreground text-background" 
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                        title="Brush 1x"
+                      >
+                        <Paintbrush className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleToolClick('BRUSH', '2x2')}
+                        className={cn(
+                          "w-7 h-7 rounded-md flex items-center justify-center transition-colors",
+                          paintTool === 'BRUSH' && brushSize === '2x2'
+                            ? "bg-foreground text-background" 
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                        title="Brush 2×2"
+                      >
+                        <Grid2X2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleToolClick('ERASER')}
+                        className={cn(
+                          "w-7 h-7 rounded-md flex items-center justify-center transition-colors",
+                          paintTool === 'ERASER'
+                            ? "bg-foreground text-background" 
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                        title="Eraser"
+                      >
+                        <Eraser className="h-4 w-4" />
+                      </button>
+                    </div>
+                    
+                    {/* Tab switch */}
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setPaletteTab('colors')}
+                        className={cn(
+                          "px-3 py-1 text-xs rounded-md transition-colors",
+                          paletteTab === 'colors' 
+                            ? "bg-foreground text-background" 
+                            : "bg-muted text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Colors
+                      </button>
+                      <button
+                        onClick={() => setPaletteTab('special')}
+                        className={cn(
+                          "px-3 py-1 text-xs rounded-md transition-colors",
+                          paletteTab === 'special' 
+                            ? "bg-foreground text-background" 
+                            : "bg-muted text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Special
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="max-h-48 overflow-y-auto">
                   {paletteTab === 'colors' ? (
