@@ -426,6 +426,7 @@ export type Database = {
         Row: {
           alliance_tag: string | null
           avatar_url: string | null
+          bio: string | null
           country_code: string | null
           created_at: string | null
           display_name: string | null
@@ -441,6 +442,9 @@ export type Database = {
           rebalance_ends_at: string | null
           rebalance_started_at: string | null
           rebalance_target_multiplier: number | null
+          social_instagram: string | null
+          social_website: string | null
+          social_x: string | null
           sol_cluster: string | null
           usd_price: number | null
           wallet_address: string | null
@@ -450,6 +454,7 @@ export type Database = {
         Insert: {
           alliance_tag?: string | null
           avatar_url?: string | null
+          bio?: string | null
           country_code?: string | null
           created_at?: string | null
           display_name?: string | null
@@ -465,6 +470,9 @@ export type Database = {
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
           rebalance_target_multiplier?: number | null
+          social_instagram?: string | null
+          social_website?: string | null
+          social_x?: string | null
           sol_cluster?: string | null
           usd_price?: number | null
           wallet_address?: string | null
@@ -474,6 +482,7 @@ export type Database = {
         Update: {
           alliance_tag?: string | null
           avatar_url?: string | null
+          bio?: string | null
           country_code?: string | null
           created_at?: string | null
           display_name?: string | null
@@ -489,6 +498,9 @@ export type Database = {
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
           rebalance_target_multiplier?: number | null
+          social_instagram?: string | null
+          social_website?: string | null
+          social_x?: string | null
           sol_cluster?: string | null
           usd_price?: number | null
           wallet_address?: string | null

@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.pins-manage]
 verify_jwt = false
+
+[functions.avatar-upload]
+verify_jwt = false

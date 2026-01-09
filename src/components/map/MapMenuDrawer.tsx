@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { Menu, Map, Book, ShoppingBag, Settings, Moon, Sun, Bell, Users } from "lucide-react";
+import { Menu, Map, Book, ShoppingBag, Settings, Bell, Users } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useTheme } from "next-themes";
 import {
   Sheet,
   SheetContent,
@@ -16,6 +15,7 @@ import { RulesModal } from "@/components/modals/RulesModal";
 import { ShopModal } from "@/components/modals/ShopModal";
 import { NotificationsPanel } from "@/components/modals/NotificationsPanel";
 import { AllianceModal } from "@/components/modals/AllianceModal";
+import { SettingsModal } from "@/components/modals/SettingsModal";
 import { useWallet } from "@/contexts/WalletContext";
 import { useAllianceInvites } from "@/hooks/useAllianceInvites";
 
@@ -25,10 +25,9 @@ export function MapMenuDrawer() {
   const [shopOpen, setShopOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [allianceOpen, setAllianceOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { theme, setTheme } = useTheme();
-  const isDark = theme === "dark";
   
   const { user } = useWallet();
   const { invites } = useAllianceInvites(user?.id);
@@ -39,10 +38,6 @@ export function MapMenuDrawer() {
       navigate("/");
     }
     setOpen(false);
-  };
-
-  const toggleTheme = () => {
-    setTheme(isDark ? "light" : "dark");
   };
 
   return (
@@ -135,24 +130,18 @@ export function MapMenuDrawer() {
             </Button>
           </nav>
 
-          {/* Footer con Settings e Theme Toggle */}
+          {/* Footer with Settings */}
           <div className="flex flex-col gap-1 mt-auto pt-4 border-t border-border/30">
             <Button
               variant="ghost"
-              onClick={() => {/* placeholder per settings */}}
+              onClick={() => {
+                setSettingsOpen(true);
+                setOpen(false);
+              }}
               className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
             >
               <Settings className="h-5 w-5" />
               Settings
-            </Button>
-            
-            <Button
-              variant="ghost"
-              onClick={toggleTheme}
-              className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
-            >
-              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              {isDark ? "Day Mode" : "Night Mode"}
             </Button>
           </div>
         </SheetContent>
@@ -162,6 +151,7 @@ export function MapMenuDrawer() {
       <ShopModal open={shopOpen} onOpenChange={setShopOpen} />
       <NotificationsPanel open={notificationsOpen} onOpenChange={setNotificationsOpen} />
       <AllianceModal open={allianceOpen} onOpenChange={setAllianceOpen} />
+      <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
     </>
   );
 }
