@@ -1,9 +1,14 @@
 import { useState } from "react";
-import { Trophy, Globe, User, Users, Loader2 } from "lucide-react";
+import { Trophy, Globe, User, Users, Loader2, Twitter, Instagram } from "lucide-react";
 import { GameModal } from "./GameModal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
 import {
   useLeaderboard,
@@ -70,14 +75,24 @@ function PlayerRow({ entry }: { entry: PlayerEntry }) {
   const country = entry.countryCode ? getCountryByCode(entry.countryCode) : null;
   const displayName = entry.displayName || "Unknown";
   const gradient = generateAvatarGradient(entry.id);
+  const hasSocials = entry.socialX || entry.socialInstagram || entry.socialWebsite;
+  const hasProfileInfo = entry.bio || hasSocials;
 
-  return (
-    <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-foreground/5 transition-colors">
+  const rowContent = (
+    <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-foreground/5 transition-colors cursor-pointer">
       <RankBadge rank={entry.rank} />
-      <div
-        className="w-8 h-8 rounded-full flex-shrink-0"
-        style={{ background: gradient }}
-      />
+      {entry.avatarUrl ? (
+        <img
+          src={entry.avatarUrl}
+          alt=""
+          className="w-8 h-8 rounded-full flex-shrink-0 object-cover"
+        />
+      ) : (
+        <div
+          className="w-8 h-8 rounded-full flex-shrink-0"
+          style={{ background: gradient }}
+        />
+      )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="font-medium text-sm truncate">{displayName}</span>
@@ -92,6 +107,101 @@ function PlayerRow({ entry }: { entry: PlayerEntry }) {
         {formatNumber(entry.totalPixels)}
       </div>
     </div>
+  );
+
+  if (!hasProfileInfo) {
+    return rowContent;
+  }
+
+  return (
+    <HoverCard openDelay={300} closeDelay={100}>
+      <HoverCardTrigger asChild>
+        {rowContent}
+      </HoverCardTrigger>
+      <HoverCardContent side="left" align="start" className="w-64">
+        <div className="space-y-3">
+          {/* Header */}
+          <div className="flex items-center gap-3">
+            {entry.avatarUrl ? (
+              <img
+                src={entry.avatarUrl}
+                alt=""
+                className="w-10 h-10 rounded-full object-cover"
+              />
+            ) : (
+              <div
+                className="w-10 h-10 rounded-full"
+                style={{ background: gradient }}
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-sm truncate">{displayName}</span>
+                {country && <span className="text-sm">{country.flag}</span>}
+              </div>
+              {entry.allianceTag && (
+                <span className="text-xs text-primary font-medium">[{entry.allianceTag}]</span>
+              )}
+            </div>
+          </div>
+
+          {/* Bio */}
+          {entry.bio && (
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {entry.bio}
+            </p>
+          )}
+
+          {/* Social Links */}
+          {hasSocials && (
+            <div className="flex items-center gap-3 pt-1">
+              {entry.socialX && (
+                <a
+                  href={entry.socialX}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  title="X / Twitter"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Twitter className="w-4 h-4" />
+                </a>
+              )}
+              {entry.socialInstagram && (
+                <a
+                  href={entry.socialInstagram}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  title="Instagram"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Instagram className="w-4 h-4" />
+                </a>
+              )}
+              {entry.socialWebsite && (
+                <a
+                  href={entry.socialWebsite}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  title="Website"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Globe className="w-4 h-4" />
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* Stats */}
+          <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border">
+            <span>Level {entry.level}</span>
+            <span>{formatNumber(entry.totalPixels)} pixels</span>
+          </div>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
   );
 }
 

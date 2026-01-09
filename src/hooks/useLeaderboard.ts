@@ -12,6 +12,12 @@ export interface PlayerEntry {
   allianceTag: string | null;
   level: number;
   totalPixels: number;
+  // Profile fields
+  avatarUrl: string | null;
+  bio: string | null;
+  socialX: string | null;
+  socialInstagram: string | null;
+  socialWebsite: string | null;
 }
 
 export interface CountryEntry {
