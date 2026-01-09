@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Bell, Users, Shield, Swords, Paintbrush, Check, X, Loader2, CheckCheck, MapPin } from "lucide-react";
-import { GameModal } from "./GameModal";
+import { GamePanel } from "./GamePanel";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
@@ -128,13 +128,13 @@ export function NotificationsPanel({ open, onOpenChange }: NotificationsPanelPro
   const hasContent = notifications.length > 0 || invites.length > 0;
 
   return (
-    <GameModal
+    <GamePanel
       open={open}
       onOpenChange={onOpenChange}
       title="Notifications"
       description={unreadCount > 0 ? `${unreadCount} unread` : "All caught up"}
       icon={<Bell className="h-5 w-5" />}
-      size="md"
+      size="sm"
     >
       <div className="space-y-4">
         {/* Header with mark all as read */}
@@ -279,6 +279,6 @@ export function NotificationsPanel({ open, onOpenChange }: NotificationsPanelPro
           </ScrollArea>
         )}
       </div>
-    </GameModal>
+    </GamePanel>
   );
 }

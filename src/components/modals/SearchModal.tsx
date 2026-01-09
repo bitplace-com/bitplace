@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, MapPin, Clock, X, Navigation, Loader2, Star, Pencil, Trash2 } from "lucide-react";
-import { GameModal } from "./GameModal";
+import { GamePanel } from "./GamePanel";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -37,7 +37,6 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
 
   const {
     pins: pinnedPlaces,
-    addPin,
     removePin,
     renamePin,
     isPinned,
@@ -212,12 +211,13 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
   );
 
   return (
-    <GameModal
+    <GamePanel
       open={open}
       onOpenChange={onOpenChange}
       title="Search"
       description="Jump to coordinates or find places"
       icon={<Search className="h-5 w-5" />}
+      size="sm"
     >
       <div className="space-y-4">
         {/* Search input */}
@@ -439,6 +439,6 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
           </div>
         )}
       </div>
-    </GameModal>
+    </GamePanel>
   );
 }
