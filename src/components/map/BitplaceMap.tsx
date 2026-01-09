@@ -221,9 +221,15 @@ export function BitplaceMap() {
         return;
       }
       
-      // SPACE handling depends on mode
+      // SPACE handling depends on mode AND requires DRAW interaction mode
+      // SPACE does nothing in HAND mode (strict separation)
       if (e.code === 'Space' && canPaint && !isSpaceHeld) {
         e.preventDefault();
+        
+        // CRITICAL: SPACE only works in DRAW mode, not HAND mode
+        if (interactionMode !== 'draw') {
+          return;
+        }
         
         // In non-PAINT modes OR ERASER tool: SPACE enables brush selection
         const isNonPaintAction = mode !== 'paint' || paintTool === 'ERASER';
@@ -240,10 +246,6 @@ export function BitplaceMap() {
           }
         } else {
           // PAINT mode with brush: DRAFT mode (no backend calls)
-          if (interactionMode !== 'draw') {
-            toast.info('Switch to Brush to paint');
-            return;
-          }
           if (!requireWallet('paint')) return;
           setIsSpaceHeld(true);
           map.dragPan.disable();
@@ -451,6 +453,11 @@ export function BitplaceMap() {
         const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
         setHoverPixel(pixel);
         
+        // CRITICAL: HAND MODE - only update hover, no painting or selecting
+        if (interactionMode === 'drag') {
+          return;
+        }
+        
         // Check if in non-PAINT action mode or ERASER
         const isNonPaintAction = mode !== 'paint' || paintTool === 'ERASER';
         
@@ -480,7 +487,7 @@ export function BitplaceMap() {
             }
           }
         }
-        // Click+drag brush selection (isBrushSelectingRef)
+        // Click+drag brush selection (isBrushSelectingRef) - DRAW mode only
         else if (isBrushSelectingRef.current && isNonPaintAction) {
           const { atLimit } = addToBrushSelection(pixel.x, pixel.y);
           if (atLimit && !hasShownLimitToast.current) {
@@ -488,12 +495,12 @@ export function BitplaceMap() {
             hasShownLimitToast.current = true;
           }
         }
-        // SHIFT held or non-PAINT mode dragging: update rect selection
-        else if ((isShiftHeld || mode !== 'paint') && isDraggingRef.current && dragStartRef.current) {
+        // SHIFT held rect selection (allowed even in HAND mode for rect select)
+        else if (isShiftHeld && isDraggingRef.current && dragStartRef.current) {
           updateSelection(pixel.x, pixel.y);
         }
         // DRAW mode continuous painting - add to draft (no backend)
-        else if (interactionMode === 'draw' && isDrawingRef.current && mode === 'paint' && selectedColor !== null && user) {
+        else if (isDrawingRef.current && mode === 'paint' && selectedColor !== null && user) {
           if (brushSize === '2x2') {
             const block = getSnapped2x2Block(pixel.x, pixel.y);
             block.forEach(p => addToDraft(p.x, p.y, selectedColor));
@@ -521,7 +528,7 @@ export function BitplaceMap() {
       // Check if in non-PAINT action mode or ERASER
       const isNonPaintAction = mode !== 'paint' || paintTool === 'ERASER';
       
-      // SHIFT held: start rect area selection
+      // SHIFT held: start rect area selection (allowed in both HAND and DRAW modes)
       if (isShiftHeld) {
         if (mode !== 'paint' && !requireWallet('interact')) return;
         isDraggingRef.current = true;
@@ -534,8 +541,19 @@ export function BitplaceMap() {
         return;
       }
       
+      // CRITICAL: HAND MODE - only record for click detection (opens inspector)
+      // DO NOT start any selection or painting in HAND mode
+      if (interactionMode === 'drag') {
+        isDraggingRef.current = true;
+        dragStartRef.current = { x: pixel.x, y: pixel.y, screenX: e.point.x, screenY: e.point.y };
+        // Map panning is already enabled in DRAG mode, no need to disable
+        return;
+      }
+      
+      // Below this point: DRAW mode only
+      
       // Non-PAINT mode (DEFEND/ATTACK/REINFORCE) or ERASER: start brush selection on click+drag
-      if (isNonPaintAction && interactionMode === 'draw') {
+      if (isNonPaintAction) {
         if (!requireWallet('interact')) return;
         isBrushSelectingRef.current = true;
         map.dragPan.disable();
@@ -547,26 +565,13 @@ export function BitplaceMap() {
         return;
       }
       
-      // Non-PAINT mode with DRAG interaction: start rect selection
-      if (mode !== 'paint') {
-        if (!requireWallet('interact')) return;
-        isDraggingRef.current = true;
-        dragStartRef.current = { x: pixel.x, y: pixel.y, screenX: e.point.x, screenY: e.point.y };
-        map.dragPan.disable();
-        clearValidation();
-        setPreviewHiddenPixels(new Set());
-        setValidatedActionPixels(null);
-        startSelection(pixel.x, pixel.y);
-        return;
-      }
-      
       // SPACE held: already in hover-paint or brush selection, ignore mousedown
       if (isSpaceHeld) {
         return;
       }
       
       // DRAW mode in PAINT: start drafting (no backend)
-      if (interactionMode === 'draw' && mode === 'paint') {
+      if (mode === 'paint') {
         // Brush mode: start drafting
         if (!requireWallet('paint')) return;
         isDrawingRef.current = true;
@@ -577,12 +582,6 @@ export function BitplaceMap() {
           addToDraft(pixel.x, pixel.y, selectedColor!);
         }
         return;
-      }
-      
-      // DRAG mode: record for click detection
-      if (interactionMode === 'drag') {
-        isDraggingRef.current = true;
-        dragStartRef.current = { x: pixel.x, y: pixel.y, screenX: e.point.x, screenY: e.point.y };
       }
     };
 

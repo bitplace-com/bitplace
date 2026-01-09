@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
-import { ChevronUp, ChevronDown, Paintbrush, Grid2X2, Eraser, Hand, Pipette } from 'lucide-react';
+import { ChevronUp, ChevronDown, Paintbrush, Grid2X2, Eraser, Hand, Pipette, Shield, Swords, Zap } from 'lucide-react';
 import { GlassIconButton } from '@/components/ui/glass-icon-button';
-import { BASE_PALETTE } from '@/lib/palettes/basePalette';
-import { MATERIALS, getMaterialsByCategory, isMaterial } from '@/lib/materials/materialRegistry';
+import { BASE_PALETTE_GRID, ALL_COLORS } from '@/lib/palettes/basePaletteGrid';
+import { MATERIALS, getMaterialsByCategory, isMaterial, getMaterial } from '@/lib/materials/materialRegistry';
 import { useSound } from '@/hooks/useSound';
 import { cn } from '@/lib/utils';
 import { canInteractAtZoom } from '@/lib/pixelGrid';
@@ -48,6 +48,20 @@ const CATEGORY_LABELS: Record<string, string> = {
   special: 'Special',
 };
 
+// Get the correct action icon based on map mode
+function ModeIcon({ mapMode, className }: { mapMode: MapMode; className?: string }) {
+  switch (mapMode) {
+    case 'defend':
+      return <Shield className={className} />;
+    case 'attack':
+      return <Swords className={className} />;
+    case 'reinforce':
+      return <Zap className={className} />;
+    default:
+      return <Paintbrush className={className} />;
+  }
+}
+
 export function ActionTray({
   mode,
   paintTool,
@@ -76,12 +90,11 @@ export function ActionTray({
   const canPaint = canInteractAtZoom(zoom);
   const isPaintMode = mode === 'paint';
   const isEraser = paintTool === 'ERASER';
-  const displayCount = draftCount > 0 ? draftCount : selectionCount;
   
   // Hint text based on mode
   const hintText = isPaintMode 
     ? 'Hold Space to paint continuously' 
-    : 'Hold Space to select';
+    : 'Hold Space to select continuously';
 
   const handleToggleExpand = useCallback(() => {
     const newExpanded = !isExpanded;
@@ -114,6 +127,9 @@ export function ActionTray({
     if (!canPaint) return;
     onEyedropperToggle(!isEyedropperActive);
   }, [canPaint, onEyedropperToggle, isEyedropperActive]);
+
+  // Calculate pending PE for action modes
+  const pendingPE = pePerPixel * selectionCount;
 
   return (
     <div 
@@ -154,9 +170,9 @@ export function ActionTray({
                       ? "bg-foreground text-background" 
                       : "text-muted-foreground hover:text-foreground"
                   )}
-                  title="Draw mode: Click/drag to paint"
+                  title={isPaintMode ? "Draw mode: Click/drag to paint" : `${mode} mode: Click/drag to select`}
                 >
-                  <Paintbrush className="h-4 w-4" />
+                  <ModeIcon mapMode={mode} className="h-4 w-4" />
                 </button>
               </div>
             )}
@@ -204,12 +220,47 @@ export function ActionTray({
             )}
           </div>
 
-          {/* Center: Selection summary */}
+          {/* Center: Collapsed summary OR selection count when expanded */}
           <div className="flex-1 flex justify-center">
-            {displayCount > 0 && (
-              <span className="text-[10px] font-medium text-muted-foreground tabular-nums">
-                {isPaintMode ? `Draft: ${displayCount} px` : `Selected: ${displayCount} px`}
-              </span>
+            {!isExpanded ? (
+              /* Collapsed summary - mode aware */
+              isPaintMode ? (
+                /* Paint mode: show color swatch + hex/label */
+                selectedColor ? (
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="w-5 h-5 rounded-md border border-border/50 shrink-0" 
+                      style={{ 
+                        background: isMaterial(selectedColor) 
+                          ? getMaterial(selectedColor)?.cssGradient 
+                          : selectedColor 
+                      }}
+                    />
+                    <span className="text-xs font-mono text-muted-foreground truncate max-w-24">
+                      {isMaterial(selectedColor) 
+                        ? getMaterial(selectedColor)?.label 
+                        : selectedColor.toUpperCase()}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground">No color</span>
+                )
+              ) : (
+                /* Action mode: show mode icon + pending PE */
+                <div className="flex items-center gap-2">
+                  <ModeIcon mapMode={mode} className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs font-mono tabular-nums text-muted-foreground">
+                    {pendingPE.toLocaleString()} PE
+                  </span>
+                </div>
+              )
+            ) : (
+              /* Expanded: show count if any */
+              (draftCount > 0 || selectionCount > 0) && (
+                <span className="text-[10px] font-medium text-muted-foreground tabular-nums">
+                  {isPaintMode ? `Draft: ${draftCount} px` : `Selected: ${selectionCount} px`}
+                </span>
+              )
             )}
           </div>
 
@@ -286,37 +337,26 @@ export function ActionTray({
 
                 <div className="max-h-48 overflow-y-auto">
                   {paletteTab === 'colors' ? (
-                    /* Standard color palette */
-                    <div className="space-y-2">
-                      {BASE_PALETTE.map((group, groupIndex) => (
-                        <div key={group.name}>
-                          {/* Color swatches */}
-                          <div className="grid grid-cols-9 sm:grid-cols-12 gap-1.5">
-                            {group.colors.map((color) => {
-                              const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
-                              return (
-                                <button
-                                  key={color}
-                                  onClick={() => handleColorClick(color)}
-                                  disabled={!canPaint}
-                                  className={cn(
-                                    "w-7 h-7 rounded-md transition-all duration-100 focus:outline-none",
-                                    canPaint && "hover:ring-1 hover:ring-foreground/30",
-                                    isSelected && "ring-2 ring-foreground scale-105 z-10",
-                                    !canPaint && "opacity-40 cursor-not-allowed"
-                                  )}
-                                  style={{ backgroundColor: color }}
-                                  title={color.toUpperCase()}
-                                />
-                              );
-                            })}
-                          </div>
-                          {/* Separator between groups */}
-                          {groupIndex < BASE_PALETTE.length - 1 && (
-                            <div className="h-px bg-border/30 mt-2" />
-                          )}
-                        </div>
-                      ))}
+                    /* Standard color palette - CONTINUOUS GRID (no separators) */
+                    <div className="grid grid-cols-9 sm:grid-cols-12 gap-1.5">
+                      {ALL_COLORS.map((color, index) => {
+                        const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
+                        return (
+                          <button
+                            key={`${color}-${index}`}
+                            onClick={() => handleColorClick(color)}
+                            disabled={!canPaint}
+                            className={cn(
+                              "w-7 h-7 rounded-md transition-all duration-100 focus:outline-none",
+                              canPaint && "hover:ring-1 hover:ring-foreground/30",
+                              isSelected && "ring-2 ring-foreground scale-105 z-10",
+                              !canPaint && "opacity-40 cursor-not-allowed"
+                            )}
+                            style={{ backgroundColor: color }}
+                            title={color.toUpperCase()}
+                          />
+                        );
+                      })}
                     </div>
                   ) : (
                     /* Special materials palette */
@@ -399,14 +439,14 @@ export function ActionTray({
                   <div className="flex justify-between text-[11px]">
                     <span className="text-muted-foreground">Required:</span>
                     <span className="font-medium tabular-nums">
-                      {(pePerPixel * selectionCount).toLocaleString()} PE
+                      {pendingPE.toLocaleString()} PE
                     </span>
                   </div>
                   <div className="flex justify-between text-[11px]">
                     <span className="text-muted-foreground">Available:</span>
                     <span className={cn(
                       "font-medium tabular-nums",
-                      availablePe >= pePerPixel * selectionCount 
+                      availablePe >= pendingPE 
                         ? "text-emerald-500" 
                         : "text-destructive"
                     )}>
