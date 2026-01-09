@@ -8,6 +8,7 @@ import {
 import { type SelectionState } from './hooks/useSelection';
 import { lngLatToGridFloat, lngLatToGridInt, getCellSize, roundToDevicePixel } from '@/lib/pixelGrid';
 import type { InvalidPixel, GameMode } from '@/hooks/useGameActions';
+import { isMaterial, getMaterialPattern } from '@/lib/materials/materialRegistry';
 
 interface CanvasOverlayProps {
   map: MapLibreMap | null;
@@ -89,8 +90,9 @@ export function CanvasOverlay({
       const brGrid = lngLatToGridInt(brLngLat.lng, brLngLat.lat);
       const topLeft = lngLatToGridInt(tlLngLat.lng, tlLngLat.lat);
 
-      // OPTIMIZATION: Batch pixels by color to minimize fillStyle changes
+      // OPTIMIZATION: Batch pixels by color/material to minimize fillStyle changes
       const colorBatches = new Map<string, { x: number; y: number }[]>();
+      const materialBatches = new Map<string, { x: number; y: number }[]>();
       
       pixels.forEach((data, key) => {
         // Skip preview hidden pixels (erase preview)
@@ -102,10 +104,18 @@ export function CanvasOverlay({
         if (x < topLeft.x - 1 || x > brGrid.x + 1) return;
         if (y < topLeft.y - 1 || y > brGrid.y + 1) return;
 
-        if (!colorBatches.has(data.color)) {
-          colorBatches.set(data.color, []);
+        // Separate materials from solid colors
+        if (isMaterial(data.color)) {
+          if (!materialBatches.has(data.color)) {
+            materialBatches.set(data.color, []);
+          }
+          materialBatches.get(data.color)!.push({ x, y });
+        } else {
+          if (!colorBatches.has(data.color)) {
+            colorBatches.set(data.color, []);
+          }
+          colorBatches.get(data.color)!.push({ x, y });
         }
-        colorBatches.get(data.color)!.push({ x, y });
       });
 
       // Draw all pixels of same color in one batch (fewer fillStyle changes)
@@ -117,6 +127,27 @@ export function CanvasOverlay({
           const screenY = (y - tlGrid.y) * cellSize;
           
           // Round to device pixels for crisp rendering
+          const rx = roundToDevicePixel(screenX, dpr);
+          const ry = roundToDevicePixel(screenY, dpr);
+          const rSize = Math.max(1, roundToDevicePixel(cellSize, dpr));
+          
+          ctx.fillRect(rx, ry, rSize, rSize);
+        });
+      });
+
+      // Draw material pixels with cached patterns
+      materialBatches.forEach((positions, materialId) => {
+        const pattern = getMaterialPattern(materialId);
+        if (pattern) {
+          ctx.fillStyle = pattern;
+        } else {
+          // Fallback color for unknown materials
+          ctx.fillStyle = '#FF00FF';
+        }
+        positions.forEach(({ x, y }) => {
+          const screenX = (x - tlGrid.x) * cellSize;
+          const screenY = (y - tlGrid.y) * cellSize;
+          
           const rx = roundToDevicePixel(screenX, dpr);
           const ry = roundToDevicePixel(screenY, dpr);
           const rSize = Math.max(1, roundToDevicePixel(cellSize, dpr));
@@ -164,22 +195,32 @@ export function CanvasOverlay({
 
       // Draw draft pixels (preview layer with slight transparency)
       if (draftPixels && draftPixels.size > 0 && cellSize > 0.5) {
-        // Batch draft pixels by color
-        const draftBatches = new Map<string, { x: number; y: number }[]>();
+        // Batch draft pixels by color/material
+        const draftColorBatches = new Map<string, { x: number; y: number }[]>();
+        const draftMaterialBatches = new Map<string, { x: number; y: number }[]>();
         draftPixels.forEach((data, key) => {
           const [x, y] = key.split(':').map(Number);
           if (x < topLeft.x - 1 || x > brGrid.x + 1) return;
           if (y < topLeft.y - 1 || y > brGrid.y + 1) return;
           
-          if (!draftBatches.has(data.color)) {
-            draftBatches.set(data.color, []);
+          if (isMaterial(data.color)) {
+            if (!draftMaterialBatches.has(data.color)) {
+              draftMaterialBatches.set(data.color, []);
+            }
+            draftMaterialBatches.get(data.color)!.push({ x, y });
+          } else {
+            if (!draftColorBatches.has(data.color)) {
+              draftColorBatches.set(data.color, []);
+            }
+            draftColorBatches.get(data.color)!.push({ x, y });
           }
-          draftBatches.get(data.color)!.push({ x, y });
         });
         
         // Draw with slight transparency to indicate draft
         ctx.globalAlpha = 0.85;
-        draftBatches.forEach((positions, color) => {
+        
+        // Draw solid color drafts
+        draftColorBatches.forEach((positions, color) => {
           ctx.fillStyle = color;
           positions.forEach(({ x, y }) => {
             const screenX = (x - tlGrid.x) * cellSize;
@@ -190,6 +231,21 @@ export function CanvasOverlay({
             ctx.fillRect(rx, ry, rSize, rSize);
           });
         });
+        
+        // Draw material drafts
+        draftMaterialBatches.forEach((positions, materialId) => {
+          const pattern = getMaterialPattern(materialId);
+          ctx.fillStyle = pattern || '#FF00FF';
+          positions.forEach(({ x, y }) => {
+            const screenX = (x - tlGrid.x) * cellSize;
+            const screenY = (y - tlGrid.y) * cellSize;
+            const rx = roundToDevicePixel(screenX, dpr);
+            const ry = roundToDevicePixel(screenY, dpr);
+            const rSize = Math.max(1, roundToDevicePixel(cellSize, dpr));
+            ctx.fillRect(rx, ry, rSize, rSize);
+          });
+        });
+        
         ctx.globalAlpha = 1;
         
         // Draw dashed border around draft pixels
