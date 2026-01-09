@@ -19,9 +19,25 @@ function seededNoise(x: number, y: number, seed: number): number {
   return n - Math.floor(n);
 }
 
-// All material definitions
+// All material definitions - ordered warm→cool
 export const MATERIALS: MaterialDef[] = [
-  // === METALS ===
+  // === ELEMENTS (WARM) ===
+  {
+    id: 'mat:fire',
+    label: 'Fire',
+    category: 'elements',
+    cssGradient: 'linear-gradient(135deg, #8B0000 0%, #FF4500 30%, #FFD700 60%, #FF6347 100%)',
+    colors: ['#8B0000', '#FF4500', '#FFD700', '#FF6347'],
+  },
+  {
+    id: 'mat:lava',
+    label: 'Lava',
+    category: 'elements',
+    cssGradient: 'linear-gradient(135deg, #1a0a00 0%, #FF4500 25%, #8B0000 50%, #FF6600 75%, #1a0a00 100%)',
+    colors: ['#1a0a00', '#FF4500', '#8B0000', '#FF6600'],
+  },
+
+  // === METALS (WARM → COOL) ===
   {
     id: 'mat:gold',
     label: 'Gold',
@@ -30,18 +46,27 @@ export const MATERIALS: MaterialDef[] = [
     colors: ['#B8860B', '#FFD700', '#FFF8DC', '#DAA520'],
   },
   {
+    id: 'mat:bronze',
+    label: 'Bronze',
+    category: 'metals',
+    cssGradient: 'linear-gradient(135deg, #8B4513 0%, #CD7F32 30%, #DEB887 50%, #CD7F32 70%, #8B4513 100%)',
+    colors: ['#8B4513', '#CD7F32', '#DEB887', '#A0522D'],
+  },
+  {
     id: 'mat:silver',
     label: 'Silver',
     category: 'metals',
     cssGradient: 'linear-gradient(135deg, #708090 0%, #C0C0C0 30%, #F8F8FF 50%, #C0C0C0 70%, #708090 100%)',
     colors: ['#708090', '#C0C0C0', '#F8F8FF', '#A9A9A9'],
   },
+
+  // === ELEMENTS (COOL) ===
   {
-    id: 'mat:bronze',
-    label: 'Bronze',
-    category: 'metals',
-    cssGradient: 'linear-gradient(135deg, #8B4513 0%, #CD7F32 30%, #DEB887 50%, #CD7F32 70%, #8B4513 100%)',
-    colors: ['#8B4513', '#CD7F32', '#DEB887', '#A0522D'],
+    id: 'mat:ice',
+    label: 'Ice',
+    category: 'elements',
+    cssGradient: 'linear-gradient(135deg, #87CEEB 0%, #E0FFFF 30%, #FFFFFF 50%, #B0E0E6 70%, #87CEEB 100%)',
+    colors: ['#87CEEB', '#E0FFFF', '#FFFFFF', '#B0E0E6', '#ADD8E6'],
   },
 
   // === HOLOGRAPHIC ===
@@ -60,30 +85,7 @@ export const MATERIALS: MaterialDef[] = [
     colors: ['#FFB6C1', '#FFEFD5', '#E0FFFF', '#E6E6FA', '#DDA0DD'],
   },
 
-  // === ELEMENTS ===
-  {
-    id: 'mat:ice',
-    label: 'Ice',
-    category: 'elements',
-    cssGradient: 'linear-gradient(135deg, #87CEEB 0%, #E0FFFF 30%, #FFFFFF 50%, #B0E0E6 70%, #87CEEB 100%)',
-    colors: ['#87CEEB', '#E0FFFF', '#FFFFFF', '#B0E0E6', '#ADD8E6'],
-  },
-  {
-    id: 'mat:fire',
-    label: 'Fire',
-    category: 'elements',
-    cssGradient: 'linear-gradient(135deg, #8B0000 0%, #FF4500 30%, #FFD700 60%, #FF6347 100%)',
-    colors: ['#8B0000', '#FF4500', '#FFD700', '#FF6347'],
-  },
-  {
-    id: 'mat:lava',
-    label: 'Lava',
-    category: 'elements',
-    cssGradient: 'linear-gradient(135deg, #1a0a00 0%, #FF4500 25%, #8B0000 50%, #FF6600 75%, #1a0a00 100%)',
-    colors: ['#1a0a00', '#FF4500', '#8B0000', '#FF6600'],
-  },
-
-  // === SPECIAL ===
+  // === SPECIAL (WARM → COOL) ===
   {
     id: 'mat:aurora',
     label: 'Aurora',
@@ -92,18 +94,18 @@ export const MATERIALS: MaterialDef[] = [
     colors: ['#00FF7F', '#9370DB', '#4B0082', '#20B2AA'],
   },
   {
-    id: 'mat:nebula',
-    label: 'Nebula',
-    category: 'special',
-    cssGradient: 'linear-gradient(135deg, #0D0221 0%, #4B0082 30%, #8B008B 60%, #0D0221 100%)',
-    colors: ['#0D0221', '#4B0082', '#8B008B', '#191970'],
-  },
-  {
     id: 'mat:pearl',
     label: 'Pearl',
     category: 'special',
     cssGradient: 'linear-gradient(135deg, #F5F5DC 0%, #FFFAFA 30%, #FFE4E1 50%, #F0FFF0 70%, #F5F5DC 100%)',
     colors: ['#F5F5DC', '#FFFAFA', '#FFE4E1', '#F0FFF0'],
+  },
+  {
+    id: 'mat:nebula',
+    label: 'Nebula',
+    category: 'special',
+    cssGradient: 'linear-gradient(135deg, #0D0221 0%, #4B0082 30%, #8B008B 60%, #0D0221 100%)',
+    colors: ['#0D0221', '#4B0082', '#8B008B', '#191970'],
   },
   {
     id: 'mat:carbon',
