@@ -7,11 +7,17 @@ interface OwnerProfile {
   wallet_short: string | null;  // Truncated wallet for display (4J2k...Za7C)
   country_code: string | null;
   alliance_tag: string | null;
+  avatar_url: string | null;
   owner_health_multiplier: number;
   rebalance_active: boolean;
   rebalance_started_at: string | null;
   rebalance_ends_at: string | null;
   rebalance_target_multiplier: number | null;
+  // Profile fields
+  bio: string | null;
+  social_x: string | null;
+  social_instagram: string | null;
+  social_website: string | null;
 }
 
 interface Contribution {
@@ -98,7 +104,7 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
         // Use public_pixel_owner_info view - safe public fields only (wallet_short, not full address)
         const { data: ownerData, error: ownerError } = await supabase
           .from('public_pixel_owner_info' as any)
-          .select('id, display_name, wallet_short, country_code, alliance_tag, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier')
+          .select('id, display_name, wallet_short, avatar_url, country_code, alliance_tag, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier, bio, social_x, social_instagram, social_website')
           .eq('id', pixelData.owner_user_id)
           .maybeSingle();
         
@@ -119,11 +125,16 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
             wallet_short: data.wallet_short,  // Truncated wallet from view
             country_code: data.country_code,
             alliance_tag: data.alliance_tag,
+            avatar_url: data.avatar_url,
             owner_health_multiplier: data.owner_health_multiplier ?? 1,
             rebalance_active: data.rebalance_active ?? false,
             rebalance_started_at: data.rebalance_started_at,
             rebalance_ends_at: data.rebalance_ends_at,
             rebalance_target_multiplier: data.rebalance_target_multiplier,
+            bio: data.bio ?? null,
+            social_x: data.social_x ?? null,
+            social_instagram: data.social_instagram ?? null,
+            social_website: data.social_website ?? null,
           };
         } else {
           console.warn('[usePixelDetails] No owner profile found for:', pixelData.owner_user_id);
