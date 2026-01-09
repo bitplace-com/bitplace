@@ -20,6 +20,7 @@ import {
 } from "@/hooks/useLeaderboard";
 import { getCountryByCode } from "@/lib/countries";
 import { generateAvatarGradient } from "@/lib/avatar";
+import { PlayerProfileModal } from "./PlayerProfileModal";
 
 interface LeaderboardModalProps {
   open: boolean;
@@ -71,15 +72,22 @@ function RankBadge({ rank }: { rank: number }) {
   );
 }
 
-function PlayerRow({ entry }: { entry: PlayerEntry }) {
+function PlayerRow({ entry, onPlayerClick }: { entry: PlayerEntry; onPlayerClick: (id: string) => void }) {
   const country = entry.countryCode ? getCountryByCode(entry.countryCode) : null;
   const displayName = entry.displayName || "Unknown";
   const gradient = generateAvatarGradient(entry.id);
   const hasSocials = entry.socialX || entry.socialInstagram || entry.socialWebsite;
   const hasProfileInfo = entry.bio || hasSocials;
 
+  const handleClick = () => {
+    onPlayerClick(entry.id);
+  };
+
   const rowContent = (
-    <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-foreground/5 transition-colors cursor-pointer">
+    <div 
+      className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-foreground/5 transition-colors cursor-pointer"
+      onClick={handleClick}
+    >
       <RankBadge rank={entry.rank} />
       {entry.avatarUrl ? (
         <img
@@ -287,9 +295,11 @@ function EmptyState({ scope }: { scope: LeaderboardScope }) {
 function LeaderboardList({
   scope,
   period,
+  onPlayerClick,
 }: {
   scope: LeaderboardScope;
   period: LeaderboardPeriod;
+  onPlayerClick: (id: string) => void;
 }) {
   const { data, isLoading, error } = useLeaderboard(scope, period);
 
@@ -313,7 +323,7 @@ function LeaderboardList({
     <div className="space-y-1">
       {data.map((entry) => {
         if (scope === "players") {
-          return <PlayerRow key={(entry as PlayerEntry).id} entry={entry as PlayerEntry} />;
+          return <PlayerRow key={(entry as PlayerEntry).id} entry={entry as PlayerEntry} onPlayerClick={onPlayerClick} />;
         }
         if (scope === "countries") {
           return <CountryRow key={(entry as CountryEntry).countryCode} entry={entry as CountryEntry} />;
@@ -327,65 +337,80 @@ function LeaderboardList({
 export function LeaderboardModal({ open, onOpenChange }: LeaderboardModalProps) {
   const [scope, setScope] = useState<LeaderboardScope>("players");
   const [period, setPeriod] = useState<LeaderboardPeriod>("all");
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  const handlePlayerClick = (id: string) => {
+    setSelectedPlayerId(id);
+    setProfileOpen(true);
+  };
 
   return (
-    <GameModal
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Leaderboard"
-      icon={<Trophy className="h-5 w-5" />}
-      size="lg"
-    >
-      <Tabs
-        value={scope}
-        onValueChange={(v) => setScope(v as LeaderboardScope)}
-        className="w-full"
+    <>
+      <GameModal
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Leaderboard"
+        icon={<Trophy className="h-5 w-5" />}
+        size="lg"
       >
-        <TabsList className="w-full bg-foreground/5">
-          <TabsTrigger value="players" className="flex-1 gap-1.5">
-            <User className="h-3.5 w-3.5" />
-            Players
-          </TabsTrigger>
-          <TabsTrigger value="countries" className="flex-1 gap-1.5">
-            <Globe className="h-3.5 w-3.5" />
-            Countries
-          </TabsTrigger>
-          <TabsTrigger value="alliances" className="flex-1 gap-1.5">
-            <Users className="h-3.5 w-3.5" />
-            Alliances
-          </TabsTrigger>
-        </TabsList>
+        <Tabs
+          value={scope}
+          onValueChange={(v) => setScope(v as LeaderboardScope)}
+          className="w-full"
+        >
+          <TabsList className="w-full bg-foreground/5">
+            <TabsTrigger value="players" className="flex-1 gap-1.5">
+              <User className="h-3.5 w-3.5" />
+              Players
+            </TabsTrigger>
+            <TabsTrigger value="countries" className="flex-1 gap-1.5">
+              <Globe className="h-3.5 w-3.5" />
+              Countries
+            </TabsTrigger>
+            <TabsTrigger value="alliances" className="flex-1 gap-1.5">
+              <Users className="h-3.5 w-3.5" />
+              Alliances
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Time period pills */}
-        <div className="flex gap-1.5 mt-3">
-          {PERIODS.map((p) => (
-            <button
-              key={p.value}
-              onClick={() => setPeriod(p.value)}
-              className={cn(
-                "px-3 py-1 text-xs font-medium rounded-full transition-colors",
-                period === p.value
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
-              )}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+          {/* Time period pills */}
+          <div className="flex gap-1.5 mt-3">
+            {PERIODS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                className={cn(
+                  "px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                  period === p.value
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
 
-        <ScrollArea className="h-[320px] mt-3 -mx-1 px-1">
-          <TabsContent value="players" className="mt-0">
-            <LeaderboardList scope="players" period={period} />
-          </TabsContent>
-          <TabsContent value="countries" className="mt-0">
-            <LeaderboardList scope="countries" period={period} />
-          </TabsContent>
-          <TabsContent value="alliances" className="mt-0">
-            <LeaderboardList scope="alliances" period={period} />
-          </TabsContent>
-        </ScrollArea>
-      </Tabs>
-    </GameModal>
+          <ScrollArea className="h-[320px] mt-3 -mx-1 px-1">
+            <TabsContent value="players" className="mt-0">
+              <LeaderboardList scope="players" period={period} onPlayerClick={handlePlayerClick} />
+            </TabsContent>
+            <TabsContent value="countries" className="mt-0">
+              <LeaderboardList scope="countries" period={period} onPlayerClick={handlePlayerClick} />
+            </TabsContent>
+            <TabsContent value="alliances" className="mt-0">
+              <LeaderboardList scope="alliances" period={period} onPlayerClick={handlePlayerClick} />
+            </TabsContent>
+          </ScrollArea>
+        </Tabs>
+      </GameModal>
+
+      <PlayerProfileModal 
+        open={profileOpen} 
+        onOpenChange={setProfileOpen} 
+        playerId={selectedPlayerId} 
+      />
+    </>
   );
 }

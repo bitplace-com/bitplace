@@ -1,0 +1,128 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+
+export interface PlayerPixel {
+  x: number;
+  y: number;
+  color: string;
+}
+
+export interface PlayerProfile {
+  id: string;
+  displayName: string | null;
+  walletShort: string | null;
+  avatarUrl: string | null;
+  countryCode: string | null;
+  allianceTag: string | null;
+  level: number;
+  xp: number;
+  bio: string | null;
+  socialX: string | null;
+  socialInstagram: string | null;
+  socialWebsite: string | null;
+  // Stats
+  totalPixelsOwned: number;
+  totalStaked: number;
+  joinedAt: string;
+  // Pixels for mini-map
+  pixels: PlayerPixel[];
+}
+
+export function usePlayerProfile(playerId: string | null) {
+  const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchProfile = useCallback(async () => {
+    if (!playerId) {
+      setProfile(null);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Fetch user profile from public view
+      const { data: userData, error: userError } = await supabase
+        .from('public_user_profiles' as any)
+        .select('id, display_name, wallet_short, avatar_url, country_code, alliance_tag, level, xp')
+        .eq('id', playerId)
+        .maybeSingle();
+
+      if (userError) throw userError;
+      if (!userData) {
+        setError('Player not found');
+        setIsLoading(false);
+        return;
+      }
+
+      // Fetch additional profile fields from public_pixel_owner_info (has bio/socials)
+      const { data: profileData } = await supabase
+        .from('public_pixel_owner_info' as any)
+        .select('bio, social_x, social_instagram, social_website')
+        .eq('id', playerId)
+        .maybeSingle();
+
+      // Fetch pixels owned by this player
+      const { data: pixelsData, error: pixelsError } = await supabase
+        .from('pixels')
+        .select('x, y, color, owner_stake_pe, created_at')
+        .eq('owner_user_id', playerId)
+        .order('created_at', { ascending: false });
+
+      if (pixelsError) throw pixelsError;
+
+      const pixels: PlayerPixel[] = (pixelsData || []).map(p => ({
+        x: Number(p.x),
+        y: Number(p.y),
+        color: p.color,
+      }));
+
+      const totalStaked = (pixelsData || []).reduce(
+        (sum, p) => sum + Number(p.owner_stake_pe || 0),
+        0
+      );
+
+      // Get user creation date
+      const { data: userCreated } = await supabase
+        .from('users')
+        .select('created_at')
+        .eq('id', playerId)
+        .maybeSingle();
+
+      const user = userData as Record<string, any>;
+      const profile = profileData as Record<string, any> | null;
+
+      setProfile({
+        id: user.id,
+        displayName: user.display_name,
+        walletShort: user.wallet_short,
+        avatarUrl: user.avatar_url,
+        countryCode: user.country_code,
+        allianceTag: user.alliance_tag,
+        level: user.level || 1,
+        xp: Number(user.xp) || 0,
+        bio: profile?.bio || null,
+        socialX: profile?.social_x || null,
+        socialInstagram: profile?.social_instagram || null,
+        socialWebsite: profile?.social_website || null,
+        totalPixelsOwned: pixels.length,
+        totalStaked,
+        joinedAt: (userCreated as any)?.created_at || new Date().toISOString(),
+        pixels,
+      });
+    } catch (err) {
+      console.error('[usePlayerProfile] Error:', err);
+      setError('Failed to load profile');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [playerId]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  return { profile, isLoading, error, refetch: fetchProfile };
+}
