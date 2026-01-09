@@ -186,6 +186,50 @@ serve(async (req) => {
       updates.avatar_url = avatar_url || null;
     }
 
+    // Bio validation
+    if (body.bio !== undefined) {
+      if (body.bio && typeof body.bio === 'string' && body.bio.length > 160) {
+        return new Response(
+          JSON.stringify({ error: 'Bio must be 160 characters or less' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      updates.bio = body.bio || null;
+    }
+
+    // Social X validation
+    if (body.social_x !== undefined) {
+      if (body.social_x && typeof body.social_x === 'string' && body.social_x.length > 100) {
+        return new Response(
+          JSON.stringify({ error: 'Social X link must be 100 characters or less' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      updates.social_x = body.social_x || null;
+    }
+
+    // Social Instagram validation
+    if (body.social_instagram !== undefined) {
+      if (body.social_instagram && typeof body.social_instagram === 'string' && body.social_instagram.length > 100) {
+        return new Response(
+          JSON.stringify({ error: 'Social Instagram link must be 100 characters or less' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      updates.social_instagram = body.social_instagram || null;
+    }
+
+    // Social Website validation
+    if (body.social_website !== undefined) {
+      if (body.social_website && typeof body.social_website === 'string' && body.social_website.length > 200) {
+        return new Response(
+          JSON.stringify({ error: 'Website URL must be 200 characters or less' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      updates.social_website = body.social_website || null;
+    }
+
     if (Object.keys(updates).length === 0) {
       return new Response(
         JSON.stringify({ error: 'No valid fields to update' }),

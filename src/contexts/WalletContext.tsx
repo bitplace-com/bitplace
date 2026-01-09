@@ -35,6 +35,11 @@ interface User {
   wallet_usd?: number;
   last_energy_sync_at?: string;
   sol_cluster?: string;
+  // Profile fields
+  bio?: string | null;
+  social_x?: string | null;
+  social_instagram?: string | null;
+  social_website?: string | null;
 }
 
 interface EnergyState {
@@ -73,7 +78,7 @@ interface WalletContextType {
   connect: () => Promise<void>;
   signIn: () => Promise<void>;
   disconnect: () => void;
-  updateUser: (updates: Partial<Pick<User, 'display_name' | 'country_code' | 'alliance_tag' | 'avatar_url'>>) => Promise<void>;
+  updateUser: (updates: Partial<Pick<User, 'display_name' | 'country_code' | 'alliance_tag' | 'avatar_url' | 'bio' | 'social_x' | 'social_instagram' | 'social_website'>>) => Promise<void>;
   refreshUser: () => Promise<void>;
   refreshEnergy: () => Promise<void>;
   refreshPeStatus: () => Promise<void>;
