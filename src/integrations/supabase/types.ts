@@ -561,6 +561,7 @@ export type Database = {
         Row: {
           alliance_tag: string | null
           avatar_url: string | null
+          bio: string | null
           country_code: string | null
           display_name: string | null
           id: string | null
@@ -570,11 +571,15 @@ export type Database = {
           rebalance_ends_at: string | null
           rebalance_started_at: string | null
           rebalance_target_multiplier: number | null
+          social_instagram: string | null
+          social_website: string | null
+          social_x: string | null
           wallet_short: string | null
         }
         Insert: {
           alliance_tag?: string | null
           avatar_url?: string | null
+          bio?: string | null
           country_code?: string | null
           display_name?: string | null
           id?: string | null
@@ -584,11 +589,15 @@ export type Database = {
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
           rebalance_target_multiplier?: number | null
+          social_instagram?: string | null
+          social_website?: string | null
+          social_x?: string | null
           wallet_short?: never
         }
         Update: {
           alliance_tag?: string | null
           avatar_url?: string | null
+          bio?: string | null
           country_code?: string | null
           display_name?: string | null
           id?: string | null
@@ -598,6 +607,9 @@ export type Database = {
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
           rebalance_target_multiplier?: number | null
+          social_instagram?: string | null
+          social_website?: string | null
+          social_x?: string | null
           wallet_short?: never
         }
         Relationships: []

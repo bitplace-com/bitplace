@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, X, Share2, Palette, Shield, Swords, RefreshCw, AlertTriangle, Eraser, ArrowUpFromLine, Loader2 } from 'lucide-react';
+import { Copy, X, Share2, Palette, Shield, Swords, RefreshCw, AlertTriangle, Eraser, ArrowUpFromLine, Loader2, Globe, Twitter, Instagram } from 'lucide-react';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { toast } from 'sonner';
 
@@ -11,6 +11,7 @@ import { useWithdrawContribution } from '@/hooks/useWithdrawContribution';
 import { generateAvatarGradient, getAvatarInitial } from '@/lib/avatar';
 import { getCountryByCode } from '@/lib/countries';
 import { copyPixelCoords, copyPixelLink } from '@/lib/shareLink';
+import { cn } from '@/lib/utils';
 import type { GameMode } from '@/hooks/useGameActions';
 
 interface PixelInspectorCardProps {
@@ -153,15 +154,24 @@ export function PixelInspectorCard({
         ) : (
           <div className="space-y-3">
             {/* Owner Info */}
-            <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold text-sm shrink-0"
-                style={{
-                  background: pixel.color || generateAvatarGradient(pixel.owner?.id || 'unknown'),
-                }}
-              >
-                {getAvatarInitial(pixel.owner?.display_name, pixel.owner?.wallet_short)}
-              </div>
+            <div className="flex items-start gap-3">
+              {/* Avatar - use owner's avatar if available */}
+              {pixel.owner?.avatar_url ? (
+                <img
+                  src={pixel.owner.avatar_url}
+                  alt="Owner avatar"
+                  className="w-10 h-10 rounded-lg object-cover shrink-0"
+                />
+              ) : (
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold text-sm shrink-0"
+                  style={{
+                    background: pixel.color || generateAvatarGradient(pixel.owner?.id || 'unknown'),
+                  }}
+                >
+                  {getAvatarInitial(pixel.owner?.display_name, pixel.owner?.wallet_short)}
+                </div>
+              )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-medium text-sm text-foreground truncate">
@@ -185,6 +195,52 @@ export function PixelInspectorCard({
                 </div>
                 {isOwnPixel && (
                   <span className="text-xs text-muted-foreground">Your pixel</span>
+                )}
+                
+                {/* Bio */}
+                {pixel.owner?.bio && (
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                    {pixel.owner.bio}
+                  </p>
+                )}
+                
+                {/* Social Links */}
+                {(pixel.owner?.social_x || pixel.owner?.social_instagram || pixel.owner?.social_website) && (
+                  <div className="flex items-center gap-2 mt-1.5">
+                    {pixel.owner.social_x && (
+                      <a
+                        href={pixel.owner.social_x}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        title="X / Twitter"
+                      >
+                        <Twitter className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    {pixel.owner.social_instagram && (
+                      <a
+                        href={pixel.owner.social_instagram}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        title="Instagram"
+                      >
+                        <Instagram className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    {pixel.owner.social_website && (
+                      <a
+                        href={pixel.owner.social_website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        title="Website"
+                      >
+                        <Globe className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
