@@ -573,6 +573,26 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Notify followers about this user's paint action
+    if (mode === "PAINT" && affectedPixels > 0) {
+      const { data: followers } = await supabase
+        .from("user_follows")
+        .select("follower_id")
+        .eq("followed_id", userId);
+
+      if (followers && followers.length > 0) {
+        const followerNotifications = followers.map(f => ({
+          user_id: f.follower_id,
+          type: "FOLLOWED_PLAYER_PAINTED",
+          title: "A player you follow painted!",
+          body: `Painted ${affectedPixels} pixel${affectedPixels > 1 ? 's' : ''}`,
+          meta: { actor_id: userId, pixel_count: affectedPixels, color }
+        }));
+
+        await supabase.from("notifications").insert(followerNotifications);
+      }
+    }
+
     // Calculate bounding box
     const xs = pixels.map(p => p.x);
     const ys = pixels.map(p => p.y);

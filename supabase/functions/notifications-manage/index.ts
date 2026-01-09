@@ -198,6 +198,78 @@ Deno.serve(async (req) => {
       });
     }
 
+    // FOLLOW - Follow a user
+    if (action === "follow") {
+      const { targetUserId } = body;
+      
+      if (!targetUserId || targetUserId === userId) {
+        return new Response(JSON.stringify({ error: "Invalid target" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check if already following
+      const { data: existing } = await supabase
+        .from("user_follows")
+        .select("id")
+        .eq("follower_id", userId)
+        .eq("followed_id", targetUserId)
+        .single();
+
+      if (existing) {
+        return new Response(JSON.stringify({ success: true, alreadyFollowing: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { error } = await supabase
+        .from("user_follows")
+        .insert({ follower_id: userId, followed_id: targetUserId });
+
+      if (error) {
+        console.error("[notifications-manage] Follow error:", error);
+        return new Response(JSON.stringify({ error: "Failed to follow" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // UNFOLLOW - Unfollow a user
+    if (action === "unfollow") {
+      const { targetUserId } = body;
+      
+      if (!targetUserId) {
+        return new Response(JSON.stringify({ error: "targetUserId required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { error } = await supabase
+        .from("user_follows")
+        .delete()
+        .eq("follower_id", userId)
+        .eq("followed_id", targetUserId);
+
+      if (error) {
+        console.error("[notifications-manage] Unfollow error:", error);
+        return new Response(JSON.stringify({ error: "Failed to unfollow" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
