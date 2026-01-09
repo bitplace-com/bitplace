@@ -1,5 +1,5 @@
 import { Book, Paintbrush, Shield, Swords, Plus, Zap, TrendingDown } from "lucide-react";
-import { GameModal } from "./GameModal";
+import { GamePanel } from "./GamePanel";
 
 interface RulesModalProps {
   open: boolean;
@@ -8,7 +8,7 @@ interface RulesModalProps {
 
 export function RulesModal({ open, onOpenChange }: RulesModalProps) {
   return (
-    <GameModal
+    <GamePanel
       open={open}
       onOpenChange={onOpenChange}
       title="Rules"
@@ -89,6 +89,33 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
           </div>
         </section>
 
+        {/* Glossary */}
+        <section className="space-y-3">
+          <h3 className="font-semibold">Glossary</h3>
+          <div className="grid gap-2 text-xs">
+            <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
+              <span className="font-medium">PE</span>
+              <span className="text-muted-foreground">Pixel Energy - your power derived from wallet value</span>
+            </div>
+            <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
+              <span className="font-medium">Stake</span>
+              <span className="text-muted-foreground">PE locked on pixels you own</span>
+            </div>
+            <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
+              <span className="font-medium">DEF</span>
+              <span className="text-muted-foreground">Defense value staked on pixels</span>
+            </div>
+            <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
+              <span className="font-medium">ATK</span>
+              <span className="text-muted-foreground">Attack power to reduce pixel value</span>
+            </div>
+            <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
+              <span className="font-medium">Takeover</span>
+              <span className="text-muted-foreground">When ATK reduces value to 0 and pixel is claimed</span>
+            </div>
+          </div>
+        </section>
+
         {/* Tip */}
         <div className="p-3 rounded-lg bg-muted/50 border border-border">
           <p className="text-xs text-muted-foreground">
@@ -96,6 +123,6 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
           </p>
         </div>
       </div>
-    </GameModal>
+    </GamePanel>
   );
 }

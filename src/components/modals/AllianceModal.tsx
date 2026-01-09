@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Users, Crown, LogOut, Loader2, Search, UserPlus, Check } from "lucide-react";
-import { GameModal } from "./GameModal";
+import { GamePanel } from "./GamePanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -151,7 +151,7 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
 
   if (isLoading) {
     return (
-      <GameModal
+      <GamePanel
         open={open}
         onOpenChange={onOpenChange}
         title="Alliances"
@@ -162,14 +162,14 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      </GameModal>
+      </GamePanel>
     );
   }
 
   // Not in alliance - show create UI only
   if (!alliance) {
     return (
-      <GameModal
+      <GamePanel
         open={open}
         onOpenChange={onOpenChange}
         title="Alliances"
@@ -214,13 +214,13 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
             Create an alliance and invite other players to join.
           </p>
         </div>
-      </GameModal>
+      </GamePanel>
     );
   }
 
   // In alliance - show details + invite player
   return (
-    <GameModal
+    <GamePanel
       open={open}
       onOpenChange={onOpenChange}
       title="My Alliance"
@@ -339,6 +339,6 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
           )}
         </Button>
       </div>
-    </GameModal>
+    </GamePanel>
   );
 }

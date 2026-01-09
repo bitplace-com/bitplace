@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Coins, Copy, Check, ExternalLink, RefreshCw, Smartphone } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { GameModal } from "./GameModal";
+import { GamePanel } from "./GamePanel";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/contexts/WalletContext";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -67,12 +67,13 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
   const assetSymbol = ENERGY_ASSET === 'SOL' ? 'SOL' : 'BTP';
 
   return (
-    <GameModal
+    <GamePanel
       open={open}
       onOpenChange={onOpenChange}
       title="Get more PE"
       description={`Increase your Pixel Energy by adding ${assetSymbol} to your wallet`}
       icon={<Coins className="h-5 w-5" />}
+      size="sm"
     >
       <div className="space-y-4">
         {!isConnected ? (
@@ -177,6 +178,6 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
           </>
         )}
       </div>
-    </GameModal>
+    </GamePanel>
   );
 }

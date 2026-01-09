@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Trophy, Globe, User, Users, Loader2, Twitter, Instagram } from "lucide-react";
-import { GameModal } from "./GameModal";
+import { GamePanel } from "./GamePanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,11 +36,6 @@ const PERIODS: { value: LeaderboardPeriod; label: string }[] = [
 
 function formatNumber(num: number): string {
   return num.toLocaleString();
-}
-
-function truncateAddress(address: string): string {
-  if (address.length <= 10) return address;
-  return `${address.slice(0, 4)}...${address.slice(-4)}`;
 }
 
 function RankBadge({ rank }: { rank: number }) {
@@ -347,7 +342,7 @@ export function LeaderboardModal({ open, onOpenChange }: LeaderboardModalProps) 
 
   return (
     <>
-      <GameModal
+      <GamePanel
         open={open}
         onOpenChange={onOpenChange}
         title="Leaderboard"
@@ -392,7 +387,7 @@ export function LeaderboardModal({ open, onOpenChange }: LeaderboardModalProps) 
             ))}
           </div>
 
-          <ScrollArea className="h-[320px] mt-3 -mx-1 px-1">
+          <ScrollArea className="h-[400px] mt-3 -mx-1 px-1">
             <TabsContent value="players" className="mt-0">
               <LeaderboardList scope="players" period={period} onPlayerClick={handlePlayerClick} />
             </TabsContent>
@@ -404,7 +399,7 @@ export function LeaderboardModal({ open, onOpenChange }: LeaderboardModalProps) 
             </TabsContent>
           </ScrollArea>
         </Tabs>
-      </GameModal>
+      </GamePanel>
 
       <PlayerProfileModal 
         open={profileOpen} 
