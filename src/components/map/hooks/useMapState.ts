@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { canInteractAtZoom } from '@/lib/pixelGrid';
-import { ALL_COLORS } from '@/lib/palettes/basePalette';
-
+import { ALL_COLORS } from '@/lib/palettes/basePaletteGrid';
 export type MapMode = 'paint' | 'defend' | 'attack' | 'reinforce';
 export type InteractionMode = 'drag' | 'draw';
 export type PaintTool = 'BRUSH' | 'ERASER';
