@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { ChevronUp, ChevronDown, Paintbrush, Grid2X2, Eraser, Hand, Pipette } from 'lucide-react';
 import { GlassIconButton } from '@/components/ui/glass-icon-button';
 import { BASE_PALETTE } from '@/lib/palettes/basePalette';
+import { MATERIALS, getMaterialsByCategory, isMaterial } from '@/lib/materials/materialRegistry';
 import { useSound } from '@/hooks/useSound';
 import { cn } from '@/lib/utils';
 import { canInteractAtZoom } from '@/lib/pixelGrid';
@@ -40,6 +41,13 @@ interface ActionTrayProps {
 
 const PE_CHIPS = [1, 5, 10, 25, 100];
 
+const CATEGORY_LABELS: Record<string, string> = {
+  metals: 'Metals',
+  holographic: 'Holographic',
+  elements: 'Elements',
+  special: 'Special',
+};
+
 export function ActionTray({
   mode,
   paintTool,
@@ -60,7 +68,10 @@ export function ActionTray({
   onPePerPixelChange,
 }: ActionTrayProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [paletteTab, setPaletteTab] = useState<'colors' | 'special'>('colors');
   const { play } = useSound();
+  
+  const materialsByCategory = getMaterialsByCategory();
   
   const canPaint = canInteractAtZoom(zoom);
   const isPaintMode = mode === 'paint';
@@ -242,43 +253,104 @@ export function ActionTray({
             )}
             
             {isPaintMode ? (
-              /* PAINT MODE: Color palette */
+              /* PAINT MODE: Color palette with tabs */
               <div className={cn(
                 "transition-opacity",
                 isEraser && "opacity-40 pointer-events-none"
               )}>
+                {/* Tab switch */}
+                <div className="flex gap-1 mb-2">
+                  <button
+                    onClick={() => setPaletteTab('colors')}
+                    className={cn(
+                      "px-3 py-1 text-xs rounded-md transition-colors",
+                      paletteTab === 'colors' 
+                        ? "bg-foreground text-background" 
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Colors
+                  </button>
+                  <button
+                    onClick={() => setPaletteTab('special')}
+                    className={cn(
+                      "px-3 py-1 text-xs rounded-md transition-colors",
+                      paletteTab === 'special' 
+                        ? "bg-foreground text-background" 
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Special
+                  </button>
+                </div>
+
                 <div className="max-h-48 overflow-y-auto">
-                  <div className="space-y-2">
-                    {BASE_PALETTE.map((group, groupIndex) => (
-                      <div key={group.name}>
-                        {/* Color swatches */}
-                        <div className="grid grid-cols-9 sm:grid-cols-12 gap-1.5">
-                          {group.colors.map((color) => {
-                            const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
-                            return (
-                              <button
-                                key={color}
-                                onClick={() => handleColorClick(color)}
-                                disabled={!canPaint}
-                                className={cn(
-                                  "w-7 h-7 rounded-md transition-all duration-100 focus:outline-none",
-                                  canPaint && "hover:ring-1 hover:ring-foreground/30",
-                                  isSelected && "ring-2 ring-foreground scale-105 z-10",
-                                  !canPaint && "opacity-40 cursor-not-allowed"
-                                )}
-                                style={{ backgroundColor: color }}
-                                title={color.toUpperCase()}
-                              />
-                            );
-                          })}
+                  {paletteTab === 'colors' ? (
+                    /* Standard color palette */
+                    <div className="space-y-2">
+                      {BASE_PALETTE.map((group, groupIndex) => (
+                        <div key={group.name}>
+                          {/* Color swatches */}
+                          <div className="grid grid-cols-9 sm:grid-cols-12 gap-1.5">
+                            {group.colors.map((color) => {
+                              const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
+                              return (
+                                <button
+                                  key={color}
+                                  onClick={() => handleColorClick(color)}
+                                  disabled={!canPaint}
+                                  className={cn(
+                                    "w-7 h-7 rounded-md transition-all duration-100 focus:outline-none",
+                                    canPaint && "hover:ring-1 hover:ring-foreground/30",
+                                    isSelected && "ring-2 ring-foreground scale-105 z-10",
+                                    !canPaint && "opacity-40 cursor-not-allowed"
+                                  )}
+                                  style={{ backgroundColor: color }}
+                                  title={color.toUpperCase()}
+                                />
+                              );
+                            })}
+                          </div>
+                          {/* Separator between groups */}
+                          {groupIndex < BASE_PALETTE.length - 1 && (
+                            <div className="h-px bg-border/30 mt-2" />
+                          )}
                         </div>
-                        {/* Separator between groups */}
-                        {groupIndex < BASE_PALETTE.length - 1 && (
-                          <div className="h-px bg-border/30 mt-2" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* Special materials palette */
+                    <div className="space-y-3">
+                      {Array.from(materialsByCategory.entries()).map(([category, materials]) => (
+                        <div key={category}>
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
+                            {CATEGORY_LABELS[category] || category}
+                          </div>
+                          <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5">
+                            {materials.map((material) => {
+                              const isSelected = selectedColor === material.id;
+                              return (
+                                <button
+                                  key={material.id}
+                                  onClick={() => handleColorClick(material.id)}
+                                  disabled={!canPaint}
+                                  className={cn(
+                                    "w-7 h-7 rounded-md transition-all duration-100 focus:outline-none relative overflow-hidden",
+                                    "hover:scale-110 hover:z-10",
+                                    canPaint && "hover:ring-1 hover:ring-foreground/30",
+                                    isSelected && "ring-2 ring-foreground scale-110 z-10",
+                                    !canPaint && "opacity-40 cursor-not-allowed"
+                                  )}
+                                  style={{ background: material.cssGradient }}
+                                  title={material.label}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 
                 {/* Micro-hint */}

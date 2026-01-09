@@ -292,10 +292,23 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Valid material IDs
+    const VALID_MATERIALS = [
+      'mat:gold', 'mat:silver', 'mat:bronze',
+      'mat:holo_rainbow', 'mat:prism',
+      'mat:ice', 'mat:fire', 'mat:lava',
+      'mat:aurora', 'mat:nebula', 'mat:pearl', 'mat:carbon'
+    ];
+
+    function isValidPaintId(paintId: string): boolean {
+      if (/^#[0-9A-Fa-f]{6}$/i.test(paintId)) return true;
+      return VALID_MATERIALS.includes(paintId);
+    }
+
     // Mode-specific validation
     if (mode === "PAINT") {
-      if (!color || !/^#[0-9A-Fa-f]{6}$/.test(color)) {
-        return new Response(JSON.stringify({ ok: false, error: "INVALID_COLOR", message: "PAINT requires valid hex color" }), {
+      if (!color || !isValidPaintId(color)) {
+        return new Response(JSON.stringify({ ok: false, error: "INVALID_COLOR", message: "PAINT requires valid hex color or material ID" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
