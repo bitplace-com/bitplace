@@ -10,7 +10,7 @@ import { InspectorPanel } from './inspector';
 import { StatusStrip } from './StatusStrip';
 import { HudOverlay, HudSlot } from './HudOverlay';
 import { PixelInspectorDrawer } from './PixelInspectorDrawer';
-import { PaletteTray } from './PaletteTray';
+import { ActionTray } from './ActionTray';
 import { MapMenuDrawer } from './MapMenuDrawer';
 import { QuickActions } from './QuickActions';
 import { WalletButton } from '@/components/wallet/WalletButton';
@@ -27,7 +27,20 @@ import { useWallet } from '@/contexts/WalletContext';
 import { useWalletGate } from '@/hooks/useWalletGate';
 import { useMapUrl } from '@/hooks/useMapUrl';
 import { useSound } from '@/hooks/useSound';
+import { usePeBalance } from '@/hooks/usePeBalance';
 import { lngLatToGridInt, getViewportGridBounds } from '@/lib/pixelGrid';
+
+// Helper to get snapped 2x2 block coordinates
+const getSnapped2x2Block = (x: number, y: number): { x: number; y: number }[] => {
+  const topLeftX = x - (x % 2);
+  const topLeftY = y - (y % 2);
+  return [
+    { x: topLeftX, y: topLeftY },
+    { x: topLeftX + 1, y: topLeftY },
+    { x: topLeftX, y: topLeftY + 1 },
+    { x: topLeftX + 1, y: topLeftY + 1 },
+  ];
+};
 
 export function BitplaceMap() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -50,13 +63,14 @@ export function BitplaceMap() {
   const { getUrlPosition, setUrlPosition } = useMapUrl();
   const { localPixels, paintPixel, mergePixels, confirmPixel } = usePixelStore();
   const { selection, startSelection, updateSelection, endSelection, clearSelection, getNormalizedBounds, getSelectedPixels } = useSelection();
-  const { mode, selectedColor, paintTool, zoom, artOpacity, interactionMode, setMode, setSelectedColor, setZoom, toggleArtOpacity, setInteractionMode, canPaint } = useMapState();
+  const { mode, selectedColor, paintTool, brushSize, zoom, artOpacity, interactionMode, setMode, setSelectedColor, setZoom, toggleArtOpacity, setInteractionMode, setPaintTool, setBrushSize, canPaint } = useMapState();
   const { dbPixels, updateViewport } = useSupabasePixels(zoom);
   const { validate, commit, validationResult, invalidPixels, isValidating, isCommitting, clearValidation } = useGameActions();
   const { queue: paintQueue, queueSize, isSpacePainting, isFlushing, startSpacePaint, stopSpacePaint, addToQueue, flushQueue } = usePaintQueue(paintPixel, confirmPixel);
   const { draft: draftPixels, draftCount, draftColor, isAtLimit: isDraftAtLimit, draftDirty, addToDraft, removeFromDraft, removeInvalidFromDraft, undoLast: undoDraft, clearDraft, getDraftPixels, setDraftDirty } = useDraftPaint();
   const { brushSelection, selectionCount, isSelectionAtLimit, hasShownLimitToast, startBrushSelection, addToBrushSelection, endBrushSelection, clearBrushSelection, getSelectedPixels: getBrushSelectedPixels, setFromRectSelection } = useBrushSelection();
   const { play: playSound } = useSound();
+  const peBalance = usePeBalance(user?.id);
 
   // Ref for last drafted pixel to prevent duplicates during hover-paint
   const lastDraftedPixelRef = useRef<{ x: number; y: number } | null>(null);
@@ -234,10 +248,16 @@ export function BitplaceMap() {
           setIsSpaceHeld(true);
           map.dragPan.disable();
           map.getCanvas().style.cursor = 'crosshair';
-          // Add first pixel to draft if hovering
+          // Add first pixel(s) to draft if hovering
           if (hoverPixel && selectedColor !== null) {
-            addToDraft(hoverPixel.x, hoverPixel.y, selectedColor);
-            lastDraftedPixelRef.current = hoverPixel;
+            if (brushSize === '2x2') {
+              const block = getSnapped2x2Block(hoverPixel.x, hoverPixel.y);
+              block.forEach(p => addToDraft(p.x, p.y, selectedColor));
+              lastDraftedPixelRef.current = block[0];
+            } else {
+              addToDraft(hoverPixel.x, hoverPixel.y, selectedColor);
+              lastDraftedPixelRef.current = hoverPixel;
+            }
           }
         }
       }
@@ -319,7 +339,7 @@ export function BitplaceMap() {
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [mapReady, mode, canPaint, user, isSpaceHeld, isShiftHeld, interactionMode, selection.isSelecting, endSelection, hoverPixel, selectedColor, addToDraft, requireWallet, pendingPixels.length, clearSelection, clearValidation, playSound, paintTool, brushSelection.pixels.size, startBrushSelection, endBrushSelection, getBrushSelectedPixels, clearBrushSelection, draftCount, clearDraft]);
+  }, [mapReady, mode, canPaint, user, isSpaceHeld, isShiftHeld, interactionMode, selection.isSelecting, endSelection, hoverPixel, selectedColor, addToDraft, requireWallet, pendingPixels.length, clearSelection, clearValidation, playSound, paintTool, brushSize, brushSelection.pixels.size, startBrushSelection, endBrushSelection, getBrushSelectedPixels, clearBrushSelection, draftCount, clearDraft]);
 
   // Update dragPan when interaction mode changes
   useEffect(() => {
@@ -445,9 +465,19 @@ export function BitplaceMap() {
         // SPACE held in PAINT mode with brush: add to draft (no backend)
         else if (isSpaceHeld && mode === 'paint' && selectedColor !== null && user) {
           const last = lastDraftedPixelRef.current;
-          if (!last || last.x !== pixel.x || last.y !== pixel.y) {
-            addToDraft(pixel.x, pixel.y, selectedColor);
-            lastDraftedPixelRef.current = pixel;
+          // For 2x2 brush, snap to block
+          if (brushSize === '2x2') {
+            const block = getSnapped2x2Block(pixel.x, pixel.y);
+            const topLeft = block[0];
+            if (!last || last.x !== topLeft.x || last.y !== topLeft.y) {
+              block.forEach(p => addToDraft(p.x, p.y, selectedColor));
+              lastDraftedPixelRef.current = topLeft;
+            }
+          } else {
+            if (!last || last.x !== pixel.x || last.y !== pixel.y) {
+              addToDraft(pixel.x, pixel.y, selectedColor);
+              lastDraftedPixelRef.current = pixel;
+            }
           }
         }
         // Click+drag brush selection (isBrushSelectingRef)
@@ -464,7 +494,12 @@ export function BitplaceMap() {
         }
         // DRAW mode continuous painting - add to draft (no backend)
         else if (interactionMode === 'draw' && isDrawingRef.current && mode === 'paint' && selectedColor !== null && user) {
-          addToDraft(pixel.x, pixel.y, selectedColor);
+          if (brushSize === '2x2') {
+            const block = getSnapped2x2Block(pixel.x, pixel.y);
+            block.forEach(p => addToDraft(p.x, p.y, selectedColor));
+          } else {
+            addToDraft(pixel.x, pixel.y, selectedColor);
+          }
         }
       } else { 
         setHoverPixel(null); 
@@ -535,7 +570,12 @@ export function BitplaceMap() {
         // Brush mode: start drafting
         if (!requireWallet('paint')) return;
         isDrawingRef.current = true;
-        addToDraft(pixel.x, pixel.y, selectedColor!);
+        if (brushSize === '2x2') {
+          const block = getSnapped2x2Block(pixel.x, pixel.y);
+          block.forEach(p => addToDraft(p.x, p.y, selectedColor!));
+        } else {
+          addToDraft(pixel.x, pixel.y, selectedColor!);
+        }
         return;
       }
       
@@ -652,7 +692,7 @@ export function BitplaceMap() {
       map.off('mouseup', handleMapMouseUp);
       canvas.removeEventListener('mouseleave', handleMapMouseLeave);
     };
-  }, [mapReady, mode, selectedColor, interactionMode, isSpaceHeld, isShiftHeld, updateSelection, startSelection, endSelection, clearSelection, isEyedropperActive, handleEyedropperPick, addToDraft, canPaint, user, executeSinglePixelAction, playSound, requireWallet]);
+  }, [mapReady, mode, selectedColor, interactionMode, isSpaceHeld, isShiftHeld, updateSelection, startSelection, endSelection, clearSelection, isEyedropperActive, handleEyedropperPick, addToDraft, canPaint, user, executeSinglePixelAction, playSound, requireWallet, brushSize]);
 
   const handleZoomIn = useCallback(() => mapRef.current?.zoomIn(), []);
   const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), []);
@@ -777,19 +817,26 @@ export function BitplaceMap() {
           </HudSlot>
         </HudOverlay>
 
-        {/* Palette Tray - always visible in paint mode */}
-        {mode === 'paint' && (
-          <PaletteTray
-            selectedColor={selectedColor}
-            onColorSelect={setSelectedColor}
-            viewportPixels={pixels}
-            onEyedropperToggle={setIsEyedropperActive}
-            isEyedropperActive={isEyedropperActive}
-            zoom={zoom}
-            interactionMode={interactionMode}
-            onInteractionModeChange={setInteractionMode}
-          />
-        )}
+        {/* Action Tray - always visible */}
+        <ActionTray
+          mode={mode}
+          paintTool={paintTool}
+          brushSize={brushSize}
+          selectedColor={selectedColor}
+          interactionMode={interactionMode}
+          zoom={zoom}
+          draftCount={draftCount}
+          selectionCount={pendingPixels.length}
+          pePerPixel={pePerPixel}
+          availablePe={peBalance.free}
+          isEyedropperActive={isEyedropperActive}
+          onEyedropperToggle={setIsEyedropperActive}
+          onColorSelect={setSelectedColor}
+          onPaintToolChange={setPaintTool}
+          onBrushSizeChange={setBrushSize}
+          onInteractionModeChange={setInteractionMode}
+          onPePerPixelChange={setPePerPixel}
+        />
 
         {/* Pixel Inspector Card/Drawer */}
         <PixelInspectorDrawer
