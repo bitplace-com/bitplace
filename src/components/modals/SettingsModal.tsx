@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { 
-  User, Globe, Link, Volume2, VolumeX, Sun, Moon, 
+  User, Globe, Link, Volume2, VolumeX, 
   Upload, ExternalLink, FileText, Shield, Instagram, Twitter, Settings
 } from "lucide-react";
 import { GamePanel } from "./GamePanel";
@@ -28,8 +28,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const { user, isAuthenticated } = useWallet();
   const { 
     settings, 
-    theme, 
-    setTheme, 
     soundEnabled, 
     toggleSound,
     saveProfile,
@@ -331,18 +329,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             Preferences
           </h3>
           
-          {/* Theme */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {theme === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-              <Label>Dark Mode</Label>
-            </div>
-            <Switch
-              checked={theme === 'dark'}
-              onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
-            />
-          </div>
-
           {/* Sound */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">

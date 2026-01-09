@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Menu, Map, Book, ShoppingBag, Settings, Users } from "lucide-react";
+import { Menu, Map, Book, ShoppingBag, Settings, Users, Sun, Moon } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Sheet,
@@ -15,6 +16,22 @@ import { RulesModal } from "@/components/modals/RulesModal";
 import { ShopModal } from "@/components/modals/ShopModal";
 import { AllianceModal } from "@/components/modals/AllianceModal";
 import { SettingsModal } from "@/components/modals/SettingsModal";
+
+function ThemeToggleButton() {
+  const { theme, setTheme } = useTheme();
+  const isDark = theme === "dark";
+
+  return (
+    <Button
+      variant="ghost"
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
+    >
+      {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      {isDark ? "Day Mode" : "Night Mode"}
+    </Button>
+  );
+}
 
 export function MapMenuDrawer() {
   const [open, setOpen] = useState(false);
@@ -95,7 +112,7 @@ export function MapMenuDrawer() {
             </Button>
           </nav>
 
-          {/* Footer with Settings */}
+          {/* Footer with Settings and Theme */}
           <div className="flex flex-col gap-1 mt-auto pt-4 border-t border-border/30">
             <Button
               variant="ghost"
@@ -105,6 +122,7 @@ export function MapMenuDrawer() {
               <Settings className="h-5 w-5" />
               Settings
             </Button>
+            <ThemeToggleButton />
           </div>
         </SheetContent>
       </Sheet>
