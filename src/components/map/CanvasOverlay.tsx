@@ -472,29 +472,22 @@ export function CanvasOverlay({
   useEffect(() => {
     if (!map) return;
 
-    // Throttle draws using RAF to avoid redundant draws
-    const scheduleDraw = () => {
-      if (drawRequestRef.current !== null) return; // Already scheduled
-      drawRequestRef.current = requestAnimationFrame(() => {
-        drawRequestRef.current = null;
-        draw();
-      });
+    // Use MapLibre's 'render' event which fires AFTER the map frame is drawn
+    // This ensures perfect synchronization between the canvas overlay and the map
+    const onRender = () => {
+      draw();
     };
 
-    map.on('move', scheduleDraw);
-    map.on('moveend', scheduleDraw);
-    map.on('zoom', scheduleDraw);
-    map.on('resize', scheduleDraw);
+    // 'render' fires on: position/zoom/pitch/bearing changes, style changes,
+    // GeoJSON source changes, tile loads, etc.
+    map.on('render', onRender);
 
     // Initial draw
-    scheduleDraw();
+    draw();
 
     return () => {
-      map.off('move', scheduleDraw);
-      map.off('moveend', scheduleDraw);
-      map.off('zoom', scheduleDraw);
-      map.off('resize', scheduleDraw);
-      // Cancel any pending draw
+      map.off('render', onRender);
+      // Cancel any pending draw from previous effects
       if (drawRequestRef.current !== null) {
         cancelAnimationFrame(drawRequestRef.current);
       }
