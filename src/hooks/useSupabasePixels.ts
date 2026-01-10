@@ -156,11 +156,26 @@ export function useSupabasePixels(zoom: number) {
     });
   }, [removePixelFromCache]);
 
+  // Add pixels optimistically (for PAINT mode)
+  const addPixels = useCallback((pixelsToAdd: Array<{ x: number; y: number; color: string }>) => {
+    pixelsToAdd.forEach(({ x, y, color }) => {
+      updatePixelInCache(x, y, color);
+    });
+    setDbPixels((prev) => {
+      const next = new Map(prev);
+      pixelsToAdd.forEach(({ x, y, color }) => {
+        next.set(pixelKey(x, y), { color });
+      });
+      return next;
+    });
+  }, [updatePixelInCache]);
+
   return {
     dbPixels,
     isLoading,
     updateViewport,
     paintPixelToDb,
     removePixels,
+    addPixels,
   };
 }

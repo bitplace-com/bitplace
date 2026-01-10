@@ -68,7 +68,7 @@ export function BitplaceMap() {
   const { localPixels, paintPixel, mergePixels, confirmPixel } = usePixelStore();
   const { selection, startSelection, updateSelection, endSelection, clearSelection, getNormalizedBounds, getSelectedPixels } = useSelection();
   const { mode, selectedColor, paintTool, brushSize, zoom, artOpacity, interactionMode, setMode, setSelectedColor, setZoom, toggleArtOpacity, setInteractionMode, setPaintTool, setBrushSize, canPaint } = useMapState();
-  const { dbPixels, updateViewport, removePixels } = useSupabasePixels(zoom);
+  const { dbPixels, updateViewport, removePixels, addPixels } = useSupabasePixels(zoom);
   const { validate, commit, validationResult, invalidPixels, isValidating, isCommitting, clearValidation } = useGameActions();
   const { queue: paintQueue, queueSize, isSpacePainting, isFlushing, startSpacePaint, stopSpacePaint, addToQueue, flushQueue } = usePaintQueue(paintPixel, confirmPixel);
   const { draft: draftPixels, draftCount, draftColor, isAtLimit: isDraftAtLimit, draftDirty, addToDraft, removeFromDraft, removeInvalidFromDraft, undoLast: undoDraft, clearDraft, getDraftPixels, setDraftDirty } = useDraftPaint();
@@ -881,7 +881,8 @@ export function BitplaceMap() {
         if (!result?.ok) return;
         const success = await commit({ mode: 'PAINT', pixels: pixelsToCommit, color: selectedColor, snapshotHash: result.snapshotHash });
         if (success) { 
-          pixelsToCommit.forEach(({ x, y }) => { paintPixel(x, y, selectedColor); confirmPixel(x, y); }); 
+          // Optimistic update - add pixels to tile cache and dbPixels immediately
+          addPixels(pixelsToCommit.map(({ x, y }) => ({ x, y, color: selectedColor! })));
           refreshUser(); 
           clearDraft();
           handleClearSelection();
@@ -904,7 +905,8 @@ export function BitplaceMap() {
     const success = await commit({ mode: gameMode as GameMode, pixels: pixelsToCommit, color: gameMode === 'PAINT' ? selectedColor : undefined, pePerPixel: gameMode !== 'PAINT' && gameMode !== 'ERASE' ? pePerPixel : undefined, snapshotHash: validationResult.snapshotHash });
     if (success) {
       if (gameMode === 'PAINT') {
-        pixelsToCommit.forEach(({ x, y }) => { paintPixel(x, y, selectedColor); confirmPixel(x, y); });
+        // Optimistic update - add pixels to tile cache and dbPixels immediately
+        addPixels(pixelsToCommit.map(({ x, y }) => ({ x, y, color: selectedColor! })));
         clearDraft();
         playSound('paint_commit');
       } else if (gameMode === 'ERASE') {
@@ -921,7 +923,7 @@ export function BitplaceMap() {
       refreshUser(); 
       handleClearSelection();
     }
-  }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, validate, getGameMode, paintPixel, confirmPixel, refreshUser, handleClearSelection, playSound, getDraftPixels, clearDraft, removePixels]);
+  }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, validate, getGameMode, refreshUser, handleClearSelection, playSound, getDraftPixels, clearDraft, removePixels, addPixels]);
 
   // Inspector card handlers
   const handleInspectorPaint = useCallback(async (x: number, y: number) => {
