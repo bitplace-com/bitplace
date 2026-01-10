@@ -133,20 +133,20 @@ export function ActionTray({
 
   return (
     <div 
-      className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none bottom-[calc(2.75rem+env(safe-area-inset-bottom))] max-w-[calc(100vw-1rem)] sm:max-w-[540px]"
+      className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none bottom-[calc(3.5rem+env(safe-area-inset-bottom))] max-w-[calc(100vw-1rem)] sm:max-w-[540px]"
       style={{ width: isExpanded ? '100%' : 'auto' }}
     >
       <div 
         className={cn(
-          "pointer-events-auto overflow-hidden transition-all duration-200 rounded-2xl",
+          "pointer-events-auto overflow-hidden transition-all duration-200 rounded-2xl shadow-lg",
           "glass-hud-strong",
           isEyedropperActive && "ring-2 ring-foreground"
         )}
       >
         {/* Header - always visible */}
-        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-          {/* Left: Interaction mode toggle (always Hand/Draw only when collapsed) */}
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between gap-2 px-3 py-2">
+          {/* Left: Interaction mode toggle */}
+          <div className="flex items-center gap-1.5 shrink-0">
             {canPaint && (
               <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5">
                 <button
@@ -178,7 +178,7 @@ export function ActionTray({
           </div>
 
           {/* Center: Collapsed summary OR selection count when expanded */}
-          <div className="flex-1 flex justify-center">
+          <div className="flex-1 flex justify-center min-w-0">
             {!isExpanded ? (
               /* Collapsed summary - mode aware */
               isPaintMode ? (
@@ -222,7 +222,7 @@ export function ActionTray({
           </div>
 
           {/* Right: Eyedropper + Expand */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             {isExpanded && isPaintMode && (
               <GlassIconButton
                 variant={isEyedropperActive ? 'active' : 'ghost'}
@@ -255,20 +255,18 @@ export function ActionTray({
           <div className="px-3 pb-3">
             {/* Zoom hint */}
             {!canPaint && (
-              <div className="text-center py-1.5 mb-3 text-[11px] text-muted-foreground bg-muted/50 rounded-lg">
+              <div className="text-center py-1.5 mb-2 text-[11px] text-muted-foreground bg-muted/50 rounded-lg">
                 Zoom in to interact
               </div>
             )}
             
             {isPaintMode ? (
               /* PAINT MODE: Color palette with tabs */
-              <div className={cn(
-                "transition-opacity",
-                isEraser && "opacity-40 pointer-events-none"
-              )}>
-                {/* Tool switch - Brush 1x / Brush 2x2 / Eraser - NOW INSIDE EXPANDED */}
+              <>
+                {/* Tool row - ALWAYS CLICKABLE (outside opacity wrapper) */}
                 {canPaint && (
                   <div className="flex items-center justify-between mb-2">
+                    {/* Left: Tool cluster */}
                     <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5">
                       <button
                         onClick={() => handleToolClick('BRUSH', '1x')}
@@ -308,15 +306,15 @@ export function ActionTray({
                       </button>
                     </div>
                     
-                    {/* Tab switch */}
+                    {/* Right: Tab switch */}
                     <div className="flex gap-1">
                       <button
                         onClick={() => setPaletteTab('colors')}
                         className={cn(
-                          "px-3 py-1 text-xs rounded-md transition-colors",
+                          "px-2.5 py-1 text-[11px] rounded-md transition-colors",
                           paletteTab === 'colors' 
                             ? "bg-foreground text-background" 
-                            : "bg-muted text-muted-foreground hover:text-foreground"
+                            : "bg-muted/70 text-muted-foreground hover:text-foreground"
                         )}
                       >
                         Colors
@@ -324,10 +322,10 @@ export function ActionTray({
                       <button
                         onClick={() => setPaletteTab('special')}
                         className={cn(
-                          "px-3 py-1 text-xs rounded-md transition-colors",
+                          "px-2.5 py-1 text-[11px] rounded-md transition-colors",
                           paletteTab === 'special' 
                             ? "bg-foreground text-background" 
-                            : "bg-muted text-muted-foreground hover:text-foreground"
+                            : "bg-muted/70 text-muted-foreground hover:text-foreground"
                         )}
                       >
                         Special
@@ -335,6 +333,12 @@ export function ActionTray({
                     </div>
                   </div>
                 )}
+
+                {/* Palette grid - THIS is what gets disabled when eraser is active */}
+                <div className={cn(
+                  "transition-opacity",
+                  isEraser && "opacity-40 pointer-events-none"
+                )}>
 
                 <div className="max-h-48 overflow-y-auto">
                   {paletteTab === 'colors' ? (
@@ -393,14 +397,15 @@ export function ActionTray({
                     </div>
                   )}
                 </div>
+                </div>
                 
-                {/* Micro-hint */}
+                {/* Single micro-hint at bottom */}
                 {canPaint && (
-                  <div className="text-[10px] text-muted-foreground/60 text-center pt-2">
+                  <div className="text-[10px] text-muted-foreground/50 text-center pt-2">
                     {hintText}
                   </div>
                 )}
-              </div>
+              </>
             ) : (
               /* ACTION MODE (Defend/Attack/Reinforce): Stake controls */
               <div className="space-y-3">
