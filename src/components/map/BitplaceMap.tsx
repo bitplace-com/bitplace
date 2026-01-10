@@ -216,19 +216,19 @@ export function BitplaceMap() {
     if (!map || !mapReady) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // ESC: cancel selection in any mode
+      // ESC: clear ONLY actionSelection + validation, NEVER paintDraft
       if (e.key === 'Escape') {
-        if (pendingPixels.length > 0 || brushSelection.pixels.size > 0 || draftCount > 0) {
+        // Only clear action selection (pendingPixels, brushSelection) - NOT draft
+        if (pendingPixels.length > 0 || brushSelection.pixels.size > 0) {
           clearSelection();
           clearValidation();
           clearBrushSelection();
-          clearDraft();
           setPendingPixels([]);
           setPreviewHiddenPixels(new Set());
           setValidatedActionPixels(null);
-          lastDraftedPixelRef.current = null;
           playSound('pixel_deselect');
         }
+        // paintDraft is NOT cleared by ESC - user has explicit Undo/Clear buttons
         return;
       }
       
@@ -258,8 +258,18 @@ export function BitplaceMap() {
           setIsSpaceHeld(true);
           map.dragPan.disable();
           map.getCanvas().style.cursor = 'crosshair';
-          // Start brush selection at current hover
+          // Start brush selection at current hover - but check for draft pixels first
           if (hoverPixel) {
+            // ERASER: if hovering over draft pixel, erase it immediately, don't start selection
+            if (paintTool === 'ERASER') {
+              const draftKey = `${hoverPixel.x}:${hoverPixel.y}`;
+              if (draftPixels.has(draftKey)) {
+                removeFromDraft(hoverPixel.x, hoverPixel.y);
+                playSound('pixel_deselect');
+                // Don't start brush selection for draft pixels
+                return;
+              }
+            }
             startBrushSelection(hoverPixel.x, hoverPixel.y);
           }
         } else {
@@ -368,7 +378,38 @@ export function BitplaceMap() {
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [mapReady, mode, canPaint, user, isSpaceHeld, isShiftHeld, interactionMode, selection.isSelecting, endSelection, hoverPixel, selectedColor, addToDraft, requireWallet, pendingPixels.length, clearSelection, clearValidation, playSound, paintTool, brushSize, brushSelection.pixels.size, startBrushSelection, endBrushSelection, getBrushSelectedPixels, clearBrushSelection, draftCount, clearDraft]);
+  }, [mapReady, mode, canPaint, user, isSpaceHeld, isShiftHeld, interactionMode, selection.isSelecting, endSelection, hoverPixel, selectedColor, addToDraft, requireWallet, pendingPixels.length, clearSelection, clearValidation, playSound, paintTool, brushSize, brushSelection.pixels.size, startBrushSelection, endBrushSelection, getBrushSelectedPixels, clearBrushSelection, draftPixels, removeFromDraft]);
+
+  // Auto-clear actionSelection when tool or mode changes (but keep paintDraft)
+  const prevModeRef = useRef(mode);
+  const prevPaintToolRef = useRef(paintTool);
+  const prevInteractionModeRef = useRef(interactionMode);
+  
+  useEffect(() => {
+    const modeChanged = prevModeRef.current !== mode;
+    const toolChanged = prevPaintToolRef.current !== paintTool;
+    const interactionChanged = prevInteractionModeRef.current !== interactionMode;
+    
+    // Update refs
+    prevModeRef.current = mode;
+    prevPaintToolRef.current = paintTool;
+    prevInteractionModeRef.current = interactionMode;
+    
+    // Clear action selection on any tool/mode change
+    if (modeChanged || toolChanged || interactionChanged) {
+      clearBrushSelection();
+      setPendingPixels([]);
+      clearValidation();
+      setPreviewHiddenPixels(new Set());
+      setValidatedActionPixels(null);
+      // Also close inspect selection when switching to HAND
+      if (interactionChanged && interactionMode === 'drag') {
+        setInspectSelection([]);
+        clearInspectBrushSelection();
+      }
+      // NOTE: paintDraft is NOT cleared - it persists across tool/mode changes
+    }
+  }, [mode, paintTool, interactionMode, clearBrushSelection, clearValidation, clearInspectBrushSelection]);
 
   // Update dragPan when interaction mode changes
   // Always enable drag when can't paint, regardless of interactionMode
@@ -692,9 +733,16 @@ export function BitplaceMap() {
           }
           
           if (action === 'erase') {
-            // Eraser: select for validate/confirm flow
-            startSelection(x, y);
-            setPendingPixels([{ x, y }]);
+            const draftKey = `${x}:${y}`;
+            // Single click on draft pixel: remove from draft immediately, no selection
+            if (draftPixels.has(draftKey)) {
+              removeFromDraft(x, y);
+              playSound('pixel_deselect');
+            } else {
+              // Committed pixel: select for validate/confirm flow
+              startSelection(x, y);
+              setPendingPixels([{ x, y }]);
+            }
           } else {
             // Paint: add single pixel to draft
             if (brushSize === '2x2') {
@@ -911,8 +959,8 @@ export function BitplaceMap() {
           actionSelectionCount={pendingPixels.length + draftCount}
         />
 
-        {/* Inspector Panel for draft or pending pixels */}
-        {canPaint && (pendingPixels.length > 0 || draftCount > 0) && (
+        {/* Inspector Panel for draft or pending pixels - NEVER show in HAND mode */}
+        {canPaint && interactionMode === 'draw' && (pendingPixels.length > 0 || draftCount > 0) && (
           <div className="absolute right-0 top-0 h-full z-20 pointer-events-none">
             <div className="pointer-events-auto h-full">
               <InspectorPanel 
