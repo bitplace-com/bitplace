@@ -1,24 +1,19 @@
 import { Component, ReactNode } from 'react';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
-import { PixelInspectorCard } from './PixelInspectorCard';
+import { PixelInfoPanel } from './PixelInfoPanel';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { X, RefreshCw } from 'lucide-react';
-import type { GameMode } from '@/hooks/useGameActions';
 
 interface PixelInspectorDrawerProps {
   pixel: { x: number; y: number } | null;
   onClose: () => void;
-  onPaint: (x: number, y: number) => void;
-  onDefendAttack: (x: number, y: number, mode: 'DEFEND' | 'ATTACK') => void;
-  onErase: (x: number, y: number) => void;
-  selectedColor: string | null;
-  mode: GameMode;
   currentUserId?: string;
+  actionSelectionCount?: number;
 }
 
-// Local error boundary for inspector card
+// Local error boundary for inspector panel
 interface ErrorBoundaryState {
   hasError: boolean;
 }
@@ -77,29 +72,21 @@ class InspectorErrorBoundary extends Component<
 export function PixelInspectorDrawer({
   pixel,
   onClose,
-  onPaint,
-  onDefendAttack,
-  onErase,
-  selectedColor,
-  mode,
   currentUserId,
+  actionSelectionCount = 0,
 }: PixelInspectorDrawerProps) {
   const isMobile = useIsMobile();
 
   if (!pixel) return null;
 
-  const inspectorCard = (
+  const infoPanel = (
     <InspectorErrorBoundary onClose={onClose} x={pixel.x} y={pixel.y}>
-      <PixelInspectorCard
+      <PixelInfoPanel
         x={pixel.x}
         y={pixel.y}
         onClose={onClose}
-        onPaint={onPaint}
-        onDefendAttack={onDefendAttack}
-        onErase={onErase}
-        selectedColor={selectedColor}
-        mode={mode}
         currentUserId={currentUserId}
+        actionSelectionCount={actionSelectionCount}
       />
     </InspectorErrorBoundary>
   );
@@ -108,7 +95,7 @@ export function PixelInspectorDrawer({
     return (
       <Drawer open={!!pixel} onOpenChange={(open) => !open && onClose()}>
         <DrawerContent className="px-4 pb-6">
-          <div className="pt-2">{inspectorCard}</div>
+          <div className="pt-2">{infoPanel}</div>
         </DrawerContent>
       </Drawer>
     );
@@ -117,7 +104,7 @@ export function PixelInspectorDrawer({
   // Desktop: Floating card at bottom-left
   return (
     <div className="fixed bottom-20 left-4 z-50 animate-in slide-in-from-bottom-4 fade-in duration-200">
-      {inspectorCard}
+      {infoPanel}
     </div>
   );
 }
