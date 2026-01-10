@@ -7,25 +7,25 @@
 @layer base {
   /* LIGHT THEME (default) */
   :root {
-    --background: 0 0% 97%;              /* #F7F7F7 - off-white */
+    --background: 0 0% 95%;              /* #F2F2F2 - soft off-white */
     --foreground: 0 0% 7%;               /* #111111 - near-black text */
 
-    --card: 0 0% 100%;                   /* pure white cards */
+    --card: 0 0% 98%;                    /* #FAFAFA - soft white cards */
     --card-foreground: 0 0% 7%;
 
-    --popover: 0 0% 100%;                /* pure white for popovers */
+    --popover: 0 0% 98%;                 /* #FAFAFA - soft white popovers */
     --popover-foreground: 0 0% 7%;
 
     --primary: 0 0% 0%;                  /* #000000 - BLACK primary */
     --primary-foreground: 0 0% 100%;     /* White text on black */
 
-    --secondary: 0 0% 96%;               /* #F5F5F5 - light gray surface */
+    --secondary: 0 0% 94%;               /* #F0F0F0 - light gray surface */
     --secondary-foreground: 0 0% 7%;
 
-    --muted: 0 0% 94%;                   /* #F0F0F0 - muted background */
+    --muted: 0 0% 91%;                   /* #E8E8E8 - muted background */
     --muted-foreground: 0 0% 40%;        /* dimmed text */
 
-    --accent: 0 0% 92%;                  /* #EBEBEB - accent surface */
+    --accent: 0 0% 89%;                  /* #E3E3E3 - accent surface */
     --accent-foreground: 0 0% 7%;
 
     --destructive: 0 70% 50%;            /* Red for errors */
@@ -38,7 +38,7 @@
     --radius: 0.5rem;
 
     /* Sidebar - Light theme */
-    --sidebar-background: 0 0% 100%;
+    --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 0 0% 7%;
     --sidebar-primary: 0 0% 0%;          /* Black for active */
     --sidebar-primary-foreground: 0 0% 100%;
@@ -48,14 +48,14 @@
     --sidebar-ring: 0 0% 0%;
     
     /* Extended grayscale tokens */
-    --gray-1: 0 0% 97%;                  /* #F7F7F7 */
-    --gray-2: 0 0% 94%;                  /* #F0F0F0 */
-    --gray-3: 0 0% 90%;                  /* #E5E5E5 */
-    --gray-4: 0 0% 85%;                  /* #D9D9D9 */
+    --gray-1: 0 0% 95%;                  /* #F2F2F2 */
+    --gray-2: 0 0% 91%;                  /* #E8E8E8 */
+    --gray-3: 0 0% 87%;                  /* #DEDEDE */
+    --gray-4: 0 0% 82%;                  /* #D1D1D1 */
     
     /* HUD Surface Tokens - optimized for map overlay readability */
-    --hud-bg: rgba(255, 255, 255, 0.78);
-    --hud-bg-strong: rgba(255, 255, 255, 0.90);
+    --hud-bg: rgba(250, 250, 250, 0.82);
+    --hud-bg-strong: rgba(250, 250, 250, 0.92);
     --hud-border: rgba(0, 0, 0, 0.14);
     --hud-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
     --hud-text: #111111;
@@ -142,13 +142,13 @@
 
 /* Light mode glass */
 :root .glass {
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(250, 250, 250, 0.92);
   border: 1px solid hsl(var(--border));
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
 }
 
 :root .glass-strong {
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(250, 250, 250, 0.95);
   border: 1px solid hsl(var(--border));
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
