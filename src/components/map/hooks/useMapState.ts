@@ -9,6 +9,7 @@ export type BrushSize = '1x' | '2x2';
 export interface MapState {
   mode: MapMode;
   selectedColor: string | null;
+  lastBrushColor: string;
   paintTool: PaintTool;
   brushSize: BrushSize;
   zoom: number;
@@ -34,6 +35,7 @@ export function useMapState() {
   const [state, setState] = useState<MapState>({
     mode: 'paint',
     selectedColor: ALL_COLORS[2],
+    lastBrushColor: ALL_COLORS[2],
     paintTool: 'BRUSH',
     brushSize: '1x',
     zoom: 2,
@@ -49,6 +51,7 @@ export function useMapState() {
     setState((prev) => ({
       ...prev,
       selectedColor: color,
+      lastBrushColor: color !== null ? color : prev.lastBrushColor,
       paintTool: color === null ? 'ERASER' : 'BRUSH',
     }));
   }, []);
@@ -75,7 +78,7 @@ export function useMapState() {
     setState((prev) => ({
       ...prev,
       paintTool: tool,
-      selectedColor: tool === 'ERASER' ? null : (prev.selectedColor ?? ALL_COLORS[2]),
+      selectedColor: tool === 'ERASER' ? null : prev.lastBrushColor,
     }));
   }, []);
 
