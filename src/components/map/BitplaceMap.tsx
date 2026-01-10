@@ -727,8 +727,17 @@ export function BitplaceMap() {
     // Check if eraser is active (selectedColor === null) in paint mode
     const isEraseAction = mode === 'paint' && selectedColor === null;
     const gameMode = isEraseAction ? 'ERASE' : getGameMode(mode);
-    await validate({ mode: gameMode as GameMode, pixels: pendingPixels, color: gameMode === 'PAINT' ? selectedColor : undefined, pePerPixel: gameMode !== 'PAINT' && gameMode !== 'ERASE' ? pePerPixel : undefined });
-  }, [user, mode, pendingPixels, selectedColor, pePerPixel, validate, getGameMode]);
+    
+    // Use draftPixels for PAINT mode, pendingPixels for others
+    const pixelsToValidate = gameMode === 'PAINT' ? getDraftPixels() : pendingPixels;
+    
+    if (pixelsToValidate.length === 0) {
+      toast.info('No pixels selected');
+      return;
+    }
+    
+    await validate({ mode: gameMode as GameMode, pixels: pixelsToValidate, color: gameMode === 'PAINT' ? selectedColor : undefined, pePerPixel: gameMode !== 'PAINT' && gameMode !== 'ERASE' ? pePerPixel : undefined });
+  }, [user, mode, pendingPixels, selectedColor, pePerPixel, validate, getGameMode, getDraftPixels]);
 
   const handleClearSelection = useCallback(() => { clearSelection(); clearValidation(); setPendingPixels([]); playSound('pixel_deselect'); }, [clearSelection, clearValidation, playSound]);
 
@@ -737,21 +746,30 @@ export function BitplaceMap() {
     const isEraseAction = mode === 'paint' && selectedColor === null;
     const gameMode = isEraseAction ? 'ERASE' : getGameMode(mode);
     
+    // Use draftPixels for PAINT mode, pendingPixels for others
+    const pixelsToCommit = gameMode === 'PAINT' ? getDraftPixels() : pendingPixels;
+    
+    if (pixelsToCommit.length === 0) {
+      toast.info('No pixels to commit');
+      return;
+    }
+    
     if (!validationResult?.ok) {
       if (gameMode === 'PAINT') {
-        const result = await validate({ mode: 'PAINT', pixels: pendingPixels, color: selectedColor });
+        const result = await validate({ mode: 'PAINT', pixels: pixelsToCommit, color: selectedColor });
         if (!result?.ok) return;
-        const success = await commit({ mode: 'PAINT', pixels: pendingPixels, color: selectedColor, snapshotHash: result.snapshotHash });
+        const success = await commit({ mode: 'PAINT', pixels: pixelsToCommit, color: selectedColor, snapshotHash: result.snapshotHash });
         if (success) { 
-          pendingPixels.forEach(({ x, y }) => { paintPixel(x, y, selectedColor); confirmPixel(x, y); }); 
+          pixelsToCommit.forEach(({ x, y }) => { paintPixel(x, y, selectedColor); confirmPixel(x, y); }); 
           refreshUser(); 
+          clearDraft();
           handleClearSelection();
           playSound('paint_commit');
         }
       } else if (gameMode === 'ERASE') {
-        const result = await validate({ mode: 'ERASE', pixels: pendingPixels });
+        const result = await validate({ mode: 'ERASE', pixels: pixelsToCommit });
         if (!result?.ok) return;
-        const success = await commit({ mode: 'ERASE', pixels: pendingPixels, snapshotHash: result.snapshotHash });
+        const success = await commit({ mode: 'ERASE', pixels: pixelsToCommit, snapshotHash: result.snapshotHash });
         if (success) { 
           refreshUser(); 
           handleClearSelection();
@@ -760,10 +778,11 @@ export function BitplaceMap() {
       }
       return;
     }
-    const success = await commit({ mode: gameMode as GameMode, pixels: pendingPixels, color: gameMode === 'PAINT' ? selectedColor : undefined, pePerPixel: gameMode !== 'PAINT' && gameMode !== 'ERASE' ? pePerPixel : undefined, snapshotHash: validationResult.snapshotHash });
+    const success = await commit({ mode: gameMode as GameMode, pixels: pixelsToCommit, color: gameMode === 'PAINT' ? selectedColor : undefined, pePerPixel: gameMode !== 'PAINT' && gameMode !== 'ERASE' ? pePerPixel : undefined, snapshotHash: validationResult.snapshotHash });
     if (success) {
       if (gameMode === 'PAINT') {
-        pendingPixels.forEach(({ x, y }) => { paintPixel(x, y, selectedColor); confirmPixel(x, y); });
+        pixelsToCommit.forEach(({ x, y }) => { paintPixel(x, y, selectedColor); confirmPixel(x, y); });
+        clearDraft();
         playSound('paint_commit');
       } else if (gameMode === 'ERASE') {
         playSound('erase_success');
@@ -777,7 +796,7 @@ export function BitplaceMap() {
       refreshUser(); 
       handleClearSelection();
     }
-  }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, validate, getGameMode, paintPixel, confirmPixel, refreshUser, handleClearSelection, playSound]);
+  }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, validate, getGameMode, paintPixel, confirmPixel, refreshUser, handleClearSelection, playSound, getDraftPixels, clearDraft]);
 
   // Inspector card handlers
   const handleInspectorPaint = useCallback(async (x: number, y: number) => {
