@@ -212,13 +212,13 @@ export function ActionBox({
 
       {/* Action Buttons */}
       <div className="flex gap-1.5">
-        {/* Back button - shows after validation to return to draft state */}
+        {/* Back button - shows after validation to return to draft state (synchronous, never disabled) */}
         {isValidated && onBack && (
           <Button
+            type="button"
             className="rounded-lg h-8 px-3"
             variant="ghost"
             onClick={onBack}
-            disabled={isCommitting}
           >
             <ArrowLeft className="h-3.5 w-3.5" />
           </Button>
