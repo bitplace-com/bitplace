@@ -1,31 +1,24 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PEIcon } from '@/components/ui/pe-icon';
+import { cn } from '@/lib/utils';
 
 interface PeInputProps {
   value: number;
   onChange: (value: number) => void;
   pixelCount: number;
-  availablePe?: number;
   label?: string;
 }
 
-export function PeInput({ value, onChange, pixelCount, availablePe, label = 'per pixel' }: PeInputProps) {
-  const isInsufficient = availablePe !== undefined && (value * pixelCount) > availablePe;
+const PE_PRESETS = [1, 2, 5, 10];
 
+export function PeInput({ value, onChange, pixelCount, label = 'per pixel' }: PeInputProps) {
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <Label htmlFor="pe-input" className="text-xs text-muted-foreground flex items-center gap-1">
-          <PEIcon size="xs" />
-          {label}
-        </Label>
-        {availablePe !== undefined && (
-          <span className="text-xs text-muted-foreground tabular-nums">
-            avail {availablePe.toLocaleString()}
-          </span>
-        )}
-      </div>
+      <Label htmlFor="pe-input" className="text-xs text-muted-foreground flex items-center gap-1">
+        <PEIcon size="xs" />
+        {label}
+      </Label>
       <Input
         id="pe-input"
         type="number"
@@ -34,9 +27,24 @@ export function PeInput({ value, onChange, pixelCount, availablePe, label = 'per
         onChange={(e) => onChange(Math.max(1, parseInt(e.target.value) || 1))}
         className="h-8 text-sm tabular-nums"
       />
-      {isInsufficient && (
-        <div className="text-[10px] text-destructive">Insufficient PE</div>
-      )}
+      {/* Quick presets */}
+      <div className="flex gap-1">
+        {PE_PRESETS.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            onClick={() => onChange(preset)}
+            className={cn(
+              "flex-1 h-6 text-[10px] rounded border transition-colors",
+              value === preset 
+                ? "bg-primary text-primary-foreground border-primary" 
+                : "bg-muted/50 border-border hover:bg-muted"
+            )}
+          >
+            {preset}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
