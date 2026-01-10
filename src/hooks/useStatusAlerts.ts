@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 const SESSION_TOKEN_KEY = 'bitplace_session_token';
-const REFRESH_INTERVAL_MS = 45_000; // 45 seconds
+const REFRESH_INTERVAL_MS = 120_000; // 2 minutes (reduced from 45s since we have realtime now)
 
 const getSessionToken = () => localStorage.getItem(SESSION_TOKEN_KEY);
 
@@ -26,8 +26,10 @@ interface UseStatusAlertsResult {
   contestedContributions: StatusAlert[];
   totalCount: number;
   isLoading: boolean;
+  hasNewAlerts: boolean;
   refresh: () => Promise<void>;
   markLostAsRead: (notificationId: string) => Promise<void>;
+  clearNewAlertFlag: () => void;
 }
 
 export function useStatusAlerts(userId: string | undefined): UseStatusAlertsResult {
@@ -35,7 +37,8 @@ export function useStatusAlerts(userId: string | undefined): UseStatusAlertsResu
   const [pixelsUnderAttack, setPixelsUnderAttack] = useState<StatusAlert[]>([]);
   const [contestedContributions, setContestedContributions] = useState<StatusAlert[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-
+  const [hasNewAlerts, setHasNewAlerts] = useState(false);
+  const prevCountRef = useRef({ lost: 0, attack: 0, contested: 0 });
   const fetchAlerts = useCallback(async () => {
     if (!userId) {
       setPixelsLost([]);
@@ -176,7 +179,7 @@ export function useStatusAlerts(userId: string | undefined): UseStatusAlertsResu
     fetchAlerts();
   }, [fetchAlerts]);
 
-  // Periodic refresh
+  // Periodic refresh (fallback, reduced interval since we have realtime)
   useEffect(() => {
     if (!userId) return;
 
@@ -184,6 +187,131 @@ export function useStatusAlerts(userId: string | undefined): UseStatusAlertsResu
     return () => clearInterval(interval);
   }, [userId, fetchAlerts]);
 
+  // Real-time subscription for notifications (PIXEL_TAKEOVER)
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`status-alerts:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const notification = payload.new as {
+            id: string;
+            type: string;
+            meta: Record<string, unknown> | null;
+            created_at: string;
+          };
+          
+          // Handle PIXEL_TAKEOVER in real-time
+          if (notification.type === 'PIXEL_TAKEOVER' && notification.meta) {
+            const meta = notification.meta as { pixel_x?: number; pixel_y?: number; actor_id?: string };
+            if (meta.pixel_x !== undefined && meta.pixel_y !== undefined) {
+              setPixelsLost(prev => [{
+                id: notification.id,
+                category: 'lost' as const,
+                x: meta.pixel_x!,
+                y: meta.pixel_y!,
+                timestamp: notification.created_at,
+                details: { actorId: meta.actor_id },
+              }, ...prev].slice(0, 50));
+              setHasNewAlerts(true);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
+
+  // Real-time subscription for pixel updates (attacks on owned pixels)
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`status-pixels:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'pixels',
+        },
+        (payload) => {
+          const newPixel = payload.new as {
+            id: number;
+            x: number;
+            y: number;
+            owner_user_id: string | null;
+            atk_total: number;
+            updated_at: string;
+          };
+          
+          // If this pixel is owned by user and has ATK
+          if (newPixel.owner_user_id === userId && Number(newPixel.atk_total) > 0) {
+            setPixelsUnderAttack(prev => {
+              const exists = prev.some(p => p.id === `attack-${newPixel.id}`);
+              if (exists) {
+                // Update existing
+                return prev.map(p => 
+                  p.id === `attack-${newPixel.id}` 
+                    ? { ...p, details: { ...p.details, atkTotal: Number(newPixel.atk_total) }, timestamp: newPixel.updated_at }
+                    : p
+                );
+              } else {
+                // Add new
+                setHasNewAlerts(true);
+                return [{
+                  id: `attack-${newPixel.id}`,
+                  category: 'under_attack' as const,
+                  x: Number(newPixel.x),
+                  y: Number(newPixel.y),
+                  timestamp: newPixel.updated_at,
+                  details: { atkTotal: Number(newPixel.atk_total) },
+                }, ...prev].slice(0, 50);
+              }
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
+
+  // Check for new alerts
+  useEffect(() => {
+    const currentCounts = {
+      lost: pixelsLost.length,
+      attack: pixelsUnderAttack.length,
+      contested: contestedContributions.length,
+    };
+    
+    if (
+      currentCounts.lost > prevCountRef.current.lost ||
+      currentCounts.attack > prevCountRef.current.attack ||
+      currentCounts.contested > prevCountRef.current.contested
+    ) {
+      setHasNewAlerts(true);
+    }
+    
+    prevCountRef.current = currentCounts;
+  }, [pixelsLost.length, pixelsUnderAttack.length, contestedContributions.length]);
+
+  const clearNewAlertFlag = useCallback(() => {
+    setHasNewAlerts(false);
+  }, []);
   const totalCount = pixelsLost.length + pixelsUnderAttack.length + contestedContributions.length;
 
   return {
@@ -192,7 +320,9 @@ export function useStatusAlerts(userId: string | undefined): UseStatusAlertsResu
     contestedContributions,
     totalCount,
     isLoading,
+    hasNewAlerts,
     refresh: fetchAlerts,
     markLostAsRead,
+    clearNewAlertFlag,
   };
 }

@@ -11,7 +11,12 @@ type SoundType =
   | 'defend_success'
   | 'attack_success'
   | 'reinforce_success'
-  | 'erase_success';
+  | 'erase_success'
+  // Real-time alert sounds
+  | 'alert_attack'
+  | 'alert_lost'
+  | 'alert_defend'
+  | 'notification';
 
 const STORAGE_KEY = 'bitplace_sound_enabled';
 
@@ -94,6 +99,22 @@ class SoundEngine {
       case 'erase_success':
         // Erase sound - descending sweep with fade
         this.playErase(ctx, now);
+        break;
+      case 'alert_attack':
+        // Urgent attack alert - rising alarm
+        this.playAlertAttack(ctx, now);
+        break;
+      case 'alert_lost':
+        // Pixel lost - descending defeat sound
+        this.playAlertLost(ctx, now);
+        break;
+      case 'alert_defend':
+        // Defense reinforced - positive shield sound
+        this.playAlertDefend(ctx, now);
+        break;
+      case 'notification':
+        // General notification - soft chime
+        this.playNotification(ctx, now);
         break;
     }
   }
@@ -326,6 +347,140 @@ class SoundEngine {
     whooshGain.connect(ctx.destination);
     whoosh.start(startTime);
     whoosh.stop(startTime + duration);
+  }
+
+  // Alert Attack - urgent rising alarm with urgency
+  private playAlertAttack(ctx: AudioContext, startTime: number): void {
+    const duration = 0.35;
+    
+    // Main alarm oscillator
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(400, startTime);
+    osc.frequency.exponentialRampToValueAtTime(800, startTime + 0.15);
+    osc.frequency.exponentialRampToValueAtTime(600, startTime + duration);
+    
+    gainNode.gain.setValueAtTime(0, startTime);
+    gainNode.gain.linearRampToValueAtTime(0.12, startTime + 0.02);
+    gainNode.gain.setValueAtTime(0.1, startTime + 0.15);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+    
+    // Second pulse for urgency
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'square';
+    osc2.frequency.setValueAtTime(1200, startTime + 0.1);
+    osc2.frequency.exponentialRampToValueAtTime(800, startTime + 0.2);
+    gain2.gain.setValueAtTime(0, startTime + 0.1);
+    gain2.gain.linearRampToValueAtTime(0.06, startTime + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, startTime + 0.25);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(startTime + 0.1);
+    osc2.stop(startTime + 0.25);
+  }
+
+  // Alert Lost - descending defeat sound
+  private playAlertLost(ctx: AudioContext, startTime: number): void {
+    const duration = 0.4;
+    
+    // Descending tone
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600, startTime);
+    osc.frequency.exponentialRampToValueAtTime(200, startTime + duration);
+    
+    gainNode.gain.setValueAtTime(0, startTime);
+    gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.02);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+    
+    // Low rumble undertone
+    const rumble = ctx.createOscillator();
+    const rumbleGain = ctx.createGain();
+    rumble.type = 'triangle';
+    rumble.frequency.setValueAtTime(80, startTime);
+    rumble.frequency.exponentialRampToValueAtTime(40, startTime + duration);
+    rumbleGain.gain.setValueAtTime(0.1, startTime);
+    rumbleGain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    rumble.connect(rumbleGain);
+    rumbleGain.connect(ctx.destination);
+    rumble.start(startTime);
+    rumble.stop(startTime + duration);
+  }
+
+  // Alert Defend - positive shield reinforcement sound
+  private playAlertDefend(ctx: AudioContext, startTime: number): void {
+    const duration = 0.3;
+    
+    // Rising positive tone
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(400, startTime);
+    osc.frequency.exponentialRampToValueAtTime(700, startTime + 0.1);
+    osc.frequency.setValueAtTime(700, startTime + duration);
+    
+    gainNode.gain.setValueAtTime(0, startTime);
+    gainNode.gain.linearRampToValueAtTime(0.1, startTime + 0.03);
+    gainNode.gain.setValueAtTime(0.08, startTime + 0.15);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+    
+    // Shimmer overtone
+    const shimmer = ctx.createOscillator();
+    const shimmerGain = ctx.createGain();
+    shimmer.type = 'triangle';
+    shimmer.frequency.setValueAtTime(1400, startTime);
+    shimmer.frequency.exponentialRampToValueAtTime(1600, startTime + duration);
+    shimmerGain.gain.setValueAtTime(0, startTime);
+    shimmerGain.gain.linearRampToValueAtTime(0.04, startTime + 0.05);
+    shimmerGain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    shimmer.connect(shimmerGain);
+    shimmerGain.connect(ctx.destination);
+    shimmer.start(startTime);
+    shimmer.stop(startTime + duration);
+  }
+
+  // Notification - soft gentle chime
+  private playNotification(ctx: AudioContext, startTime: number): void {
+    const frequencies = [880, 1108.73]; // A5, C#6 (pleasant interval)
+    const duration = 0.25;
+    
+    frequencies.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+      
+      gainNode.gain.setValueAtTime(0, startTime);
+      gainNode.gain.linearRampToValueAtTime(0.06, startTime + 0.01 + i * 0.03);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    });
   }
 
   public setEnabled(enabled: boolean): void {
