@@ -340,7 +340,7 @@ export function ActionTray({
                   isEraser && "opacity-40 pointer-events-none"
                 )}>
 
-                <div className="max-h-48 overflow-y-auto">
+                <div className="max-h-48 overflow-y-auto py-1.5 px-0.5">
                   {paletteTab === 'colors' ? (
                     /* Standard color palette - CONTINUOUS GRID (no separators) */
                     <div className="grid grid-cols-9 sm:grid-cols-12 gap-1.5">
@@ -365,7 +365,7 @@ export function ActionTray({
                     </div>
                   ) : (
                     /* Special materials palette */
-                    <div className="space-y-3">
+                    <div className="space-y-3 py-0.5">
                       {Array.from(materialsByCategory.entries()).map(([category, materials]) => (
                         <div key={category}>
                           <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
