@@ -326,9 +326,42 @@ export function BitplaceMap() {
           // End brush selection and update pendingPixels
           endBrushSelection();
           const selectedPixels = getBrushSelectedPixels();
-          if (selectedPixels.length > 0) {
+          
+          // ERASER mode: Auto-remove draft pixels immediately on SPACE release
+          if (paintTool === 'ERASER' && selectedPixels.length > 0) {
+            let removedCount = 0;
+            const committedPixels: { x: number; y: number }[] = [];
+            
+            selectedPixels.forEach(({ x, y }) => {
+              const key = `${x}:${y}`;
+              if (draftPixels.has(key)) {
+                // Pixel is in draft → remove immediately
+                removeFromDraft(x, y);
+                removedCount++;
+              } else {
+                // Pixel is committed → add to pending for validate flow
+                committedPixels.push({ x, y });
+              }
+            });
+            
+            // Only committed pixels go to validate flow
+            if (committedPixels.length > 0) {
+              setPendingPixels(committedPixels);
+              clearValidation();
+              setPreviewHiddenPixels(new Set());
+              setValidatedActionPixels(null);
+            } else {
+              // All were draft pixels, clear selection
+              clearBrushSelection();
+            }
+            
+            // Sound feedback if draft pixels were removed
+            if (removedCount > 0) {
+              playSound('pixel_deselect');
+            }
+          } else if (selectedPixels.length > 0) {
+            // Non-ERASER actions (DEFEND, ATTACK, etc.)
             setPendingPixels(selectedPixels);
-            // Clear any previous validation since selection changed
             clearValidation();
             setPreviewHiddenPixels(new Set());
             setValidatedActionPixels(null);
