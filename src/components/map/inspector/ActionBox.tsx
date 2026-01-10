@@ -1,4 +1,4 @@
-import { Paintbrush, Shield, Swords, Loader2, Eraser, Undo2, Trash2, Check, AlertCircle } from 'lucide-react';
+import { Paintbrush, Shield, Swords, Loader2, Eraser, Undo2, Trash2, Check, AlertCircle, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { PeInput } from '../PeInput';
@@ -15,6 +15,7 @@ interface ActionBoxProps {
   onColorSelect: (color: string) => void;
   onValidate: () => void;
   onConfirm: () => void;
+  onBack?: () => void; // New: Back button to return from VALIDATED_READY to DRAFT
   isValidating: boolean;
   isCommitting: boolean;
   // Draft-specific props
@@ -42,6 +43,7 @@ export function ActionBox({
   onColorSelect,
   onValidate,
   onConfirm,
+  onBack,
   isValidating,
   isCommitting,
   isDraftMode = false,
@@ -210,6 +212,18 @@ export function ActionBox({
 
       {/* Action Buttons */}
       <div className="flex gap-1.5">
+        {/* Back button - shows after validation to return to draft state */}
+        {isValidated && onBack && (
+          <Button
+            className="rounded-lg h-8 px-3"
+            variant="ghost"
+            onClick={onBack}
+            disabled={isCommitting}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+          </Button>
+        )}
+
         {needsValidation && !isValidated && (
           <Button
             className="flex-1 rounded-lg h-8 text-xs"

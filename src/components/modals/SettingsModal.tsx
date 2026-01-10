@@ -201,7 +201,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 className="hidden"
               />
               <p className="text-xs text-muted-foreground">
-                JPG, PNG, WebP. Max 1MB.
+                JPG, PNG, WebP. Max 10MB.
               </p>
             </div>
           </div>

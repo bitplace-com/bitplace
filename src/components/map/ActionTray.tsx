@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { ChevronUp, ChevronDown, Paintbrush, Grid2X2, Eraser, Hand, Pipette, Shield, Swords, Zap } from 'lucide-react';
+import { ChevronUp, ChevronDown, Grid2X2, Eraser, Hand, Pipette, Shield, Swords, Zap, Paintbrush } from 'lucide-react';
 import { GlassIconButton } from '@/components/ui/glass-icon-button';
 import { BASE_PALETTE_GRID, ALL_COLORS } from '@/lib/palettes/basePaletteGrid';
 import { MATERIALS, getMaterialsByCategory, isMaterial, getMaterial } from '@/lib/materials/materialRegistry';
@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { canInteractAtZoom } from '@/lib/pixelGrid';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { Input } from '@/components/ui/input';
+import { PixelIcon } from '@/components/ui/pixel-icon';
 import type { MapMode, InteractionMode, PaintTool, BrushSize } from './hooks/useMapState';
 
 interface ActionTrayProps {
@@ -203,13 +204,10 @@ export function ActionTray({
                   <span className="text-xs text-muted-foreground">No color</span>
                 )
               ) : (
-                /* Action mode: show mode icon + pending PE */
-                <div className="flex items-center gap-2">
-                  <ModeIcon mapMode={mode} className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs font-mono tabular-nums text-muted-foreground">
-                    {pendingPE.toLocaleString()} PE
-                  </span>
-                </div>
+              /* Action mode: show pending PE only (no redundant mode icon) */
+                <span className="text-xs font-mono tabular-nums text-muted-foreground">
+                  {pendingPE.toLocaleString()} PE
+                </span>
               )
             ) : (
               /* Expanded: show count if any */
@@ -278,7 +276,7 @@ export function ActionTray({
                         )}
                         title="Brush 1x"
                       >
-                        <Paintbrush className="h-4 w-4" />
+                        <PixelIcon className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleToolClick('BRUSH', '2x2')}

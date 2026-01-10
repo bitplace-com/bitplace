@@ -1,4 +1,4 @@
-import { User, LogOut, BarChart3, Copy, Check, BookOpen, Users, Volume2, VolumeX, Wallet } from "lucide-react";
+import { User, LogOut, BarChart3, Copy, Check, BookOpen, Users, Volume2, VolumeX, Wallet, Settings } from "lucide-react";
 import { PEIcon } from "@/components/ui/pe-icon";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -16,6 +16,7 @@ import { useSound } from "@/hooks/useSound";
 import { getCountryByCode } from "@/lib/countries";
 import { generateAvatarGradient, getAvatarInitial } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
+import { SettingsModal } from "./SettingsModal";
 
 interface UserMenuPanelProps {
   children: React.ReactNode;
@@ -42,6 +43,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
   const { user, walletAddress, disconnect, energy } = useWallet();
   const pixelStats = usePixelStats(user?.id);
   const [copied, setCopied] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { enabled: soundEnabled, toggle: toggleSound } = useSound();
 
   const country = getCountryByCode(user?.country_code);
@@ -182,15 +184,14 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
 
         <Separator className="bg-border" />
 
-        {/* Quick Links */}
         <div className="p-2">
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
-            onClick={() => navigate("/profile")}
+            onClick={() => setSettingsOpen(true)}
           >
-            <User className="h-4 w-4" />
-            Profile
+            <Settings className="h-4 w-4" />
+            Settings
           </Button>
           <Button
             variant="ghost"
@@ -237,6 +238,9 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           </Button>
         </div>
       </PopoverContent>
+      
+      {/* Settings Modal */}
+      <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
     </Popover>
   );
 }
