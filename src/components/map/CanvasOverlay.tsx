@@ -22,6 +22,8 @@ interface CanvasOverlayProps {
   brushSelectionPixels?: Set<string>;
   previewHiddenPixels?: Set<string>;
   draftPixels?: Map<string, { color: string }>;
+  inspectBrushSelectionPixels?: Set<string>;
+  isInspectSelecting?: boolean;
 }
 
 // Mode-specific hover and selection colors
@@ -46,6 +48,8 @@ export function CanvasOverlay({
   brushSelectionPixels,
   previewHiddenPixels,
   draftPixels,
+  inspectBrushSelectionPixels,
+  isInspectSelecting = false,
 }: CanvasOverlayProps) {
   const modeColors = getModeColors(mode);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -288,6 +292,91 @@ export function CanvasOverlay({
           ctx.strokeRect(rx, ry, rSize, rSize);
         });
       }
+
+      // Draw HAND mode SPACE multi-select (inspect brush selection) with bounding box
+      if (inspectBrushSelectionPixels && inspectBrushSelectionPixels.size > 0 && cellSize > 1) {
+        // Calculate bounding box of all selected pixels
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        
+        inspectBrushSelectionPixels.forEach(key => {
+          const [x, y] = key.split(':').map(Number);
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        });
+        
+        // Draw individual pixel highlights
+        const inspectFill = 'rgba(168, 85, 247, 0.25)'; // Purple tint for inspect
+        const inspectBorder = 'rgba(168, 85, 247, 0.6)';
+        ctx.fillStyle = inspectFill;
+        ctx.strokeStyle = inspectBorder;
+        ctx.lineWidth = 1;
+        
+        inspectBrushSelectionPixels.forEach(key => {
+          const [x, y] = key.split(':').map(Number);
+          if (x < topLeft.x - 1 || x > brGrid.x + 1) return;
+          if (y < topLeft.y - 1 || y > brGrid.y + 1) return;
+          
+          const screenX = (x - tlGrid.x) * cellSize;
+          const screenY = (y - tlGrid.y) * cellSize;
+          const rx = roundToDevicePixel(screenX, dpr);
+          const ry = roundToDevicePixel(screenY, dpr);
+          const rSize = Math.max(1, roundToDevicePixel(cellSize, dpr));
+          
+          ctx.fillRect(rx, ry, rSize, rSize);
+          ctx.strokeRect(rx, ry, rSize, rSize);
+        });
+        
+        // Draw bounding box rectangle around selection
+        const boxScreenX = (minX - tlGrid.x) * cellSize;
+        const boxScreenY = (minY - tlGrid.y) * cellSize;
+        const boxScreenEndX = (maxX + 1 - tlGrid.x) * cellSize;
+        const boxScreenEndY = (maxY + 1 - tlGrid.y) * cellSize;
+        
+        const boxRx = roundToDevicePixel(boxScreenX, dpr);
+        const boxRy = roundToDevicePixel(boxScreenY, dpr);
+        const boxWidth = roundToDevicePixel(boxScreenEndX - boxScreenX, dpr);
+        const boxHeight = roundToDevicePixel(boxScreenEndY - boxScreenY, dpr);
+        
+        // Dashed border for bounding box
+        ctx.strokeStyle = 'rgba(168, 85, 247, 0.9)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(boxRx, boxRy, boxWidth, boxHeight);
+        ctx.setLineDash([]);
+        
+        // Pixel count badge (shown while selecting or when selection exists)
+        const pixelCount = inspectBrushSelectionPixels.size;
+        const badgeText = isInspectSelecting 
+          ? `Selecting: ${pixelCount.toLocaleString()} px` 
+          : `${pixelCount.toLocaleString()} px`;
+        ctx.font = 'bold 12px system-ui, sans-serif';
+        const textMetrics = ctx.measureText(badgeText);
+        const badgePadding = 8;
+        const badgeHeight = 24;
+        const badgeWidth = textMetrics.width + badgePadding * 2;
+        
+        const badgeX = boxRx + boxWidth / 2 - badgeWidth / 2;
+        const badgeY = boxRy - badgeHeight - 8;
+        
+        // Badge background
+        ctx.fillStyle = 'rgba(88, 28, 135, 0.95)'; // Deep purple
+        ctx.beginPath();
+        ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 6);
+        ctx.fill();
+        
+        // Badge border
+        ctx.strokeStyle = 'rgba(168, 85, 247, 0.8)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        // Badge text
+        ctx.fillStyle = '#E9D5FF'; // Light purple text
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY + badgeHeight / 2);
+      }
     }
 
     // Draw hover highlight at paint zoom with mode-specific colors
@@ -370,7 +459,7 @@ export function CanvasOverlay({
         ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY + badgeHeight / 2);
       }
     }
-  }, [map, pixels, selection, hoverPixel, canPaint, invalidPixels, artOpacity, mode, modeColors, brushSelectionPixels, previewHiddenPixels, draftPixels]);
+  }, [map, pixels, selection, hoverPixel, canPaint, invalidPixels, artOpacity, mode, modeColors, brushSelectionPixels, previewHiddenPixels, draftPixels, inspectBrushSelectionPixels, isInspectSelecting]);
 
   useEffect(() => {
     if (!map) return;

@@ -839,6 +839,8 @@ export function BitplaceMap() {
             brushSelectionPixels={brushSelection.pixels}
             previewHiddenPixels={previewHiddenPixels}
             draftPixels={draftCount > 0 ? new Map(Array.from(draftPixels.entries()).map(([k, v]) => [k, { color: v.color }])) : undefined}
+            inspectBrushSelectionPixels={inspectBrushSelection.pixels}
+            isInspectSelecting={isSpaceHeld && interactionMode === 'drag'}
           />
         )}
 
