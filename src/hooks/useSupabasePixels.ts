@@ -142,10 +142,25 @@ export function useSupabasePixels(zoom: number) {
     }
   }, []);
 
+  // Remove pixels optimistically (for ERASE mode)
+  const removePixels = useCallback((coords: Array<{ x: number; y: number }>) => {
+    coords.forEach(({ x, y }) => {
+      removePixelFromCache(x, y);
+    });
+    setDbPixels((prev) => {
+      const next = new Map(prev);
+      coords.forEach(({ x, y }) => {
+        next.delete(pixelKey(x, y));
+      });
+      return next;
+    });
+  }, [removePixelFromCache]);
+
   return {
     dbPixels,
     isLoading,
     updateViewport,
     paintPixelToDb,
+    removePixels,
   };
 }

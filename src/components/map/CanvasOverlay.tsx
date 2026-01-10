@@ -403,8 +403,9 @@ export function CanvasOverlay({
       }
     }
 
-    // Draw selection rectangle
-    if (selection.bounds) {
+    // Draw selection rectangle (skip for single pixel ERASE - already highlighted via brushSelectionPixels)
+    const isSinglePixelErase = mode === 'ERASE' && selection.pixelCount === 1;
+    if (selection.bounds && !isSinglePixelErase) {
       const { startX, startY, endX, endY } = selection.bounds;
       const minX = Math.min(startX, endX);
       const maxX = Math.max(startX, endX);
