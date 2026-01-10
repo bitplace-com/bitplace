@@ -16,6 +16,7 @@ interface ActionBoxProps {
   onValidate: () => void;
   onConfirm: () => void;
   onBack?: () => void; // New: Back button to return from VALIDATED_READY to DRAFT
+  onExcludeInvalid?: () => void; // New: Exclude invalid pixels from selection
   isValidating: boolean;
   isCommitting: boolean;
   // Draft-specific props
@@ -44,6 +45,7 @@ export function ActionBox({
   onValidate,
   onConfirm,
   onBack,
+  onExcludeInvalid,
   isValidating,
   isCommitting,
   isDraftMode = false,
@@ -187,8 +189,27 @@ export function ActionBox({
         </div>
       )}
 
-      {/* Inline error area - exact backend reason */}
-      {validationResult && !validationResult.ok && (
+      {/* Partial valid warning for ERASE - show "Exclude Invalid" option */}
+      {mode === 'ERASE' && validationResult?.partialValid && validationResult.invalidPixels?.length > 0 && onExcludeInvalid && (
+        <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-amber-500/10 text-amber-600 text-[11px]">
+          <AlertCircle className="h-3 w-3 flex-shrink-0" />
+          <span className="flex-1">
+            {validationResult.invalidPixels.length} pixel{validationResult.invalidPixels.length > 1 ? 's' : ''} cannot be erased
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-6 px-2 text-[10px] text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
+            onClick={onExcludeInvalid}
+          >
+            Exclude
+          </Button>
+        </div>
+      )}
+
+      {/* Inline error area - exact backend reason (only for non-partial failures) */}
+      {validationResult && !validationResult.ok && !validationResult.partialValid && (
         <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-destructive/10 text-destructive text-[11px]">
           <AlertCircle className="h-3 w-3 flex-shrink-0" />
           <span className="truncate">

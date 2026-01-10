@@ -24,6 +24,8 @@ export interface Breakdown {
 
 export interface ValidateResult {
   ok: boolean;
+  partialValid?: boolean; // For ERASE: some pixels valid, some invalid - enables "Exclude Invalid" flow
+  validPixelCount?: number; // For ERASE: count of valid pixels
   requiredPeTotal: number;
   snapshotHash: string;
   invalidPixels: InvalidPixel[];
