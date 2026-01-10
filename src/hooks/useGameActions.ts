@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { FunctionsHttpError, FunctionsRelayError, FunctionsFetchError } from '@supabase/supabase-js';
 import { useWallet } from '@/contexts/WalletContext';
 import { toast } from 'sonner';
 
@@ -118,14 +119,52 @@ export function useGameActions() {
       });
 
       if (error) {
-        console.error('[useGameActions] Validate error:', error);
-        // Check for rate limit error
-        if (error.message?.includes('429') || error.message?.includes('RATE_LIMITED')) {
-          toast.warning('Too many requests. Please wait a moment.');
+        console.error('[useGameActions] Validate error object:', error);
+        
+        let errorMessage = 'Validation failed';
+        let errorStatus: number | undefined;
+        let errorBody: any = null;
+        
+        // Extract real error from FunctionsHttpError context
+        if (error instanceof FunctionsHttpError) {
+          try {
+            errorBody = await error.context.json();
+            errorMessage = errorBody.message || errorBody.error || 'Validation failed';
+            errorStatus = error.context.status;
+          } catch {
+            try {
+              const text = await error.context.text();
+              errorMessage = text || `Validation failed (status ${error.context.status})`;
+            } catch {
+              errorMessage = `Validation failed (status ${error.context.status})`;
+            }
+            errorStatus = error.context.status;
+          }
+          
+          console.error('[useGameActions] Validate HTTP error:', {
+            status: errorStatus,
+            body: errorBody,
+            requestPayload: { mode: params.mode, pixelCount: params.pixels.length, sampleCoords: params.pixels.slice(0, 3) },
+          });
+        } else if (error instanceof FunctionsRelayError) {
+          errorMessage = `Network error: ${error.message}`;
+          console.error('[useGameActions] Validate relay error:', error.message);
+        } else if (error instanceof FunctionsFetchError) {
+          errorMessage = `Connection error: ${error.message}`;
+          console.error('[useGameActions] Validate fetch error:', error.message);
+        } else {
+          // Fallback for other error types
+          errorMessage = error.message || 'Validation failed';
+          console.error('[useGameActions] Validate unknown error:', error);
+        }
+        
+        // Handle specific error types
+        if (errorBody?.error === 'RATE_LIMITED' || errorStatus === 429) {
+          toast.warning(errorBody?.message || 'Too many requests. Please wait.');
           return null;
         }
-        // Surface real error message
-        toast.error(error.message || 'Validation failed');
+        
+        toast.error(errorMessage);
         return null;
       }
 
@@ -187,14 +226,51 @@ export function useGameActions() {
       });
 
       if (error) {
-        console.error('[useGameActions] Commit error:', error);
-        // Check for rate limit error
-        if (error.message?.includes('429') || error.message?.includes('RATE_LIMITED')) {
-          toast.warning('Action too fast. Please wait a moment before trying again.');
+        console.error('[useGameActions] Commit error object:', error);
+        
+        let errorMessage = 'Commit failed';
+        let errorStatus: number | undefined;
+        let errorBody: any = null;
+        
+        // Extract real error from FunctionsHttpError context
+        if (error instanceof FunctionsHttpError) {
+          try {
+            errorBody = await error.context.json();
+            errorMessage = errorBody.message || errorBody.error || 'Commit failed';
+            errorStatus = error.context.status;
+          } catch {
+            try {
+              const text = await error.context.text();
+              errorMessage = text || `Commit failed (status ${error.context.status})`;
+            } catch {
+              errorMessage = `Commit failed (status ${error.context.status})`;
+            }
+            errorStatus = error.context.status;
+          }
+          
+          console.error('[useGameActions] Commit HTTP error:', {
+            status: errorStatus,
+            body: errorBody,
+            requestPayload: { mode: params.mode, pixelCount: params.pixels.length },
+          });
+        } else if (error instanceof FunctionsRelayError) {
+          errorMessage = `Network error: ${error.message}`;
+          console.error('[useGameActions] Commit relay error:', error.message);
+        } else if (error instanceof FunctionsFetchError) {
+          errorMessage = `Connection error: ${error.message}`;
+          console.error('[useGameActions] Commit fetch error:', error.message);
+        } else {
+          errorMessage = error.message || 'Commit failed';
+          console.error('[useGameActions] Commit unknown error:', error);
+        }
+        
+        // Handle rate limit
+        if (errorBody?.error === 'RATE_LIMITED' || errorStatus === 429) {
+          toast.warning(errorBody?.message || 'Action too fast. Please wait a moment before trying again.');
           return null;
         }
-        // Surface real error message
-        toast.error(error.message || 'Commit failed');
+        
+        toast.error(errorMessage);
         return null;
       }
 

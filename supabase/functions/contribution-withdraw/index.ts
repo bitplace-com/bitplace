@@ -8,6 +8,7 @@ const corsHeaders = {
 interface WithdrawRequest {
   pixels: { x: number; y: number }[];
   action: "validate" | "commit";
+  side?: "DEF" | "ATK";  // Optional: only withdraw specific side
 }
 
 async function verifyToken(token: string, secret: string) {
@@ -70,7 +71,7 @@ Deno.serve(async (req) => {
     }
 
     const { userId } = tokenData;
-    const { pixels, action }: WithdrawRequest = await req.json();
+    const { pixels, action, side }: WithdrawRequest = await req.json();
 
     if (!pixels || !Array.isArray(pixels) || pixels.length === 0) {
       return new Response(JSON.stringify({ error: "pixels array required" }), {
@@ -123,11 +124,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: contributions, error: contribError } = await supabase
+    // Build query for user's contributions on these pixels
+    let contribQuery = supabase
       .from("pixel_contributions")
       .select("id, pixel_id, amount_pe, side")
       .eq("user_id", userId)
       .in("pixel_id", pixelIds);
+    
+    // Apply side filter if specified
+    if (side) {
+      contribQuery = contribQuery.eq("side", side);
+    }
+
+    const { data: contributions, error: contribError } = await contribQuery;
 
     if (contribError) {
       console.error("Error fetching contributions:", contribError);

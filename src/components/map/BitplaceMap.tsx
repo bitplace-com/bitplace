@@ -7,6 +7,7 @@ import { CanvasOverlay } from './CanvasOverlay';
 import { MapToolbar } from './MapToolbar';
 import { ZoomControls } from './ZoomControls';
 import { InspectorPanel } from './inspector';
+import { InspectSelectionPanel } from './inspector/InspectSelectionPanel';
 import { StatusStrip } from './StatusStrip';
 import { HudOverlay, HudSlot } from './HudOverlay';
 import { PixelInspectorDrawer } from './PixelInspectorDrawer';
@@ -54,6 +55,7 @@ export function BitplaceMap() {
   const lastPaintedPixelRef = useRef<{ x: number; y: number } | null>(null);
   
   const [pendingPixels, setPendingPixels] = useState<{ x: number; y: number }[]>([]);
+  const [inspectSelection, setInspectSelection] = useState<{ x: number; y: number }[]>([]);
   const [pePerPixel, setPePerPixel] = useState(1);
   const [previewHiddenPixels, setPreviewHiddenPixels] = useState<Set<string>>(new Set());
   const [validatedActionPixels, setValidatedActionPixels] = useState<Set<string> | null>(null);
@@ -69,6 +71,15 @@ export function BitplaceMap() {
   const { queue: paintQueue, queueSize, isSpacePainting, isFlushing, startSpacePaint, stopSpacePaint, addToQueue, flushQueue } = usePaintQueue(paintPixel, confirmPixel);
   const { draft: draftPixels, draftCount, draftColor, isAtLimit: isDraftAtLimit, draftDirty, addToDraft, removeFromDraft, removeInvalidFromDraft, undoLast: undoDraft, clearDraft, getDraftPixels, setDraftDirty } = useDraftPaint();
   const { brushSelection, selectionCount, isSelectionAtLimit, hasShownLimitToast, startBrushSelection, addToBrushSelection, endBrushSelection, clearBrushSelection, getSelectedPixels: getBrushSelectedPixels, setFromRectSelection } = useBrushSelection();
+  const { 
+    brushSelection: inspectBrushSelection, 
+    hasShownLimitToast: hasShownInspectLimitToast,
+    startBrushSelection: startInspectBrushSelection, 
+    addToBrushSelection: addToInspectBrushSelection, 
+    endBrushSelection: endInspectBrushSelection, 
+    clearBrushSelection: clearInspectBrushSelection, 
+    getSelectedPixels: getInspectSelectedPixels 
+  } = useBrushSelection();
   const { play: playSound } = useSound();
   const peBalance = usePeBalance(user?.id);
 
@@ -221,16 +232,23 @@ export function BitplaceMap() {
         return;
       }
       
-      // SPACE handling depends on mode AND requires DRAW interaction mode
-      // SPACE does nothing in HAND mode (strict separation)
+      // SPACE handling depends on mode AND context
       if (e.code === 'Space' && canPaint && !isSpaceHeld) {
         e.preventDefault();
         
-        // CRITICAL: SPACE only works in DRAW mode, not HAND mode
-        if (interactionMode !== 'draw') {
+        // NEW: SPACE in HAND mode enables inspect-multi-select
+        if (interactionMode === 'drag') {
+          setIsSpaceHeld(true);
+          map.dragPan.disable();
+          map.getCanvas().style.cursor = 'crosshair';
+          // Start inspect brush selection at current hover
+          if (hoverPixel) {
+            startInspectBrushSelection(hoverPixel.x, hoverPixel.y);
+          }
           return;
         }
         
+        // Below: DRAW mode only
         // In non-PAINT modes OR ERASER tool: SPACE enables brush selection
         const isNonPaintAction = mode !== 'paint' || paintTool === 'ERASER';
         
@@ -274,7 +292,19 @@ export function BitplaceMap() {
       if (e.code === 'Space' && isSpaceHeld) {
         setIsSpaceHeld(false);
         
-        // Check if we were in brush selection mode (non-PAINT or ERASER)
+        // HAND MODE: End inspect selection, keep selection active
+        if (interactionMode === 'drag') {
+          endInspectBrushSelection();
+          const selectedPixels = getInspectSelectedPixels();
+          if (selectedPixels.length > 0) {
+            setInspectSelection(selectedPixels);
+          }
+          map.dragPan.enable();
+          map.getCanvas().style.cursor = '';
+          return;
+        }
+        
+        // DRAW MODE: Check if we were in brush selection mode (non-PAINT or ERASER)
         const isNonPaintAction = mode !== 'paint' || paintTool === 'ERASER';
         
         if (isNonPaintAction) {
@@ -294,10 +324,7 @@ export function BitplaceMap() {
           lastDraftedPixelRef.current = null;
         }
         
-        // Restore dragPan
-        if (interactionMode === 'drag') {
-          map.dragPan.enable();
-        }
+        // Cursor back to default for draw mode
         map.getCanvas().style.cursor = interactionMode === 'draw' ? 'crosshair' : '';
       }
       // SHIFT release
@@ -453,8 +480,15 @@ export function BitplaceMap() {
         const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
         setHoverPixel(pixel);
         
-        // CRITICAL: HAND MODE - only update hover, no painting or selecting
+        // HAND MODE with SPACE: inspect multi-select
         if (interactionMode === 'drag') {
+          if (isSpaceHeld && user) {
+            const { atLimit } = addToInspectBrushSelection(pixel.x, pixel.y);
+            if (atLimit && !hasShownInspectLimitToast.current) {
+              toast.warning(`Selection limit: ${MAX_BRUSH_SELECTION.toLocaleString()} pixels`);
+              hasShownInspectLimitToast.current = true;
+            }
+          }
           return;
         }
         
@@ -866,6 +900,20 @@ export function BitplaceMap() {
                 onClearDraft={clearDraft}
               />
             </div>
+          </div>
+        )}
+
+        {/* Inspect Selection Panel (HAND mode SPACE multi-select) */}
+        {inspectSelection.length > 0 && (
+          <div className="absolute bottom-24 left-4 z-30">
+            <InspectSelectionPanel
+              selectedPixels={inspectSelection}
+              currentUserId={user?.id}
+              onClearSelection={() => {
+                setInspectSelection([]);
+                clearInspectBrushSelection();
+              }}
+            />
           </div>
         )}
       </div>

@@ -36,12 +36,21 @@ export function useWithdrawContribution() {
     return localStorage.getItem(SESSION_TOKEN_KEY);
   }, []);
 
-  const validate = useCallback(async (pixels: { x: number; y: number }[]): Promise<WithdrawValidationResult | null> => {
+  const validate = useCallback(async (
+    pixels: { x: number; y: number }[],
+    side?: 'DEF' | 'ATK'
+  ): Promise<WithdrawValidationResult | null> => {
     const token = getAuthToken();
     if (!token) {
       toast.error('Please connect your wallet first');
       return null;
     }
+
+    console.log('[useWithdrawContribution] Validate request:', {
+      pixelCount: pixels.length,
+      sampleCoords: pixels.slice(0, 3),
+      side,
+    });
 
     setIsValidating(true);
     try {
@@ -53,16 +62,17 @@ export function useWithdrawContribution() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          body: JSON.stringify({ pixels, action: 'validate' }),
+          body: JSON.stringify({ pixels, action: 'validate', side }),
         }
       );
 
       const data = await response.json();
-      console.log('[useWithdrawContribution] Validate response:', data);
+      console.log('[useWithdrawContribution] Validate response:', { status: response.status, data });
+      
       if (!response.ok) {
         const errMsg = data.error || data.message || 'Validation failed';
-        console.error('[useWithdrawContribution] Validate error:', data);
-        toast.error(errMsg);
+        console.error('[useWithdrawContribution] Validate error:', { status: response.status, data });
+        toast.error(`Validation failed (${response.status}): ${errMsg}`);
         throw new Error(errMsg);
       }
 
@@ -80,12 +90,21 @@ export function useWithdrawContribution() {
     }
   }, [getAuthToken]);
 
-  const commit = useCallback(async (pixels: { x: number; y: number }[]): Promise<WithdrawCommitResult | null> => {
+  const commit = useCallback(async (
+    pixels: { x: number; y: number }[],
+    side?: 'DEF' | 'ATK'
+  ): Promise<WithdrawCommitResult | null> => {
     const token = getAuthToken();
     if (!token) {
       toast.error('Please connect your wallet first');
       return null;
     }
+
+    console.log('[useWithdrawContribution] Commit request:', {
+      pixelCount: pixels.length,
+      sampleCoords: pixels.slice(0, 3),
+      side,
+    });
 
     setIsCommitting(true);
     try {
@@ -97,21 +116,23 @@ export function useWithdrawContribution() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          body: JSON.stringify({ pixels, action: 'commit' }),
+          body: JSON.stringify({ pixels, action: 'commit', side }),
         }
       );
 
       const data = await response.json();
-      console.log('[useWithdrawContribution] Commit response:', data);
+      console.log('[useWithdrawContribution] Commit response:', { status: response.status, data });
+      
       if (!response.ok) {
         const errMsg = data.error || data.message || 'Withdrawal failed';
-        console.error('[useWithdrawContribution] Commit error:', data);
-        toast.error(errMsg);
+        console.error('[useWithdrawContribution] Commit error:', { status: response.status, data });
+        toast.error(`Withdrawal failed (${response.status}): ${errMsg}`);
         throw new Error(errMsg);
       }
 
       if (data.ok) {
-        toast.success(`Withdrew ${data.refundedTotal.toLocaleString()} PE`);
+        const sideLabel = side ? ` ${side}` : '';
+        toast.success(`Withdrew${sideLabel} ${data.refundedTotal.toLocaleString()} PE`);
         // Dispatch event to refresh PE status
         window.dispatchEvent(new CustomEvent('bitplace:pe-refresh'));
       } else {
