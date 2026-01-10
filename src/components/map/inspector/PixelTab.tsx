@@ -10,6 +10,7 @@ interface PixelTabProps {
   x: number;
   y: number;
   currentUserId?: string;
+  hideWithdraw?: boolean;
 }
 
 function formatTimeUntil(targetTime: Date): string {
@@ -24,12 +25,13 @@ function formatTimeUntil(targetTime: Date): string {
   return `${minutes}m`;
 }
 
-export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
+export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTabProps) {
   const { pixel, isLoading, refetch } = usePixelDetails(x, y, currentUserId);
   const { isCommitting, commit } = useWithdrawContribution();
   const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   const handleWithdraw = async () => {
+    if (hideWithdraw) return;
     setIsWithdrawing(true);
     try {
       const result = await commit([{ x, y }]);
@@ -168,7 +170,7 @@ export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
             />
           </div>
 
-          {/* User's Contribution Section */}
+          {/* User's Contribution Section (read-only when hideWithdraw is true) */}
           {pixel.myContribution && (
             <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 space-y-2">
               <div className="flex items-center justify-between">
@@ -183,20 +185,22 @@ export function PixelTab({ x, y, currentUserId }: PixelTabProps) {
                   </span>
                 </div>
               </div>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="w-full"
-                onClick={handleWithdraw}
-                disabled={isWithdrawing || isCommitting}
-              >
-                {isWithdrawing ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                ) : (
-                  <ArrowUpFromLine className="h-3.5 w-3.5 mr-1.5" />
-                )}
-                Withdraw
-              </Button>
+              {!hideWithdraw && (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={handleWithdraw}
+                  disabled={isWithdrawing || isCommitting}
+                >
+                  {isWithdrawing ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <ArrowUpFromLine className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  Withdraw
+                </Button>
+              )}
             </div>
           )}
         </>

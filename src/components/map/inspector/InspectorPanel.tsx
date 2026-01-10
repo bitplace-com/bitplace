@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { X, ChevronLeft, ChevronRight, AlertTriangle, Shield, Swords, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GlassPanel } from '@/components/ui/glass-panel';
@@ -10,7 +10,16 @@ import { ActionBox } from './ActionBox';
 import { InvalidPixelList } from './InvalidPixelList';
 import { MAX_SELECTION_PIXELS } from '../hooks/useSelection';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { supabase } from '@/integrations/supabase/client';
+import { useWithdrawContribution } from '@/hooks/useWithdrawContribution';
 import type { GameMode, ValidateResult, InvalidPixel } from '@/hooks/useGameActions';
+
+interface WithdrawStats {
+  myDefTotal: number;
+  myAtkTotal: number;
+  defPixelCount: number;
+  atkPixelCount: number;
+}
 
 interface InspectorPanelProps {
   selectedPixels: { x: number; y: number }[];
@@ -55,6 +64,10 @@ export function InspectorPanel({
   onClearDraft,
 }: InspectorPanelProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [withdrawStats, setWithdrawStats] = useState<WithdrawStats | null>(null);
+  const [isLoadingWithdrawStats, setIsLoadingWithdrawStats] = useState(false);
+  const [withdrawingSide, setWithdrawingSide] = useState<'DEF' | 'ATK' | null>(null);
+  const { commit: withdrawCommit, isCommitting: isWithdrawCommitting } = useWithdrawContribution();
   const isMobile = useIsMobile();
 
   const hasSelection = selectedPixels.length > 0;
@@ -62,54 +75,195 @@ export function InspectorPanel({
   const activeTab = isSinglePixel ? 'pixel' : 'area';
   const isSelectionTooLarge = selectedPixels.length > MAX_SELECTION_PIXELS;
 
+  // Fetch withdraw stats when selection changes
+  const fetchWithdrawStats = useCallback(async () => {
+    if (!currentUserId || selectedPixels.length === 0) {
+      setWithdrawStats(null);
+      return;
+    }
+
+    setIsLoadingWithdrawStats(true);
+    try {
+      // Build OR condition for pixel coordinates
+      const orCondition = selectedPixels
+        .map(p => `and(x.eq.${p.x},y.eq.${p.y})`)
+        .join(',');
+
+      // Fetch pixels
+      const { data: pixels, error: pixelError } = await supabase
+        .from('pixels')
+        .select('id')
+        .or(orCondition);
+
+      if (pixelError || !pixels || pixels.length === 0) {
+        setWithdrawStats(null);
+        return;
+      }
+
+      const pixelIds = pixels.map(p => p.id);
+
+      // Fetch user's contributions on these pixels
+      const { data: contributions, error: contribError } = await supabase
+        .from('pixel_contributions')
+        .select('pixel_id, amount_pe, side')
+        .eq('user_id', currentUserId)
+        .in('pixel_id', pixelIds);
+
+      if (contribError) {
+        setWithdrawStats(null);
+        return;
+      }
+
+      // Aggregate stats
+      let myDefTotal = 0;
+      let myAtkTotal = 0;
+      const defPixelIds = new Set<number>();
+      const atkPixelIds = new Set<number>();
+
+      contributions?.forEach(c => {
+        if (c.side === 'DEF') {
+          myDefTotal += Number(c.amount_pe);
+          defPixelIds.add(c.pixel_id);
+        } else if (c.side === 'ATK') {
+          myAtkTotal += Number(c.amount_pe);
+          atkPixelIds.add(c.pixel_id);
+        }
+      });
+
+      setWithdrawStats({
+        myDefTotal,
+        myAtkTotal,
+        defPixelCount: defPixelIds.size,
+        atkPixelCount: atkPixelIds.size,
+      });
+    } catch (error) {
+      console.error('[InspectorPanel] Error fetching withdraw stats:', error);
+      setWithdrawStats(null);
+    } finally {
+      setIsLoadingWithdrawStats(false);
+    }
+  }, [selectedPixels, currentUserId]);
+
+  useEffect(() => {
+    fetchWithdrawStats();
+  }, [fetchWithdrawStats]);
+
+  const handleWithdraw = async (side: 'DEF' | 'ATK') => {
+    setWithdrawingSide(side);
+    try {
+      const result = await withdrawCommit(selectedPixels, side);
+      if (result?.ok) {
+        // Refresh stats after withdrawal
+        await fetchWithdrawStats();
+      }
+    } finally {
+      setWithdrawingSide(null);
+    }
+  };
+
+  const hasWithdrawableContributions = withdrawStats && 
+    (withdrawStats.myDefTotal > 0 || withdrawStats.myAtkTotal > 0);
+
   // Shared content for both mobile drawer and desktop panel
   const renderContent = () => (
     <>
-      {/* Tabs */}
-      <Tabs value={activeTab} className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="w-full justify-start rounded-none border-b border-border/20 bg-transparent px-3 h-8">
-          <TabsTrigger
-            value="pixel"
-            disabled={!isSinglePixel}
-            className="text-[11px] font-medium rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none px-2.5 h-6"
-          >
-            Pixel
-          </TabsTrigger>
-          <TabsTrigger
-            value="area"
-            disabled={isSinglePixel}
-            className="text-[11px] font-medium rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none px-2.5 h-6"
-          >
-            Area
-          </TabsTrigger>
-        </TabsList>
+      {/* Tabs - only show for non-PAINT modes with single pixel */}
+      {mode !== 'PAINT' && (
+        <Tabs value={activeTab} className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="w-full justify-start rounded-none border-b border-border/20 bg-transparent px-3 h-8">
+            <TabsTrigger
+              value="pixel"
+              disabled={!isSinglePixel}
+              className="text-[11px] font-medium rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none px-2.5 h-6"
+            >
+              Pixel
+            </TabsTrigger>
+            <TabsTrigger
+              value="area"
+              disabled={isSinglePixel}
+              className="text-[11px] font-medium rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none px-2.5 h-6"
+            >
+              Area
+            </TabsTrigger>
+          </TabsList>
 
-        <div className="flex-1 overflow-y-auto">
-          <TabsContent value="pixel" className="m-0 p-3">
-            {isSinglePixel && (
-              <PixelTab
-                x={selectedPixels[0].x}
-                y={selectedPixels[0].y}
-                currentUserId={currentUserId}
-              />
-            )}
-          </TabsContent>
+          <div className="flex-1 overflow-y-auto">
+            <TabsContent value="pixel" className="m-0 p-3">
+              {isSinglePixel && (
+                <PixelTab
+                  x={selectedPixels[0].x}
+                  y={selectedPixels[0].y}
+                  currentUserId={currentUserId}
+                  hideWithdraw={true}
+                />
+              )}
+            </TabsContent>
 
-          <TabsContent value="area" className="m-0 p-3">
-            {!isSinglePixel && (
-              <AreaTab
-                pixelCount={selectedPixels.length}
-                validationResult={validationResult}
-                currentUserId={currentUserId}
-              />
-            )}
-          </TabsContent>
-        </div>
-      </Tabs>
+            <TabsContent value="area" className="m-0 p-3">
+              {!isSinglePixel && (
+                <AreaTab
+                  pixelCount={selectedPixels.length}
+                  validationResult={validationResult}
+                  currentUserId={currentUserId}
+                />
+              )}
+            </TabsContent>
+          </div>
+        </Tabs>
+      )}
 
       {/* Invalid Pixels List */}
       {invalidPixels.length > 0 && (
         <InvalidPixelList invalidPixels={invalidPixels} />
+      )}
+
+      {/* Withdraw Section - only show when user has contributions */}
+      {hasWithdrawableContributions && (
+        <div className="border-t border-border/20 p-3 space-y-2">
+          <div className="text-xs font-medium text-muted-foreground">Withdraw Contributions</div>
+          
+          {withdrawStats.myDefTotal > 0 && (
+            <Button 
+              size="sm" 
+              variant="outline"
+              className="w-full justify-between"
+              onClick={() => handleWithdraw('DEF')}
+              disabled={isWithdrawCommitting || withdrawingSide !== null}
+            >
+              <div className="flex items-center gap-1.5">
+                {withdrawingSide === 'DEF' ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Shield className="h-3.5 w-3.5 text-emerald-400" />
+                )}
+                <span>Withdraw DEF</span>
+                <span className="text-muted-foreground text-[10px]">({withdrawStats.defPixelCount} px)</span>
+              </div>
+              <span className="text-emerald-400 font-semibold">+{withdrawStats.myDefTotal.toLocaleString()} PE</span>
+            </Button>
+          )}
+          
+          {withdrawStats.myAtkTotal > 0 && (
+            <Button 
+              size="sm" 
+              variant="outline"
+              className="w-full justify-between"
+              onClick={() => handleWithdraw('ATK')}
+              disabled={isWithdrawCommitting || withdrawingSide !== null}
+            >
+              <div className="flex items-center gap-1.5">
+                {withdrawingSide === 'ATK' ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Swords className="h-3.5 w-3.5 text-rose-400" />
+                )}
+                <span>Withdraw ATK</span>
+                <span className="text-muted-foreground text-[10px]">({withdrawStats.atkPixelCount} px)</span>
+              </div>
+              <span className="text-rose-400 font-semibold">+{withdrawStats.myAtkTotal.toLocaleString()} PE</span>
+            </Button>
+          )}
+        </div>
       )}
 
       {/* Action Box */}

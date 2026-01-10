@@ -884,16 +884,12 @@ export function BitplaceMap() {
           onPePerPixelChange={setPePerPixel}
         />
 
-        {/* Pixel Inspector Card/Drawer */}
+        {/* Pixel Info Panel (read-only) */}
         <PixelInspectorDrawer
           pixel={inspectedPixel}
           onClose={handleCloseInspector}
-          onPaint={handleInspectorPaint}
-          onDefendAttack={handleInspectorDefendAttack}
-          onErase={handleInspectorErase}
-          selectedColor={selectedColor}
-          mode={paintTool === 'ERASER' ? 'ERASE' : getGameMode(mode)}
           currentUserId={user?.id}
+          actionSelectionCount={pendingPixels.length + draftCount}
         />
 
         {/* Inspector Panel for draft or pending pixels */}
