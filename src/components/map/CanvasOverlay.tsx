@@ -9,6 +9,7 @@ import { type SelectionState } from './hooks/useSelection';
 import { lngLatToGridFloat, lngLatToGridInt, getCellSize, roundToDevicePixel } from '@/lib/pixelGrid';
 import type { InvalidPixel, GameMode } from '@/hooks/useGameActions';
 import { isMaterial, getMaterialPattern } from '@/lib/materials/materialRegistry';
+import { markDrawStart, markDrawEnd } from '@/lib/perfMetrics';
 
 interface CanvasOverlayProps {
   map: MapLibreMap | null;
@@ -53,8 +54,11 @@ export function CanvasOverlay({
 }: CanvasOverlayProps) {
   const modeColors = getModeColors(mode);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawRequestRef = useRef<number | null>(null);
+  const lastDrawnPixelCountRef = useRef(0);
 
   const draw = useCallback(() => {
+    const drawStart = markDrawStart();
     const canvas = canvasRef.current;
     if (!canvas || !map) return;
 
@@ -459,28 +463,41 @@ export function CanvasOverlay({
         ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY + badgeHeight / 2);
       }
     }
+    
+    // Track pixel count and mark draw end for perf metrics
+    lastDrawnPixelCountRef.current = pixels.size;
+    markDrawEnd(drawStart, pixels.size);
   }, [map, pixels, selection, hoverPixel, canPaint, invalidPixels, artOpacity, mode, modeColors, brushSelectionPixels, previewHiddenPixels, draftPixels, inspectBrushSelectionPixels, isInspectSelecting]);
 
   useEffect(() => {
     if (!map) return;
 
-    const handleRender = () => {
-      requestAnimationFrame(draw);
+    // Throttle draws using RAF to avoid redundant draws
+    const scheduleDraw = () => {
+      if (drawRequestRef.current !== null) return; // Already scheduled
+      drawRequestRef.current = requestAnimationFrame(() => {
+        drawRequestRef.current = null;
+        draw();
+      });
     };
 
-    map.on('move', handleRender);
-    map.on('moveend', handleRender);
-    map.on('zoom', handleRender);
-    map.on('resize', handleRender);
+    map.on('move', scheduleDraw);
+    map.on('moveend', scheduleDraw);
+    map.on('zoom', scheduleDraw);
+    map.on('resize', scheduleDraw);
 
     // Initial draw
-    handleRender();
+    scheduleDraw();
 
     return () => {
-      map.off('move', handleRender);
-      map.off('moveend', handleRender);
-      map.off('zoom', handleRender);
-      map.off('resize', handleRender);
+      map.off('move', scheduleDraw);
+      map.off('moveend', scheduleDraw);
+      map.off('zoom', scheduleDraw);
+      map.off('resize', scheduleDraw);
+      // Cancel any pending draw
+      if (drawRequestRef.current !== null) {
+        cancelAnimationFrame(drawRequestRef.current);
+      }
     };
   }, [map, draw]);
 
