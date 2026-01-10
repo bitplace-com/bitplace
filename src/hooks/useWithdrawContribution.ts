@@ -30,8 +30,10 @@ export function useWithdrawContribution() {
   const [isCommitting, setIsCommitting] = useState(false);
   const [validationResult, setValidationResult] = useState<WithdrawValidationResult | null>(null);
 
+  const SESSION_TOKEN_KEY = 'bitplace_session_token';
+
   const getAuthToken = useCallback(() => {
-    return localStorage.getItem('bitplace_token');
+    return localStorage.getItem(SESSION_TOKEN_KEY);
   }, []);
 
   const validate = useCallback(async (pixels: { x: number; y: number }[]): Promise<WithdrawValidationResult | null> => {
@@ -56,15 +58,22 @@ export function useWithdrawContribution() {
       );
 
       const data = await response.json();
+      console.log('[useWithdrawContribution] Validate response:', data);
       if (!response.ok) {
-        throw new Error(data.error || 'Validation failed');
+        const errMsg = data.error || data.message || 'Validation failed';
+        console.error('[useWithdrawContribution] Validate error:', data);
+        toast.error(errMsg);
+        throw new Error(errMsg);
       }
 
       setValidationResult(data);
       return data;
     } catch (error) {
-      console.error('Withdraw validation error:', error);
-      toast.error('Failed to validate withdrawal');
+      console.error('[useWithdrawContribution] Withdraw validation error:', error);
+      const msg = error instanceof Error ? error.message : 'Failed to validate withdrawal';
+      if (!msg.includes('Validation failed')) {
+        toast.error(msg);
+      }
       return null;
     } finally {
       setIsValidating(false);
@@ -93,21 +102,31 @@ export function useWithdrawContribution() {
       );
 
       const data = await response.json();
+      console.log('[useWithdrawContribution] Commit response:', data);
       if (!response.ok) {
-        throw new Error(data.error || 'Withdrawal failed');
+        const errMsg = data.error || data.message || 'Withdrawal failed';
+        console.error('[useWithdrawContribution] Commit error:', data);
+        toast.error(errMsg);
+        throw new Error(errMsg);
       }
 
       if (data.ok) {
         toast.success(`Withdrew ${data.refundedTotal.toLocaleString()} PE`);
         // Dispatch event to refresh PE status
         window.dispatchEvent(new CustomEvent('bitplace:pe-refresh'));
+      } else {
+        const errMsg = data.error || data.message || 'Withdrawal failed';
+        toast.error(errMsg);
       }
 
       setValidationResult(null);
       return data;
     } catch (error) {
-      console.error('Withdraw commit error:', error);
-      toast.error('Failed to withdraw contribution');
+      console.error('[useWithdrawContribution] Withdraw commit error:', error);
+      const msg = error instanceof Error ? error.message : 'Failed to withdraw contribution';
+      if (!msg.includes('Withdrawal failed')) {
+        toast.error(msg);
+      }
       return null;
     } finally {
       setIsCommitting(false);

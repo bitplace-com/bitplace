@@ -89,13 +89,32 @@ export function useGameActions() {
       return null;
     }
 
+    // Deduplicate and validate pixels
+    const pixelSet = new Set<string>();
+    const deduplicatedPixels = params.pixels.filter(p => {
+      const key = `${Math.floor(p.x)}:${Math.floor(p.y)}`;
+      if (pixelSet.has(key)) return false;
+      pixelSet.add(key);
+      return true;
+    }).map(p => ({ x: Math.floor(p.x), y: Math.floor(p.y) }));
+
+    const validatedParams = { ...params, pixels: deduplicatedPixels };
+
+    console.log('[useGameActions] Validate request:', {
+      mode: validatedParams.mode,
+      pixelCount: validatedParams.pixels.length,
+      sampleCoords: validatedParams.pixels.slice(0, 3),
+      color: validatedParams.color,
+      pePerPixel: validatedParams.pePerPixel,
+    });
+
     setIsValidating(true);
     setInvalidPixels([]);
 
     try {
       const { data, error } = await supabase.functions.invoke('game-validate', {
         headers,
-        body: params,
+        body: validatedParams,
       });
 
       if (error) {
@@ -105,7 +124,8 @@ export function useGameActions() {
           toast.warning('Too many requests. Please wait a moment.');
           return null;
         }
-        toast.error('Validation failed');
+        // Surface real error message
+        toast.error(error.message || 'Validation failed');
         return null;
       }
 
@@ -173,7 +193,8 @@ export function useGameActions() {
           toast.warning('Action too fast. Please wait a moment before trying again.');
           return null;
         }
-        toast.error('Commit failed');
+        // Surface real error message
+        toast.error(error.message || 'Commit failed');
         return null;
       }
 

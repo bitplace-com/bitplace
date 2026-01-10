@@ -51,13 +51,32 @@ export function ActionBox({
 }: ActionBoxProps) {
   const config = modeConfig[mode];
   const needsValidation = mode === 'ERASE' || mode !== 'PAINT' || pixelCount > 1;
-  const isValidated = validationResult?.ok === true;
-  const canConfirm = isValidated && !isCommitting;
 
-  // Calculate PE values
-  const requiredPe = validationResult?.requiredPeTotal ?? (mode === 'PAINT' ? draftCount : pePerPixel * pixelCount);
+  // Calculate PE values - always use live calculation for DEF/ATK/REINFORCE
+  const requiredPe = (() => {
+    // For ERASE, use validation result only
+    if (mode === 'ERASE') {
+      return validationResult?.requiredPeTotal ?? 0;
+    }
+    // For PAINT, use draft count or validation
+    if (mode === 'PAINT') {
+      return validationResult?.requiredPeTotal ?? draftCount;
+    }
+    // For DEF/ATK/REINFORCE, always compute live from pePerPixel
+    return pePerPixel * pixelCount;
+  })();
+  
   const availablePe = validationResult?.availablePe ?? 0;
   const hasSufficientPe = validationResult ? availablePe >= requiredPe : true;
+  
+  // Check if PE per pixel changed after validation (requires re-validate)
+  const isValidationStale = validationResult && 
+    mode !== 'PAINT' && 
+    mode !== 'ERASE' && 
+    validationResult.requiredPeTotal !== pePerPixel * pixelCount;
+
+  const isValidated = validationResult?.ok === true && !isValidationStale;
+  const canConfirm = isValidated && !isCommitting;
 
   return (
     <div className="border-t border-border p-3 space-y-3 bg-muted/50">
@@ -164,10 +183,15 @@ export function ActionBox({
               "flex items-center gap-1.5 text-[11px] pt-1 border-t border-border/50",
               validationResult.ok ? "text-emerald-500" : "text-destructive"
             )}>
-              {validationResult.ok ? (
+              {validationResult.ok && !isValidationStale ? (
                 <>
                   <Check className="h-3 w-3" />
                   <span>Ready to commit</span>
+                </>
+              ) : isValidationStale ? (
+                <>
+                  <AlertCircle className="h-3 w-3 text-amber-500" />
+                  <span className="text-amber-500">PE changed — re-validate required</span>
                 </>
               ) : (
                 <>

@@ -487,27 +487,14 @@ export function BitplaceMap() {
             }
           }
         }
-        // Click+drag brush selection (isBrushSelectingRef) - DRAW mode only
-        else if (isBrushSelectingRef.current && isNonPaintAction) {
-          const { atLimit } = addToBrushSelection(pixel.x, pixel.y);
-          if (atLimit && !hasShownLimitToast.current) {
-            toast.warning(`Selection limit: ${MAX_BRUSH_SELECTION.toLocaleString()} pixels`);
-            hasShownLimitToast.current = true;
-          }
-        }
+        // Click+drag brush selection (isBrushSelectingRef) - REMOVED per PROMPT 61
+        // Mouse-hold multi-selection is disabled; use SPACE-only continuous selection
+        
         // SHIFT held rect selection (allowed even in HAND mode for rect select)
         else if (isShiftHeld && isDraggingRef.current && dragStartRef.current) {
           updateSelection(pixel.x, pixel.y);
         }
-        // DRAW mode continuous painting - add to draft (no backend)
-        else if (isDrawingRef.current && mode === 'paint' && selectedColor !== null && user) {
-          if (brushSize === '2x2') {
-            const block = getSnapped2x2Block(pixel.x, pixel.y);
-            block.forEach(p => addToDraft(p.x, p.y, selectedColor));
-          } else {
-            addToDraft(pixel.x, pixel.y, selectedColor);
-          }
-        }
+        // NOTE: Mouse-hold drawing removed - draft mode only via SPACE key
       } else { 
         setHoverPixel(null); 
       }
@@ -552,16 +539,17 @@ export function BitplaceMap() {
       
       // Below this point: DRAW mode only
       
-      // Non-PAINT mode (DEFEND/ATTACK/REINFORCE) or ERASER: start brush selection on click+drag
+      // Non-PAINT mode (DEFEND/ATTACK/REINFORCE) or ERASER: record start for single-click detection only
+      // Mouse-hold multi-selection is disabled per PROMPT 61 (use SPACE for continuous selection)
       if (isNonPaintAction) {
         if (!requireWallet('interact')) return;
-        isBrushSelectingRef.current = true;
+        isDraggingRef.current = true;
+        dragStartRef.current = { x: pixel.x, y: pixel.y, screenX: e.point.x, screenY: e.point.y };
         map.dragPan.disable();
+        // Clear any previous validation/selection
         clearValidation();
         setPreviewHiddenPixels(new Set());
         setValidatedActionPixels(null);
-        clearBrushSelection();
-        startBrushSelection(pixel.x, pixel.y);
         return;
       }
       
@@ -570,38 +558,19 @@ export function BitplaceMap() {
         return;
       }
       
-      // DRAW mode in PAINT: start drafting (no backend)
+      // DRAW mode in PAINT: single-click adds one pixel (no mouse-hold continuous)
       if (mode === 'paint') {
-        // Brush mode: start drafting
         if (!requireWallet('paint')) return;
-        isDrawingRef.current = true;
-        if (brushSize === '2x2') {
-          const block = getSnapped2x2Block(pixel.x, pixel.y);
-          block.forEach(p => addToDraft(p.x, p.y, selectedColor!));
-        } else {
-          addToDraft(pixel.x, pixel.y, selectedColor!);
-        }
+        isDraggingRef.current = true;
+        dragStartRef.current = { x: pixel.x, y: pixel.y, screenX: e.point.x, screenY: e.point.y };
         return;
       }
     };
 
     const handleMapMouseUp = async (e: maplibregl.MapMouseEvent) => {
-      // End DRAW mode drafting (no auto-commit for PAINT)
-      if (isDrawingRef.current) {
-        isDrawingRef.current = false;
-        // Draft pixels remain - user must validate/confirm
-        return;
-      }
-      
-      // End brush selection (click+drag in action modes)
+      // End brush selection (click+drag in action modes) - now single-click only
       if (isBrushSelectingRef.current) {
         isBrushSelectingRef.current = false;
-        endBrushSelection();
-        const selectedPixels = getBrushSelectedPixels();
-        if (selectedPixels.length > 0) {
-          setPendingPixels(selectedPixels);
-          playSound('pixel_select');
-        }
         map.dragPan.enable();
         return;
       }
@@ -613,22 +582,24 @@ export function BitplaceMap() {
           Math.pow(e.point.y - dragStartRef.current.screenY, 2)
         ) : 0;
         
-        endSelection();
-        isDraggingRef.current = false;
-        
-        // For non-paint modes, single click selects the pixel for action
-        if (mode !== 'paint' && dragDistance < 5 && dragStartRef.current) {
+        // If it was a SHIFT rect selection, handle it
+        if (isShiftHeld && selection.isSelecting) {
+          endSelection();
+          // If rect selection had an area, the pixels come from getSelectedPixels
+        } else if (mode !== 'paint' && dragDistance < 5 && dragStartRef.current) {
+          // Single click in non-PAINT mode - select single pixel for action
           const { x, y } = dragStartRef.current;
           setPendingPixels([{ x, y }]);
           playSound('pixel_select');
         }
         
+        isDraggingRef.current = false;
         dragStartRef.current = null;
         map.dragPan.enable();
         return;
       }
       
-      // Handle DRAG mode click
+      // Handle click (minimal drag distance)
       if (!isDraggingRef.current || !dragStartRef.current) return;
       
       const dragDistance = Math.sqrt(
@@ -640,26 +611,47 @@ export function BitplaceMap() {
       if (dragDistance < 5 && canPaint) {
         const { x, y } = dragStartRef.current;
         
-        // In Paint mode with Brush tool, single click paints the pixel
-        // In Hand mode, click opens inspector (or select for erase if eraser active)
-        if (mode === 'paint' && interactionMode === 'draw') {
-          // Gate behind wallet connection
-          const action = (paintTool === 'ERASER' || selectedColor === null) ? 'erase' : 'paint';
-          if (!requireWallet(action)) return;
-          executeSinglePixelAction(x, y);
-          playSound('pixel_select');
-        } else if (mode === 'paint') {
-          // Hand mode: if eraser is active, select for erase action
-          if (paintTool === 'ERASER' || selectedColor === null) {
-            if (!requireWallet('erase')) return;
+        // HAND MODE: Always open inspector in ANY mode (PAINT/DEF/ATK/REINFORCE/ERASE)
+        if (interactionMode === 'drag') {
+          // Exception: if eraser tool is active in HAND mode, select for erase
+          if (mode === 'paint' && (paintTool === 'ERASER' || selectedColor === null)) {
+            if (!requireWallet('erase')) {
+              isDraggingRef.current = false;
+              dragStartRef.current = null;
+              return;
+            }
             startSelection(x, y);
             setPendingPixels([{ x, y }]);
             playSound('pixel_select');
           } else {
-            // Normal hand mode: open inspector
+            // Normal HAND mode: open inspector regardless of mode
             setInspectedPixel({ x, y });
             playSound('pixel_select');
           }
+        }
+        // DRAW mode in PAINT: single click adds single pixel to draft
+        else if (mode === 'paint' && interactionMode === 'draw') {
+          const action = (paintTool === 'ERASER' || selectedColor === null) ? 'erase' : 'paint';
+          if (!requireWallet(action)) {
+            isDraggingRef.current = false;
+            dragStartRef.current = null;
+            return;
+          }
+          
+          if (action === 'erase') {
+            // Eraser: select for validate/confirm flow
+            startSelection(x, y);
+            setPendingPixels([{ x, y }]);
+          } else {
+            // Paint: add single pixel to draft
+            if (brushSize === '2x2') {
+              const block = getSnapped2x2Block(x, y);
+              block.forEach(p => addToDraft(p.x, p.y, selectedColor!));
+            } else {
+              addToDraft(x, y, selectedColor!);
+            }
+          }
+          playSound('pixel_select');
         }
       }
       
@@ -691,7 +683,7 @@ export function BitplaceMap() {
       map.off('mouseup', handleMapMouseUp);
       canvas.removeEventListener('mouseleave', handleMapMouseLeave);
     };
-  }, [mapReady, mode, selectedColor, interactionMode, isSpaceHeld, isShiftHeld, updateSelection, startSelection, endSelection, clearSelection, isEyedropperActive, handleEyedropperPick, addToDraft, canPaint, user, executeSinglePixelAction, playSound, requireWallet, brushSize]);
+  }, [mapReady, mode, selectedColor, interactionMode, isSpaceHeld, isShiftHeld, updateSelection, startSelection, endSelection, clearSelection, isEyedropperActive, handleEyedropperPick, addToDraft, canPaint, user, playSound, requireWallet, brushSize, paintTool, selection.isSelecting, clearValidation]);
 
   const handleZoomIn = useCallback(() => mapRef.current?.zoomIn(), []);
   const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), []);
