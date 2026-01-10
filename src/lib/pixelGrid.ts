@@ -8,6 +8,26 @@ export const TILE_SIZE = 512;
 export const GRID_ZOOM = 12;
 export const GRID_SIZE = TILE_SIZE * Math.pow(2, GRID_ZOOM); // 2,097,152 pixels per axis
 
+// Data tile size for viewport-based fetching (matches map tiles)
+export const DATA_TILE_SIZE = 512;
+
+/**
+ * Convert pixel coordinates to tile coordinates
+ */
+export function pixelToTile(x: number, y: number): { tx: number; ty: number } {
+  return {
+    tx: Math.floor(x / DATA_TILE_SIZE),
+    ty: Math.floor(y / DATA_TILE_SIZE),
+  };
+}
+
+/**
+ * Generate tile cache key
+ */
+export function tileKey(tx: number, ty: number): string {
+  return `${tx}:${ty}`;
+}
+
 // WebMercator latitude bounds
 const MAX_LAT = 85.05112878;
 

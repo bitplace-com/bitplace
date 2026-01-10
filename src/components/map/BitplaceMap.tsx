@@ -14,6 +14,7 @@ import { PixelInspectorDrawer } from './PixelInspectorDrawer';
 import { ActionTray } from './ActionTray';
 import { MapMenuDrawer } from './MapMenuDrawer';
 import { QuickActions } from './QuickActions';
+import { PerfHud } from './PerfHud';
 import { WalletButton } from '@/components/wallet/WalletButton';
 import { WalletSelectModal } from '@/components/modals/WalletSelectModal';
 import { usePixelStore, pixelKey, parsePixelKey } from './hooks/usePixelStore';
@@ -30,6 +31,7 @@ import { useMapUrl } from '@/hooks/useMapUrl';
 import { useSound } from '@/hooks/useSound';
 import { usePeBalance } from '@/hooks/usePeBalance';
 import { lngLatToGridInt, getViewportGridBounds } from '@/lib/pixelGrid';
+import { markMapMountStart } from '@/lib/perfMetrics';
 
 // Helper to get snapped 2x2 block coordinates
 const getSnapped2x2Block = (x: number, y: number): { x: number; y: number }[] => {
@@ -110,6 +112,9 @@ export function BitplaceMap() {
   // Initialize map
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
+    
+    // Mark perf timing for TTFP measurement
+    markMapMountStart();
     
     // Check for URL params for initial position
     const urlPos = getUrlPosition();
@@ -1048,6 +1053,8 @@ export function BitplaceMap() {
       </div>
       <StatusStrip userId={user?.id} paintQueueSize={queueSize} isSpacePainting={isSpacePainting || isDrawingRef.current} isFlushing={isFlushing} draftCount={draftCount} />
       
+      {/* Performance HUD (visible only with ?debug=1) */}
+      <PerfHud />
       {/* Wallet Connect Modal - triggered when trying to paint without connection */}
       <WalletSelectModal
         open={isWalletModalOpen}

@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.avatar-upload]
 verify_jwt = false
+
+[functions.pixels-fetch-tiles]
+verify_jwt = false

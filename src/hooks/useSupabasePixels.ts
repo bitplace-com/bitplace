@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { pixelKey, type PixelStore, type PixelData } from '@/components/map/hooks/usePixelStore';
+import { useTileCache } from './useTileCache';
+import { markFirstPixelsRendered } from '@/lib/perfMetrics';
 
 interface ViewportBounds {
   minX: number;
@@ -21,81 +23,53 @@ interface DbPixel {
 export function useSupabasePixels(zoom: number) {
   const [dbPixels, setDbPixels] = useState<PixelStore>(new Map());
   const [isLoading, setIsLoading] = useState(false);
-  const lastBoundsRef = useRef<ViewportBounds | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const hasRenderedFirstPixels = useRef(false);
   
-  // Use ref for zoom to avoid recreating fetchViewportPixels when zoom changes
+  const { 
+    updateViewport: updateTileViewport, 
+    updatePixelInCache, 
+    removePixelFromCache,
+    abortFetch,
+  } = useTileCache();
+  
+  // Use ref for zoom to avoid recreating fetch when zoom changes
   const zoomRef = useRef(zoom);
   useEffect(() => {
     zoomRef.current = zoom;
   }, [zoom]);
 
-  // Fetch pixels within viewport bounds
-  const fetchViewportPixels = useCallback(async (bounds: ViewportBounds) => {
-    if (zoomRef.current < 12) {
-      setDbPixels(new Map());
-      return;
-    }
-
-    // Skip if bounds haven't changed significantly
-    if (lastBoundsRef.current) {
-      const last = lastBoundsRef.current;
-      const threshold = 1000; // pixel threshold for refetch
-      if (
-        Math.abs(bounds.minX - last.minX) < threshold &&
-        Math.abs(bounds.maxX - last.maxX) < threshold &&
-        Math.abs(bounds.minY - last.minY) < threshold &&
-        Math.abs(bounds.maxY - last.maxY) < threshold
-      ) {
-        return;
-      }
-    }
-
-    setIsLoading(true);
-    lastBoundsRef.current = bounds;
-
-    try {
-      console.log('Fetching pixels for bounds:', bounds);
-      
-      const { data, error } = await supabase
-        .from('pixels')
-        .select('id, x, y, color, owner_user_id, owner_stake_pe')
-        .gte('x', bounds.minX)
-        .lte('x', bounds.maxX)
-        .gte('y', bounds.minY)
-        .lte('y', bounds.maxY)
-        .limit(10000);
-
-      if (error) {
-        console.error('Error fetching pixels:', error);
-        return;
-      }
-
-      console.log(`Fetched ${data?.length || 0} pixels`);
-
-      const pixelMap = new Map<string, PixelData>();
-      (data as DbPixel[] || []).forEach((pixel) => {
-        pixelMap.set(pixelKey(pixel.x, pixel.y), { color: pixel.color });
-      });
-
-      setDbPixels(pixelMap);
-    } catch (err) {
-      console.error('Unexpected error fetching pixels:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []); // No zoom dependency - use zoomRef instead
-
-  // Debounced viewport update
+  // Debounced viewport update using tile cache
   const updateViewport = useCallback((bounds: ViewportBounds) => {
+    // Abort any pending fetch when new update comes
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
+      abortFetch();
     }
 
-    debounceRef.current = setTimeout(() => {
-      fetchViewportPixels(bounds);
-    }, 200);
-  }, [fetchViewportPixels]);
+    // Reduced debounce for faster response (80ms instead of 200ms)
+    debounceRef.current = setTimeout(async () => {
+      if (zoomRef.current < 12) {
+        setDbPixels(new Map());
+        return;
+      }
+
+      setIsLoading(true);
+      
+      try {
+        const pixels = await updateTileViewport(bounds);
+        setDbPixels(pixels);
+        
+        // Mark first pixels rendered for perf tracking
+        if (!hasRenderedFirstPixels.current && pixels.size > 0) {
+          hasRenderedFirstPixels.current = true;
+          markFirstPixelsRendered();
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    }, 80);
+  }, [updateTileViewport, abortFetch]);
 
   // Subscribe to realtime changes
   useEffect(() => {
@@ -115,6 +89,9 @@ export function useSupabasePixels(zoom: number) {
           
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const pixel = payload.new as DbPixel;
+            // Update tile cache
+            updatePixelInCache(pixel.x, pixel.y, pixel.color);
+            // Update local state
             setDbPixels((prev) => {
               const next = new Map(prev);
               next.set(pixelKey(pixel.x, pixel.y), { color: pixel.color });
@@ -122,6 +99,9 @@ export function useSupabasePixels(zoom: number) {
             });
           } else if (payload.eventType === 'DELETE') {
             const pixel = payload.old as DbPixel;
+            // Update tile cache
+            removePixelFromCache(pixel.x, pixel.y);
+            // Update local state
             setDbPixels((prev) => {
               const next = new Map(prev);
               next.delete(pixelKey(pixel.x, pixel.y));
@@ -138,7 +118,7 @@ export function useSupabasePixels(zoom: number) {
       console.log('Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [updatePixelInCache, removePixelFromCache]);
 
   // Paint pixel via edge function
   const paintPixelToDb = useCallback(async (x: number, y: number, color: string) => {
