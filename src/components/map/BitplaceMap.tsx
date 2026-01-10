@@ -397,6 +397,14 @@ export function BitplaceMap() {
     if (selectedPixels.length > 0) setPendingPixels(selectedPixels);
   }, [selection.bounds, getSelectedPixels]);
 
+  // Auto-invalidate validation when draft changes (state machine: DRAFT state resets VALIDATED_READY)
+  useEffect(() => {
+    if (draftDirty && validationResult) {
+      clearValidation();
+      setDraftDirty(false);
+    }
+  }, [draftDirty, validationResult, clearValidation, setDraftDirty]);
+
   // Execute single-pixel erase with auto validate+commit
   const executeErase = useCallback(async (x: number, y: number) => {
     if (!requireWallet('erase')) return;
@@ -503,8 +511,24 @@ export function BitplaceMap() {
         // Check if in non-PAINT action mode or ERASER
         const isNonPaintAction = mode !== 'paint' || paintTool === 'ERASER';
         
-        // SPACE held in non-PAINT or ERASER mode: brush selection
-        if (isSpaceHeld && isNonPaintAction && user) {
+        // ERASER tool with SPACE: check if hovering over draft pixels first
+        if (isSpaceHeld && paintTool === 'ERASER' && user) {
+          const draftKey = `${pixel.x}:${pixel.y}`;
+          // If pixel is in draft, remove it immediately (realtime draft erase)
+          if (draftPixels.has(draftKey)) {
+            removeFromDraft(pixel.x, pixel.y);
+            playSound('pixel_deselect');
+            return;
+          }
+          // Otherwise add to brush selection for committed pixels (validate flow)
+          const { atLimit } = addToBrushSelection(pixel.x, pixel.y);
+          if (atLimit && !hasShownLimitToast.current) {
+            toast.warning(`Selection limit: ${MAX_BRUSH_SELECTION.toLocaleString()} pixels`);
+            hasShownLimitToast.current = true;
+          }
+        }
+        // SPACE held in non-PAINT mode (not ERASER): brush selection
+        else if (isSpaceHeld && isNonPaintAction && paintTool !== 'ERASER' && user) {
           const { atLimit } = addToBrushSelection(pixel.x, pixel.y);
           if (atLimit && !hasShownLimitToast.current) {
             toast.warning(`Selection limit: ${MAX_BRUSH_SELECTION.toLocaleString()} pixels`);
@@ -653,23 +677,10 @@ export function BitplaceMap() {
       if (dragDistance < 5 && canPaint) {
         const { x, y } = dragStartRef.current;
         
-        // HAND MODE: Always open inspector in ANY mode (PAINT/DEF/ATK/REINFORCE/ERASE)
+        // HAND MODE: Always open inspector only - NO action selection, NO eraser exception
         if (interactionMode === 'drag') {
-          // Exception: if eraser tool is active in HAND mode, select for erase
-          if (mode === 'paint' && (paintTool === 'ERASER' || selectedColor === null)) {
-            if (!requireWallet('erase')) {
-              isDraggingRef.current = false;
-              dragStartRef.current = null;
-              return;
-            }
-            startSelection(x, y);
-            setPendingPixels([{ x, y }]);
-            playSound('pixel_select');
-          } else {
-            // Normal HAND mode: open inspector regardless of mode
-            setInspectedPixel({ x, y });
-            playSound('pixel_select');
-          }
+          setInspectedPixel({ x, y });
+          playSound('pixel_select');
         }
         // DRAW mode in PAINT: single click adds single pixel to draft
         else if (mode === 'paint' && interactionMode === 'draw') {
@@ -725,7 +736,7 @@ export function BitplaceMap() {
       map.off('mouseup', handleMapMouseUp);
       canvas.removeEventListener('mouseleave', handleMapMouseLeave);
     };
-  }, [mapReady, mode, selectedColor, interactionMode, isSpaceHeld, isShiftHeld, updateSelection, startSelection, endSelection, clearSelection, isEyedropperActive, handleEyedropperPick, addToDraft, canPaint, user, playSound, requireWallet, brushSize, paintTool, selection.isSelecting, clearValidation]);
+  }, [mapReady, mode, selectedColor, interactionMode, isSpaceHeld, isShiftHeld, updateSelection, startSelection, endSelection, clearSelection, isEyedropperActive, handleEyedropperPick, addToDraft, removeFromDraft, canPaint, user, playSound, requireWallet, brushSize, paintTool, selection.isSelecting, clearValidation, draftPixels]);
 
   const handleZoomIn = useCallback(() => mapRef.current?.zoomIn(), []);
   const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), []);
@@ -917,6 +928,7 @@ export function BitplaceMap() {
                 onValidate={handleValidate} 
                 onConfirm={handleConfirm} 
                 onClearSelection={draftCount > 0 ? clearDraft : handleClearSelection} 
+                onBack={validationResult?.ok ? clearValidation : undefined}
                 isValidating={isValidating} 
                 isCommitting={isCommitting}
                 isDraftMode={draftCount > 0}

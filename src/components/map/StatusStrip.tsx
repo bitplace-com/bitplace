@@ -45,7 +45,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
   if (!userId) {
     return (
       <div className="h-11 glass-hud flex items-center justify-center px-4 border-t-0 rounded-none">
-        <span className="text-sm text-[var(--hud-text-muted)]">Connect wallet to see PE balance</span>
+        <span className="text-sm text-[var(--hud-text-muted)]">Connect your wallet to paint</span>
       </div>
     );
   }

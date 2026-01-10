@@ -55,7 +55,7 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
 }
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -107,7 +107,7 @@ serve(async (req) => {
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       return new Response(
-        JSON.stringify({ error: 'File too large. Maximum size: 1MB' }),
+        JSON.stringify({ error: 'File too large. Maximum size: 10MB' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

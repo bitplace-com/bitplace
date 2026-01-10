@@ -34,6 +34,7 @@ interface InspectorPanelProps {
   onValidate: () => void;
   onConfirm: () => void;
   onClearSelection: () => void;
+  onBack?: () => void; // New: Back button handler to return from validated state
   isValidating: boolean;
   isCommitting: boolean;
   // Draft-specific props
@@ -56,6 +57,7 @@ export function InspectorPanel({
   onValidate,
   onConfirm,
   onClearSelection,
+  onBack,
   isValidating,
   isCommitting,
   isDraftMode = false,
@@ -277,6 +279,7 @@ export function InspectorPanel({
         onColorSelect={onColorSelect}
         onValidate={onValidate}
         onConfirm={onConfirm}
+        onBack={onBack}
         isValidating={isValidating}
         isCommitting={isCommitting}
         isDraftMode={isDraftMode}

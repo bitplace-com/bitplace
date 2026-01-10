@@ -54,7 +54,7 @@ export function useWalletGate(): UseWalletGateResult {
     
     // Case 3: Disconnected - show connect modal
     if (now - lastToastRef.current > TOAST_COOLDOWN) {
-      toast.info(`Connect your wallet to ${action}`);
+      toast.info('Connect your wallet to paint');
       lastToastRef.current = now;
     }
     
