@@ -33,8 +33,23 @@ function formatRelativeTime(timestamp: string | undefined): string {
 }
 
 export function StatusAlerts({ userId, onJumpToPixel }: StatusAlertsProps) {
-  const { pixelsLost, pixelsUnderAttack, contestedContributions, markLostAsRead } = useStatusAlerts(userId);
+  const { 
+    pixelsLost, 
+    pixelsUnderAttack, 
+    contestedContributions, 
+    markLostAsRead,
+    hasNewAlerts,
+    clearNewAlertFlag,
+  } = useStatusAlerts(userId);
   const [openCategory, setOpenCategory] = useState<AlertCategory | null>(null);
+
+  // Clear the "new" flag when user opens any popover
+  const handleOpenChange = (category: AlertCategory, open: boolean) => {
+    setOpenCategory(open ? category : null);
+    if (open && hasNewAlerts) {
+      clearNewAlertFlag();
+    }
+  };
 
   const handleJump = useCallback((x: number, y: number, alert: StatusAlert) => {
     // Close popover
@@ -121,17 +136,21 @@ export function StatusAlerts({ userId, onJumpToPixel }: StatusAlertsProps) {
     <div className="flex items-center gap-1.5">
       {/* Pixels Lost */}
       {pixelsLost.length > 0 && (
-        <Popover open={openCategory === 'lost'} onOpenChange={(open) => setOpenCategory(open ? 'lost' : null)}>
+        <Popover open={openCategory === 'lost'} onOpenChange={(open) => handleOpenChange('lost', open)}>
           <PopoverTrigger asChild>
             <button
               className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all relative",
                 "bg-red-500/15 border border-red-500/30 text-red-600 dark:text-red-400",
-                "hover:bg-red-500/25 hover:border-red-500/50"
+                "hover:bg-red-500/25 hover:border-red-500/50",
+                hasNewAlerts && "animate-pulse"
               )}
             >
               <Skull className="h-3.5 w-3.5" />
               <span>Lost: {pixelsLost.length}</span>
+              {hasNewAlerts && (
+                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 animate-ping" />
+              )}
             </button>
           </PopoverTrigger>
           <PopoverContent 
@@ -155,17 +174,21 @@ export function StatusAlerts({ userId, onJumpToPixel }: StatusAlertsProps) {
 
       {/* Under Attack */}
       {pixelsUnderAttack.length > 0 && (
-        <Popover open={openCategory === 'under_attack'} onOpenChange={(open) => setOpenCategory(open ? 'under_attack' : null)}>
+        <Popover open={openCategory === 'under_attack'} onOpenChange={(open) => handleOpenChange('under_attack', open)}>
           <PopoverTrigger asChild>
             <button
               className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all relative",
                 "bg-orange-500/15 border border-orange-500/30 text-orange-600 dark:text-orange-400",
-                "hover:bg-orange-500/25 hover:border-orange-500/50"
+                "hover:bg-orange-500/25 hover:border-orange-500/50",
+                hasNewAlerts && "animate-pulse"
               )}
             >
               <Swords className="h-3.5 w-3.5" />
               <span>Under attack: {pixelsUnderAttack.length}</span>
+              {hasNewAlerts && (
+                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-orange-500 animate-ping" />
+              )}
             </button>
           </PopoverTrigger>
           <PopoverContent 
@@ -189,7 +212,7 @@ export function StatusAlerts({ userId, onJumpToPixel }: StatusAlertsProps) {
 
       {/* Contested */}
       {contestedContributions.length > 0 && (
-        <Popover open={openCategory === 'contested'} onOpenChange={(open) => setOpenCategory(open ? 'contested' : null)}>
+        <Popover open={openCategory === 'contested'} onOpenChange={(open) => handleOpenChange('contested', open)}>
           <PopoverTrigger asChild>
             <button
               className={cn(
