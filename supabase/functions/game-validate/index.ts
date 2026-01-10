@@ -469,6 +469,7 @@ Deno.serve(async (req) => {
     let ownedByOthers = 0;
     let emptyCount = 0;
     let floorBasedCount = 0;
+    let validPixelCount = 0; // Track valid pixels for ERASE partial success
     const breakdown: { [key: string]: number } = {};
 
     for (const pixel of pixelStates) {
@@ -490,6 +491,8 @@ Deno.serve(async (req) => {
           invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "NOT_OWNER" });
           continue;
         }
+        // Valid pixel for erase
+        validPixelCount++;
         // ERASE doesn't cost PE - it refunds PE
         // Track the PE that will be unlocked
         breakdown["eraseRefund"] = (breakdown["eraseRefund"] || 0) + (pixel.owner_stake_pe || 0);
@@ -554,8 +557,15 @@ Deno.serve(async (req) => {
     // Calculate unlockPeTotal for ERASE mode
     const unlockPeTotal = mode === "ERASE" ? (breakdown["eraseRefund"] || 0) : undefined;
 
+    // For ERASE mode: allow partial success (ok: true) if at least some pixels are valid
+    // This enables "Exclude Invalid" flow in the UI
+    const isErasePartialSuccess = mode === "ERASE" && validPixelCount > 0 && invalidPixels.length > 0;
+    const eraseHasValidPixels = mode === "ERASE" && validPixelCount > 0;
+
     const result = {
-      ok: invalidPixels.length === 0,
+      ok: mode === "ERASE" ? eraseHasValidPixels : invalidPixels.length === 0,
+      partialValid: isErasePartialSuccess, // New: indicates some valid, some invalid
+      validPixelCount: mode === "ERASE" ? validPixelCount : undefined, // New: count of valid pixels
       requiredPeTotal,
       snapshotHash,
       invalidPixels,
@@ -573,7 +583,7 @@ Deno.serve(async (req) => {
       purgedContributionCount,
     };
 
-    console.log("[game-validate] Result:", { ok: result.ok, requiredPeTotal, invalidCount: invalidPixels.length });
+    console.log("[game-validate] Result:", { ok: result.ok, partialValid: result.partialValid, validPixelCount, requiredPeTotal, invalidCount: invalidPixels.length });
 
     return new Response(JSON.stringify(result), {
       status: 200,

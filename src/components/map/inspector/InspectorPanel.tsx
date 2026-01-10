@@ -35,6 +35,7 @@ interface InspectorPanelProps {
   onConfirm: () => void;
   onClearSelection: () => void;
   onBack?: () => void; // New: Back button handler to return from validated state
+  onExcludeInvalid?: () => void; // New: Exclude invalid pixels from selection (ERASE mode)
   isValidating: boolean;
   isCommitting: boolean;
   // Draft-specific props
@@ -58,6 +59,7 @@ export function InspectorPanel({
   onConfirm,
   onClearSelection,
   onBack,
+  onExcludeInvalid,
   isValidating,
   isCommitting,
   isDraftMode = false,
@@ -216,7 +218,11 @@ export function InspectorPanel({
 
       {/* Invalid Pixels List */}
       {invalidPixels.length > 0 && (
-        <InvalidPixelList invalidPixels={invalidPixels} />
+        <InvalidPixelList 
+          invalidPixels={invalidPixels} 
+          onExcludeInvalid={onExcludeInvalid}
+          isPartialValid={validationResult?.partialValid}
+        />
       )}
 
       {/* Withdraw Section - only show when user has contributions */}
@@ -280,6 +286,7 @@ export function InspectorPanel({
         onValidate={onValidate}
         onConfirm={onConfirm}
         onBack={onBack}
+        onExcludeInvalid={onExcludeInvalid}
         isValidating={isValidating}
         isCommitting={isCommitting}
         isDraftMode={isDraftMode}

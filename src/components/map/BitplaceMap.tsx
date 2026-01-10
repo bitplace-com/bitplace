@@ -438,11 +438,19 @@ export function BitplaceMap() {
     if (selectedPixels.length > 0) setPendingPixels(selectedPixels);
   }, [selection.bounds, getSelectedPixels]);
 
+  // Track when validation just completed to prevent immediate auto-invalidation
+  const lastValidationTimeRef = useRef<number>(0);
+  
   // Auto-invalidate validation when draft changes (state machine: DRAFT state resets VALIDATED_READY)
+  // But add debounce to prevent clearing validation immediately after it's set
   useEffect(() => {
     if (draftDirty && validationResult) {
-      clearValidation();
-      setDraftDirty(false);
+      const timeSinceValidation = Date.now() - lastValidationTimeRef.current;
+      // Only auto-invalidate if validation was set more than 200ms ago
+      if (timeSinceValidation > 200) {
+        clearValidation();
+        setDraftDirty(false);
+      }
     }
   }, [draftDirty, validationResult, clearValidation, setDraftDirty]);
 
@@ -803,8 +811,16 @@ export function BitplaceMap() {
       return;
     }
     
-    await validate({ mode: gameMode as GameMode, pixels: pixelsToValidate, color: gameMode === 'PAINT' ? selectedColor : undefined, pePerPixel: gameMode !== 'PAINT' && gameMode !== 'ERASE' ? pePerPixel : undefined });
-  }, [user, mode, pendingPixels, selectedColor, pePerPixel, validate, getGameMode, getDraftPixels]);
+    // Clear draftDirty before validation to prevent auto-clear race condition
+    setDraftDirty(false);
+    
+    const result = await validate({ mode: gameMode as GameMode, pixels: pixelsToValidate, color: gameMode === 'PAINT' ? selectedColor : undefined, pePerPixel: gameMode !== 'PAINT' && gameMode !== 'ERASE' ? pePerPixel : undefined });
+    
+    // Track validation completion time to prevent immediate auto-invalidation
+    if (result) {
+      lastValidationTimeRef.current = Date.now();
+    }
+  }, [user, mode, pendingPixels, selectedColor, pePerPixel, validate, getGameMode, getDraftPixels, setDraftDirty]);
 
   const handleClearSelection = useCallback(() => { clearSelection(); clearValidation(); setPendingPixels([]); playSound('pixel_deselect'); }, [clearSelection, clearValidation, playSound]);
 
@@ -883,6 +899,33 @@ export function BitplaceMap() {
     startSelection(x, y);
     setPendingPixels([{ x, y }]);
   }, [startSelection, setSelectedColor]);
+
+  // Exclude invalid pixels from ERASE selection (for partial-valid flow)
+  const handleExcludeInvalid = useCallback(() => {
+    if (!invalidPixels || invalidPixels.length === 0) return;
+    
+    // Create set of invalid pixel keys
+    const invalidKeys = new Set(invalidPixels.map(p => `${p.x}:${p.y}`));
+    
+    // Filter pendingPixels to exclude invalid ones
+    const validPixels = pendingPixels.filter(p => !invalidKeys.has(`${p.x}:${p.y}`));
+    setPendingPixels(validPixels);
+    
+    // Also remove from brushSelection
+    invalidPixels.forEach(p => {
+      brushSelection.pixels.delete(`${p.x}:${p.y}`);
+    });
+    
+    // Clear validation to force re-validate with new selection
+    clearValidation();
+    
+    // If no valid pixels remain, show message
+    if (validPixels.length === 0) {
+      toast.info('No valid pixels to erase in selection');
+    } else {
+      toast.success(`Excluded ${invalidPixels.length} invalid pixel(s)`);
+    }
+  }, [invalidPixels, pendingPixels, brushSelection, clearValidation]);
 
   const handleCloseInspector = useCallback(() => {
     setInspectedPixel(null);
@@ -977,6 +1020,7 @@ export function BitplaceMap() {
                 onConfirm={handleConfirm} 
                 onClearSelection={draftCount > 0 ? clearDraft : handleClearSelection} 
                 onBack={validationResult?.ok ? clearValidation : undefined}
+                onExcludeInvalid={(mode === 'paint' && selectedColor === null) ? handleExcludeInvalid : undefined}
                 isValidating={isValidating} 
                 isCommitting={isCommitting}
                 isDraftMode={draftCount > 0}
