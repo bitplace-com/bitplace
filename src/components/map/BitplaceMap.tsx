@@ -371,16 +371,24 @@ export function BitplaceMap() {
   }, [mapReady, mode, canPaint, user, isSpaceHeld, isShiftHeld, interactionMode, selection.isSelecting, endSelection, hoverPixel, selectedColor, addToDraft, requireWallet, pendingPixels.length, clearSelection, clearValidation, playSound, paintTool, brushSize, brushSelection.pixels.size, startBrushSelection, endBrushSelection, getBrushSelectedPixels, clearBrushSelection, draftCount, clearDraft]);
 
   // Update dragPan when interaction mode changes
+  // Always enable drag when can't paint, regardless of interactionMode
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
+
+    // When zoomed out past interaction threshold, always enable drag
+    if (!canPaint) {
+      map.dragPan.enable();
+      map.getCanvas().style.cursor = '';
+      return;
+    }
 
     if (interactionMode === 'drag') {
       map.dragPan.enable();
       map.getCanvas().style.cursor = '';
     } else {
       map.dragPan.disable();
-      map.getCanvas().style.cursor = canPaint ? 'crosshair' : '';
+      map.getCanvas().style.cursor = 'crosshair';
     }
   }, [mapReady, interactionMode, canPaint]);
 
