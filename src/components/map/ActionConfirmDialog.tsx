@@ -84,8 +84,15 @@ export function ActionConfirmDialog({
                 onPePerPixelChange(val);
               }}
               pixelCount={pixelCount}
-              availablePe={availablePe}
             />
+          )}
+
+          {/* Available PE shown separately */}
+          {availablePe !== undefined && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Available PE</span>
+              <span className="font-medium tabular-nums">{availablePe.toLocaleString()}</span>
+            </div>
           )}
 
           {validationResult && (

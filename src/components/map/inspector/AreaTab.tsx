@@ -46,32 +46,6 @@ export function AreaTab({ pixelCount, validationResult, currentUserId }: AreaTab
         </div>
       )}
 
-      {/* Required PE - compact */}
-      {validationResult && (
-        <div className="bg-primary/10 border border-primary/20 rounded-lg px-3 py-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-primary">
-              <PEIcon size="sm" className="text-primary" />
-              <span className="text-[11px] uppercase tracking-wider">Required</span>
-            </div>
-            <div className="text-lg font-semibold text-primary tabular-nums">
-              {validationResult.requiredPeTotal.toLocaleString()}
-            </div>
-          </div>
-          {!validationResult.ok && (
-            <div className="text-[10px] text-destructive mt-1">
-              {validationResult.invalidPixels.length} issue(s)
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* No validation yet */}
-      {!validationResult && (
-        <div className="text-center text-muted-foreground py-2 text-[11px]">
-          Validate to see costs
-        </div>
-      )}
     </div>
   );
 }

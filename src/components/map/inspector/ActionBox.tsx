@@ -78,36 +78,36 @@ export function ActionBox({
   const isValidated = validationResult?.ok === true && !isValidationStale;
   const canConfirm = isValidated && !isCommitting;
 
+  // Get effective count (draft for paint, selection for others)
+  const effectiveCount = mode === 'PAINT' ? draftCount : pixelCount;
+
   return (
     <div className="border-t border-border p-3 space-y-3 bg-muted/50">
-      {/* Mode + Color inline for PAINT/ERASE */}
-      {(mode === 'PAINT' || mode === 'ERASE') ? (
+      {/* Header: Mode icon + label + pixel count */}
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-foreground">
             {mode === 'ERASE' ? <Eraser className="h-3.5 w-3.5" /> : config.icon}
           </div>
-          {mode === 'ERASE' ? (
-            <span className="text-[11px] font-mono text-muted-foreground">ERASER</span>
-          ) : selectedColor ? (
+          <span className="text-xs font-medium">{config.label}</span>
+          {/* Color swatch for PAINT */}
+          {mode === 'PAINT' && selectedColor && (
             <>
               <div
-                className="h-6 w-6 rounded-md border border-white/20"
+                className="h-5 w-5 rounded border border-border"
                 style={{ backgroundColor: selectedColor }}
               />
-              <span className="text-[11px] font-mono text-muted-foreground">{selectedColor.toUpperCase()}</span>
+              <span className="text-[10px] font-mono text-muted-foreground">{selectedColor.toUpperCase()}</span>
             </>
-          ) : (
-            <span className="text-[11px] font-mono text-muted-foreground">ERASER</span>
           )}
         </div>
-      ) : (
-        <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-foreground">
-            {config.icon}
-          </div>
-          <span className="text-xs font-medium">{config.label}</span>
-        </div>
-      )}
+        {/* Pixel count badge */}
+        {effectiveCount > 0 && (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {effectiveCount.toLocaleString()} px
+          </span>
+        )}
+      </div>
 
       {/* Draft Undo/Clear buttons for PAINT mode */}
       {isDraftMode && mode === 'PAINT' && draftCount > 0 && (
@@ -133,16 +133,8 @@ export function ActionBox({
         </div>
       )}
 
-      {/* Draft count for PAINT mode */}
-      {isDraftMode && mode === 'PAINT' && draftCount > 0 && (
-        <div className="flex items-center justify-between text-[11px]">
-          <span className="text-muted-foreground">Draft</span>
-          <span className="font-medium text-foreground">{draftCount.toLocaleString()} px</span>
-        </div>
-      )}
-
-      {/* PE Input for non-PAINT/ERASE modes */}
-      {mode !== 'PAINT' && mode !== 'ERASE' && (
+      {/* PE Input for DEF/ATK/REINFORCE modes */}
+      {mode !== 'PAINT' && mode !== 'ERASE' && pixelCount > 0 && (
         <PeInput 
           value={pePerPixel} 
           onChange={onPePerPixelChange} 
@@ -150,8 +142,8 @@ export function ActionBox({
         />
       )}
 
-      {/* PE Summary - clean structure */}
-      {(validationResult || (isDraftMode && draftCount > 0) || (mode !== 'PAINT' && mode !== 'ERASE' && pixelCount > 0)) && (
+      {/* Cost Summary - single block */}
+      {(validationResult || (mode === 'PAINT' && draftCount > 0) || (mode !== 'PAINT' && mode !== 'ERASE' && pixelCount > 0)) && (
         <div className="space-y-1.5 px-2 py-2 rounded-lg bg-muted/30">
           {/* Required PE */}
           <div className="flex items-center justify-between">
@@ -164,48 +156,23 @@ export function ActionBox({
             </span>
           </div>
 
-          {/* Available PE - only show after validation */}
+          {/* Available + After action - only after validation */}
           {validationResult && (
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] text-muted-foreground">Available</span>
-              <span className={cn(
-                "text-sm font-medium tabular-nums",
-                hasSufficientPe ? "text-emerald-500" : "text-destructive"
-              )}>
-                {availablePe.toLocaleString()}
-              </span>
-            </div>
-          )}
-
-          {/* Result message */}
-          {validationResult && (
-            <div className={cn(
-              "flex items-center gap-1.5 text-[11px] pt-1 border-t border-border/50",
-              validationResult.ok ? "text-emerald-500" : "text-destructive"
-            )}>
-              {validationResult.ok && !isValidationStale ? (
-                <>
-                  <Check className="h-3 w-3" />
-                  <span>Ready to commit</span>
-                </>
-              ) : isValidationStale ? (
-                <>
-                  <AlertCircle className="h-3 w-3 text-amber-500" />
-                  <span className="text-amber-500">PE changed — re-validate required</span>
-                </>
-              ) : (
-                <>
-                  <AlertCircle className="h-3 w-3" />
-                  <span>
-                    {validationResult.invalidPixels?.length > 0 
-                      ? `${validationResult.invalidPixels.length} invalid pixel(s)`
-                      : !hasSufficientPe 
-                        ? 'Insufficient PE'
-                        : 'Validation failed'}
-                  </span>
-                </>
-              )}
-            </div>
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-muted-foreground">Available</span>
+                <span className="text-sm tabular-nums">{availablePe.toLocaleString()}</span>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                <span className="text-[11px] text-muted-foreground">After action</span>
+                <span className={cn(
+                  "text-sm font-medium tabular-nums",
+                  hasSufficientPe ? "text-emerald-500" : "text-destructive"
+                )}>
+                  {(availablePe - requiredPe).toLocaleString()}
+                </span>
+              </div>
+            </>
           )}
 
           {/* ERASE refund info */}
@@ -215,6 +182,29 @@ export function ActionBox({
               <span className="text-emerald-500 font-semibold">+{validationResult.unlockPeTotal.toLocaleString()}</span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Inline error area - exact backend reason */}
+      {validationResult && !validationResult.ok && (
+        <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-destructive/10 text-destructive text-[11px]">
+          <AlertCircle className="h-3 w-3 flex-shrink-0" />
+          <span className="truncate">
+            {validationResult.message || validationResult.error || 
+             (validationResult.invalidPixels?.length > 0 
+               ? `${validationResult.invalidPixels.length} invalid pixel(s)`
+               : !hasSufficientPe 
+                 ? 'Insufficient PE'
+                 : 'Validation failed')}
+          </span>
+        </div>
+      )}
+
+      {/* Re-validate hint when PE changed */}
+      {isValidationStale && (
+        <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-amber-500/10 text-amber-500 text-[11px]">
+          <AlertCircle className="h-3 w-3 flex-shrink-0" />
+          <span>PE changed — re-validate required</span>
         </div>
       )}
 
