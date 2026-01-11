@@ -62,9 +62,9 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
     const payloadB64Std = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
     const payload = JSON.parse(atob(payloadB64Std));
 
-    // Check expiry
+    // Check expiry - exp is in milliseconds (matches Date.now())
     if (payload.exp && Date.now() > payload.exp) {
-      console.error("[notifications-manage] Token expired");
+      console.error("[notifications-manage] Token expired. exp:", payload.exp, "now:", Date.now());
       return null;
     }
 

@@ -24,8 +24,13 @@ function getCorsHeaders(req: Request): Record<string, string> {
 // Verify JWT token
 async function verifyToken(token: string, secret: string): Promise<{ wallet: string; userId: string; exp: number } | null> {
   try {
-    const [headerB64, payloadB64, signatureB64] = token.split(".");
-    if (!headerB64 || !payloadB64 || !signatureB64) return null;
+    const parts = token.split(".");
+    if (parts.length !== 3) {
+      console.error("[alliance-manage] Invalid token format: wrong number of parts");
+      return null;
+    }
+    
+    const [headerB64, payloadB64, signatureB64] = parts;
 
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
@@ -37,15 +42,28 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
     );
 
     const signatureInput = `${headerB64}.${payloadB64}`;
-    const signature = Uint8Array.from(atob(signatureB64.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+    // Handle URL-safe Base64 encoding
+    const signatureFixed = signatureB64.replace(/-/g, "+").replace(/_/g, "/");
+    const signature = Uint8Array.from(atob(signatureFixed), c => c.charCodeAt(0));
     const valid = await crypto.subtle.verify("HMAC", key, signature, encoder.encode(signatureInput));
-    if (!valid) return null;
+    
+    if (!valid) {
+      console.error("[alliance-manage] Invalid signature");
+      return null;
+    }
 
-    const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
-    if (payload.exp && Date.now() > payload.exp) return null;
+    const payloadFixed = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(payloadFixed));
+    
+    // exp is in SECONDS (Unix timestamp), Date.now() is in milliseconds
+    if (payload.exp && Date.now() > payload.exp) {
+      console.error("[alliance-manage] Token expired");
+      return null;
+    }
 
     return payload;
-  } catch {
+  } catch (e) {
+    console.error("[alliance-manage] Token verification error:", e);
     return null;
   }
 }
