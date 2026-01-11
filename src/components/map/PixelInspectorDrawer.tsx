@@ -94,8 +94,8 @@ export function PixelInspectorDrawer({
   if (isMobile) {
     return (
       <Drawer open={!!pixel} onOpenChange={(open) => !open && onClose()}>
-        <DrawerContent className="px-4 pb-6">
-          <div className="pt-2">{infoPanel}</div>
+        <DrawerContent className="px-4">
+          <div className="pt-2 pb-4">{infoPanel}</div>
         </DrawerContent>
       </Drawer>
     );

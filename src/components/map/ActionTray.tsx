@@ -134,7 +134,7 @@ export function ActionTray({
 
   return (
     <div 
-      className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none bottom-[calc(3.5rem+env(safe-area-inset-bottom))] max-w-[calc(100vw-1rem)] sm:max-w-[540px]"
+      className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] sm:bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] max-w-[calc(100vw-1rem)] sm:max-w-[540px]"
       style={{ width: isExpanded ? '100%' : 'auto' }}
     >
       <div 
@@ -153,26 +153,26 @@ export function ActionTray({
                 <button
                   onClick={() => onInteractionModeChange('drag')}
                   className={cn(
-                    "w-7 h-7 rounded-md flex items-center justify-center transition-colors",
+                    "w-10 h-10 sm:w-7 sm:h-7 rounded-md flex items-center justify-center transition-colors touch-target",
                     interactionMode === 'drag' 
                       ? "bg-foreground text-background" 
                       : "text-muted-foreground hover:text-foreground"
                   )}
                   title="Hand mode: Pan map"
                 >
-                  <Hand className="h-4 w-4" />
+                  <Hand className="h-5 w-5 sm:h-4 sm:w-4" />
                 </button>
                 <button
                   onClick={() => onInteractionModeChange('draw')}
                   className={cn(
-                    "w-7 h-7 rounded-md flex items-center justify-center transition-colors",
+                    "w-10 h-10 sm:w-7 sm:h-7 rounded-md flex items-center justify-center transition-colors touch-target",
                     interactionMode === 'draw' 
                       ? "bg-foreground text-background" 
                       : "text-muted-foreground hover:text-foreground"
                   )}
                   title={isPaintMode ? "Draw mode: Click/drag to paint" : `${mode} mode: Click/drag to select`}
                 >
-                  <ModeIcon mapMode={mode} className="h-4 w-4" />
+                  <ModeIcon mapMode={mode} className="h-5 w-5 sm:h-4 sm:w-4" />
                 </button>
               </div>
             )}
@@ -269,38 +269,38 @@ export function ActionTray({
                       <button
                         onClick={() => handleToolClick('BRUSH', '1x')}
                         className={cn(
-                          "w-7 h-7 rounded-md flex items-center justify-center transition-colors",
+                          "w-10 h-10 sm:w-7 sm:h-7 rounded-md flex items-center justify-center transition-colors touch-target",
                           paintTool === 'BRUSH' && brushSize === '1x'
                             ? "bg-foreground text-background" 
                             : "text-muted-foreground hover:text-foreground"
                         )}
                         title="Brush 1x"
                       >
-                        <PixelIcon className="h-4 w-4" />
+                        <PixelIcon className="h-5 w-5 sm:h-4 sm:w-4" />
                       </button>
                       <button
                         onClick={() => handleToolClick('BRUSH', '2x2')}
                         className={cn(
-                          "w-7 h-7 rounded-md flex items-center justify-center transition-colors",
+                          "w-10 h-10 sm:w-7 sm:h-7 rounded-md flex items-center justify-center transition-colors touch-target",
                           paintTool === 'BRUSH' && brushSize === '2x2'
                             ? "bg-foreground text-background" 
                             : "text-muted-foreground hover:text-foreground"
                         )}
                         title="Brush 2×2"
                       >
-                        <Grid2X2 className="h-4 w-4" />
+                        <Grid2X2 className="h-5 w-5 sm:h-4 sm:w-4" />
                       </button>
                       <button
                         onClick={() => handleToolClick('ERASER')}
                         className={cn(
-                          "w-7 h-7 rounded-md flex items-center justify-center transition-colors",
+                          "w-10 h-10 sm:w-7 sm:h-7 rounded-md flex items-center justify-center transition-colors touch-target",
                           paintTool === 'ERASER'
                             ? "bg-foreground text-background" 
                             : "text-muted-foreground hover:text-foreground"
                         )}
                         title="Eraser"
                       >
-                        <Eraser className="h-4 w-4" />
+                        <Eraser className="h-5 w-5 sm:h-4 sm:w-4" />
                       </button>
                     </div>
                     
@@ -340,8 +340,8 @@ export function ActionTray({
 
                 <div className="max-h-48 overflow-y-auto py-1.5 px-0.5">
                   {paletteTab === 'colors' ? (
-                    /* Standard color palette - CONTINUOUS GRID (no separators) */
-                    <div className="grid grid-cols-9 sm:grid-cols-12 gap-1.5">
+                    /* Standard color palette - larger on mobile */
+                    <div className="grid grid-cols-8 sm:grid-cols-12 gap-2 sm:gap-1.5">
                       {ALL_COLORS.map((color, index) => {
                         const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
                         return (
@@ -350,7 +350,7 @@ export function ActionTray({
                             onClick={() => handleColorClick(color)}
                             disabled={!canPaint}
                             className={cn(
-                              "w-7 h-7 rounded-md transition-all duration-100 focus:outline-none",
+                              "w-9 h-9 sm:w-7 sm:h-7 rounded-lg sm:rounded-md transition-all duration-100 focus:outline-none touch-target",
                               canPaint && "hover:ring-1 hover:ring-foreground/30",
                               isSelected && "ring-2 ring-foreground scale-105 z-10",
                               !canPaint && "opacity-40 cursor-not-allowed"
@@ -369,7 +369,7 @@ export function ActionTray({
                           <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
                             {CATEGORY_LABELS[category] || category}
                           </div>
-                          <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5">
+                          <div className="grid grid-cols-5 sm:grid-cols-8 gap-2 sm:gap-1.5">
                             {materials.map((material) => {
                               const isSelected = selectedColor === material.id;
                               return (
@@ -378,7 +378,7 @@ export function ActionTray({
                                   onClick={() => handleColorClick(material.id)}
                                   disabled={!canPaint}
                                   className={cn(
-                                    "w-7 h-7 rounded-md transition-all duration-100 focus:outline-none relative overflow-hidden",
+                                    "w-10 h-10 sm:w-7 sm:h-7 rounded-lg sm:rounded-md transition-all duration-100 focus:outline-none relative overflow-hidden touch-target",
                                     "hover:scale-110 hover:z-10",
                                     canPaint && "hover:ring-1 hover:ring-foreground/30",
                                     isSelected && "ring-2 ring-foreground scale-110 z-10",
@@ -408,26 +408,27 @@ export function ActionTray({
               /* ACTION MODE (Defend/Attack/Reinforce): Stake controls */
               <div className="space-y-3">
                 {/* PE Per Pixel Input */}
-                <div className="flex items-center gap-2">
-                  <PEIcon size="sm" />
+                <div className="flex items-center gap-3 sm:gap-2">
+                  <PEIcon size="md" className="sm:hidden" />
+                  <PEIcon size="sm" className="hidden sm:block" />
                   <Input 
                     type="number" 
                     min={1}
                     value={pePerPixel} 
                     onChange={(e) => onPePerPixelChange(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="h-7 w-20 text-sm font-mono"
+                    className="h-11 sm:h-7 w-24 sm:w-20 text-base sm:text-sm font-mono"
                   />
                   <span className="text-[10px] text-muted-foreground">per px</span>
                 </div>
                 
-                {/* Quick Chips */}
-                <div className="flex gap-1.5 flex-wrap">
+                {/* Quick Chips - larger on mobile */}
+                <div className="flex gap-2 sm:gap-1.5 flex-wrap">
                   {PE_CHIPS.map(val => (
                     <button 
                       key={val}
                       onClick={() => onPePerPixelChange(val)}
                       className={cn(
-                        "px-2 py-0.5 rounded text-[10px] font-mono transition-colors",
+                        "px-4 py-2.5 sm:px-2 sm:py-0.5 rounded-lg sm:rounded text-sm sm:text-[10px] font-mono transition-colors touch-target",
                         pePerPixel === val 
                           ? "bg-foreground text-background" 
                           : "bg-muted text-muted-foreground hover:bg-muted/80"

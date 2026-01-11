@@ -44,7 +44,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
 
   if (!userId) {
     return (
-      <div className="h-11 glass-hud flex items-center justify-center px-4 border-t-0 rounded-none">
+      <div className="min-h-12 sm:min-h-11 glass-hud flex items-center justify-center px-4 border-t-0 rounded-none safe-bottom-bar">
         <span className="text-sm text-[var(--hud-text-muted)]">Connect your wallet to paint</span>
       </div>
     );
@@ -57,9 +57,9 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
 
   return (
     <TooltipProvider>
-      <div className="h-11 glass-hud flex items-center justify-between px-4 border-t-0 rounded-none safe-bottom overflow-x-auto scrollbar-hide">
+      <div className="min-h-12 sm:min-h-11 glass-hud flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 sm:gap-4 px-3 sm:px-4 py-2 border-t-0 rounded-none safe-bottom-bar overflow-x-auto scrollbar-hide">
         {/* Left side - SOL Balance & Cluster */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 flex-wrap sm:flex-nowrap">
           {/* Sign-in required pill */}
           {needsSignature && (
             <button
@@ -125,7 +125,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
         </div>
 
         {/* Right side - PE & Status */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 flex-wrap sm:flex-nowrap justify-end">
           {/* PE Total / Used */}
           <div className="flex items-center gap-2">
             <PEIcon size="md" className="text-foreground" />
@@ -174,7 +174,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
                 size="sm"
                 onClick={refreshEnergy}
                 disabled={energy.isRefreshing}
-                className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                className="h-10 w-10 sm:h-7 sm:w-auto sm:px-2 p-0 text-muted-foreground hover:text-foreground touch-target"
               >
                 <RefreshCw className={cn("h-3.5 w-3.5", energy.isRefreshing && "animate-spin")} />
               </Button>

@@ -217,6 +217,9 @@
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+  .safe-bottom-bar {
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  }
   .safe-left {
     padding-left: env(safe-area-inset-left, 0px);
   }

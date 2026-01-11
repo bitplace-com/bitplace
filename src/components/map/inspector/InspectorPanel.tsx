@@ -326,23 +326,23 @@ export function InspectorPanel({
   if (isMobile) {
     return (
       <Drawer open={hasSelection} onOpenChange={(open) => !open && onClearSelection()}>
-        <DrawerContent className="max-h-[70vh] safe-bottom">
-          <DrawerHeader className="flex items-center justify-between px-4 py-2 border-b border-border/20">
+        <DrawerContent className="max-h-[80vh] min-h-[40vh]">
+          <DrawerHeader className="flex items-center justify-between px-4 py-3 border-b border-border/20 shrink-0">
             <DrawerTitle className="text-sm font-medium">
               {selectedPixels.length} pixel{selectedPixels.length !== 1 ? 's' : ''} selected
             </DrawerTitle>
             <Button
               variant="ghost"
               size="icon"
-              className="h-10 w-10 rounded-md hover:bg-destructive/10 hover:text-destructive touch-target"
+              className="h-11 w-11 rounded-lg hover:bg-destructive/10 hover:text-destructive touch-target"
               onClick={onClearSelection}
               title="Clear selection"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </Button>
           </DrawerHeader>
           
-          <div className="flex flex-col overflow-hidden flex-1">
+          <div className="flex flex-col overflow-y-auto flex-1 pb-4">
             {isSelectionTooLarge ? renderTooLargeWarning() : renderContent()}
           </div>
         </DrawerContent>
