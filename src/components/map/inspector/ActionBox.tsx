@@ -115,24 +115,24 @@ export function ActionBox({
 
       {/* Draft Undo/Clear buttons for PAINT mode */}
       {isDraftMode && mode === 'PAINT' && draftCount > 0 && (
-        <div className="flex gap-1.5">
+        <div className="flex gap-2 sm:gap-1.5">
           <Button
             size="sm"
             variant="ghost"
             onClick={onUndoDraft}
             disabled={draftCount === 0}
-            className="flex-1 h-7 text-xs"
+            className="flex-1 h-10 sm:h-7 text-sm sm:text-xs touch-target"
           >
-            <Undo2 className="h-3 w-3 mr-1" /> Undo
+            <Undo2 className="h-4 w-4 sm:h-3 sm:w-3 mr-1.5 sm:mr-1" /> Undo
           </Button>
           <Button
             size="sm"
             variant="ghost"
             onClick={onClearDraft}
             disabled={draftCount === 0}
-            className="flex-1 h-7 text-xs text-destructive hover:text-destructive"
+            className="flex-1 h-10 sm:h-7 text-sm sm:text-xs text-destructive hover:text-destructive touch-target"
           >
-            <Trash2 className="h-3 w-3 mr-1" /> Clear
+            <Trash2 className="h-4 w-4 sm:h-3 sm:w-3 mr-1.5 sm:mr-1" /> Clear
           </Button>
         </div>
       )}
@@ -231,30 +231,30 @@ export function ActionBox({
         </div>
       )}
 
-      {/* Action Buttons */}
-      <div className="flex gap-1.5">
-        {/* Back button - shows after validation to return to draft state (synchronous, never disabled) */}
+      {/* Action Buttons - larger touch targets on mobile */}
+      <div className="flex gap-2 sm:gap-1.5">
+        {/* Back button - shows after validation to return to draft state */}
         {isValidated && onBack && (
           <Button
             type="button"
-            className="rounded-lg h-8 px-3"
+            className="rounded-lg h-11 sm:h-8 px-4 sm:px-3 touch-target"
             variant="ghost"
             onClick={onBack}
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
+            <ArrowLeft className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           </Button>
         )}
 
         {needsValidation && !isValidated && (
           <Button
-            className="flex-1 rounded-lg h-8 text-xs"
+            className="flex-1 rounded-lg h-11 sm:h-8 text-sm sm:text-xs touch-target"
             variant="secondary"
             onClick={onValidate}
             disabled={isValidating}
           >
             {isValidating ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                <Loader2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 mr-1.5 animate-spin" />
                 Checking...
               </>
             ) : (
@@ -265,13 +265,13 @@ export function ActionBox({
 
         {(isValidated || !needsValidation) && (
           <Button
-            className="flex-1 rounded-lg h-8 text-xs"
+            className="flex-1 rounded-lg h-11 sm:h-8 text-sm sm:text-xs touch-target"
             onClick={onConfirm}
             disabled={!canConfirm && needsValidation}
           >
             {isCommitting ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                <Loader2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 mr-1.5 animate-spin" />
                 ...
               </>
             ) : (

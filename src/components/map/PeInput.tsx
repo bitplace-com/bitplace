@@ -25,17 +25,17 @@ export function PeInput({ value, onChange, pixelCount, label = 'per pixel' }: Pe
         min={1}
         value={value}
         onChange={(e) => onChange(Math.max(1, parseInt(e.target.value) || 1))}
-        className="h-8 text-sm tabular-nums"
+        className="h-11 sm:h-8 text-base sm:text-sm tabular-nums"
       />
-      {/* Quick presets */}
-      <div className="flex gap-1">
+      {/* Quick presets - larger touch targets on mobile */}
+      <div className="flex gap-2 sm:gap-1">
         {PE_PRESETS.map((preset) => (
           <button
             key={preset}
             type="button"
             onClick={() => onChange(preset)}
             className={cn(
-              "flex-1 h-6 text-[10px] rounded border transition-colors",
+              "flex-1 h-10 sm:h-6 text-sm sm:text-[10px] rounded-lg sm:rounded border transition-colors touch-target",
               value === preset 
                 ? "bg-primary text-primary-foreground border-primary" 
                 : "bg-muted/50 border-border hover:bg-muted"
