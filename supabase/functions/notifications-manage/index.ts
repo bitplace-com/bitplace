@@ -22,10 +22,16 @@ function getCorsHeaders(req: Request): Record<string, string> {
 
 async function verifyToken(token: string, secret: string): Promise<{ wallet: string; userId: string; exp: number } | null> {
   try {
-    const [headerB64, payloadB64, signatureB64] = token.split(".");
-    if (!headerB64 || !payloadB64 || !signatureB64) return null;
+    const parts = token.split(".");
+    if (parts.length !== 3) {
+      console.error("[notifications-manage] Invalid token format: expected 3 parts, got", parts.length);
+      return null;
+    }
 
+    const [headerB64, payloadB64, signatureB64] = parts;
     const encoder = new TextEncoder();
+
+    // Import the secret key for HMAC
     const key = await crypto.subtle.importKey(
       "raw",
       encoder.encode(secret),
@@ -34,16 +40,37 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
       ["verify"]
     );
 
-    const signatureInput = `${headerB64}.${payloadB64}`;
-    const signature = Uint8Array.from(atob(signatureB64.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-    const valid = await crypto.subtle.verify("HMAC", key, signature, encoder.encode(signatureInput));
-    if (!valid) return null;
+    // Decode the signature from base64url
+    const signatureB64Std = signatureB64.replace(/-/g, "+").replace(/_/g, "/");
+    const signatureBytes = Uint8Array.from(atob(signatureB64Std), c => c.charCodeAt(0));
 
-    const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
-    if (payload.exp && Date.now() > payload.exp) return null;
+    // Verify the signature against header.payload
+    const signatureInput = `${headerB64}.${payloadB64}`;
+    const isValid = await crypto.subtle.verify(
+      "HMAC",
+      key,
+      signatureBytes,
+      encoder.encode(signatureInput)
+    );
+
+    if (!isValid) {
+      console.error("[notifications-manage] Invalid signature");
+      return null;
+    }
+
+    // Decode and parse payload (handle base64url)
+    const payloadB64Std = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(payloadB64Std));
+
+    // Check expiry
+    if (payload.exp && Date.now() > payload.exp) {
+      console.error("[notifications-manage] Token expired");
+      return null;
+    }
 
     return payload;
-  } catch {
+  } catch (err) {
+    console.error("[notifications-manage] Token verification error:", err);
     return null;
   }
 }
