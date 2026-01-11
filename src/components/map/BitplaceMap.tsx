@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 import { CanvasOverlay } from './CanvasOverlay';
 import { MapToolbar } from './MapToolbar';
@@ -23,6 +24,7 @@ import { useMapState } from './hooks/useMapState';
 import { usePaintQueue } from './hooks/usePaintQueue';
 import { useDraftPaint } from './hooks/useDraftPaint';
 import { useBrushSelection, MAX_BRUSH_SELECTION } from './hooks/useBrushSelection';
+import { usePointerInteraction, type PointerInputType } from './hooks/usePointerInteraction';
 import { useSupabasePixels } from '@/hooks/useSupabasePixels';
 import { useGameActions, type GameMode } from '@/hooks/useGameActions';
 import { useWallet } from '@/contexts/WalletContext';
@@ -47,6 +49,7 @@ const getSnapped2x2Block = (x: number, y: number): { x: number; y: number }[] =>
 
 export function BitplaceMap() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const interactionLayerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [hoverPixel, setHoverPixel] = useState<{ x: number; y: number } | null>(null);
@@ -54,6 +57,7 @@ export function BitplaceMap() {
   const [isEyedropperActive, setIsEyedropperActive] = useState(false);
   const [isSpaceHeld, setIsSpaceHeld] = useState(false);
   const [isShiftHeld, setIsShiftHeld] = useState(false);
+  const isTouchPaintingRef = useRef(false);
   const lastPaintedPixelRef = useRef<{ x: number; y: number } | null>(null);
   
   const [pendingPixels, setPendingPixels] = useState<{ x: number; y: number }[]>([]);
@@ -105,6 +109,143 @@ export function BitplaceMap() {
   const getGameMode = useCallback((mapMode: string): GameMode => {
     return mapMode.toUpperCase() as GameMode;
   }, []);
+
+  // Touch/Pointer handling callbacks for mobile support
+  const handleTouchPaintStart = useCallback((x: number, y: number) => {
+    if (!requireWallet('paint')) return;
+    
+    // Paint with brush
+    if (mode === 'paint' && paintTool === 'BRUSH' && selectedColor !== null) {
+      if (brushSize === '2x2') {
+        const block = getSnapped2x2Block(x, y);
+        block.forEach(p => addToDraft(p.x, p.y, selectedColor));
+        lastDraftedPixelRef.current = block[0];
+      } else {
+        addToDraft(x, y, selectedColor);
+        lastDraftedPixelRef.current = { x, y };
+      }
+      isTouchPaintingRef.current = true;
+      playSound('pixel_select');
+    }
+    // Eraser
+    else if (paintTool === 'ERASER') {
+      const draftKey = `${x}:${y}`;
+      if (draftPixels.has(draftKey)) {
+        removeFromDraft(x, y);
+        playSound('pixel_deselect');
+      } else {
+        startBrushSelection(x, y);
+      }
+      isTouchPaintingRef.current = true;
+    }
+    // Action modes (DEFEND/ATTACK/REINFORCE)
+    else if (['defend', 'attack', 'reinforce'].includes(mode)) {
+      if (!requireWallet('interact')) return;
+      startBrushSelection(x, y);
+      isTouchPaintingRef.current = true;
+    }
+  }, [mode, paintTool, selectedColor, brushSize, addToDraft, removeFromDraft, startBrushSelection, draftPixels, requireWallet, playSound]);
+
+  const handleTouchPaintMove = useCallback((x: number, y: number) => {
+    // Paint with brush (continuous)
+    if (mode === 'paint' && paintTool === 'BRUSH' && selectedColor !== null) {
+      const last = lastDraftedPixelRef.current;
+      if (brushSize === '2x2') {
+        const block = getSnapped2x2Block(x, y);
+        const topLeft = block[0];
+        if (!last || last.x !== topLeft.x || last.y !== topLeft.y) {
+          block.forEach(p => addToDraft(p.x, p.y, selectedColor));
+          lastDraftedPixelRef.current = topLeft;
+        }
+      } else {
+        if (!last || last.x !== x || last.y !== y) {
+          addToDraft(x, y, selectedColor);
+          lastDraftedPixelRef.current = { x, y };
+        }
+      }
+    }
+    // Eraser (continuous)
+    else if (paintTool === 'ERASER') {
+      const draftKey = `${x}:${y}`;
+      if (draftPixels.has(draftKey)) {
+        removeFromDraft(x, y);
+      } else {
+        addToBrushSelection(x, y);
+      }
+    }
+    // Action modes (continuous selection)
+    else if (['defend', 'attack', 'reinforce'].includes(mode)) {
+      addToBrushSelection(x, y);
+    }
+  }, [mode, paintTool, selectedColor, brushSize, addToDraft, removeFromDraft, addToBrushSelection, draftPixels]);
+
+  const handleTouchPaintEnd = useCallback((x: number, y: number, wasTap: boolean) => {
+    isTouchPaintingRef.current = false;
+    lastDraftedPixelRef.current = null;
+    
+    // End brush selection for eraser/action modes
+    if (paintTool === 'ERASER' || ['defend', 'attack', 'reinforce'].includes(mode)) {
+      endBrushSelection();
+      const selectedPixels = getBrushSelectedPixels();
+      
+      if (paintTool === 'ERASER' && selectedPixels.length > 0) {
+        // Separate draft and committed pixels
+        const committedPixels: { x: number; y: number }[] = [];
+        selectedPixels.forEach(({ x, y }) => {
+          const key = `${x}:${y}`;
+          if (!draftPixels.has(key)) {
+            committedPixels.push({ x, y });
+          }
+        });
+        if (committedPixels.length > 0) {
+          setPendingPixels(committedPixels);
+          clearValidation();
+        }
+        clearBrushSelection();
+      } else if (selectedPixels.length > 0) {
+        // Action modes
+        setPendingPixels(selectedPixels);
+        clearValidation();
+        setPreviewHiddenPixels(new Set());
+        setValidatedActionPixels(null);
+      }
+    }
+  }, [mode, paintTool, endBrushSelection, getBrushSelectedPixels, clearBrushSelection, draftPixels, clearValidation]);
+
+  const handleTouchTapInspect = useCallback((x: number, y: number) => {
+    // In HAND mode, tap opens pixel inspector
+    setInspectedPixel({ x, y });
+    playSound('pixel_select');
+  }, [playSound]);
+
+  // Integrate pointer interaction hook for touch/pen support
+  usePointerInteraction(
+    interactionLayerRef,
+    mapRef.current,
+    {
+      enabled: mapReady && canPaint,
+      isHandMode: interactionMode === 'drag',
+      callbacks: {
+        onPointerStart: (x, y, type) => {
+          if (interactionMode === 'drag') return; // Let map handle in HAND mode
+          handleTouchPaintStart(x, y);
+        },
+        onPointerMove: (x, y, type) => {
+          if (interactionMode === 'drag') return;
+          if (isTouchPaintingRef.current) {
+            handleTouchPaintMove(x, y);
+          }
+        },
+        onPointerEnd: (x, y, type, wasTap) => {
+          if (interactionMode === 'drag') {
+            if (wasTap) handleTouchTapInspect(x, y);
+            return;
+          }
+          handleTouchPaintEnd(x, y, wasTap);
+        },
+      },
+    }
+  );
 
   // Track URL pixel to open on load
   const urlPixelRef = useRef<{ x: number; y: number } | null>(null);
@@ -979,6 +1120,21 @@ export function BitplaceMap() {
     <div className="relative w-full h-full flex flex-col">
       <div className="flex-1 relative overflow-hidden">
         <div ref={containerRef} className="absolute inset-0" />
+
+        {/* Touch/Pointer interaction layer - captures touch events for mobile painting */}
+        {mapReady && canPaint && (
+          <div
+            ref={interactionLayerRef}
+            className={cn(
+              "absolute inset-0 z-[5]",
+              // Dynamic touch-action based on mode
+              interactionMode === 'draw'
+                ? "touch-action-none"
+                : "touch-action-pan-zoom"
+            )}
+            style={{ pointerEvents: interactionMode === 'draw' ? 'auto' : 'none' }}
+          />
+        )}
 
         {mapReady && (
           <CanvasOverlay 
