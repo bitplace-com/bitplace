@@ -239,6 +239,17 @@
   }
 }
 
+/* Touch interaction control utilities */
+@layer utilities {
+  .touch-action-none {
+    touch-action: none;
+  }
+  
+  .touch-action-pan-zoom {
+    touch-action: pan-x pan-y pinch-zoom;
+  }
+}
+
 /* MapToolbar active button state */
 .map-toolbar-btn[data-state="on"] {
   background-color: hsl(var(--foreground)) !important;
