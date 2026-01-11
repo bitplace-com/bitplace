@@ -33,6 +33,7 @@ import { useMapUrl } from '@/hooks/useMapUrl';
 import { useSound } from '@/hooks/useSound';
 import { usePeBalance } from '@/hooks/usePeBalance';
 import { lngLatToGridInt, getViewportGridBounds, Z_SHOW_PAINTS } from '@/lib/pixelGrid';
+import { haptic } from '@/lib/haptics';
 import { markMapMountStart } from '@/lib/perfMetrics';
 
 // Helper to get snapped 2x2 block coordinates
@@ -126,6 +127,7 @@ export function BitplaceMap() {
       }
       isTouchPaintingRef.current = true;
       playSound('pixel_select');
+      haptic('light'); // Haptic feedback for paint
     }
     // Eraser
     else if (paintTool === 'ERASER') {
@@ -133,8 +135,10 @@ export function BitplaceMap() {
       if (draftPixels.has(draftKey)) {
         removeFromDraft(x, y);
         playSound('pixel_deselect');
+        haptic('light'); // Haptic feedback for erase
       } else {
         startBrushSelection(x, y);
+        haptic('medium'); // Haptic feedback for selection
       }
       isTouchPaintingRef.current = true;
     }
@@ -143,6 +147,7 @@ export function BitplaceMap() {
       if (!requireWallet('interact')) return;
       startBrushSelection(x, y);
       isTouchPaintingRef.current = true;
+      haptic('medium'); // Haptic feedback for action selection
     }
   }, [mode, paintTool, selectedColor, brushSize, addToDraft, removeFromDraft, startBrushSelection, draftPixels, requireWallet, playSound]);
 
@@ -156,11 +161,13 @@ export function BitplaceMap() {
         if (!last || last.x !== topLeft.x || last.y !== topLeft.y) {
           block.forEach(p => addToDraft(p.x, p.y, selectedColor));
           lastDraftedPixelRef.current = topLeft;
+          haptic('light'); // Light haptic for each new pixel
         }
       } else {
         if (!last || last.x !== x || last.y !== y) {
           addToDraft(x, y, selectedColor);
           lastDraftedPixelRef.current = { x, y };
+          haptic('light'); // Light haptic for each new pixel
         }
       }
     }
@@ -169,6 +176,7 @@ export function BitplaceMap() {
       const draftKey = `${x}:${y}`;
       if (draftPixels.has(draftKey)) {
         removeFromDraft(x, y);
+        haptic('light');
       } else {
         addToBrushSelection(x, y);
       }
