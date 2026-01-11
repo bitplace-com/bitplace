@@ -64,10 +64,10 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
           {needsSignature && (
             <button
               onClick={() => signIn()}
-              className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg hover:bg-amber-500/20 transition-colors cursor-pointer"
+              className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg hover:bg-muted transition-colors cursor-pointer"
             >
-              <Wallet className="h-3.5 w-3.5 text-amber-500" />
-              <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Sign in required</span>
+              <Wallet className="h-3.5 w-3.5 text-foreground" />
+              <span className="text-xs font-medium text-foreground">Sign in required</span>
             </button>
           )}
           
