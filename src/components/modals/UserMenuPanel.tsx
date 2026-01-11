@@ -1,6 +1,5 @@
 import { User, LogOut, BarChart3, Copy, Check, BookOpen, Users, Volume2, VolumeX, Wallet, Settings } from "lucide-react";
 import { PEIcon } from "@/components/ui/pe-icon";
-import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import {
   Popover,
@@ -17,6 +16,8 @@ import { getCountryByCode } from "@/lib/countries";
 import { generateAvatarGradient, getAvatarInitial } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 import { SettingsModal } from "./SettingsModal";
+import { LeaderboardModal } from "./LeaderboardModal";
+import { RulesModal } from "./RulesModal";
 
 interface UserMenuPanelProps {
   children: React.ReactNode;
@@ -39,11 +40,12 @@ function formatRelativeTime(date: Date | null): string {
 }
 
 export function UserMenuPanel({ children }: UserMenuPanelProps) {
-  const navigate = useNavigate();
   const { user, walletAddress, disconnect, energy } = useWallet();
   const pixelStats = usePixelStats(user?.id);
   const [copied, setCopied] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const { enabled: soundEnabled, toggle: toggleSound } = useSound();
 
   const country = getCountryByCode(user?.country_code);
@@ -196,7 +198,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
-            onClick={() => navigate("/leaderboard")}
+            onClick={() => setLeaderboardOpen(true)}
           >
             <BarChart3 className="h-4 w-4" />
             Leaderboard
@@ -204,7 +206,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
-            onClick={() => navigate("/rules")}
+            onClick={() => setRulesOpen(true)}
           >
             <BookOpen className="h-4 w-4" />
             Rules
@@ -241,6 +243,12 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
       
       {/* Settings Modal */}
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+      
+      {/* Leaderboard Modal */}
+      <LeaderboardModal open={leaderboardOpen} onOpenChange={setLeaderboardOpen} />
+      
+      {/* Rules Modal */}
+      <RulesModal open={rulesOpen} onOpenChange={setRulesOpen} />
     </Popover>
   );
 }

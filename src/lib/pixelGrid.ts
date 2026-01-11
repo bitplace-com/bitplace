@@ -96,6 +96,12 @@ export function getCellSize(mapZoom: number): number {
 export const MIN_CELL_SIZE_INTERACT = 4;
 
 /**
+ * Minimum zoom level where paints become visible/interactive
+ * At z14, cell size = 4px (MIN_CELL_SIZE_INTERACT)
+ */
+export const Z_SHOW_PAINTS = 14;
+
+/**
  * Check if painting/interaction is allowed at current zoom
  * Returns true when cell size is large enough for usable interaction
  */

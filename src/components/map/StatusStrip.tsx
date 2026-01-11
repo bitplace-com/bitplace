@@ -119,7 +119,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
                 ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
                 : "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30"
             )}>
-              {energy.cluster}
+              {energy.cluster === 'mainnet' ? 'LIVE' : energy.cluster}
             </span>
           )}
         </div>
