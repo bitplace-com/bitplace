@@ -1184,7 +1184,7 @@ export function BitplaceMap() {
                       duration: 600
                     });
                   }}
-                  className="px-3 py-1.5 text-xs font-medium rounded-full bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors pointer-events-auto"
+                  className="px-3 py-1.5 text-xs font-medium rounded-full bg-muted/50 text-foreground hover:bg-muted border border-border transition-colors pointer-events-auto"
                 >
                   Zoom in to see paints
                 </button>
