@@ -32,7 +32,7 @@ import { useWalletGate } from '@/hooks/useWalletGate';
 import { useMapUrl } from '@/hooks/useMapUrl';
 import { useSound } from '@/hooks/useSound';
 import { usePeBalance } from '@/hooks/usePeBalance';
-import { lngLatToGridInt, getViewportGridBounds } from '@/lib/pixelGrid';
+import { lngLatToGridInt, getViewportGridBounds, Z_SHOW_PAINTS } from '@/lib/pixelGrid';
 import { markMapMountStart } from '@/lib/perfMetrics';
 
 // Helper to get snapped 2x2 block coordinates
@@ -1163,7 +1163,25 @@ export function BitplaceMap() {
             </div>
           </HudSlot>
           <HudSlot position="top-center">
-            <MapToolbar mode={mode} onModeChange={setMode} />
+            <div className="flex flex-col items-center gap-2">
+              <MapToolbar mode={mode} onModeChange={setMode} />
+              {/* Zoom helper button - shows when too zoomed out to paint */}
+              {!canPaint && (
+                <button
+                  onClick={() => {
+                    if (!mapRef.current) return;
+                    mapRef.current.flyTo({
+                      center: mapRef.current.getCenter(),
+                      zoom: Z_SHOW_PAINTS,
+                      duration: 600
+                    });
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium rounded-full bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors pointer-events-auto"
+                >
+                  Zoom in to see paints
+                </button>
+              )}
+            </div>
           </HudSlot>
           <HudSlot position="top-right">
             <WalletButton />
