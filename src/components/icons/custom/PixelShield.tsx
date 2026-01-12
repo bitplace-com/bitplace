@@ -1,10 +1,10 @@
 import { PixelSVG, PixelSVGProps } from './base';
 
-// Thumbs up icon - defense mode (from HackerNoon hn-thumbsup)
+// Thumbs up icon SOLID - defense mode (from HackerNoon hn-thumbsup-solid)
 export function PixelShield(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <path d="m22,10v-1h-7v-2h1V3h-1v-1h-2v1h-1v3h-1v2h-1v1h-1v1h-1v9h1v1h1v1h2v1h7v-1h1v-3h1v-3h1v-3h1v-2h-1Zm-3,5v3h-1v2h-5v-1h-2v-1h-1v-7h1v-1h1v-1h1v1h1v1h6v4h-1Z"/>
+      <polygon points="23 10 23 12 22 12 22 15 21 15 21 18 20 18 20 21 19 21 19 22 12 22 12 21 10 21 10 20 9 20 9 19 8 19 8 10 9 10 9 9 10 9 10 8 11 8 11 6 12 6 12 3 13 3 13 2 15 2 15 3 16 3 16 7 15 7 15 9 22 9 22 10 23 10"/>
       <polygon points="6 9 6 22 2 22 2 21 1 21 1 10 2 10 2 9 6 9"/>
     </PixelSVG>
   );

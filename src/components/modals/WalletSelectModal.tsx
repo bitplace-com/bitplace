@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Wallet, ExternalLink, Smartphone } from 'lucide-react';
+import { PixelIcon } from '@/components/icons';
 import {
   Dialog,
   DialogContent,
@@ -97,7 +97,7 @@ export function WalletSelectModal({
       <DialogContent className="sm:max-w-md bg-popover/95 backdrop-blur-xl border-border">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Wallet className="h-5 w-5" />
+            <PixelIcon name="wallet" size="md" />
             Connect Wallet
           </DialogTitle>
           <DialogDescription>
@@ -150,13 +150,13 @@ export function WalletSelectModal({
             {/* Action indicator */}
             <div className="flex-shrink-0">
               {isConnecting ? (
-                <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <PixelIcon name="loader" size="md" className="animate-spin" />
               ) : phantomInstalled ? (
-                <ExternalLink className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                <PixelIcon name="externalLink" size="md" className="text-muted-foreground group-hover:text-foreground transition-colors" />
               ) : isMobile ? (
-                <Smartphone className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                <PixelIcon name="smartphone" size="md" className="text-muted-foreground group-hover:text-foreground transition-colors" />
               ) : (
-                <ExternalLink className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                <PixelIcon name="externalLink" size="md" className="text-muted-foreground group-hover:text-foreground transition-colors" />
               )}
             </div>
           </button>

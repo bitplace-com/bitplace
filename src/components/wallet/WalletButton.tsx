@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Wallet, ChevronDown, Loader2 } from 'lucide-react';
+import { PixelIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { UserMenuPanel } from '@/components/modals/UserMenuPanel';
@@ -40,7 +40,7 @@ export function WalletButton() {
   if (isConnecting) {
     return (
       <GlassPanel padding="sm" className="flex items-center gap-2">
-        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        <PixelIcon name="loader" size="sm" className="animate-spin text-muted-foreground" />
         <span className="text-sm text-muted-foreground">
           {walletState === 'AUTHENTICATING' ? 'Signing in...' : 'Connecting...'}
         </span>
@@ -56,7 +56,7 @@ export function WalletButton() {
         size="sm"
         className="gap-2 rounded-xl shadow-lg backdrop-blur-md bg-white/90 text-black border border-white/20 hover:bg-white dark:bg-black/80 dark:text-white dark:border-white/10 dark:hover:bg-black/90"
       >
-        <Wallet className="h-4 w-4" />
+        <PixelIcon name="wallet" size="sm" />
         Connect Wallet
       </Button>
     );
@@ -78,7 +78,7 @@ export function WalletButton() {
           <span className="text-xs font-medium text-foreground">
             {energy.nativeBalance.toFixed(2)} {energy.nativeSymbol}
           </span>
-          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          <PixelIcon name="chevronDown" size="xs" className="text-muted-foreground" />
         </GlassPanel>
       </UserMenuPanel>
     );
@@ -92,7 +92,7 @@ export function WalletButton() {
         size="sm"
         className="gap-2 rounded-xl shadow-lg backdrop-blur-md bg-white/90 text-black border border-white/20 hover:bg-white dark:bg-black/80 dark:text-white dark:border-white/10 dark:hover:bg-black/90"
       >
-        <Wallet className="h-4 w-4" />
+        <PixelIcon name="wallet" size="sm" />
         Connect Wallet
       </Button>
 

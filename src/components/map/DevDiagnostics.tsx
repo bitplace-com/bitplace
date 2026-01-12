@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { X, Bug, Wallet, Zap } from 'lucide-react';
+import { PixelIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { useWallet } from '@/contexts/WalletContext';
 
@@ -84,7 +84,7 @@ export function DevDiagnostics({ map, zoom, canPaint, isSelecting }: DevDiagnost
         className="absolute top-4 left-4 z-50 bg-secondary/95 backdrop-blur-sm border border-border h-8 w-8"
         title="Open Dev Diagnostics"
       >
-        <Bug className="h-4 w-4" />
+        <PixelIcon name="bug" size="sm" />
       </Button>
     );
   }
@@ -93,7 +93,7 @@ export function DevDiagnostics({ map, zoom, canPaint, isSelecting }: DevDiagnost
     <div className="absolute top-4 left-4 z-50 bg-secondary/95 backdrop-blur-sm border border-border rounded-lg p-3 text-xs space-y-2 min-w-64 max-w-80 shadow-lg max-h-[80vh] overflow-y-auto">
       <div className="flex justify-between items-center border-b border-border pb-2">
         <span className="font-semibold text-foreground flex items-center gap-1.5">
-          <Bug className="h-3.5 w-3.5" />
+          <PixelIcon name="bug" size="xs" />
           Dev Diagnostics
         </span>
         <Button
@@ -102,7 +102,7 @@ export function DevDiagnostics({ map, zoom, canPaint, isSelecting }: DevDiagnost
           onClick={() => setVisible(false)}
           className="h-5 w-5 p-0"
         >
-          <X className="h-3 w-3" />
+          <PixelIcon name="close" size="xs" />
         </Button>
       </div>
 
@@ -146,7 +146,7 @@ export function DevDiagnostics({ map, zoom, canPaint, isSelecting }: DevDiagnost
       {isDebugMode && (
         <div className="border-t border-border pt-2 space-y-1">
           <div className="text-foreground font-medium mb-1 flex items-center gap-1.5">
-            <Wallet className="h-3.5 w-3.5" />
+            <PixelIcon name="wallet" size="xs" />
             Wallet Debug
           </div>
           
@@ -193,7 +193,7 @@ export function DevDiagnostics({ map, zoom, canPaint, isSelecting }: DevDiagnost
       {isDebugMode && (
         <div className="border-t border-border pt-2 space-y-1">
           <div className="text-foreground font-medium mb-1 flex items-center gap-1.5">
-            <Zap className="h-3.5 w-3.5" />
+            <PixelIcon name="bolt" size="xs" />
             Balance Debug
           </div>
           
