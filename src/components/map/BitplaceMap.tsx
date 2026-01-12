@@ -9,6 +9,7 @@ import { MapToolbar } from './MapToolbar';
 import { ZoomControls } from './ZoomControls';
 import { InspectorPanel } from './inspector';
 import { InspectSelectionPanel } from './inspector/InspectSelectionPanel';
+import { MobileActionDock } from './MobileActionDock';
 import { StatusStrip } from './StatusStrip';
 import { HudOverlay, HudSlot } from './HudOverlay';
 import { PixelInspectorDrawer } from './PixelInspectorDrawer';
@@ -16,6 +17,7 @@ import { ActionTray } from './ActionTray';
 import { MapMenuDrawer } from './MapMenuDrawer';
 import { QuickActions } from './QuickActions';
 import { PerfHud } from './PerfHud';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { WalletButton } from '@/components/wallet/WalletButton';
 import { WalletSelectModal } from '@/components/modals/WalletSelectModal';
 import { usePixelStore, pixelKey, parsePixelKey } from './hooks/usePixelStore';
@@ -89,6 +91,7 @@ export function BitplaceMap() {
   } = useBrushSelection();
   const { play: playSound } = useSound();
   const peBalance = usePeBalance(user?.id);
+  const isMobile = useIsMobile();
 
   // Ref for last drafted pixel to prevent duplicates during hover-paint
   const lastDraftedPixelRef = useRef<{ x: number; y: number } | null>(null);
@@ -1228,8 +1231,8 @@ export function BitplaceMap() {
           actionSelectionCount={pendingPixels.length + draftCount}
         />
 
-        {/* Inspector Panel for draft or pending pixels - NEVER show in HAND mode */}
-        {canPaint && interactionMode === 'draw' && (pendingPixels.length > 0 || draftCount > 0) && (
+        {/* Inspector Panel for draft or pending pixels - Desktop only, NEVER show in HAND mode */}
+        {canPaint && interactionMode === 'draw' && (pendingPixels.length > 0 || draftCount > 0) && !isMobile && (
           <div className="absolute right-0 top-0 h-full z-20 pointer-events-none">
             <div className="pointer-events-auto h-full">
               <InspectorPanel 
@@ -1256,6 +1259,33 @@ export function BitplaceMap() {
               />
             </div>
           </div>
+        )}
+
+        {/* Mobile Action Dock - Non-modal, collapsible dock for mobile */}
+        {canPaint && interactionMode === 'draw' && isMobile && (
+          <MobileActionDock
+            selectedPixels={draftCount > 0 ? getDraftPixels() : pendingPixels}
+            mode={(mode === 'paint' && selectedColor === null) ? 'ERASE' : getGameMode(mode)}
+            selectedColor={draftCount > 0 ? draftColor : selectedColor}
+            currentUserId={user?.id}
+            validationResult={validationResult}
+            invalidPixels={invalidPixels}
+            pePerPixel={pePerPixel}
+            onPePerPixelChange={setPePerPixel}
+            onColorSelect={setSelectedColor}
+            onValidate={handleValidate}
+            onConfirm={handleConfirm}
+            onClearSelection={draftCount > 0 ? clearDraft : handleClearSelection}
+            onBack={validationResult?.ok ? clearValidation : undefined}
+            onExcludeInvalid={(mode === 'paint' && selectedColor === null) ? handleExcludeInvalid : undefined}
+            clearValidation={clearValidation}
+            isValidating={isValidating}
+            isCommitting={isCommitting}
+            isDraftMode={draftCount > 0}
+            draftCount={draftCount}
+            onUndoDraft={undoDraft}
+            onClearDraft={clearDraft}
+          />
         )}
 
         {/* Inspect Selection Panel (HAND mode SPACE multi-select) */}
