@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTheme } from 'next-themes';
 import { useSound } from '@/hooks/useSound';
+import { useHaptics } from '@/hooks/useHaptics';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -68,6 +69,7 @@ export function useSettings() {
   const { user, updateUser, refreshUser } = useWallet();
   const { theme, setTheme } = useTheme();
   const { enabled: soundEnabled, toggle: toggleSound } = useSound();
+  const { enabled: hapticsEnabled, toggle: toggleHaptics, isSupported: hapticsSupported } = useHaptics();
   
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -174,6 +176,9 @@ export function useSettings() {
     setTheme,
     soundEnabled,
     toggleSound,
+    hapticsEnabled,
+    toggleHaptics,
+    hapticsSupported,
     // Actions
     saveProfile,
     uploadAvatar,

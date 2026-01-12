@@ -30,6 +30,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     settings, 
     soundEnabled, 
     toggleSound,
+    hapticsEnabled,
+    toggleHaptics,
+    hapticsSupported,
     saveProfile,
     uploadAvatar,
     isSaving,
@@ -356,6 +359,20 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               onCheckedChange={toggleSound}
             />
           </div>
+
+          {/* Haptics */}
+          {hapticsSupported && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <PixelIcon name="smartphone" className="h-4 w-4" />
+                <Label>Haptic Feedback</Label>
+              </div>
+              <Switch
+                checked={hapticsEnabled}
+                onCheckedChange={toggleHaptics}
+              />
+            </div>
+          )}
         </section>
 
         <Separator />

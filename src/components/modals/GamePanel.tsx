@@ -1,5 +1,6 @@
 import * as React from "react";
 import { GlassSheet } from "@/components/ui/glass-sheet";
+import { soundEngine } from "@/lib/soundEngine";
 
 type PanelSize = "sm" | "md" | "lg";
 
@@ -24,6 +25,18 @@ export function GamePanel({
   size = "md",
   className,
 }: GamePanelProps) {
+  // Track previous open state to detect changes
+  const prevOpenRef = React.useRef(open);
+  
+  React.useEffect(() => {
+    if (open && !prevOpenRef.current) {
+      soundEngine.play('modal_open');
+    } else if (!open && prevOpenRef.current) {
+      soundEngine.play('modal_close');
+    }
+    prevOpenRef.current = open;
+  }, [open]);
+
   return (
     <GlassSheet
       open={open}

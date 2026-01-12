@@ -11,6 +11,8 @@ import { CreatePlaceForm } from "@/components/places/CreatePlaceForm";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { soundEngine } from "@/lib/soundEngine";
+import { hapticsEngine } from "@/lib/hapticsEngine";
 
 interface PlacesModalProps {
   open: boolean;
@@ -80,12 +82,17 @@ export function PlacesModal({
 
   const handleToggleLike = async (placeId: string) => {
     const liked = await toggleLike(placeId);
-    // Optimistic UI handled in hook, just show subtle feedback
+    // Sound + haptic feedback
+    soundEngine.play(liked ? 'like' : 'unlike');
+    hapticsEngine.trigger('like');
     toast.success(liked ? "Liked!" : "Unliked", { duration: 1500 });
   };
 
   const handleToggleSave = async (placeId: string) => {
     const saved = await toggleSave(placeId);
+    // Sound + haptic feedback
+    soundEngine.play(saved ? 'save' : 'unsave');
+    hapticsEngine.trigger('like');
     toast.success(saved ? "Saved!" : "Removed", { duration: 1500 });
   };
 

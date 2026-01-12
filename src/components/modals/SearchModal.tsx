@@ -9,6 +9,7 @@ import { usePinnedPlaces, type PinnedPlace } from "@/hooks/usePinnedPlaces";
 import { parseSearchInput, pixelToLngLat, formatCoords, formatPixel } from "@/lib/coordinates";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { soundEngine } from "@/lib/soundEngine";
 
 interface SearchModalProps {
   open: boolean;
@@ -136,11 +137,14 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
 
   // Handle toggle pin from search results or recent
   const handleTogglePin = useCallback(async (lat: number, lng: number, label: string) => {
+    const wasPinned = isPinned(lat, lng);
     const success = await togglePin({ lat, lng, label });
     if (success) {
-      if (isPinned(lat, lng)) {
+      if (wasPinned) {
+        soundEngine.play('pin_remove');
         toast.success('Pin removed');
       } else {
+        soundEngine.play('pin_create');
         toast.success(`${label} pinned!`);
       }
     }
