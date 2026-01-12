@@ -3,14 +3,8 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelBell(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="10" y="2" width="4" height="2" />
-      <rect x="8" y="4" width="8" height="2" />
-      <rect x="6" y="6" width="12" height="2" />
-      <rect x="6" y="8" width="2" height="6" />
-      <rect x="16" y="8" width="2" height="6" />
-      <rect x="4" y="14" width="16" height="2" />
-      <rect x="4" y="16" width="16" height="2" />
-      <rect x="10" y="18" width="4" height="2" />
+      <polygon points="15 20 15 22 14 22 14 23 10 23 10 22 9 22 9 20 15 20" />
+      <polygon points="22 17 22 18 21 18 21 19 3 19 3 18 2 18 2 17 3 17 3 16 4 16 4 14 5 14 5 8 6 8 6 6 7 6 7 5 8 5 8 4 10 4 10 3 11 3 11 1 13 1 13 3 14 3 14 4 16 4 16 5 17 5 17 6 18 6 18 8 19 8 19 14 20 14 20 16 21 16 21 17 22 17" />
     </PixelSVG>
   );
 }

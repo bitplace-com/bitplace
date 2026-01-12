@@ -3,13 +3,7 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelChevronUp(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="10" y="6" width="4" height="2" />
-      <rect x="8" y="8" width="2" height="2" />
-      <rect x="14" y="8" width="2" height="2" />
-      <rect x="6" y="10" width="2" height="2" />
-      <rect x="16" y="10" width="2" height="2" />
-      <rect x="4" y="12" width="2" height="2" />
-      <rect x="18" y="12" width="2" height="2" />
+      <polygon points="23 16 23 17 22 17 22 18 21 18 21 19 20 19 20 18 19 18 19 17 18 17 18 16 17 16 17 15 16 15 16 14 15 14 15 13 14 13 14 12 13 12 13 11 11 11 11 12 10 12 10 13 9 13 9 14 8 14 8 15 7 15 7 16 6 16 6 17 5 17 5 18 4 18 4 19 3 19 3 18 2 18 2 17 1 17 1 16 2 16 2 15 3 15 3 14 4 14 4 13 5 13 5 12 6 12 6 11 7 11 7 10 8 10 8 9 9 9 9 8 10 8 10 7 11 7 11 6 13 6 13 7 14 7 14 8 15 8 15 9 16 9 16 10 17 10 17 11 18 11 18 12 19 12 19 13 20 13 20 14 21 14 21 15 22 15 22 16 23 16" />
     </PixelSVG>
   );
 }

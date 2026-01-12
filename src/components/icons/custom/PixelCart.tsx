@@ -3,14 +3,9 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelCart(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="2" y="4" width="4" height="2" />
-      <rect x="6" y="6" width="14" height="2" />
-      <rect x="6" y="8" width="2" height="6" />
-      <rect x="18" y="8" width="2" height="4" />
-      <rect x="8" y="12" width="10" height="2" />
-      <rect x="8" y="14" width="10" height="2" />
-      <rect x="6" y="18" width="4" height="4" />
-      <rect x="14" y="18" width="4" height="4" />
+      <polygon points="9 19 10 19 10 21 9 21 9 22 7 22 7 21 6 21 6 19 7 19 7 18 9 18 9 19" />
+      <polygon points="20 19 21 19 21 21 20 21 20 22 18 22 18 21 17 21 17 19 18 19 18 18 20 18 20 19" />
+      <polygon points="23 3 23 6 22 6 22 9 21 9 21 12 20 12 20 13 8 13 8 15 20 15 20 17 7 17 7 16 6 16 6 12 5 12 5 7 4 7 4 4 1 4 1 2 4 2 4 3 23 3" />
     </PixelSVG>
   );
 }

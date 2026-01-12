@@ -3,22 +3,12 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelUsers(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      {/* Left user */}
-      <rect x="4" y="4" width="6" height="2" />
-      <rect x="4" y="6" width="2" height="4" />
-      <rect x="8" y="6" width="2" height="4" />
-      <rect x="4" y="10" width="6" height="2" />
-      <rect x="2" y="12" width="10" height="2" />
-      <rect x="2" y="14" width="2" height="6" />
-      <rect x="10" y="14" width="2" height="6" />
-      {/* Right user */}
-      <rect x="14" y="4" width="6" height="2" />
-      <rect x="14" y="6" width="2" height="4" />
-      <rect x="18" y="6" width="2" height="4" />
-      <rect x="14" y="10" width="6" height="2" />
-      <rect x="12" y="12" width="10" height="2" />
-      <rect x="12" y="14" width="2" height="6" />
-      <rect x="20" y="14" width="2" height="6" />
+      <polygon points="2 13 2 12 1 12 1 10 2 10 2 9 7 9 7 12 8 12 8 13 2 13" />
+      <polygon points="5 7 4 7 4 5 5 5 5 4 7 4 7 5 8 5 8 6 7 6 7 8 5 8 5 7" />
+      <polygon points="8 7 9 7 9 6 10 6 10 5 14 5 14 6 15 6 15 7 16 7 16 11 15 11 15 12 14 12 14 13 10 13 10 12 9 12 9 11 8 11 8 7" />
+      <polygon points="19 18 20 18 20 21 19 21 19 22 5 22 5 21 4 21 4 18 5 18 5 17 6 17 6 16 8 16 8 15 16 15 16 16 18 16 18 17 19 17 19 18" />
+      <polygon points="23 10 23 12 22 12 22 13 16 13 16 12 17 12 17 9 22 9 22 10 23 10" />
+      <polygon points="17 6 16 6 16 5 17 5 17 4 19 4 19 5 20 5 20 7 19 7 19 8 17 8 17 6" />
     </PixelSVG>
   );
 }

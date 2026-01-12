@@ -3,15 +3,8 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelUser(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="8" y="2" width="8" height="2" />
-      <rect x="8" y="4" width="2" height="6" />
-      <rect x="14" y="4" width="2" height="6" />
-      <rect x="8" y="10" width="8" height="2" />
-      <rect x="6" y="12" width="12" height="2" />
-      <rect x="4" y="14" width="4" height="2" />
-      <rect x="16" y="14" width="4" height="2" />
-      <rect x="4" y="16" width="2" height="6" />
-      <rect x="18" y="16" width="2" height="6" />
+      <polygon points="7 9 6 9 6 5 7 5 7 3 8 3 8 2 10 2 10 1 14 1 14 2 16 2 16 3 17 3 17 5 18 5 18 9 17 9 17 11 16 11 16 12 14 12 14 13 10 13 10 12 8 12 8 11 7 11 7 9" />
+      <polygon points="22 19 22 22 21 22 21 23 3 23 3 22 2 22 2 19 3 19 3 18 4 18 4 17 5 17 5 16 7 16 7 15 17 15 17 16 19 16 19 17 20 17 20 18 21 18 21 19 22 19" />
     </PixelSVG>
   );
 }

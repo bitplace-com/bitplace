@@ -3,16 +3,7 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelBolt(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="12" y="2" width="6" height="2" />
-      <rect x="10" y="4" width="6" height="2" />
-      <rect x="8" y="6" width="6" height="2" />
-      <rect x="6" y="8" width="10" height="2" />
-      <rect x="10" y="10" width="6" height="2" />
-      <rect x="10" y="12" width="6" height="2" />
-      <rect x="8" y="14" width="6" height="2" />
-      <rect x="6" y="16" width="6" height="2" />
-      <rect x="4" y="18" width="6" height="2" />
-      <rect x="6" y="20" width="4" height="2" />
+      <polygon points="21 10 21 11 20 11 20 12 19 12 19 13 18 13 18 14 17 14 17 15 16 15 16 16 15 16 15 17 14 17 14 18 13 18 13 19 12 19 12 20 11 20 11 21 10 21 10 22 9 22 9 23 8 23 8 21 9 21 9 18 10 18 10 14 3 14 3 13 4 13 4 12 5 12 5 11 6 11 6 10 7 10 7 9 8 9 8 8 9 8 9 7 10 7 10 6 11 6 11 5 12 5 12 4 13 4 13 3 14 3 14 2 15 2 15 1 16 1 16 3 15 3 15 6 14 6 14 10 21 10" />
     </PixelSVG>
   );
 }
