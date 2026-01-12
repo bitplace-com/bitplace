@@ -376,6 +376,185 @@ export type Database = {
           },
         ]
       }
+      place_likes: {
+        Row: {
+          created_at: string
+          place_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          place_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          place_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "place_likes_place_id_fkey"
+            columns: ["place_id"]
+            isOneToOne: false
+            referencedRelation: "places"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "place_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_pixel_owner_info"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "place_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "place_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      place_saves: {
+        Row: {
+          created_at: string
+          place_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          place_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          place_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "place_saves_place_id_fkey"
+            columns: ["place_id"]
+            isOneToOne: false
+            referencedRelation: "places"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "place_saves_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_pixel_owner_info"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "place_saves_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "place_saves_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      places: {
+        Row: {
+          bbox_xmax: number | null
+          bbox_xmin: number | null
+          bbox_ymax: number | null
+          bbox_ymin: number | null
+          center_x: number | null
+          center_y: number | null
+          created_at: string
+          creator_user_id: string
+          description: string | null
+          id: string
+          is_public: boolean
+          lat: number
+          likes_count: number
+          lng: number
+          saves_count: number
+          title: string
+          updated_at: string
+          zoom: number
+        }
+        Insert: {
+          bbox_xmax?: number | null
+          bbox_xmin?: number | null
+          bbox_ymax?: number | null
+          bbox_ymin?: number | null
+          center_x?: number | null
+          center_y?: number | null
+          created_at?: string
+          creator_user_id: string
+          description?: string | null
+          id?: string
+          is_public?: boolean
+          lat: number
+          likes_count?: number
+          lng: number
+          saves_count?: number
+          title: string
+          updated_at?: string
+          zoom?: number
+        }
+        Update: {
+          bbox_xmax?: number | null
+          bbox_xmin?: number | null
+          bbox_ymax?: number | null
+          bbox_ymin?: number | null
+          center_x?: number | null
+          center_y?: number | null
+          created_at?: string
+          creator_user_id?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean
+          lat?: number
+          likes_count?: number
+          lng?: number
+          saves_count?: number
+          title?: string
+          updated_at?: string
+          zoom?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "places_creator_user_id_fkey"
+            columns: ["creator_user_id"]
+            isOneToOne: false
+            referencedRelation: "public_pixel_owner_info"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "places_creator_user_id_fkey"
+            columns: ["creator_user_id"]
+            isOneToOne: false
+            referencedRelation: "public_user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "places_creator_user_id_fkey"
+            columns: ["creator_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_follows: {
         Row: {
           created_at: string | null
