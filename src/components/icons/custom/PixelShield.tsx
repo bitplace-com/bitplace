@@ -1,10 +1,11 @@
 import { PixelSVG, PixelSVGProps } from './base';
 
-// Shield icon - defense mode
+// Thumbs up icon - defense mode (from HackerNoon hn-thumbsup)
 export function PixelShield(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <path d="m21,3v-1h-1v-1H4v1h-1v1h-1v12h1v2h1v1h1v2h1v1h1v2h1v1h4v-1h1v-2h1v-1h1v-2h1v-1h1v-2h1V3h-1Zm-3,11h-1v2h-1v1h-1v2h-2v1h-2v-1h-2v-2h-1v-1h-1v-2h-1V4h12v10Z" />
+      <path d="m22,10v-1h-7v-2h1V3h-1v-1h-2v1h-1v3h-1v2h-1v1h-1v1h-1v9h1v1h1v1h2v1h7v-1h1v-3h1v-3h1v-3h1v-2h-1Zm-3,5v3h-1v2h-5v-1h-2v-1h-1v-7h1v-1h1v-1h1v1h1v1h6v4h-1Z"/>
+      <polygon points="6 9 6 22 2 22 2 21 1 21 1 10 2 10 2 9 6 9"/>
     </PixelSVG>
   );
 }

@@ -1,11 +1,11 @@
 import { PixelSVG, PixelSVGProps } from './base';
 
+// Pen icon - paint/draw mode (from HackerNoon hn-pen)
 export function PixelBrush(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <polygon points="22 4 22 7 21 7 21 8 20 8 20 7 19 7 19 6 18 6 18 5 17 5 17 4 18 4 18 3 21 3 21 4 22 4" />
-      <polygon points="17 14 18 14 18 21 17 21 17 22 2 22 2 21 1 21 1 6 2 6 2 5 14 5 14 6 13 6 13 7 3 7 3 20 16 20 16 15 17 15 17 14" />
-      <polygon points="18 8 19 8 19 10 18 10 18 11 17 11 17 12 16 12 16 13 15 13 15 14 14 14 14 15 13 15 13 16 12 16 12 17 11 17 11 18 7 18 7 14 8 14 8 13 9 13 9 12 10 12 10 11 11 11 11 10 12 10 12 9 13 9 13 8 14 8 14 7 15 7 15 6 17 6 17 7 18 7 18 8" />
+      <polygon points="23 5 23 7 22 7 22 8 21 8 21 9 20 9 20 10 19 10 19 9 18 9 18 8 17 8 17 7 16 7 16 6 15 6 15 5 14 5 14 4 15 4 15 3 16 3 16 2 17 2 17 1 19 1 19 2 20 2 20 3 21 3 21 4 22 4 22 5 23 5"/>
+      <path d="m17,10v-1h-1v-1h-1v-1h-1v-1h-2v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v6h6v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-2h-1Zm-2,2v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1H3v-4h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h2v1h1v1h1v2h-1Z"/>
     </PixelSVG>
   );
 }

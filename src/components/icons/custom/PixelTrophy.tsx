@@ -1,9 +1,10 @@
 import { PixelSVG, PixelSVGProps } from './base';
 
+// Trending icon - leaderboard (from HackerNoon hn-trending)
 export function PixelTrophy(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <path d="m18,4v-2H6v2H1v5h1v2h1v1h1v1h1v1h3v1h2v3h-4v3h10v-3h-4v-3h2v-1h3v-1h1v-1h1v-1h1v-2h1v-5h-5ZM5,12v-1h-1v-2h-1v-3h2v1h1v2h1v3h1v1h-2v-1h-1Zm16-3h-1v2h-1v1h-1v1h-2v-1h1v-2h1v-3h1v-1h2v3Z" />
+      <polygon points="23 5 23 14 22 14 22 13 21 13 21 12 20 12 20 11 18 11 18 12 17 12 17 13 16 13 16 14 15 14 15 15 14 15 14 16 13 16 13 17 12 17 12 18 10 18 10 17 9 17 9 16 8 16 8 15 7 15 7 14 5 14 5 15 4 15 4 16 3 16 3 17 1 17 1 15 2 15 2 14 3 14 3 13 4 13 4 12 5 12 5 11 7 11 7 12 8 12 8 13 9 13 9 14 10 14 10 15 12 15 12 14 13 14 13 13 14 13 14 12 15 12 15 11 16 11 16 10 17 10 17 8 16 8 16 7 15 7 15 6 14 6 14 5 23 5"/>
     </PixelSVG>
   );
 }
