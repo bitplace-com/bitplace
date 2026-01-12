@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { ChevronUp, ChevronDown, Grid2X2, Eraser, Hand, Pipette, Shield, Swords, Zap, Paintbrush } from 'lucide-react';
+import { PixelIcon } from '@/components/icons';
 import { GlassIconButton } from '@/components/ui/glass-icon-button';
 import { BASE_PALETTE_GRID, ALL_COLORS } from '@/lib/palettes/basePaletteGrid';
 import { MATERIALS, getMaterialsByCategory, isMaterial, getMaterial } from '@/lib/materials/materialRegistry';
@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils';
 import { canInteractAtZoom } from '@/lib/pixelGrid';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { Input } from '@/components/ui/input';
-import { PixelIcon } from '@/components/ui/pixel-icon';
 import type { MapMode, InteractionMode, PaintTool, BrushSize } from './hooks/useMapState';
 
 interface ActionTrayProps {
@@ -53,13 +52,13 @@ const CATEGORY_LABELS: Record<string, string> = {
 function ModeIcon({ mapMode, className }: { mapMode: MapMode; className?: string }) {
   switch (mapMode) {
     case 'defend':
-      return <Shield className={className} />;
+      return <PixelIcon name="shield" className={className} />;
     case 'attack':
-      return <Swords className={className} />;
+      return <PixelIcon name="swords" className={className} />;
     case 'reinforce':
-      return <Zap className={className} />;
+      return <PixelIcon name="bolt" className={className} />;
     default:
-      return <Paintbrush className={className} />;
+      return <PixelIcon name="brush" className={className} />;
   }
 }
 
@@ -160,7 +159,7 @@ export function ActionTray({
                   )}
                   title="Hand mode: Pan map"
                 >
-                  <Hand className="h-5 w-5 sm:h-4 sm:w-4" />
+                  <PixelIcon name="hand" className="h-5 w-5 sm:h-4 sm:w-4" />
                 </button>
                 <button
                   onClick={() => onInteractionModeChange('draw')}
@@ -233,7 +232,7 @@ export function ActionTray({
                 className="rounded-md"
                 title="Eyedropper (Alt+Click)"
               >
-                <Pipette className="h-4 w-4" />
+                <PixelIcon name="pipette" className="h-4 w-4" />
               </GlassIconButton>
             )}
             <GlassIconButton
@@ -243,9 +242,9 @@ export function ActionTray({
               className="rounded-md"
             >
               {isExpanded ? (
-                <ChevronDown className="h-4 w-4" />
+                <PixelIcon name="chevronDown" className="h-4 w-4" />
               ) : (
-                <ChevronUp className="h-4 w-4" />
+                <PixelIcon name="chevronUp" className="h-4 w-4" />
               )}
             </GlassIconButton>
           </div>
@@ -279,7 +278,7 @@ export function ActionTray({
                         )}
                         title="Brush 1x"
                       >
-                        <PixelIcon className="h-5 w-5 sm:h-4 sm:w-4" />
+                        <PixelIcon name="pixel" className="h-5 w-5 sm:h-4 sm:w-4" />
                       </button>
                       <button
                         onClick={() => handleToolClick('BRUSH', '2x2')}
@@ -291,7 +290,7 @@ export function ActionTray({
                         )}
                         title="Brush 2×2"
                       >
-                        <Grid2X2 className="h-5 w-5 sm:h-4 sm:w-4" />
+                        <PixelIcon name="grid2x2" className="h-5 w-5 sm:h-4 sm:w-4" />
                       </button>
                       <button
                         onClick={() => handleToolClick('ERASER')}
@@ -303,7 +302,7 @@ export function ActionTray({
                         )}
                         title="Eraser"
                       >
-                        <Eraser className="h-5 w-5 sm:h-4 sm:w-4" />
+                        <PixelIcon name="eraser" className="h-5 w-5 sm:h-4 sm:w-4" />
                       </button>
                     </div>
                     
