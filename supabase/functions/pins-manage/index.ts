@@ -17,6 +17,35 @@ interface PinsManageRequest {
   newLabel?: string;
 }
 
+// Verify custom JWT token - same implementation as other edge functions
+async function verifyToken(token: string, secret: string): Promise<{ wallet: string; userId: string; exp: number } | null> {
+  try {
+    const [headerB64, payloadB64, signatureB64] = token.split(".");
+    if (!headerB64 || !payloadB64 || !signatureB64) return null;
+
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"]
+    );
+
+    const signatureInput = `${headerB64}.${payloadB64}`;
+    const signature = Uint8Array.from(atob(signatureB64.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+    const valid = await crypto.subtle.verify("HMAC", key, signature, encoder.encode(signatureInput));
+    if (!valid) return null;
+
+    const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
+    if (payload.exp && Date.now() > payload.exp) return null;
+
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -31,26 +60,29 @@ Deno.serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-
-    // Verify user with anon client
-    const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
-    
-    if (claimsError || !claimsData?.claims?.sub) {
+    const authSecret = Deno.env.get("AUTH_SECRET");
+    if (!authSecret) {
+      console.error("[pins-manage] AUTH_SECRET not configured");
+      return new Response(
+        JSON.stringify({ error: "Server configuration error" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const payload = await verifyToken(token, authSecret);
+    if (!payload) {
       return new Response(
         JSON.stringify({ error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const userId = claimsData.claims.sub;
+    const userId = payload.userId;
+    console.log("[pins-manage] Request for user:", userId);
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     // Use service role client for DB operations
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
