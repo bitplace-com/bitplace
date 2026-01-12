@@ -170,15 +170,14 @@ export function ActionTray({
         <div className="flex items-center justify-between gap-2 px-3 py-2">
           {/* Left: Fire button + Interaction mode toggle */}
           <div className="flex items-center gap-1.5 shrink-0">
-            {/* Fire button for Places */}
+            {/* Pin button for Places */}
             <GlassIconButton
               variant="ghost"
               size="sm"
               onClick={() => setPlacesOpen(true)}
-              className="text-amber-500 hover:bg-amber-500/10"
               title="Pinned Locations"
             >
-              <PixelIcon name="bolt" className="h-4 w-4" />
+              <PixelIcon name="pin" className="h-4 w-4" />
             </GlassIconButton>
             
             {canPaint && (
