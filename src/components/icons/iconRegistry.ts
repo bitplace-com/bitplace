@@ -60,6 +60,20 @@ import { PixelCopy } from './custom/PixelCopy';
 import { PixelLogout } from './custom/PixelLogout';
 import { PixelVolumeOn } from './custom/PixelVolumeOn';
 import { PixelVolumeOff } from './custom/PixelVolumeOff';
+import { PixelCrown } from './custom/PixelCrown';
+import { PixelHome } from './custom/PixelHome';
+import { PixelUserPlus } from './custom/PixelUserPlus';
+import { PixelCoins } from './custom/PixelCoins';
+import { PixelUpload } from './custom/PixelUpload';
+import { PixelLink } from './custom/PixelLink';
+import { PixelFlag } from './custom/PixelFlag';
+import { PixelMore } from './custom/PixelMore';
+import { PixelChevronsUpDown } from './custom/PixelChevronsUpDown';
+import { PixelArrowRight } from './custom/PixelArrowRight';
+import { PixelCalendar } from './custom/PixelCalendar';
+import { PixelUserMinus } from './custom/PixelUserMinus';
+import { PixelGrid3x3 } from './custom/PixelGrid3x3';
+import { PixelCheckDouble } from './custom/PixelCheckDouble';
 
 export type IconName =
   | 'hand'
@@ -120,7 +134,21 @@ export type IconName =
   | 'copy'
   | 'logout'
   | 'volumeOn'
-  | 'volumeOff';
+  | 'volumeOff'
+  | 'crown'
+  | 'home'
+  | 'userPlus'
+  | 'coins'
+  | 'upload'
+  | 'link'
+  | 'flag'
+  | 'more'
+  | 'chevronsUpDown'
+  | 'arrowRight'
+  | 'calendar'
+  | 'userMinus'
+  | 'grid3x3'
+  | 'checkDouble';
 
 type PixelIconComponent = ComponentType<SVGProps<SVGSVGElement> & { className?: string }>;
 
@@ -184,4 +212,18 @@ export const icons: Record<IconName, PixelIconComponent> = {
   logout: PixelLogout,
   volumeOn: PixelVolumeOn,
   volumeOff: PixelVolumeOff,
+  crown: PixelCrown,
+  home: PixelHome,
+  userPlus: PixelUserPlus,
+  coins: PixelCoins,
+  upload: PixelUpload,
+  link: PixelLink,
+  flag: PixelFlag,
+  more: PixelMore,
+  chevronsUpDown: PixelChevronsUpDown,
+  arrowRight: PixelArrowRight,
+  calendar: PixelCalendar,
+  userMinus: PixelUserMinus,
+  grid3x3: PixelGrid3x3,
+  checkDouble: PixelCheckDouble,
 };

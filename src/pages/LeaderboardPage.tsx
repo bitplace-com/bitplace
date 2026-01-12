@@ -1,4 +1,4 @@
-import { Trophy, Crown, Shield, Swords, Coins } from "lucide-react";
+import { PixelIcon } from "@/components/icons";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 
@@ -7,7 +7,7 @@ const LeaderboardPage = () => {
     <div className="min-h-full bg-background p-6 md:p-8 lg:p-12">
       <div className="max-w-3xl mx-auto space-y-8">
         <PageHeader
-          icon={Trophy}
+          icon={() => <PixelIcon name="trophy" className="h-6 w-6" />}
           title="Leaderboard"
           subtitle="Top pixel owners, biggest stakers, and most conquered territory."
         />
@@ -18,7 +18,7 @@ const LeaderboardPage = () => {
             <div className="flex flex-col items-center gap-6">
               <div className="relative">
                 <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                  <Trophy className="h-10 w-10 text-primary animate-pulse-soft" />
+                  <PixelIcon name="trophy" className="h-10 w-10 text-primary animate-pulse-soft" />
                 </div>
                 <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary/20 animate-ping" />
               </div>
@@ -40,25 +40,25 @@ const LeaderboardPage = () => {
         {/* Preview Categories */}
         <div className="grid gap-4 sm:grid-cols-2">
           <PreviewCard
-            icon={Crown}
+            icon={() => <PixelIcon name="crown" className="h-5 w-5" />}
             title="Top Owners"
             description="Players with the most pixels"
             color="primary"
           />
           <PreviewCard
-            icon={Shield}
+            icon={() => <PixelIcon name="shield" className="h-5 w-5" />}
             title="Top Defenders"
             description="Strongest defense contributors"
             color="defend"
           />
           <PreviewCard
-            icon={Swords}
+            icon={() => <PixelIcon name="swords" className="h-5 w-5" />}
             title="Top Attackers"
             description="Most aggressive players"
             color="attack"
           />
           <PreviewCard
-            icon={Coins}
+            icon={() => <PixelIcon name="coins" className="h-5 w-5" />}
             title="Biggest Stakers"
             description="Highest PE committed"
             color="primary"
