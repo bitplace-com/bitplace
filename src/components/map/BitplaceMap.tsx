@@ -1197,26 +1197,7 @@ export function BitplaceMap() {
             </div>
           </HudSlot>
           <HudSlot position="top-center">
-            <div className="flex flex-col items-center gap-2">
-              <MapToolbar mode={mode} onModeChange={setMode} />
-              {/* Zoom helper button - shows when too zoomed out to paint */}
-              {!canPaint && (
-                <button
-                  onClick={() => {
-                    if (!mapRef.current) return;
-                    mapRef.current.flyTo({
-                      center: mapRef.current.getCenter(),
-                      zoom: Z_SHOW_PAINTS,
-                      duration: 1500,
-                      easing: (t) => 1 - Math.pow(1 - t, 3) // ease-out-cubic
-                    });
-                  }}
-                  className="px-4 py-2 text-xs font-medium rounded-full bg-muted/60 text-foreground hover:bg-muted border border-border transition-all pointer-events-auto hover:scale-105 active:scale-95"
-                >
-                  Zoom in to see paints
-                </button>
-              )}
-            </div>
+            <MapToolbar mode={mode} onModeChange={setMode} />
           </HudSlot>
           <HudSlot position="top-right">
             <WalletButton />
@@ -1242,6 +1223,18 @@ export function BitplaceMap() {
           onEyedropperToggle={setIsEyedropperActive}
           currentLat={mapCenter.lat}
           currentLng={mapCenter.lng}
+          canPaint={canPaint}
+          onZoomIn={() => {
+            if (!mapRef.current) return;
+            mapRef.current.flyTo({
+              center: mapRef.current.getCenter(),
+              zoom: Z_SHOW_PAINTS,
+              duration: 2500, // Slower animation
+              easing: (t) => t < 0.5 
+                ? 4 * t * t * t 
+                : 1 - Math.pow(-2 * t + 2, 3) / 2 // ease-in-out-cubic
+            });
+          }}
           onColorSelect={setSelectedColor}
           onPaintToolChange={setPaintTool}
           onBrushSizeChange={setBrushSize}
