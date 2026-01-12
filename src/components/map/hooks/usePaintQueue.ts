@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { useGameActions } from '@/hooks/useGameActions';
 import { useWallet } from '@/contexts/WalletContext';
 import { soundEngine } from '@/lib/soundEngine';
+import { hapticsEngine } from '@/lib/hapticsEngine';
 
 const BATCH_INTERVAL_MS = 250;
 const MAX_BATCH_SIZE = 200;
@@ -149,6 +150,7 @@ export function usePaintQueue(
         }
         refreshUser();
         soundEngine.play('paint_commit');
+        hapticsEngine.trigger('commit');
       } else {
         console.warn('[usePaintQueue] Commit returned null');
         setIsSpacePainting(false);

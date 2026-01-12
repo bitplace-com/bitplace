@@ -18,9 +18,21 @@ export const HapticPatterns: Record<string, number | number[]> = {
   error: [30, 50, 30, 50, 30],
   // Heavy - important action
   heavy: 40,
+  // Commit actions - escalating pattern
+  commit: [20, 30, 40],
+  // Validate success - positive confirmation
+  validate_success: [15, 40, 25],
+  // Validate fail - double pulse error
+  validate_fail: [40, 60, 40],
+  // Like - quick tap
+  like: 15,
+  // Notification - gentle attention
+  notification: [10, 30, 10],
+  // Warning - caution
+  warning: [25, 40, 25],
 };
 
-type HapticType = keyof typeof HapticPatterns;
+export type HapticType = keyof typeof HapticPatterns;
 
 /**
  * Trigger haptic feedback
