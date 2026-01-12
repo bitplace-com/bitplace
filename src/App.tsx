@@ -12,8 +12,8 @@ import MapPage from "./pages/MapPage";
 import RulesPage from "./pages/RulesPage";
 import ProfilePage from "./pages/ProfilePage";
 import LeaderboardPage from "./pages/LeaderboardPage";
+import WalletCallbackPage from "./pages/WalletCallbackPage";
 import NotFound from "./pages/NotFound";
-
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -32,6 +32,8 @@ const App = () => (
             <Routes>
               {/* Map route with collapsible sidebar */}
               <Route path="/" element={<ErrorBoundary><MapLayout><MapPage /></MapLayout></ErrorBoundary>} />
+              {/* Wallet callback for mobile deeplink returns */}
+              <Route path="/wallet-callback" element={<WalletCallbackPage />} />
               {/* Other routes use MainLayout with sidebar */}
               <Route element={<MainLayout><RulesPage /></MainLayout>} path="/rules" />
               <Route element={<MainLayout><ProfilePage /></MainLayout>} path="/profile" />
