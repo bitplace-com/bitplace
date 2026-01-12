@@ -3,7 +3,7 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelMinus(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="4" y="10" width="16" height="4" />
+      <polygon points="23 11 23 13 22 13 22 14 2 14 2 13 1 13 1 11 2 11 2 10 22 10 22 11 23 11" />
     </PixelSVG>
   );
 }

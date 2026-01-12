@@ -1,23 +1,10 @@
 import { PixelSVG, PixelSVGProps } from './base';
 
+// Skull icon - death/attacked indicator
 export function PixelSkull(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="6" y="2" width="12" height="2" />
-      <rect x="4" y="4" width="2" height="2" />
-      <rect x="18" y="4" width="2" height="2" />
-      <rect x="2" y="6" width="2" height="8" />
-      <rect x="20" y="6" width="2" height="8" />
-      <rect x="4" y="14" width="2" height="2" />
-      <rect x="18" y="14" width="2" height="2" />
-      <rect x="6" y="16" width="4" height="2" />
-      <rect x="14" y="16" width="4" height="2" />
-      <rect x="8" y="18" width="2" height="4" />
-      <rect x="14" y="18" width="2" height="4" />
-      <rect x="10" y="18" width="4" height="2" />
-      {/* Eyes */}
-      <rect x="6" y="8" width="4" height="4" />
-      <rect x="14" y="8" width="4" height="4" />
+      <path d="m20,6v-1h-1v-1h-1v-1h-2v-1h-8v1h-2v1h-1v1h-1v1h-1v7h1v2h1v1h2v5h3v-2h1v-1h2v1h1v2h3v-5h2v-1h1v-2h1V6h-1Zm-4,8h-1v-1h-1v-4h4v4h-2v1Zm-10-1h-1v-4h4v4h-1v1h-2v-1Z" />
     </PixelSVG>
   );
 }

@@ -3,11 +3,8 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelChart(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="2" y="4" width="2" height="16" />
-      <rect x="4" y="18" width="18" height="2" />
-      <rect x="6" y="14" width="4" height="4" />
-      <rect x="12" y="8" width="4" height="10" />
-      <rect x="18" y="6" width="4" height="12" />
+      <polygon points="6 13 6 11 7 11 7 10 8 10 8 9 9 9 9 8 10 8 10 9 11 9 11 10 12 10 12 11 13 11 13 12 14 12 14 11 15 11 15 10 16 10 16 9 17 9 17 7 16 7 16 6 15 6 15 5 22 5 22 12 21 12 21 11 20 11 20 10 18 10 18 11 17 11 17 12 16 12 16 13 15 13 15 14 14 14 14 15 13 15 13 14 12 14 12 13 11 13 11 12 10 12 10 11 9 11 9 12 8 12 8 13 6 13" />
+      <polygon points="23 17 23 20 2 20 2 19 1 19 1 4 4 4 4 17 23 17" />
     </PixelSVG>
   );
 }

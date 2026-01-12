@@ -1,25 +1,10 @@
 import { PixelSVG, PixelSVGProps } from './base';
 
+// Bug icon - robot style
 export function PixelBug(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="8" y="2" width="8" height="2" />
-      <rect x="6" y="4" width="2" height="2" />
-      <rect x="16" y="4" width="2" height="2" />
-      <rect x="6" y="6" width="12" height="2" />
-      <rect x="4" y="8" width="2" height="2" />
-      <rect x="18" y="8" width="2" height="2" />
-      <rect x="2" y="10" width="4" height="2" />
-      <rect x="18" y="10" width="4" height="2" />
-      <rect x="6" y="8" width="12" height="8" />
-      <rect x="4" y="14" width="2" height="2" />
-      <rect x="18" y="14" width="2" height="2" />
-      <rect x="6" y="16" width="12" height="2" />
-      <rect x="6" y="18" width="2" height="2" />
-      <rect x="16" y="18" width="2" height="2" />
-      {/* Eyes */}
-      <rect x="8" y="10" width="2" height="2" />
-      <rect x="14" y="10" width="2" height="2" />
+      <path d="m20,6v-1h-1v-1h-1v-1h-1v-1h-2v-1h-6v1h-2v1h-1v1h-1v1h-1v1h-1v12h1v1h1v1h1v1h1v1h2v1h6v-1h2v-1h1v-1h1v-1h1v-1h1V6h-1Zm-10,13h1v1h-1v-1Zm1-5h-1v-1h1v1Zm0,2v1h-1v-1h1Zm2,4v-1h1v1h-1Zm1-6h-1v-1h1v1Zm0,2v1h-1v-1h1Zm4-7v2h-1v1h-2v-1h-1v-2h4Zm-9-5h2v2h2v-2h2v2h-2v2h-2v-2h-2v-2Zm-3,5h4v2h-1v1h-2v-1h-1v-2Z" />
     </PixelSVG>
   );
 }

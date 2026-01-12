@@ -3,14 +3,8 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelTrash(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="8" y="2" width="8" height="2" />
-      <rect x="4" y="4" width="16" height="2" />
-      <rect x="6" y="6" width="12" height="2" />
-      <rect x="6" y="8" width="2" height="12" />
-      <rect x="16" y="8" width="2" height="12" />
-      <rect x="6" y="20" width="12" height="2" />
-      <rect x="10" y="10" width="2" height="8" />
-      <rect x="12" y="10" width="2" height="8" />
+      <polygon points="20 6 20 14 19 14 19 22 18 22 18 23 6 23 6 22 5 22 5 14 4 14 4 6 20 6" />
+      <polygon points="21 3 21 5 3 5 3 3 4 3 4 2 9 2 9 1 15 1 15 2 20 2 20 3 21 3" />
     </PixelSVG>
   );
 }
