@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { PixelIcon } from '@/components/icons';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { GlassPanel } from '@/components/ui/glass-panel';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { haptic } from '@/lib/haptics';
 import { type MapMode } from './hooks/useMapState';
 
 interface MapToolbarProps {
@@ -30,75 +31,82 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
 
   const currentMode = modes.find((m) => m.value === mode);
 
-  // Handle mode change - auto-collapse on mobile after selection
+  // Handle mode change - auto-collapse after selection with haptic feedback
   const handleModeChange = (value: string | undefined) => {
     if (!value) return;
+    
+    // Haptic feedback on mode switch
+    haptic('medium');
+    
     onModeChange(value as MapMode);
     
-    // Auto-collapse on mobile after a brief delay for visual feedback
-    if (isMobile) {
-      setTimeout(() => {
-        setIsExpanded(false);
-      }, 150);
-    }
+    // Auto-collapse after a brief delay for visual feedback
+    setTimeout(() => {
+      setIsExpanded(false);
+    }, 150);
   };
 
   return (
-    <GlassPanel variant="hud" padding="sm" className="shadow-lg overflow-hidden">
-      <div className="flex items-center gap-1">
-        {/* Expandable modes section - horizontal animation */}
-        <div
-          className={cn(
-            "grid transition-all duration-300 ease-out",
-            isExpanded ? "grid-cols-[1fr]" : "grid-cols-[0fr]"
-          )}
-        >
-          <div className="overflow-hidden">
-            <ToggleGroup
-              type="single"
-              value={mode}
-              onValueChange={handleModeChange}
-              className="gap-1 flex-nowrap"
-            >
-              {modes.map(({ value, icon, label, hint }) => (
-                <Tooltip key={value}>
-                  <TooltipTrigger asChild>
-                    <ToggleGroupItem
-                      value={value}
-                      aria-label={label}
-                      className="map-toolbar-btn flex items-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10 whitespace-nowrap"
-                    >
-                      {icon}
-                      <span className="text-sm font-medium hidden sm:inline">{label}</span>
-                    </ToggleGroupItem>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs">
-                    {hint}
-                  </TooltipContent>
-                </Tooltip>
-              ))}
-            </ToggleGroup>
+    <TooltipProvider delayDuration={300}>
+      <GlassPanel variant="hud" padding="sm" className="shadow-lg">
+        <div className="flex items-center gap-1">
+          {/* Expandable modes section - horizontal animation */}
+          <div
+            className={cn(
+              "grid transition-all duration-300 ease-out",
+              isExpanded ? "grid-cols-[1fr]" : "grid-cols-[0fr]"
+            )}
+          >
+            <div className="overflow-hidden">
+              <ToggleGroup
+                type="single"
+                value={mode}
+                onValueChange={handleModeChange}
+                className="gap-1 flex-nowrap"
+              >
+                {modes.map(({ value, icon, label, hint }) => (
+                  <Tooltip key={value}>
+                    <TooltipTrigger asChild>
+                      <ToggleGroupItem
+                        value={value}
+                        aria-label={label}
+                        className="map-toolbar-btn flex items-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10 whitespace-nowrap"
+                      >
+                        {icon}
+                        <span className="text-sm font-medium hidden sm:inline">{label}</span>
+                      </ToggleGroupItem>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={8} className="text-xs z-[100]">
+                      {hint}
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </ToggleGroup>
+            </div>
           </div>
-        </div>
 
-        {/* Toggle button - always visible */}
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10 shrink-0"
-          aria-label={isExpanded ? "Collapse toolbar" : "Expand toolbar"}
-        >
-          {!isExpanded && (
-            <>
-              {currentMode?.icon}
-              <span className="text-sm font-medium">{currentMode?.label}</span>
-            </>
-          )}
-          <PixelIcon 
-            name={isExpanded ? "chevronLeft" : "chevronRight"} 
-            className="h-4 w-4 text-muted-foreground transition-transform duration-300" 
-          />
-        </button>
-      </div>
-    </GlassPanel>
+          {/* Toggle button - always visible */}
+          <button
+            onClick={() => {
+              haptic('light');
+              setIsExpanded(!isExpanded);
+            }}
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10 shrink-0"
+            aria-label={isExpanded ? "Collapse toolbar" : "Expand toolbar"}
+          >
+            {!isExpanded && (
+              <>
+                {currentMode?.icon}
+                <span className="text-sm font-medium">{currentMode?.label}</span>
+              </>
+            )}
+            <PixelIcon 
+              name={isExpanded ? "chevronLeft" : "chevronRight"} 
+              className="h-4 w-4 text-muted-foreground transition-transform duration-300" 
+            />
+          </button>
+        </div>
+      </GlassPanel>
+    </TooltipProvider>
   );
 }
