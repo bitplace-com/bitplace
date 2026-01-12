@@ -167,6 +167,14 @@ function generateSnapshotHash(pixelStates: PixelData[]): string {
   return hash.toString(36);
 }
 
+// Level calculation formula: min(100, floor(sqrt(pixels_painted_total / 10)) + 1)
+const LEVEL_BASE = 10;
+const MAX_LEVEL = 100;
+
+function calculateLevel(pixelsPainted: number): number {
+  return Math.min(MAX_LEVEL, Math.floor(Math.sqrt(pixelsPainted / LEVEL_BASE)) + 1);
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   
@@ -280,7 +288,7 @@ Deno.serve(async (req) => {
 
     const { data: user, error: userError } = await supabase
       .from("users")
-      .select("id, pe_total_pe")
+      .select("id, pe_total_pe, pixels_painted_total, level")
       .eq("id", userId)
       .single();
 
@@ -624,40 +632,28 @@ Deno.serve(async (req) => {
       maxY: Math.max(...ys)
     };
 
-    // Calculate XP earned
-    let xpEarned = 0;
+    // Update pixels_painted_total and level for PAINT mode only
+    let newLevel = user.level || 1;
+    let newPixelsPaintedTotal = user.pixels_painted_total || 0;
     
-    if (mode === "PAINT") {
-      for (const pixel of pixelStates) {
-        const isEmpty = !pixel.id;
-        const isOwnedByUser = pixel.owner_user_id === userId;
-        
-        if (isEmpty || isOwnedByUser) {
-          xpEarned += 1;
-        } else {
-          xpEarned += 2;
-        }
-      }
-    } else if (mode === "DEFEND" || mode === "ATTACK") {
-      xpEarned = Math.floor(affectedPixels / 10);
-    }
-    // REINFORCE and ERASE give no XP
-    
-    if (xpEarned > 0) {
-      const { data: userData } = await supabase
-        .from("users")
-        .select("xp")
-        .eq("id", userId)
-        .single();
-      
-      const currentXp = userData?.xp || 0;
-      const newXp = currentXp + xpEarned;
-      const newLevel = 1 + Math.floor(Math.sqrt(newXp / 50));
+    if (mode === "PAINT" && affectedPixels > 0) {
+      newPixelsPaintedTotal = (user.pixels_painted_total || 0) + affectedPixels;
+      newLevel = calculateLevel(newPixelsPaintedTotal);
       
       await supabase
         .from("users")
-        .update({ xp: newXp, level: newLevel })
+        .update({ 
+          pixels_painted_total: newPixelsPaintedTotal, 
+          level: newLevel 
+        })
         .eq("id", userId);
+      
+      console.log("[game-commit] Updated pixels_painted_total:", { 
+        userId, 
+        affectedPixels, 
+        newTotal: newPixelsPaintedTotal, 
+        newLevel 
+      });
     }
 
     // Log paint event
@@ -668,7 +664,7 @@ Deno.serve(async (req) => {
         action_type: mode,
         pixel_count: affectedPixels,
         bbox,
-        details: { color, pePerPixel, xpEarned },
+        details: { color, pePerPixel, pixelsPainted: newPixelsPaintedTotal },
         created_at: now
       })
       .select("id")
@@ -698,12 +694,13 @@ Deno.serve(async (req) => {
     const peUsed = updatedPixelStakeTotal + updatedContribTotal;
     const peAvailable = Math.max(0, user.pe_total_pe - peUsed);
 
-    console.log("[game-commit] Success:", { mode, affectedPixels, xpEarned, peUsed, peAvailable });
+    console.log("[game-commit] Success:", { mode, affectedPixels, pixelsPaintedTotal: newPixelsPaintedTotal, level: newLevel, peUsed, peAvailable });
 
     return new Response(JSON.stringify({
       ok: true,
       affectedPixels,
-      xpEarned,
+      pixelsPaintedTotal: newPixelsPaintedTotal,
+      level: newLevel,
       eventId: eventData?.id,
       contributionsPurged,
       purgedContributionCount,

@@ -230,7 +230,7 @@ Deno.serve(async (req) => {
     // Fetch user from DB
     const { data: userData, error: userError } = await supabase
       .from("users")
-      .select("id, wallet_address, native_balance, usd_price, wallet_usd, pe_total_pe, last_energy_sync_at, sol_cluster")
+      .select("id, wallet_address, native_balance, usd_price, wallet_usd, pe_total_pe, last_energy_sync_at, sol_cluster, pixels_painted_total, level")
       .eq("id", userId)
       .maybeSingle();
 
@@ -297,6 +297,8 @@ Deno.serve(async (req) => {
           peAvailable,
           cluster: userData.sol_cluster || 'mainnet',
           lastSyncAt: userData.last_energy_sync_at,
+          pixelsPaintedTotal: Number(userData.pixels_painted_total) || 0,
+          level: userData.level || 1,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -459,6 +461,8 @@ Deno.serve(async (req) => {
         peAvailable,
         cluster,
         lastSyncAt: syncAt,
+        pixelsPaintedTotal: Number(userData.pixels_painted_total) || 0,
+        level: userData.level || 1,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

@@ -1,20 +1,6 @@
 import { useState, useEffect } from "react";
-import {
-  User,
-  Wallet,
-  Grid3X3,
-  Shield,
-  Swords,
-  Save,
-  Loader2,
-  Coins,
-  RefreshCw,
-  Zap,
-  DollarSign,
-  Star,
-  Copy,
-  Check,
-} from "lucide-react";
+import { PixelIcon } from "@/components/icons";
+import { PEIcon } from "@/components/ui/pe-icon";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -23,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { CountryPicker } from "@/components/ui/country-picker";
+import { LevelPill } from "@/components/ui/level-pill";
 import { useWallet } from "@/contexts/WalletContext";
 import { usePeBalance } from "@/hooks/usePeBalance";
 import { usePixelStats } from "@/hooks/usePixelStats";
@@ -32,8 +19,8 @@ import { generateAvatarGradient, getAvatarInitial } from "@/lib/avatar";
 import {
   calculateLevel,
   levelProgress,
-  xpForLevel,
-  xpForNextLevel,
+  thresholdForLevel,
+  thresholdForNextLevel,
   getStatusTitle,
   getStatusColor,
   getStatusBgColor,
@@ -132,13 +119,13 @@ const ProfilePage = () => {
     return `${hours}h ago`;
   };
 
-  // Progression data
-  const xp = user?.xp || 0;
-  const level = user?.level || calculateLevel(xp);
-  const progress = levelProgress(xp);
+  // Progression data - based on pixels painted
+  const pixelsPainted = (user as any)?.pixels_painted_total || 0;
+  const level = user?.level || calculateLevel(pixelsPainted);
+  const progress = levelProgress(pixelsPainted);
   const statusTitle = getStatusTitle(level);
-  const currentLevelXp = xpForLevel(level);
-  const nextLevelXp = xpForNextLevel(level);
+  const currentLevelThreshold = thresholdForLevel(level);
+  const nextLevelThreshold = thresholdForNextLevel(level);
   const avatarGradient = generateAvatarGradient(walletAddress || "default");
   const avatarInitial = getAvatarInitial(user?.display_name, walletAddress);
 
@@ -146,17 +133,17 @@ const ProfilePage = () => {
     <div className="min-h-full bg-background p-6 md:p-8 lg:p-12">
       <div className="max-w-3xl mx-auto space-y-8">
         <PageHeader
-          icon={User}
+          icon={(props) => <PixelIcon name="user" {...props} />}
           title="Profile"
           subtitle="Your wallet, pixel ownership, and stake overview."
         />
 
         {/* Wallet Section */}
-        <SectionCard icon={Wallet} title="Wallet">
+        <SectionCard icon={(props) => <PixelIcon name="wallet" {...props} />} title="Wallet">
           {!isConnected ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center mb-4">
-                <Wallet className="h-6 w-6 text-muted-foreground" />
+                <PixelIcon name="wallet" className="h-6 w-6 text-muted-foreground" />
               </div>
               <p className="text-sm text-muted-foreground mb-4">
                 Connect your wallet to get started with Bitplace
@@ -168,12 +155,12 @@ const ProfilePage = () => {
               >
                 {isConnecting ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <PixelIcon name="loader" className="h-4 w-4 mr-2 animate-spin" />
                     Connecting...
                   </>
                 ) : (
                   <>
-                    <Wallet className="h-4 w-4 mr-2" />
+                    <PixelIcon name="wallet" className="h-4 w-4 mr-2" />
                     Connect Wallet
                   </>
                 )}
@@ -194,9 +181,9 @@ const ProfilePage = () => {
                   className="shrink-0"
                 >
                   {copied ? (
-                    <Check className="h-4 w-4 text-emerald-500" />
+                    <PixelIcon name="check" className="h-4 w-4 text-emerald-500" />
                   ) : (
-                    <Copy className="h-4 w-4" />
+                    <PixelIcon name="copy" className="h-4 w-4" />
                   )}
                 </Button>
               </div>
@@ -204,7 +191,7 @@ const ProfilePage = () => {
               {/* Energy Source Label */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/5 border border-primary/10 rounded-lg">
-                  <Zap className="h-4 w-4 text-primary" />
+                  <PixelIcon name="bolt" className="h-4 w-4 text-primary" />
                   <span className="text-xs font-medium text-primary uppercase tracking-wider">
                     Energy source: {ENERGY_ASSET}
                   </span>
@@ -219,7 +206,8 @@ const ProfilePage = () => {
                   disabled={energy.isRefreshing}
                   className="rounded-lg"
                 >
-                  <RefreshCw
+                  <PixelIcon
+                    name="refresh"
                     className={cn(
                       "h-4 w-4 mr-2",
                       energy.isRefreshing && "animate-spin"
@@ -234,7 +222,7 @@ const ProfilePage = () => {
                 <StatCard
                   label={`${energy.nativeSymbol} Balance`}
                   value={energy.nativeBalance.toFixed(4)}
-                  icon={Wallet}
+                  icon={(props) => <PixelIcon name="wallet" {...props} />}
                   helper={
                     energy.usdPrice > 0
                       ? `$${energy.usdPrice.toFixed(2)}/SOL`
@@ -244,19 +232,19 @@ const ProfilePage = () => {
                 <StatCard
                   label="Wallet USD"
                   value={`$${energy.walletUsd.toFixed(2)}`}
-                  icon={DollarSign}
+                  icon={(props) => <PixelIcon name="coins" {...props} />}
                   variant="muted"
                 />
                 <StatCard
                   label="Total PE"
                   value={energy.peTotal.toLocaleString()}
-                  icon={Coins}
+                  icon={(props) => <PixelIcon name="coins" {...props} />}
                   variant="primary"
                 />
                 <StatCard
                   label="Available PE"
                   value={peBalance.free.toLocaleString()}
-                  icon={Coins}
+                  icon={(props) => <PixelIcon name="coins" {...props} />}
                   helper={`Locked: ${peBalance.locked.toLocaleString()}`}
                 />
               </div>
@@ -288,7 +276,7 @@ const ProfilePage = () => {
 
         {/* Progression Section - Only show when connected */}
         {isConnected && (
-          <SectionCard icon={Star} title="Progression">
+          <SectionCard icon={(props) => <PixelIcon name="star" {...props} />} title="Progression">
             <div className="space-y-4">
               {/* Avatar + Level Header */}
               <div className="flex items-center gap-4">
@@ -312,10 +300,13 @@ const ProfilePage = () => {
                     <div
                       className={cn("p-1.5 rounded-lg", getStatusBgColor(level))}
                     >
-                      <Star className={cn("h-4 w-4", getStatusColor(level))} />
+                      <PixelIcon name="star" className={cn("h-4 w-4", getStatusColor(level))} />
                     </div>
                     <div>
-                      <p className="text-lg font-semibold">Level {level}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-lg font-semibold">Level {level}</p>
+                        <LevelPill level={level} size="sm" />
+                      </div>
                       <p
                         className={cn("text-sm font-medium", getStatusColor(level))}
                       >
@@ -325,29 +316,29 @@ const ProfilePage = () => {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold">{xp.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">Total XP</p>
+                  <p className="text-2xl font-bold">{pixelsPainted.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Pixels Painted</p>
                 </div>
               </div>
 
               {/* Progress Bar */}
               <div className="space-y-2">
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Progress to Level {level + 1}</span>
+                  <span>Progress to Level {Math.min(level + 1, 100)}</span>
                   <span>{Math.round(progress)}%</span>
                 </div>
                 <Progress value={progress} className="h-3" />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{currentLevelXp.toLocaleString()} XP</span>
-                  <span>{nextLevelXp.toLocaleString()} XP</span>
+                  <span>{currentLevelThreshold.toLocaleString()} pixels</span>
+                  <span>{nextLevelThreshold.toLocaleString()} pixels</span>
                 </div>
               </div>
 
-              {/* XP Info */}
+              {/* Level Info */}
               <div className="p-3 bg-muted/30 rounded-xl">
                 <p className="text-xs text-muted-foreground">
-                  Earn XP by painting pixels (+1), conquering pixels (+2), and
-                  participating in DEF/ATK actions (+1 per 10 pixels).
+                  Level up by painting pixels! Your level is based on your total pixels painted.
+                  Max level: 100 (requires ~98,000 pixels).
                 </p>
               </div>
             </div>
@@ -356,7 +347,7 @@ const ProfilePage = () => {
 
         {/* Profile Settings - Only show when connected */}
         {isConnected && (
-          <SectionCard icon={User} title="Profile Settings">
+          <SectionCard icon={(props) => <PixelIcon name="user" {...props} />} title="Profile Settings">
             <div className="space-y-5">
               {/* Username with validation */}
               <div className="space-y-2">
@@ -448,12 +439,12 @@ const ProfilePage = () => {
               >
                 {isSaving ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <PixelIcon name="loader" className="h-4 w-4 mr-2 animate-spin" />
                     Saving...
                   </>
                 ) : (
                   <>
-                    <Save className="h-4 w-4 mr-2" />
+                    <PixelIcon name="check" className="h-4 w-4 mr-2" />
                     Save Changes
                   </>
                 )}
@@ -463,55 +454,46 @@ const ProfilePage = () => {
         )}
 
         {/* Pixel Ownership */}
-        <SectionCard icon={Grid3X3} title="Pixel Ownership">
+        <SectionCard icon={(props) => <PixelIcon name="grid3x3" {...props} />} title="Pixel Ownership">
           <div className="grid grid-cols-3 gap-3">
             <StatCard
               label="Owned"
               value={pixelStats.pixelsOwned.toLocaleString()}
-              icon={Grid3X3}
+              icon={(props) => <PixelIcon name="grid3x3" {...props} />}
             />
             <StatCard
               label="PE Staked"
               value={pixelStats.totalStaked.toLocaleString()}
-              icon={Coins}
+              icon={(props) => <PixelIcon name="coins" {...props} />}
             />
             <StatCard
               label="Total Value"
               value={(
                 pixelStats.totalStaked +
-                pixelStats.totalDefending +
+                pixelStats.totalDefending -
                 pixelStats.totalAttacking
               ).toLocaleString()}
-              icon={Coins}
+              icon={(props) => <PEIcon size="sm" {...props} />}
+              variant="primary"
             />
           </div>
         </SectionCard>
 
         {/* Active Stakes */}
-        <SectionCard title="Active Stakes">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                  <Shield className="h-4 w-4 text-emerald-600" />
-                </div>
-                <span className="text-sm font-medium">Defending</span>
-              </div>
-              <span className="text-sm text-muted-foreground">
-                {pixelStats.totalDefending.toLocaleString()} PE
-              </span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-rose-500/5 border border-rose-500/10 rounded-xl">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-rose-500/10 flex items-center justify-center">
-                  <Swords className="h-4 w-4 text-rose-600" />
-                </div>
-                <span className="text-sm font-medium">Attacking</span>
-              </div>
-              <span className="text-sm text-muted-foreground">
-                {pixelStats.totalAttacking.toLocaleString()} PE
-              </span>
-            </div>
+        <SectionCard icon={(props) => <PixelIcon name="shield" {...props} />} title="Active Stakes">
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard
+              label="Defending"
+              value={pixelStats.totalDefending.toLocaleString()}
+              icon={(props) => <PixelIcon name="shield" {...props} />}
+              variant="muted"
+            />
+            <StatCard
+              label="Attacking"
+              value={pixelStats.totalAttacking.toLocaleString()}
+              icon={(props) => <PixelIcon name="swords" {...props} />}
+              variant="muted"
+            />
           </div>
         </SectionCard>
       </div>

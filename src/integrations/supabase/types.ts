@@ -465,6 +465,7 @@ export type Database = {
           native_symbol: string | null
           owner_health_multiplier: number
           pe_total_pe: number
+          pixels_painted_total: number
           rebalance_active: boolean
           rebalance_ends_at: string | null
           rebalance_started_at: string | null
@@ -493,6 +494,7 @@ export type Database = {
           native_symbol?: string | null
           owner_health_multiplier?: number
           pe_total_pe?: number
+          pixels_painted_total?: number
           rebalance_active?: boolean
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
@@ -521,6 +523,7 @@ export type Database = {
           native_symbol?: string | null
           owner_health_multiplier?: number
           pe_total_pe?: number
+          pixels_painted_total?: number
           rebalance_active?: boolean
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
@@ -594,6 +597,7 @@ export type Database = {
           id: string | null
           level: number | null
           owner_health_multiplier: number | null
+          pixels_painted_total: number | null
           rebalance_active: boolean | null
           rebalance_ends_at: string | null
           rebalance_started_at: string | null
@@ -612,6 +616,7 @@ export type Database = {
           id?: string | null
           level?: number | null
           owner_health_multiplier?: number | null
+          pixels_painted_total?: number | null
           rebalance_active?: boolean | null
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
@@ -630,6 +635,7 @@ export type Database = {
           id?: string | null
           level?: number | null
           owner_health_multiplier?: number | null
+          pixels_painted_total?: number | null
           rebalance_active?: boolean | null
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
@@ -649,6 +655,7 @@ export type Database = {
           display_name: string | null
           id: string | null
           level: number | null
+          pixels_painted_total: number | null
           wallet_short: string | null
           xp: number | null
         }
@@ -659,6 +666,7 @@ export type Database = {
           display_name?: string | null
           id?: string | null
           level?: number | null
+          pixels_painted_total?: number | null
           wallet_short?: never
           xp?: number | null
         }
@@ -669,6 +677,7 @@ export type Database = {
           display_name?: string | null
           id?: string | null
           level?: number | null
+          pixels_painted_total?: number | null
           wallet_short?: never
           xp?: number | null
         }
