@@ -45,20 +45,20 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
 
   return (
     <GlassPanel variant="hud" padding="sm" className="shadow-lg overflow-hidden">
-      <div
-        className={cn(
-          "grid transition-all duration-300 ease-out",
-          isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-        )}
-      >
-        {/* Expanded content - all modes */}
-        <div className="overflow-hidden">
-          <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1">
+        {/* Expandable modes section - horizontal animation */}
+        <div
+          className={cn(
+            "grid transition-all duration-300 ease-out",
+            isExpanded ? "grid-cols-[1fr]" : "grid-cols-[0fr]"
+          )}
+        >
+          <div className="overflow-hidden">
             <ToggleGroup
               type="single"
               value={mode}
               onValueChange={handleModeChange}
-              className="gap-1"
+              className="gap-1 flex-nowrap"
             >
               {modes.map(({ value, icon, label, hint }) => (
                 <Tooltip key={value}>
@@ -66,7 +66,7 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
                     <ToggleGroupItem
                       value={value}
                       aria-label={label}
-                      className="map-toolbar-btn flex items-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10"
+                      className="map-toolbar-btn flex items-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10 whitespace-nowrap"
                     >
                       {icon}
                       <span className="text-sm font-medium hidden sm:inline">{label}</span>
@@ -78,38 +78,26 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
                 </Tooltip>
               ))}
             </ToggleGroup>
-            <button
-              onClick={() => setIsExpanded(false)}
-              className="ml-1 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-              aria-label="Collapse toolbar"
-            >
-              <PixelIcon name="chevronUp" className="h-4 w-4" />
-            </button>
           </div>
         </div>
-      </div>
 
-      {/* Collapsed state - current mode only */}
-      <div
-        className={cn(
-          "grid transition-all duration-300 ease-out",
-          !isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-        )}
-      >
-        <div className="overflow-hidden">
-          <button
-            onClick={() => setIsExpanded(true)}
-            className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10 w-full"
-            aria-label="Expand toolbar"
-          >
-            {currentMode?.icon}
-            <span className="text-sm font-medium">{currentMode?.label}</span>
-            <PixelIcon 
-              name="chevronDown" 
-              className="h-4 w-4 ml-auto text-muted-foreground" 
-            />
-          </button>
-        </div>
+        {/* Toggle button - always visible */}
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10 shrink-0"
+          aria-label={isExpanded ? "Collapse toolbar" : "Expand toolbar"}
+        >
+          {!isExpanded && (
+            <>
+              {currentMode?.icon}
+              <span className="text-sm font-medium">{currentMode?.label}</span>
+            </>
+          )}
+          <PixelIcon 
+            name={isExpanded ? "chevronLeft" : "chevronRight"} 
+            className="h-4 w-4 text-muted-foreground transition-transform duration-300" 
+          />
+        </button>
       </div>
     </GlassPanel>
   );
