@@ -1,4 +1,4 @@
-import { Wallet, Heart, RefreshCw, Paintbrush, Loader2 } from 'lucide-react';
+import { PixelIcon } from '@/components/icons';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { usePeBalance } from '@/hooks/usePeBalance';
 import { useWallet } from '@/contexts/WalletContext';
@@ -66,7 +66,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
               onClick={() => signIn()}
               className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg hover:bg-muted transition-colors cursor-pointer"
             >
-              <Wallet className="h-3.5 w-3.5 text-foreground" />
+              <PixelIcon name="wallet" className="h-3.5 w-3.5 text-foreground" />
               <span className="text-xs font-medium text-foreground">Sign in required</span>
             </button>
           )}
@@ -74,7 +74,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
           {/* Draft Counter */}
           {draftCount > 0 && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg">
-              <Paintbrush className="h-3.5 w-3.5 text-foreground" />
+              <PixelIcon name="brush" className="h-3.5 w-3.5 text-foreground" />
               <span className="text-xs font-medium text-foreground tabular-nums">
                 Draft: {draftCount.toLocaleString()} px
               </span>
@@ -86,12 +86,12 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg animate-pulse">
               {isFlushing ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 text-foreground animate-spin" />
+                  <PixelIcon name="loader" className="h-3.5 w-3.5 text-foreground animate-spin" />
                   <span className="text-xs font-medium text-foreground">Syncing...</span>
                 </>
               ) : (
                 <>
-                  <Paintbrush className="h-3.5 w-3.5 text-foreground" />
+                  <PixelIcon name="brush" className="h-3.5 w-3.5 text-foreground" />
                   <span className="text-xs font-medium text-foreground tabular-nums">Painting {paintQueueSize}...</span>
                 </>
               )}
@@ -100,7 +100,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
 
           {/* SOL Balance */}
           <div className="flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-muted-foreground" />
+            <PixelIcon name="wallet" className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium tabular-nums leading-tight">
               {isLoading || energy.isRefreshing ? '...' : `${energy.nativeBalance.toFixed(4)} SOL`}
             </span>
@@ -158,7 +158,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
           {/* Rebalance status */}
           {rebalanceActive && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-destructive/10 border border-destructive/20 rounded-lg">
-              <Heart className="h-3.5 w-3.5 text-destructive animate-pulse-soft" />
+              <PixelIcon name="heart" className="h-3.5 w-3.5 text-destructive animate-pulse-soft" />
               <span className="text-xs font-semibold text-destructive tabular-nums">{healthPercent}%</span>
               {rebalanceEndsAt && (
                 <span className="text-xs text-muted-foreground">· {formatTimeRemaining(rebalanceEndsAt)}</span>
@@ -176,7 +176,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
                 disabled={energy.isRefreshing}
                 className="h-10 w-10 sm:h-7 sm:w-auto sm:px-2 p-0 text-muted-foreground hover:text-foreground touch-target"
               >
-                <RefreshCw className={cn("h-3.5 w-3.5", energy.isRefreshing && "animate-spin")} />
+                <PixelIcon name="refresh" className={cn("h-3.5 w-3.5", energy.isRefreshing && "animate-spin")} />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top" className="text-xs">
