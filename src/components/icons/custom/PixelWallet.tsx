@@ -1,9 +1,11 @@
 import { PixelSVG, PixelSVGProps } from './base';
 
+// Wallet icon (from HackerNoon hn-wallet)
 export function PixelWallet(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <path d="m22,8v-1H4v-2h18v-2h-1v-1H2v1h-1v18h1v1h20v-1h1v-13h-1Zm-1,7h-1v1h-2v-1h-1v-2h1v-1h2v1h1v2Z" />
+      <polygon points="18 12 18 13 19 13 19 15 18 15 18 16 16 16 16 15 15 15 15 13 16 13 16 12 18 12"/>
+      <polygon points="23 8 23 21 22 21 22 22 2 22 2 21 1 21 1 3 2 3 2 2 21 2 21 3 22 3 22 4 3 4 3 20 21 20 21 9 5 9 5 7 22 7 22 8 23 8"/>
     </PixelSVG>
   );
 }

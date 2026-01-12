@@ -53,6 +53,7 @@ import { PixelArrowLeft } from './custom/PixelArrowLeft';
 import { PixelTrendingDown } from './custom/PixelTrendingDown';
 import { PixelTwitter } from './custom/PixelTwitter';
 import { PixelInstagram } from './custom/PixelInstagram';
+import { PixelShare } from './custom/PixelShare';
 
 export type IconName =
   | 'hand'
@@ -106,7 +107,8 @@ export type IconName =
   | 'arrowLeft'
   | 'trendingDown'
   | 'twitter'
-  | 'instagram';
+  | 'instagram'
+  | 'share';
 
 type PixelIconComponent = ComponentType<SVGProps<SVGSVGElement> & { className?: string }>;
 
@@ -163,4 +165,5 @@ export const icons: Record<IconName, PixelIconComponent> = {
   trendingDown: PixelTrendingDown,
   twitter: PixelTwitter,
   instagram: PixelInstagram,
+  share: PixelShare,
 };
