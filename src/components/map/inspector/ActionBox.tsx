@@ -248,9 +248,9 @@ export function ActionBox({
         {needsValidation && !isValidated && (
           <Button
             className="flex-1 rounded-lg h-11 sm:h-8 text-sm sm:text-xs touch-target"
-            variant="secondary"
+            variant="outline"
             onClick={onValidate}
-            disabled={isValidating}
+            disabled={isValidating || effectiveCount === 0}
           >
             {isValidating ? (
               <>
@@ -266,6 +266,7 @@ export function ActionBox({
         {(isValidated || !needsValidation) && (
           <Button
             className="flex-1 rounded-lg h-11 sm:h-8 text-sm sm:text-xs touch-target"
+            variant="default"
             onClick={onConfirm}
             disabled={!canConfirm && needsValidation}
           >

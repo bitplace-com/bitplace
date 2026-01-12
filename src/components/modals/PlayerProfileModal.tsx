@@ -177,7 +177,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto px-4 sm:px-6">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">Player Profile</DialogTitle>
         </DialogHeader>
@@ -203,7 +203,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
             <p className="text-muted-foreground">{error || 'Player not found'}</p>
           </div>
         ) : (
-          <div className="space-y-5 py-4">
+          <div className="space-y-5 py-4 sm:space-y-6">
             {/* Header */}
             <div className="flex items-start gap-4">
               {profile.avatarUrl ? (
@@ -356,7 +356,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
             <Separator />
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <StatCard
                 label="Pixels Owned"
                 value={profile.totalPixelsOwned}
