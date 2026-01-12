@@ -11,6 +11,8 @@ interface PhantomProvider {
   connect(options?: { onlyIfTrusted?: boolean }): Promise<{ publicKey: { toBase58(): string } }>;
   disconnect(): Promise<void>;
   signMessage(message: Uint8Array): Promise<{ signature: Uint8Array }>;
+  // Provider.request() method - recommended by Phantom docs for better popup handling
+  request(args: { method: string; params: Record<string, unknown> }): Promise<{ signature: Uint8Array | string }>;
   on(event: string, callback: () => void): void;
   off(event: string, callback: () => void): void;
 }
@@ -497,13 +499,38 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         return false;
       }
       
-      // Sign nonce
+      // Sign nonce using provider.request() for better popup handling
+      // This method is recommended by Phantom docs and closes the popup reliably
       walletDebug('auth_sign_start');
-      let signature: Uint8Array;
+      let signatureB64: string;
       try {
         const messageBytes = new TextEncoder().encode(nonceData.nonce);
-        const signResult = await phantom.signMessage(messageBytes);
-        signature = signResult.signature;
+        
+        // Use provider.request() instead of signMessage() for better popup behavior
+        // This is the recommended approach per Phantom documentation
+        const signResult = await phantom.request({
+          method: 'signMessage',
+          params: {
+            message: messageBytes,
+            display: 'utf8',
+          },
+        });
+        
+        // Handle signature response - can be Uint8Array or base64 string
+        let signatureBytes: Uint8Array;
+        if (signResult.signature instanceof Uint8Array) {
+          signatureBytes = signResult.signature;
+        } else if (typeof signResult.signature === 'string') {
+          // Already base64, decode to bytes first
+          signatureBytes = new Uint8Array(
+            atob(signResult.signature).split('').map(c => c.charCodeAt(0))
+          );
+        } else {
+          // Assume array-like object
+          signatureBytes = new Uint8Array(signResult.signature as ArrayLike<number>);
+        }
+        
+        signatureB64 = btoa(String.fromCharCode(...signatureBytes));
         walletDebug('auth_sign_success');
       } catch (signError: any) {
         walletDebug('auth_sign_rejected', { code: signError?.code });
@@ -515,8 +542,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         }
         return false;
       }
-      
-      const signatureB64 = btoa(String.fromCharCode(...signature));
       
       // Verify and get token
       walletDebug('auth_verify_start');
