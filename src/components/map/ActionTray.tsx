@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { canInteractAtZoom } from '@/lib/pixelGrid';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { Input } from '@/components/ui/input';
+import { PlacesModal } from '@/components/modals/PlacesModal';
 import type { MapMode, InteractionMode, PaintTool, BrushSize } from './hooks/useMapState';
 
 interface ActionTrayProps {
@@ -30,6 +31,10 @@ interface ActionTrayProps {
   // Eyedropper
   isEyedropperActive: boolean;
   onEyedropperToggle: (active: boolean) => void;
+  
+  // Map position for places
+  currentLat?: number;
+  currentLng?: number;
   
   // Callbacks
   onColorSelect: (color: string | null) => void;
@@ -75,6 +80,8 @@ export function ActionTray({
   availablePe,
   isEyedropperActive,
   onEyedropperToggle,
+  currentLat = 0,
+  currentLng = 0,
   onColorSelect,
   onPaintToolChange,
   onBrushSizeChange,
@@ -83,6 +90,7 @@ export function ActionTray({
 }: ActionTrayProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [paletteTab, setPaletteTab] = useState<'colors' | 'special'>('colors');
+  const [placesOpen, setPlacesOpen] = useState(false);
   const { play } = useSound();
   
   const materialsByCategory = getMaterialsByCategory();
@@ -145,8 +153,19 @@ export function ActionTray({
       >
         {/* Header - always visible */}
         <div className="flex items-center justify-between gap-2 px-3 py-2">
-          {/* Left: Interaction mode toggle */}
+          {/* Left: Fire button + Interaction mode toggle */}
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* Fire button for Places */}
+            <GlassIconButton
+              variant="ghost"
+              size="sm"
+              onClick={() => setPlacesOpen(true)}
+              className="text-amber-500 hover:bg-amber-500/10"
+              title="Pinned Locations"
+            >
+              <PixelIcon name="bolt" className="h-4 w-4" />
+            </GlassIconButton>
+            
             {canPaint && (
               <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5">
                 <button
@@ -473,6 +492,15 @@ export function ActionTray({
           </div>
         )}
       </div>
+
+      {/* Places Modal */}
+      <PlacesModal
+        open={placesOpen}
+        onOpenChange={setPlacesOpen}
+        currentLat={currentLat}
+        currentLng={currentLng}
+        currentZoom={zoom}
+      />
     </div>
   );
 }

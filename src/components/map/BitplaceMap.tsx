@@ -57,6 +57,7 @@ export function BitplaceMap() {
   const [mapReady, setMapReady] = useState(false);
   const [hoverPixel, setHoverPixel] = useState<{ x: number; y: number } | null>(null);
   const [inspectedPixel, setInspectedPixel] = useState<{ x: number; y: number } | null>(null);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: 20, lng: 0 });
   const [isEyedropperActive, setIsEyedropperActive] = useState(false);
   const [isSpaceHeld, setIsSpaceHeld] = useState(false);
   const [isShiftHeld, setIsShiftHeld] = useState(false);
@@ -329,6 +330,10 @@ export function BitplaceMap() {
         bounds.getSouth()
       );
       updateViewportRef.current(gridBounds);
+      
+      // Update map center for Places modal
+      const center = map.getCenter();
+      setMapCenter({ lat: center.lat, lng: center.lng });
     };
 
     map.on('moveend', updateBounds);
@@ -1235,6 +1240,8 @@ export function BitplaceMap() {
           availablePe={peBalance.free}
           isEyedropperActive={isEyedropperActive}
           onEyedropperToggle={setIsEyedropperActive}
+          currentLat={mapCenter.lat}
+          currentLng={mapCenter.lng}
           onColorSelect={setSelectedColor}
           onPaintToolChange={setPaintTool}
           onBrushSizeChange={setBrushSize}
