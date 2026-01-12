@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Wallet, ExternalLink, Smartphone, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Wallet, ExternalLink, Smartphone } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,7 @@ interface WalletSelectModalProps {
   isConnecting: boolean;
 }
 
-// Detect if Phantom is installed
+// Detect if Phantom is installed (extension or in-app browser)
 const getPhantomProvider = () => {
   if (typeof window === 'undefined') return null;
   
@@ -37,6 +37,12 @@ const isMobileDevice = () => {
   return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 };
 
+// Detect if we're inside Phantom's in-app browser
+const isPhantomInAppBrowser = () => {
+  if (typeof navigator === 'undefined') return false;
+  return navigator.userAgent.includes('Phantom');
+};
+
 export function WalletSelectModal({
   open,
   onOpenChange,
@@ -45,35 +51,45 @@ export function WalletSelectModal({
 }: WalletSelectModalProps) {
   const [phantomInstalled, setPhantomInstalled] = useState<boolean | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [isInPhantomBrowser, setIsInPhantomBrowser] = useState(false);
 
   // Check on mount and after a short delay (extension might load late)
-  useState(() => {
+  useEffect(() => {
     const check = () => {
       setPhantomInstalled(!!getPhantomProvider());
       setIsMobile(isMobileDevice());
+      setIsInPhantomBrowser(isPhantomInAppBrowser());
     };
     
     check();
     const timeout = setTimeout(check, 500);
     return () => clearTimeout(timeout);
-  });
+  }, []);
 
   const handlePhantomClick = () => {
-    if (isMobile && !phantomInstalled) {
-      // Open Phantom app deep link on mobile
-      const currentUrl = encodeURIComponent(window.location.href);
-      window.location.href = `https://phantom.app/ul/browse/${currentUrl}`;
+    // If Phantom provider is available (extension on desktop, or in-app browser on mobile)
+    // Use native connection - this handles BOTH cases cleanly
+    if (phantomInstalled) {
+      onSelectPhantom();
       return;
     }
     
-    if (!phantomInstalled) {
-      // Open install page
-      window.open('https://phantom.app/', '_blank');
+    // Mobile without Phantom app - use deeplink
+    // The deeplink opens the Phantom app which will open our site in its in-app browser
+    // where the provider WILL be available
+    if (isMobile) {
+      // Use the callback URL for clean return
+      const appUrl = window.location.origin;
+      const connectUrl = `${appUrl}/wallet-callback`;
+      
+      // Phantom universal link - opens the app and loads our site in its browser
+      // After connection, the user will be in Phantom's in-app browser with provider available
+      window.location.href = `https://phantom.app/ul/browse/${encodeURIComponent(appUrl)}`;
       return;
     }
     
-    // Trigger actual connection
-    onSelectPhantom();
+    // Desktop without extension - open install page
+    window.open('https://phantom.app/', '_blank');
   };
 
   return (
@@ -122,7 +138,7 @@ export function WalletSelectModal({
                 {phantomInstalled === null ? (
                   'Detecting...'
                 ) : phantomInstalled ? (
-                  'Solana wallet'
+                  isInPhantomBrowser ? 'Tap to connect' : 'Solana wallet'
                 ) : isMobile ? (
                   'Open in Phantom app'
                 ) : (
