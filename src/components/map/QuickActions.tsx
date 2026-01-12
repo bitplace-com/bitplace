@@ -42,7 +42,7 @@ export function QuickActions() {
               onClick={() => setLeaderboardOpen(true)}
               aria-label="Leaderboard"
             >
-              <PixelIcon name="chart" size="sm" />
+              <PixelIcon name="trophy" size="sm" />
             </GlassIconButton>
           </TooltipTrigger>
           <TooltipContent side="right">Leaderboard</TooltipContent>

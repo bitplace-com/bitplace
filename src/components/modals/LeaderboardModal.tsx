@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Trophy, Globe, User, Users, Loader2, Twitter, Instagram } from "lucide-react";
+import { PixelIcon } from "@/components/icons";
 import { GamePanel } from "./GamePanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -171,7 +171,7 @@ function PlayerRow({ entry, onPlayerClick }: { entry: PlayerEntry; onPlayerClick
                   title="X / Twitter"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <Twitter className="w-4 h-4" />
+                  <PixelIcon name="twitter" size="sm" />
                 </a>
               )}
               {entry.socialInstagram && (
@@ -183,7 +183,7 @@ function PlayerRow({ entry, onPlayerClick }: { entry: PlayerEntry; onPlayerClick
                   title="Instagram"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <Instagram className="w-4 h-4" />
+                  <PixelIcon name="instagram" size="sm" />
                 </a>
               )}
               {entry.socialWebsite && (
@@ -195,7 +195,7 @@ function PlayerRow({ entry, onPlayerClick }: { entry: PlayerEntry; onPlayerClick
                   title="Website"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <Globe className="w-4 h-4" />
+                  <PixelIcon name="globe" size="sm" />
                 </a>
               )}
             </div>
@@ -239,7 +239,7 @@ function AllianceRow({ entry }: { entry: AllianceEntry }) {
     <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-foreground/5 transition-colors">
       <RankBadge rank={entry.rank} />
       <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-        <Users className="h-4 w-4 text-primary" />
+        <PixelIcon name="users" size="sm" className="text-primary" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
@@ -284,7 +284,7 @@ function EmptyState({ scope }: { scope: LeaderboardScope }) {
 
   return (
     <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-      <Trophy className="h-10 w-10 mb-3 opacity-50" />
+      <PixelIcon name="trophy" size="lg" className="mb-3 opacity-50" />
       <p className="text-sm">{messages[scope]}</p>
       <p className="text-xs mt-1">Start painting to climb the ranks!</p>
     </div>
@@ -350,7 +350,7 @@ export function LeaderboardModal({ open, onOpenChange }: LeaderboardModalProps) 
         open={open}
         onOpenChange={onOpenChange}
         title="Leaderboard"
-        icon={<Trophy className="h-5 w-5" />}
+        icon={<PixelIcon name="trophy" size="md" />}
         size="lg"
       >
         <Tabs
@@ -360,15 +360,15 @@ export function LeaderboardModal({ open, onOpenChange }: LeaderboardModalProps) 
         >
           <TabsList className="w-full bg-foreground/5">
             <TabsTrigger value="players" className="flex-1 gap-1.5">
-              <User className="h-3.5 w-3.5" />
+              <PixelIcon name="user" size="xs" />
               Players
             </TabsTrigger>
             <TabsTrigger value="countries" className="flex-1 gap-1.5">
-              <Globe className="h-3.5 w-3.5" />
+              <PixelIcon name="globe" size="xs" />
               Countries
             </TabsTrigger>
             <TabsTrigger value="alliances" className="flex-1 gap-1.5">
-              <Users className="h-3.5 w-3.5" />
+              <PixelIcon name="users" size="xs" />
               Alliances
             </TabsTrigger>
           </TabsList>
