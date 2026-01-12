@@ -1,12 +1,11 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { type LucideIcon } from "lucide-react";
 
 interface StatCardProps {
   label: string;
   value: string | number;
   helper?: string;
-  icon?: LucideIcon;
+  icon?: React.ComponentType<{ className?: string }>;
   className?: string;
   variant?: "default" | "primary" | "muted";
 }

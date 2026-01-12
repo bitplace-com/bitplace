@@ -1,6 +1,5 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { type LucideIcon } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -11,7 +10,7 @@ import { ChevronDown } from "lucide-react";
 interface SectionCardProps {
   title?: string;
   description?: string;
-  icon?: LucideIcon;
+  icon?: React.ComponentType<{ className?: string }>;
   className?: string;
   children: React.ReactNode;
   collapsible?: boolean;
