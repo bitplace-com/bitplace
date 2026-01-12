@@ -34,7 +34,7 @@ export function CountryPicker({
   const selectedCountry = getCountryByCode(value);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -53,7 +53,12 @@ export function CountryPicker({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[280px] p-0 z-50 bg-popover" align="start">
+      <PopoverContent 
+        className="w-[280px] p-0 z-[100] bg-popover" 
+        align="start"
+        sideOffset={4}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <Command>
           <CommandInput placeholder="Search country..." />
           <CommandList>

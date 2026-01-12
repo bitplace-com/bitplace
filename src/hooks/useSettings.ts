@@ -104,6 +104,10 @@ export function useSettings() {
       }
 
       await updateUser(normalizedUpdates);
+      
+      // Force refresh to get updated data from server
+      await refreshUser();
+      
       toast.success('Settings saved');
       return true;
     } catch (error) {
