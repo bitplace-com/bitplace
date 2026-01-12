@@ -200,8 +200,11 @@ export function ActionTray({
                         : selectedColor.toUpperCase()}
                     </span>
                   </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground">No color</span>
+              ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-md border-2 border-dashed border-muted-foreground/50 shrink-0" />
+                    <span className="text-xs text-muted-foreground">No color</span>
+                  </div>
                 )
               ) : (
               /* Action mode: show pending PE only (no redundant mode icon) */
@@ -250,7 +253,7 @@ export function ActionTray({
 
         {/* Expanded content */}
         {isExpanded && (
-          <div className="px-3 pb-3">
+          <div className="px-3 pb-3 overflow-hidden">
             {/* Zoom hint */}
             {!canPaint && (
               <div className="text-center py-1.5 mb-2 text-[11px] text-muted-foreground bg-muted/50 rounded-lg">
@@ -338,10 +341,10 @@ export function ActionTray({
                   isEraser && "opacity-40 pointer-events-none"
                 )}>
 
-                <div className="max-h-48 overflow-y-auto py-1.5 px-0.5">
+                <div className="max-h-48 overflow-y-auto overflow-x-hidden py-1.5 px-0.5">
                   {paletteTab === 'colors' ? (
                     /* Standard color palette - larger on mobile */
-                    <div className="grid grid-cols-8 sm:grid-cols-12 gap-2 sm:gap-1.5">
+                    <div className="grid grid-cols-8 sm:grid-cols-12 gap-2 sm:gap-1.5 w-full">
                       {ALL_COLORS.map((color, index) => {
                         const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
                         return (
@@ -369,7 +372,7 @@ export function ActionTray({
                           <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
                             {CATEGORY_LABELS[category] || category}
                           </div>
-                          <div className="grid grid-cols-5 sm:grid-cols-8 gap-2 sm:gap-1.5">
+                          <div className="grid grid-cols-5 sm:grid-cols-8 gap-2 sm:gap-1.5 w-full">
                             {materials.map((material) => {
                               const isSelected = selectedColor === material.id;
                               return (

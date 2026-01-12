@@ -93,6 +93,13 @@ export function BitplaceMap() {
   const peBalance = usePeBalance(user?.id);
   const isMobile = useIsMobile();
 
+  // Reset selectedColor when wallet disconnects
+  useEffect(() => {
+    if (!user) {
+      setSelectedColor(null);
+    }
+  }, [user, setSelectedColor]);
+
   // Ref for last drafted pixel to prevent duplicates during hover-paint
   const lastDraftedPixelRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -118,8 +125,13 @@ export function BitplaceMap() {
   const handleTouchPaintStart = useCallback((x: number, y: number) => {
     if (!requireWallet('paint')) return;
     
-    // Paint with brush
-    if (mode === 'paint' && paintTool === 'BRUSH' && selectedColor !== null) {
+    // Paint with brush - gate if no color selected
+    if (mode === 'paint' && paintTool === 'BRUSH') {
+      if (selectedColor === null) {
+        toast.info('Select a color to paint', { id: 'no-color-hint' });
+        haptic('warning');
+        return;
+      }
       if (brushSize === '2x2') {
         const block = getSnapped2x2Block(x, y);
         block.forEach(p => addToDraft(p.x, p.y, selectedColor));
@@ -155,7 +167,7 @@ export function BitplaceMap() {
   }, [mode, paintTool, selectedColor, brushSize, addToDraft, removeFromDraft, startBrushSelection, draftPixels, requireWallet, playSound]);
 
   const handleTouchPaintMove = useCallback((x: number, y: number) => {
-    // Paint with brush (continuous)
+    // Paint with brush (continuous) - only if color selected
     if (mode === 'paint' && paintTool === 'BRUSH' && selectedColor !== null) {
       const last = lastDraftedPixelRef.current;
       if (brushSize === '2x2') {
@@ -942,12 +954,18 @@ export function BitplaceMap() {
               setPendingPixels([{ x, y }]);
             }
           } else {
-            // Paint: add single pixel to draft
+            // Paint: add single pixel to draft - gate if no color
+            if (selectedColor === null) {
+              toast.info('Select a color to paint', { id: 'no-color-hint' });
+              isDraggingRef.current = false;
+              dragStartRef.current = null;
+              return;
+            }
             if (brushSize === '2x2') {
               const block = getSnapped2x2Block(x, y);
-              block.forEach(p => addToDraft(p.x, p.y, selectedColor!));
+              block.forEach(p => addToDraft(p.x, p.y, selectedColor));
             } else {
-              addToDraft(x, y, selectedColor!);
+              addToDraft(x, y, selectedColor);
             }
           }
           playSound('pixel_select');
