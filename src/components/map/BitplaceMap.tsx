@@ -1184,10 +1184,11 @@ export function BitplaceMap() {
                     mapRef.current.flyTo({
                       center: mapRef.current.getCenter(),
                       zoom: Z_SHOW_PAINTS,
-                      duration: 600
+                      duration: 1500,
+                      easing: (t) => 1 - Math.pow(1 - t, 3) // ease-out-cubic
                     });
                   }}
-                  className="px-3 py-1.5 text-xs font-medium rounded-full bg-muted/50 text-foreground hover:bg-muted border border-border transition-colors pointer-events-auto"
+                  className="px-4 py-2 text-xs font-medium rounded-full bg-muted/60 text-foreground hover:bg-muted border border-border transition-all pointer-events-auto hover:scale-105 active:scale-95"
                 >
                   Zoom in to see paints
                 </button>

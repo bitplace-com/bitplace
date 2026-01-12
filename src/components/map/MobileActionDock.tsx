@@ -285,7 +285,7 @@ export function MobileActionDock({
                         <Button 
                           size="sm" 
                           variant="outline"
-                          className="w-full justify-between h-11"
+                          className="w-full justify-between h-11 text-foreground"
                           onClick={() => handleWithdraw('DEF')}
                           disabled={isWithdrawCommitting || withdrawingSide !== null}
                         >
@@ -293,12 +293,12 @@ export function MobileActionDock({
                             {withdrawingSide === 'DEF' ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                              <Shield className="h-4 w-4 text-emerald-400" />
+                              <Shield className="h-4 w-4 text-emerald-500" />
                             )}
-                            <span>Withdraw DEF</span>
+                            <span className="text-foreground">Withdraw DEF</span>
                             <span className="text-muted-foreground text-xs">({withdrawStats.defPixelCount} px)</span>
                           </div>
-                          <span className="text-emerald-400 font-semibold">+{withdrawStats.myDefTotal.toLocaleString()} PE</span>
+                          <span className="text-emerald-500 font-semibold">+{withdrawStats.myDefTotal.toLocaleString()} PE</span>
                         </Button>
                       )}
                       
@@ -306,7 +306,7 @@ export function MobileActionDock({
                         <Button 
                           size="sm" 
                           variant="outline"
-                          className="w-full justify-between h-11"
+                          className="w-full justify-between h-11 text-foreground"
                           onClick={() => handleWithdraw('ATK')}
                           disabled={isWithdrawCommitting || withdrawingSide !== null}
                         >
@@ -314,12 +314,12 @@ export function MobileActionDock({
                             {withdrawingSide === 'ATK' ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                              <Swords className="h-4 w-4 text-rose-400" />
+                              <Swords className="h-4 w-4 text-rose-500" />
                             )}
-                            <span>Withdraw ATK</span>
+                            <span className="text-foreground">Withdraw ATK</span>
                             <span className="text-muted-foreground text-xs">({withdrawStats.atkPixelCount} px)</span>
                           </div>
-                          <span className="text-rose-400 font-semibold">+{withdrawStats.myAtkTotal.toLocaleString()} PE</span>
+                          <span className="text-rose-500 font-semibold">+{withdrawStats.myAtkTotal.toLocaleString()} PE</span>
                         </Button>
                       )}
                     </div>

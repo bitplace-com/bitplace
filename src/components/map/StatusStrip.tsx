@@ -57,7 +57,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
 
   return (
     <TooltipProvider>
-      <div className="min-h-12 sm:min-h-11 glass-hud flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 sm:gap-4 px-3 sm:px-4 py-2 border-t-0 rounded-none safe-bottom-bar overflow-x-auto scrollbar-hide">
+      <div className="min-h-12 sm:min-h-11 glass-hud flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 sm:gap-4 px-3 sm:px-4 py-2.5 sm:py-2 border-t-0 rounded-none safe-bottom-bar overflow-x-auto scrollbar-hide">
         {/* Left side - SOL Balance & Cluster */}
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap sm:flex-nowrap">
           {/* Sign-in required pill */}
@@ -101,7 +101,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
           {/* SOL Balance */}
           <div className="flex items-center gap-2">
             <Wallet className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium tabular-nums">
+            <span className="text-sm font-medium tabular-nums leading-tight">
               {isLoading || energy.isRefreshing ? '...' : `${energy.nativeBalance.toFixed(4)} SOL`}
             </span>
             {energy.walletUsd > 0 && (
@@ -129,7 +129,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
           {/* PE Total / Used */}
           <div className="flex items-center gap-2">
             <PEIcon size="md" className="text-foreground" />
-            <span className="text-sm font-semibold tabular-nums">
+            <span className="text-sm font-semibold tabular-nums leading-tight">
               {isLoading ? '...' : energy.peTotal.toLocaleString()}
             </span>
             {peUsed > 0 && (

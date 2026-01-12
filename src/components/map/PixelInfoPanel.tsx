@@ -60,19 +60,19 @@ export function PixelInfoPanel({
   const country = pixel?.owner?.country_code ? getCountryByCode(pixel.owner.country_code) : null;
 
   return (
-    <GlassPanel className="w-80 max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-hidden flex flex-col" padding="none">
+    <GlassPanel className="w-80 max-w-[calc(100vw-1.5rem)] sm:max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-hidden flex flex-col" padding="none">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border shrink-0">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-3 sm:py-2.5 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-foreground">
+          <span className="text-sm font-medium text-foreground leading-tight">
             Pixel: {x.toLocaleString()}, {y.toLocaleString()}
           </span>
           <button
             onClick={handleCopyCoords}
-            className="p-1 rounded hover:bg-accent transition-colors"
+            className="p-2 sm:p-1 rounded hover:bg-accent transition-colors touch-target sm:min-h-0 sm:min-w-0"
             title="Copy coordinates"
           >
-            <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+            <Copy className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-muted-foreground" />
           </button>
           {/* Selection count chip (read-only) */}
           {actionSelectionCount > 0 && (
@@ -84,16 +84,16 @@ export function PixelInfoPanel({
         <div className="flex items-center gap-1">
           <button
             onClick={handleShare}
-            className="p-1 rounded hover:bg-accent transition-colors"
+            className="p-2 sm:p-1 rounded hover:bg-accent transition-colors touch-target sm:min-h-0 sm:min-w-0"
             title="Share link"
           >
-            <Share2 className="w-3.5 h-3.5 text-muted-foreground" />
+            <Share2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-muted-foreground" />
           </button>
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-accent transition-colors"
+            className="p-2 sm:p-1 rounded hover:bg-accent transition-colors touch-target sm:min-h-0 sm:min-w-0"
           >
-            <X className="w-4 h-4 text-muted-foreground" />
+            <X className="w-5 h-5 sm:w-4 sm:h-4 text-muted-foreground" />
           </button>
         </div>
       </div>
