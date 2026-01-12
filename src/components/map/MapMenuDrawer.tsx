@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Menu, Map, Book, ShoppingBag, Settings, Users, Sun, Moon } from "lucide-react";
+import { PixelIcon } from "@/components/icons";
 import { useTheme } from "next-themes";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -27,7 +27,7 @@ function ThemeToggleButton() {
       onClick={() => setTheme(isDark ? "light" : "dark")}
       className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
     >
-      {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      <PixelIcon name={isDark ? "sun" : "moon"} size="md" />
       {isDark ? "Day Mode" : "Night Mode"}
     </Button>
   );
@@ -54,7 +54,7 @@ export function MapMenuDrawer() {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
           <GlassIconButton size="lg" aria-label="Open menu">
-            <Menu className="h-5 w-5" />
+            <PixelIcon name="menu" size="md" />
           </GlassIconButton>
         </SheetTrigger>
         <SheetContent
@@ -77,7 +77,7 @@ export function MapMenuDrawer() {
                 location.pathname === "/" && "bg-foreground/10 text-foreground font-medium hover:bg-foreground/15"
               )}
             >
-              <Map className="h-5 w-5" />
+              <PixelIcon name="map" size="md" />
               Map
             </Button>
 
@@ -87,7 +87,7 @@ export function MapMenuDrawer() {
               onClick={() => setAllianceOpen(true)}
               className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
             >
-              <Users className="h-5 w-5" />
+              <PixelIcon name="users" size="md" />
               Alliance
             </Button>
 
@@ -97,7 +97,7 @@ export function MapMenuDrawer() {
               onClick={() => setRulesOpen(true)}
               className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
             >
-              <Book className="h-5 w-5" />
+              <PixelIcon name="book" size="md" />
               Rules
             </Button>
 
@@ -107,7 +107,7 @@ export function MapMenuDrawer() {
               onClick={() => setShopOpen(true)}
               className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
             >
-              <ShoppingBag className="h-5 w-5" />
+              <PixelIcon name="cart" size="md" />
               Shop
             </Button>
           </nav>
@@ -119,7 +119,7 @@ export function MapMenuDrawer() {
               onClick={() => setSettingsOpen(true)}
               className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
             >
-              <Settings className="h-5 w-5" />
+              <PixelIcon name="settings" size="md" />
               Settings
             </Button>
             <ThemeToggleButton />

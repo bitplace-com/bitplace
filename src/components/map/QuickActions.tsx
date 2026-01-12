@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Globe, BarChart3, Bell } from 'lucide-react';
+import { PixelIcon } from '@/components/icons';
 import { GlassIconButton } from '@/components/ui/glass-icon-button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { SearchModal } from '@/components/modals/SearchModal';
@@ -30,7 +30,7 @@ export function QuickActions() {
               onClick={() => setSearchOpen(true)}
               aria-label="Search location"
             >
-              <Globe className="h-4 w-4" />
+              <PixelIcon name="globe" size="sm" />
             </GlassIconButton>
           </TooltipTrigger>
           <TooltipContent side="right">Search location</TooltipContent>
@@ -42,7 +42,7 @@ export function QuickActions() {
               onClick={() => setLeaderboardOpen(true)}
               aria-label="Leaderboard"
             >
-              <BarChart3 className="h-4 w-4" />
+              <PixelIcon name="chart" size="sm" />
             </GlassIconButton>
           </TooltipTrigger>
           <TooltipContent side="right">Leaderboard</TooltipContent>
@@ -55,7 +55,7 @@ export function QuickActions() {
                 onClick={() => setNotificationsOpen(true)}
                 aria-label="Notifications"
               >
-                <Bell className="h-4 w-4" />
+                <PixelIcon name="bell" size="sm" />
               </GlassIconButton>
               {totalUnread > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center pointer-events-none">

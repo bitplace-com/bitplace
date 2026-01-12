@@ -1,4 +1,4 @@
-import { Plus, Minus, Eye, EyeOff } from 'lucide-react';
+import { PixelIcon } from '@/components/icons';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { GlassIconButton } from '@/components/ui/glass-icon-button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -28,11 +28,7 @@ export function ZoomControls({
             onClick={onToggleArtOpacity}
             aria-label={isReduced ? "Show art" : "Reduce art opacity"}
           >
-            {isReduced ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
+            <PixelIcon name={isReduced ? "eyeOff" : "eye"} size="sm" />
           </GlassIconButton>
         </TooltipTrigger>
         <TooltipContent side="left">
@@ -46,14 +42,14 @@ export function ZoomControls({
         onClick={onZoomIn}
         aria-label="Zoom in"
       >
-        <Plus className="h-4 w-4" />
+        <PixelIcon name="plus" size="sm" />
       </GlassIconButton>
       <GlassIconButton
         variant="default"
         onClick={onZoomOut}
         aria-label="Zoom out"
       >
-        <Minus className="h-4 w-4" />
+        <PixelIcon name="minus" size="sm" />
       </GlassIconButton>
     </div>
   );

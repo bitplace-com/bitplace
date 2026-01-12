@@ -1,4 +1,4 @@
-import { Paintbrush, Shield, Swords, Zap } from 'lucide-react';
+import { PixelIcon } from '@/components/icons';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -10,10 +10,10 @@ interface MapToolbarProps {
 }
 
 const modes: { value: MapMode; icon: React.ReactNode; label: string; hint: string }[] = [
-  { value: 'paint', icon: <Paintbrush className="h-4 w-4" />, label: 'Paint', hint: 'Click or drag to paint pixels' },
-  { value: 'defend', icon: <Shield className="h-4 w-4" />, label: 'Defend', hint: 'Click pixels to add defense' },
-  { value: 'attack', icon: <Swords className="h-4 w-4" />, label: 'Attack', hint: 'Click pixels to attack them' },
-  { value: 'reinforce', icon: <Zap className="h-4 w-4" />, label: 'Reinforce', hint: 'Click your pixels to reinforce' },
+  { value: 'paint', icon: <PixelIcon name="brush" size="sm" />, label: 'Paint', hint: 'Click or drag to paint pixels' },
+  { value: 'defend', icon: <PixelIcon name="shield" size="sm" />, label: 'Defend', hint: 'Click pixels to add defense' },
+  { value: 'attack', icon: <PixelIcon name="swords" size="sm" />, label: 'Attack', hint: 'Click pixels to attack them' },
+  { value: 'reinforce', icon: <PixelIcon name="bolt" size="sm" />, label: 'Reinforce', hint: 'Click your pixels to reinforce' },
 ];
 
 export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
