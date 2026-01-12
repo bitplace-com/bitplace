@@ -30,58 +30,87 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
 
   const currentMode = modes.find((m) => m.value === mode);
 
+  // Handle mode change - auto-collapse on mobile after selection
+  const handleModeChange = (value: string | undefined) => {
+    if (!value) return;
+    onModeChange(value as MapMode);
+    
+    // Auto-collapse on mobile after a brief delay for visual feedback
+    if (isMobile) {
+      setTimeout(() => {
+        setIsExpanded(false);
+      }, 150);
+    }
+  };
+
   return (
-    <GlassPanel variant="hud" padding="sm" className="shadow-lg">
-      {isExpanded ? (
-        // Expanded: Show all modes with toggle chevron
-        <div className="flex items-center gap-1">
-          <ToggleGroup
-            type="single"
-            value={mode}
-            onValueChange={(value) => value && onModeChange(value as MapMode)}
-            className="gap-1"
-          >
-            {modes.map(({ value, icon, label, hint }) => (
-              <Tooltip key={value}>
-                <TooltipTrigger asChild>
-                  <ToggleGroupItem
-                    value={value}
-                    aria-label={label}
-                    className="map-toolbar-btn flex items-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10"
-                  >
-                    {icon}
-                    <span className="text-sm font-medium hidden sm:inline">{label}</span>
-                  </ToggleGroupItem>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  {hint}
-                </TooltipContent>
-              </Tooltip>
-            ))}
-          </ToggleGroup>
+    <GlassPanel variant="hud" padding="sm" className="shadow-lg overflow-hidden">
+      <div
+        className={cn(
+          "grid transition-all duration-300 ease-out",
+          isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        )}
+      >
+        {/* Expanded content - all modes */}
+        <div className="overflow-hidden">
+          <div className="flex items-center gap-1">
+            <ToggleGroup
+              type="single"
+              value={mode}
+              onValueChange={handleModeChange}
+              className="gap-1"
+            >
+              {modes.map(({ value, icon, label, hint }) => (
+                <Tooltip key={value}>
+                  <TooltipTrigger asChild>
+                    <ToggleGroupItem
+                      value={value}
+                      aria-label={label}
+                      className="map-toolbar-btn flex items-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10"
+                    >
+                      {icon}
+                      <span className="text-sm font-medium hidden sm:inline">{label}</span>
+                    </ToggleGroupItem>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {hint}
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </ToggleGroup>
+            <button
+              onClick={() => setIsExpanded(false)}
+              className="ml-1 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+              aria-label="Collapse toolbar"
+            >
+              <PixelIcon name="chevronUp" className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Collapsed state - current mode only */}
+      <div
+        className={cn(
+          "grid transition-all duration-300 ease-out",
+          !isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        )}
+      >
+        <div className="overflow-hidden">
           <button
-            onClick={() => setIsExpanded(false)}
-            className="ml-1 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-            aria-label="Collapse toolbar"
+            onClick={() => setIsExpanded(true)}
+            className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10 w-full"
+            aria-label="Expand toolbar"
           >
-            <PixelIcon name="chevronUp" className="h-4 w-4 transition-transform duration-200" />
+            {currentMode?.icon}
+            <span className="text-sm font-medium">{currentMode?.label}</span>
+            <PixelIcon 
+              name="chevronDown" 
+              className="h-4 w-4 ml-auto text-muted-foreground" 
+            />
           </button>
         </div>
-      ) : (
-        // Collapsed: Show current mode only + chevron
-        <button
-          onClick={() => setIsExpanded(true)}
-          className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10"
-          aria-label="Expand toolbar"
-        >
-          {currentMode?.icon}
-          <span className="text-sm font-medium">{currentMode?.label}</span>
-          <PixelIcon 
-            name="chevronDown" 
-            className="h-4 w-4 ml-1 text-muted-foreground transition-transform duration-200" 
-          />
-        </button>
-      )}
+      </div>
     </GlassPanel>
   );
 }
