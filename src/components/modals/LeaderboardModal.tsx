@@ -9,6 +9,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { LevelPill } from "@/components/ui/level-pill";
 import { cn } from "@/lib/utils";
 import {
   useLeaderboard,
@@ -101,12 +102,12 @@ function PlayerRow({ entry, onPlayerClick }: { entry: PlayerEntry; onPlayerClick
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="font-medium text-sm truncate">{displayName}</span>
+          <LevelPill level={entry.level} size="xs" />
           {entry.allianceTag && (
             <span className="text-xs text-primary font-medium">[{entry.allianceTag}]</span>
           )}
           {country && <span className="text-sm">{country.flag}</span>}
         </div>
-        <div className="text-xs text-muted-foreground">Level {entry.level}</div>
       </div>
       <div className="text-sm font-medium tabular-nums">
         {formatNumber(entry.totalPixels)}
@@ -203,7 +204,7 @@ function PlayerRow({ entry, onPlayerClick }: { entry: PlayerEntry; onPlayerClick
 
           {/* Stats */}
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border">
-            <span>Level {entry.level}</span>
+            <LevelPill level={entry.level} size="xs" />
             <span>{formatNumber(entry.totalPixels)} pixels</span>
           </div>
         </div>
