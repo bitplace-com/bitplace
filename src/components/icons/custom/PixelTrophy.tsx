@@ -3,17 +3,7 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelTrophy(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="4" y="2" width="16" height="2" />
-      <rect x="4" y="4" width="2" height="6" />
-      <rect x="18" y="4" width="2" height="6" />
-      <rect x="2" y="4" width="2" height="4" />
-      <rect x="20" y="4" width="2" height="4" />
-      <rect x="6" y="10" width="2" height="2" />
-      <rect x="16" y="10" width="2" height="2" />
-      <rect x="8" y="12" width="8" height="2" />
-      <rect x="10" y="14" width="4" height="4" />
-      <rect x="6" y="18" width="12" height="2" />
-      <rect x="6" y="20" width="12" height="2" />
+      <path d="m18,4v-2H6v2H1v5h1v2h1v1h1v1h1v1h3v1h2v3h-4v3h10v-3h-4v-3h2v-1h3v-1h1v-1h1v-1h1v-2h1v-5h-5ZM5,12v-1h-1v-2h-1v-3h2v1h1v2h1v3h1v1h-2v-1h-1Zm16-3h-1v2h-1v1h-1v1h-2v-1h1v-2h1v-3h1v-1h2v3Z" />
     </PixelSVG>
   );
 }

@@ -3,15 +3,7 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelMoon(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="10" y="2" width="6" height="2" />
-      <rect x="8" y="4" width="2" height="2" />
-      <rect x="16" y="4" width="2" height="4" />
-      <rect x="6" y="6" width="2" height="4" />
-      <rect x="6" y="14" width="2" height="4" />
-      <rect x="8" y="18" width="2" height="2" />
-      <rect x="10" y="20" width="6" height="2" />
-      <rect x="16" y="16" width="2" height="4" />
-      <rect x="18" y="8" width="2" height="8" />
+      <polygon points="22 17 22 19 21 19 21 20 20 20 20 21 18 21 18 22 16 22 16 23 10 23 10 22 8 22 8 21 6 21 6 20 5 20 5 19 4 19 4 17 3 17 3 15 2 15 2 9 3 9 3 7 4 7 4 5 5 5 5 4 6 4 6 3 8 3 8 2 10 2 10 1 15 1 15 2 13 2 13 3 11 3 11 4 10 4 10 6 9 6 9 8 8 8 8 12 9 12 9 14 10 14 10 16 11 16 11 17 13 17 13 18 15 18 15 19 19 19 19 18 21 18 21 17 22 17" />
     </PixelSVG>
   );
 }

@@ -3,17 +3,8 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelSearch(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="6" y="2" width="8" height="2" />
-      <rect x="4" y="4" width="2" height="2" />
-      <rect x="14" y="4" width="2" height="2" />
-      <rect x="2" y="6" width="2" height="8" />
-      <rect x="16" y="6" width="2" height="8" />
-      <rect x="4" y="14" width="2" height="2" />
-      <rect x="14" y="14" width="2" height="2" />
-      <rect x="6" y="16" width="8" height="2" />
-      <rect x="16" y="16" width="2" height="2" />
-      <rect x="18" y="18" width="2" height="2" />
-      <rect x="20" y="20" width="2" height="2" />
+      <polygon points="16 17 15 17 15 18 13 18 13 19 7 19 7 18 5 18 5 17 4 17 4 16 3 16 3 15 2 15 2 13 1 13 1 7 2 7 2 5 3 5 3 4 4 4 4 3 5 3 5 2 7 2 7 1 13 1 13 2 15 2 15 3 16 3 16 4 17 4 17 5 18 5 18 7 19 7 19 13 18 13 18 15 17 15 17 16 16 16 16 17" />
+      <polygon points="23 20 23 22 22 22 22 23 20 23 20 22 19 22 19 21 18 21 18 20 17 20 17 19 16 19 16 18 17 18 17 17 18 17 18 16 19 16 19 17 20 17 20 18 21 18 21 19 22 19 22 20 23 20" />
     </PixelSVG>
   );
 }
