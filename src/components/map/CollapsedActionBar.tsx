@@ -1,4 +1,4 @@
-import { ChevronUp, Paintbrush, Shield, Swords, Eraser } from 'lucide-react';
+import { PixelIcon } from '@/components/icons';
 import { PEIcon } from '@/components/ui/pe-icon';
 import type { GameMode } from '@/hooks/useGameActions';
 import { cn } from '@/lib/utils';
@@ -12,12 +12,12 @@ interface CollapsedActionBarProps {
   className?: string;
 }
 
-const modeConfig: Record<GameMode, { icon: React.ReactNode; label: string; color: string }> = {
-  PAINT: { icon: <Paintbrush className="h-4 w-4" />, label: 'Paint', color: 'text-foreground' },
-  DEFEND: { icon: <Shield className="h-4 w-4" />, label: 'Defend', color: 'text-emerald-500' },
-  ATTACK: { icon: <Swords className="h-4 w-4" />, label: 'Attack', color: 'text-rose-500' },
-  REINFORCE: { icon: <PEIcon size="sm" />, label: 'Reinforce', color: 'text-amber-500' },
-  ERASE: { icon: <Eraser className="h-4 w-4" />, label: 'Erase', color: 'text-muted-foreground' },
+const modeConfig: Record<GameMode, { iconName: 'brush' | 'shield' | 'swords' | 'eraser'; label: string; color: string }> = {
+  PAINT: { iconName: 'brush', label: 'Paint', color: 'text-foreground' },
+  DEFEND: { iconName: 'shield', label: 'Defend', color: 'text-emerald-500' },
+  ATTACK: { iconName: 'swords', label: 'Attack', color: 'text-rose-500' },
+  REINFORCE: { iconName: 'shield', label: 'Reinforce', color: 'text-amber-500' },
+  ERASE: { iconName: 'eraser', label: 'Erase', color: 'text-muted-foreground' },
 };
 
 export function CollapsedActionBar({
@@ -54,8 +54,10 @@ export function CollapsedActionBar({
               className="h-5 w-5 rounded border border-border/50"
               style={{ backgroundColor: selectedColor }}
             />
+          ) : mode === 'REINFORCE' ? (
+            <PEIcon size="sm" />
           ) : (
-            config.icon
+            <PixelIcon name={config.iconName} className="h-4 w-4" />
           )}
         </div>
 
@@ -77,7 +79,7 @@ export function CollapsedActionBar({
         </div>
 
         {/* Expand chevron */}
-        <ChevronUp className="h-5 w-5 text-muted-foreground" />
+        <PixelIcon name="chevronUp" className="h-5 w-5 text-muted-foreground" />
       </div>
     </button>
   );

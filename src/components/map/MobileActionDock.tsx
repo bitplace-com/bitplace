@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, ChevronDown, Shield, Swords, Loader2 } from 'lucide-react';
+import { PixelIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CollapsedActionBar } from './CollapsedActionBar';
@@ -238,7 +238,7 @@ export function MobileActionDock({
                   onClick={handleCollapse}
                   title="Collapse"
                 >
-                  <ChevronDown className="h-5 w-5" />
+                  <PixelIcon name="chevronDown" className="h-5 w-5" />
                 </Button>
                 {/* Cancel button */}
                 <Button
@@ -248,7 +248,7 @@ export function MobileActionDock({
                   onClick={handleCancel}
                   title="Cancel"
                 >
-                  <X className="h-5 w-5" />
+                  <PixelIcon name="close" className="h-5 w-5" />
                 </Button>
               </div>
             </div>
@@ -291,9 +291,9 @@ export function MobileActionDock({
                         >
                           <div className="flex items-center gap-1.5">
                             {withdrawingSide === 'DEF' ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <PixelIcon name="loader" className="h-4 w-4 animate-spin" />
                             ) : (
-                              <Shield className="h-4 w-4 text-emerald-500" />
+                              <PixelIcon name="shield" className="h-4 w-4 text-emerald-500" />
                             )}
                             <span className="text-foreground">Withdraw DEF</span>
                             <span className="text-muted-foreground text-xs">({withdrawStats.defPixelCount} px)</span>
@@ -312,9 +312,9 @@ export function MobileActionDock({
                         >
                           <div className="flex items-center gap-1.5">
                             {withdrawingSide === 'ATK' ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <PixelIcon name="loader" className="h-4 w-4 animate-spin" />
                             ) : (
-                              <Swords className="h-4 w-4 text-rose-500" />
+                              <PixelIcon name="swords" className="h-4 w-4 text-rose-500" />
                             )}
                             <span className="text-foreground">Withdraw ATK</span>
                             <span className="text-muted-foreground text-xs">({withdrawStats.atkPixelCount} px)</span>

@@ -56,6 +56,10 @@ import { PixelInstagram } from './custom/PixelInstagram';
 import { PixelShare } from './custom/PixelShare';
 import { PixelExternalLink } from './custom/PixelExternalLink';
 import { PixelSmartphone } from './custom/PixelSmartphone';
+import { PixelCopy } from './custom/PixelCopy';
+import { PixelLogout } from './custom/PixelLogout';
+import { PixelVolumeOn } from './custom/PixelVolumeOn';
+import { PixelVolumeOff } from './custom/PixelVolumeOff';
 
 export type IconName =
   | 'hand'
@@ -112,7 +116,11 @@ export type IconName =
   | 'instagram'
   | 'share'
   | 'externalLink'
-  | 'smartphone';
+  | 'smartphone'
+  | 'copy'
+  | 'logout'
+  | 'volumeOn'
+  | 'volumeOff';
 
 type PixelIconComponent = ComponentType<SVGProps<SVGSVGElement> & { className?: string }>;
 
@@ -172,4 +180,8 @@ export const icons: Record<IconName, PixelIconComponent> = {
   share: PixelShare,
   externalLink: PixelExternalLink,
   smartphone: PixelSmartphone,
+  copy: PixelCopy,
+  logout: PixelLogout,
+  volumeOn: PixelVolumeOn,
+  volumeOff: PixelVolumeOff,
 };

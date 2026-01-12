@@ -1,4 +1,4 @@
-import { User, LogOut, BarChart3, Copy, Check, BookOpen, Users, Volume2, VolumeX, Wallet, Settings } from "lucide-react";
+import { PixelIcon } from "@/components/icons";
 import { PEIcon } from "@/components/ui/pe-icon";
 import { useState } from "react";
 import {
@@ -101,9 +101,9 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                   >
                     {shortenAddress(walletAddress)}
                     {copied ? (
-                      <Check className="h-3 w-3 text-emerald-500" />
+                      <PixelIcon name="check" className="h-3 w-3 text-emerald-500" />
                     ) : (
-                      <Copy className="h-3 w-3" />
+                      <PixelIcon name="copy" className="h-3 w-3" />
                     )}
                   </button>
                 )}
@@ -115,7 +115,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               )}
               {user?.alliance_tag && (
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <Users className="h-3 w-3 text-foreground" />
+                  <PixelIcon name="users" className="h-3 w-3 text-foreground" />
                   <span className="text-xs font-medium font-mono text-foreground">
                     [{user.alliance_tag}]
                   </span>
@@ -130,7 +130,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
         {/* Wallet Section */}
         <div className="p-4 space-y-2">
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-            <Wallet className="h-3.5 w-3.5" />
+            <PixelIcon name="wallet" className="h-3.5 w-3.5" />
             <span className="uppercase tracking-wider font-medium">Wallet</span>
           </div>
           <div className="flex items-center justify-between">
@@ -192,7 +192,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
             onClick={() => setSettingsOpen(true)}
           >
-            <Settings className="h-4 w-4" />
+            <PixelIcon name="settings" className="h-4 w-4" />
             Settings
           </Button>
           <Button
@@ -200,7 +200,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
             onClick={() => setLeaderboardOpen(true)}
           >
-            <BarChart3 className="h-4 w-4" />
+            <PixelIcon name="trophy" className="h-4 w-4" />
             Leaderboard
           </Button>
           <Button
@@ -208,7 +208,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
             onClick={() => setRulesOpen(true)}
           >
-            <BookOpen className="h-4 w-4" />
+            <PixelIcon name="book" className="h-4 w-4" />
             Rules
           </Button>
         </div>
@@ -219,7 +219,11 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
         <div className="p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              {soundEnabled ? (
+                <PixelIcon name="volumeOn" className="h-4 w-4" />
+              ) : (
+                <PixelIcon name="volumeOff" className="h-4 w-4" />
+              )}
               <span>Sound effects</span>
             </div>
             <Switch checked={soundEnabled} onCheckedChange={toggleSound} />
@@ -235,7 +239,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             className="w-full justify-start gap-3 h-10 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
             onClick={disconnect}
           >
-            <LogOut className="h-4 w-4" />
+            <PixelIcon name="logout" className="h-4 w-4" />
             Disconnect
           </Button>
         </div>
