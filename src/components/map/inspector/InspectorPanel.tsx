@@ -3,7 +3,7 @@ import { X, ChevronLeft, ChevronRight, AlertTriangle, Shield, Swords, Loader2 } 
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GlassPanel } from '@/components/ui/glass-panel';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
+// Drawer removed - mobile now uses MobileActionDock
 import { PixelTab } from './PixelTab';
 import { AreaTab } from './AreaTab';
 import { ActionBox } from './ActionBox';
@@ -322,32 +322,9 @@ export function InspectorPanel({
     return null;
   }
 
-  // Mobile: Use bottom drawer
+  // Mobile: Use MobileActionDock instead (rendered separately in BitplaceMap)
   if (isMobile) {
-    return (
-      <Drawer open={hasSelection} onOpenChange={(open) => !open && onClearSelection()}>
-        <DrawerContent className="max-h-[80vh] min-h-[40vh]">
-          <DrawerHeader className="flex items-center justify-between px-4 py-3 border-b border-border/20 shrink-0">
-            <DrawerTitle className="text-sm font-medium">
-              {selectedPixels.length} pixel{selectedPixels.length !== 1 ? 's' : ''} selected
-            </DrawerTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-11 w-11 rounded-lg hover:bg-destructive/10 hover:text-destructive touch-target"
-              onClick={onClearSelection}
-              title="Clear selection"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </DrawerHeader>
-          
-          <div className="flex flex-col overflow-y-auto flex-1 pb-4">
-            {isSelectionTooLarge ? renderTooLargeWarning() : renderContent()}
-          </div>
-        </DrawerContent>
-      </Drawer>
-    );
+    return null;
   }
 
   // Desktop: Selection too large
