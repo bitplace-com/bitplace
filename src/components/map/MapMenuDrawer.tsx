@@ -16,6 +16,7 @@ import { RulesModal } from "@/components/modals/RulesModal";
 import { ShopModal } from "@/components/modals/ShopModal";
 import { AllianceModal } from "@/components/modals/AllianceModal";
 import { SettingsModal } from "@/components/modals/SettingsModal";
+import { PlacesModal } from "@/components/modals/PlacesModal";
 
 function ThemeToggleButton() {
   const { theme, setTheme } = useTheme();
@@ -39,6 +40,7 @@ export function MapMenuDrawer() {
   const [shopOpen, setShopOpen] = useState(false);
   const [allianceOpen, setAllianceOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [placesOpen, setPlacesOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -79,6 +81,16 @@ export function MapMenuDrawer() {
             >
               <PixelIcon name="map" size="md" />
               Map
+            </Button>
+
+            {/* Places */}
+            <Button
+              variant="ghost"
+              onClick={() => setPlacesOpen(true)}
+              className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
+            >
+              <PixelIcon name="pin" size="md" />
+              Places
             </Button>
 
             {/* Alliance - opens panel (sidebar stays open) */}
@@ -131,6 +143,7 @@ export function MapMenuDrawer() {
       <ShopModal open={shopOpen} onOpenChange={setShopOpen} />
       <AllianceModal open={allianceOpen} onOpenChange={setAllianceOpen} />
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <PlacesModal open={placesOpen} onOpenChange={setPlacesOpen} />
     </>
   );
 }

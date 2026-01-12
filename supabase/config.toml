@@ -56,3 +56,18 @@ verify_jwt = false
 
 [functions.pixels-fetch-tiles]
 verify_jwt = false
+
+[functions.places-create]
+verify_jwt = false
+
+[functions.places-feed]
+verify_jwt = false
+
+[functions.places-toggle-like]
+verify_jwt = false
+
+[functions.places-toggle-save]
+verify_jwt = false
+
+[functions.places-my]
+verify_jwt = false

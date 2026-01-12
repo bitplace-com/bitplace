@@ -1,0 +1,243 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+// Verify custom JWT token (optional for this endpoint)
+async function verifyToken(token: string, secret: string): Promise<{ wallet: string; userId: string; exp: number } | null> {
+  try {
+    const [headerB64, payloadB64, signatureB64] = token.split(".");
+    if (!headerB64 || !payloadB64 || !signatureB64) return null;
+
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"]
+    );
+
+    const signatureInput = `${headerB64}.${payloadB64}`;
+    const signature = Uint8Array.from(atob(signatureB64.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+    const valid = await crypto.subtle.verify("HMAC", key, signature, encoder.encode(signatureInput));
+    if (!valid) return null;
+
+    const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
+    if (payload.exp && Date.now() > payload.exp) return null;
+
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+interface FeedRequest {
+  category: "new" | "trending" | "popular";
+  limit?: number;
+  offset?: number;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const authSecret = Deno.env.get("AUTH_SECRET");
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Optional auth
+    let userId: string | null = null;
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader?.startsWith("Bearer ") && authSecret) {
+      const token = authHeader.replace("Bearer ", "");
+      const payload = await verifyToken(token, authSecret);
+      if (payload) {
+        userId = payload.userId;
+      }
+    }
+
+    const body: FeedRequest = await req.json();
+    const { category, limit = 20, offset = 0 } = body;
+
+    if (!["new", "trending", "popular"].includes(category)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid category. Must be 'new', 'trending', or 'popular'" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const safeLimit = Math.min(Math.max(1, limit), 50);
+    const safeOffset = Math.max(0, offset);
+
+    // Get current time bounds
+    const now = new Date();
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    // Fetch places based on category
+    let placesQuery = adminClient
+      .from("places")
+      .select("*")
+      .eq("is_public", true);
+
+    if (category === "new") {
+      // New: Order by created_at DESC
+      placesQuery = placesQuery
+        .order("created_at", { ascending: false })
+        .range(safeOffset, safeOffset + safeLimit - 1);
+    } else if (category === "popular") {
+      // Popular: Order by likes_count DESC
+      placesQuery = placesQuery
+        .order("likes_count", { ascending: false })
+        .order("created_at", { ascending: false })
+        .range(safeOffset, safeOffset + safeLimit - 1);
+    } else {
+      // Trending: Need to compute score based on recent activity
+      // For now, fetch all recent places and compute scores
+      placesQuery = placesQuery
+        .gte("created_at", sevenDaysAgo.toISOString())
+        .order("created_at", { ascending: false })
+        .limit(200); // Get more to compute trending
+    }
+
+    const { data: places, error: placesError } = await placesQuery;
+    if (placesError) throw placesError;
+
+    if (!places || places.length === 0) {
+      return new Response(
+        JSON.stringify({ places: [], hasMore: false }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const placeIds = places.map(p => p.id);
+    const creatorIds = [...new Set(places.map(p => p.creator_user_id))];
+
+    // Fetch creator profiles
+    const { data: creators } = await adminClient
+      .from("public_user_profiles")
+      .select("id, display_name, avatar_url, country_code, level, pixels_painted_total")
+      .in("id", creatorIds);
+
+    const creatorsMap = new Map(creators?.map(c => [c.id, c]) || []);
+
+    // Fetch likes in last 24h for each place
+    const { data: recentLikes } = await adminClient
+      .from("place_likes")
+      .select("place_id")
+      .in("place_id", placeIds)
+      .gte("created_at", twentyFourHoursAgo.toISOString());
+
+    const likes24hMap = new Map<string, number>();
+    recentLikes?.forEach(like => {
+      likes24hMap.set(like.place_id, (likes24hMap.get(like.place_id) || 0) + 1);
+    });
+
+    // Fetch pixel activity in last 24h for each place's bbox
+    // This is expensive, so we'll do a simplified version
+    const activity24hMap = new Map<string, number>();
+    
+    for (const place of places) {
+      if (place.bbox_xmin != null && place.bbox_ymin != null && 
+          place.bbox_xmax != null && place.bbox_ymax != null) {
+        const { count } = await adminClient
+          .from("pixels")
+          .select("*", { count: "exact", head: true })
+          .gte("x", place.bbox_xmin)
+          .lte("x", place.bbox_xmax)
+          .gte("y", place.bbox_ymin)
+          .lte("y", place.bbox_ymax)
+          .gte("updated_at", twentyFourHoursAgo.toISOString());
+        
+        activity24hMap.set(place.id, count || 0);
+      }
+    }
+
+    // Fetch user's likes and saves if authenticated
+    let userLikesSet = new Set<string>();
+    let userSavesSet = new Set<string>();
+
+    if (userId) {
+      const [likesResult, savesResult] = await Promise.all([
+        adminClient.from("place_likes").select("place_id").eq("user_id", userId).in("place_id", placeIds),
+        adminClient.from("place_saves").select("place_id").eq("user_id", userId).in("place_id", placeIds),
+      ]);
+      
+      userLikesSet = new Set(likesResult.data?.map(l => l.place_id) || []);
+      userSavesSet = new Set(savesResult.data?.map(s => s.place_id) || []);
+    }
+
+    // Build response with stats
+    let enrichedPlaces = places.map(place => {
+      const likes24h = likes24hMap.get(place.id) || 0;
+      const activity24h = activity24hMap.get(place.id) || 0;
+      const trendingScore = (likes24h * 5) + activity24h;
+
+      return {
+        id: place.id,
+        title: place.title,
+        description: place.description,
+        lat: place.lat,
+        lng: place.lng,
+        zoom: place.zoom,
+        center_x: place.center_x,
+        center_y: place.center_y,
+        bbox_xmin: place.bbox_xmin,
+        bbox_ymin: place.bbox_ymin,
+        bbox_xmax: place.bbox_xmax,
+        bbox_ymax: place.bbox_ymax,
+        created_at: place.created_at,
+        updated_at: place.updated_at,
+        creator: creatorsMap.get(place.creator_user_id) || null,
+        stats: {
+          likes_all_time: place.likes_count,
+          saves_all_time: place.saves_count,
+          likes_24h: likes24h,
+          activity_24h: activity24h,
+          trending_score: trendingScore,
+        },
+        likedByMe: userLikesSet.has(place.id),
+        savedByMe: userSavesSet.has(place.id),
+      };
+    });
+
+    // Sort by trending score for trending category
+    if (category === "trending") {
+      enrichedPlaces.sort((a, b) => {
+        if (b.stats.trending_score !== a.stats.trending_score) {
+          return b.stats.trending_score - a.stats.trending_score;
+        }
+        if (b.stats.likes_24h !== a.stats.likes_24h) {
+          return b.stats.likes_24h - a.stats.likes_24h;
+        }
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      
+      // Apply pagination for trending
+      enrichedPlaces = enrichedPlaces.slice(safeOffset, safeOffset + safeLimit);
+    }
+
+    const hasMore = category === "trending" 
+      ? enrichedPlaces.length === safeLimit
+      : places.length === safeLimit;
+
+    return new Response(
+      JSON.stringify({ places: enrichedPlaces, hasMore }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+
+  } catch (error) {
+    console.error("[places-feed] Error:", error);
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return new Response(
+      JSON.stringify({ error: message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
