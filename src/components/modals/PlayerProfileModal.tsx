@@ -1,8 +1,5 @@
 import { useRef, useEffect, useState } from "react";
-import { 
-  User, Globe, Twitter, Instagram, MapPin, 
-  Calendar, Zap, Crown, X, ExternalLink, UserPlus, UserMinus, Users
-} from "lucide-react";
+import { PixelIcon } from "@/components/icons";
 import { format } from "date-fns";
 import {
   Dialog,
@@ -113,18 +110,18 @@ function PixelMiniMap({ pixels }: { pixels: PlayerPixel[] }) {
 function StatCard({ 
   label, 
   value, 
-  icon: Icon,
+  iconName,
   suffix,
 }: { 
   label: string; 
   value: string | number;
-  icon?: React.ElementType;
+  iconName?: string;
   suffix?: React.ReactNode;
 }) {
   return (
     <div className="bg-accent rounded-lg p-3">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-        {Icon && <Icon className="h-3 w-3" />}
+        {iconName && <PixelIcon name={iconName as any} className="h-3 w-3" />}
         {label}
       </div>
       <div className="text-lg font-semibold flex items-center gap-1">
@@ -199,7 +196,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
           </div>
         ) : error || !profile ? (
           <div className="py-8 text-center">
-            <User className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+            <PixelIcon name="user" className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
             <p className="text-muted-foreground">{error || 'Player not found'}</p>
           </div>
         ) : (
@@ -245,7 +242,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
                     "text-xs font-medium px-2 py-0.5 rounded-full",
                     "bg-primary/10 text-primary"
                   )}>
-                    <Crown className="h-3 w-3 inline mr-1" />
+                    <PixelIcon name="crown" className="h-3 w-3 inline mr-1" />
                     Level {profile.level}
                   </span>
                   {statusTitle && (
@@ -267,12 +264,12 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
                 >
                   {following ? (
                     <>
-                      <UserMinus className="h-4 w-4 mr-1.5" />
+                      <PixelIcon name="userMinus" className="h-4 w-4 mr-1.5" />
                       Unfollow
                     </>
                   ) : (
                     <>
-                      <UserPlus className="h-4 w-4 mr-1.5" />
+                      <PixelIcon name="userPlus" className="h-4 w-4 mr-1.5" />
                       Follow
                     </>
                   )}
@@ -283,7 +280,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
             {/* Followers count */}
             {followerCount > 0 && (
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Users className="h-4 w-4" />
+                <PixelIcon name="users" className="h-4 w-4" />
                 {followerCount} follower{followerCount !== 1 ? 's' : ''}
               </div>
             )}
@@ -305,9 +302,9 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <Twitter className="h-4 w-4" />
+                    <PixelIcon name="twitter" className="h-4 w-4" />
                     <span className="hidden sm:inline">Twitter</span>
-                    <ExternalLink className="h-3 w-3" />
+                    <PixelIcon name="externalLink" className="h-3 w-3" />
                   </a>
                 )}
                 {profile.socialInstagram && (
@@ -317,9 +314,9 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <Instagram className="h-4 w-4" />
+                    <PixelIcon name="instagram" className="h-4 w-4" />
                     <span className="hidden sm:inline">Instagram</span>
-                    <ExternalLink className="h-3 w-3" />
+                    <PixelIcon name="externalLink" className="h-3 w-3" />
                   </a>
                 )}
                 {profile.socialWebsite && (
@@ -329,9 +326,9 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <Globe className="h-4 w-4" />
+                    <PixelIcon name="globe" className="h-4 w-4" />
                     <span className="hidden sm:inline">Website</span>
-                    <ExternalLink className="h-3 w-3" />
+                    <PixelIcon name="externalLink" className="h-3 w-3" />
                   </a>
                 )}
               </div>
@@ -343,7 +340,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-medium flex items-center gap-1.5">
-                  <MapPin className="h-4 w-4" />
+                  <PixelIcon name="pin" className="h-4 w-4" />
                   Owned Pixels
                 </h4>
                 <span className="text-xs text-muted-foreground">
@@ -360,7 +357,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
               <StatCard
                 label="Pixels Owned"
                 value={profile.totalPixelsOwned}
-                icon={MapPin}
+                iconName="pin"
               />
               <StatCard
                 label="Total Staked"
@@ -370,18 +367,18 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
               <StatCard
                 label="Level"
                 value={profile.level}
-                icon={Crown}
+                iconName="crown"
               />
               <StatCard
                 label="XP"
                 value={profile.xp}
-                icon={Zap}
+                iconName="bolt"
               />
             </div>
 
             {/* Joined date */}
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground justify-center pt-2">
-              <Calendar className="h-3 w-3" />
+              <PixelIcon name="calendar" className="h-3 w-3" />
               Joined {format(new Date(profile.joinedAt), 'MMMM d, yyyy')}
             </div>
           </div>

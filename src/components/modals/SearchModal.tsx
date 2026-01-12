@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, MapPin, Clock, X, Navigation, Loader2, Star, Pencil, Trash2 } from "lucide-react";
+import { PixelIcon } from "@/components/icons";
 import { GamePanel } from "./GamePanel";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -216,7 +216,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
       onOpenChange={onOpenChange}
       title="Search"
       description="Jump to coordinates or find places"
-      icon={<Search className="h-5 w-5" />}
+      icon={<PixelIcon name="search" className="h-5 w-5" />}
       size="sm"
     >
       <div className="space-y-4">
@@ -237,7 +237,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
               className="absolute right-1 top-1/2 -translate-y-1/2 h-7 px-2"
               onClick={() => setInputValue("")}
             >
-              <X className="h-4 w-4" />
+              <PixelIcon name="close" className="h-4 w-4" />
             </Button>
           )}
         </div>
@@ -250,7 +250,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
             </span>
             {canJump && (
               <Button size="sm" onClick={handleJump} className="gap-1">
-                <Navigation className="h-3 w-3" />
+                <PixelIcon name="navigation" className="h-3 w-3" />
                 Jump
               </Button>
             )}
@@ -265,7 +265,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
         {/* Loading indicator */}
         {isSearching && (
           <div className="flex items-center justify-center py-4 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+            <PixelIcon name="loader" className="h-5 w-5 animate-spin mr-2" />
             <span className="text-sm">Searching...</span>
           </div>
         )}
@@ -283,7 +283,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                     key={pin.id}
                     className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group"
                   >
-                    <Star className="h-4 w-4 text-primary fill-primary shrink-0" />
+                    <PixelIcon name="star" className="h-4 w-4 text-primary shrink-0" />
                     
                     {editingPinId === pin.id ? (
                       <Input
@@ -310,7 +310,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                         className="h-6 w-6 p-0"
                         onClick={() => handleStartEdit(pin)}
                       >
-                        <Pencil className="h-3 w-3" />
+                        <PixelIcon name="pencil" className="h-3 w-3" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -318,7 +318,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                         className="h-6 w-6 p-0 text-destructive hover:text-destructive"
                         onClick={() => handleDeletePin(pin.id)}
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <PixelIcon name="trash" className="h-3 w-3" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -326,7 +326,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                         className="h-6 w-6 p-0"
                         onClick={() => handlePinnedClick(pin)}
                       >
-                        <Navigation className="h-3 w-3" />
+                        <PixelIcon name="navigation" className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>
@@ -351,7 +351,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                       key={i}
                       className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group"
                     >
-                      <MapPin className="h-4 w-4 text-primary shrink-0" />
+                      <PixelIcon name="pin" className="h-4 w-4 text-primary shrink-0" />
                       <button
                         onClick={() => handlePlaceClick(place)}
                         className="text-sm line-clamp-1 flex-1 text-left"
@@ -367,9 +367,9 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                         )}
                         onClick={() => handleTogglePin(place.lat, place.lng, place.name.split(',')[0])}
                       >
-                        <Star className={cn(
+                        <PixelIcon name="star" className={cn(
                           "h-3.5 w-3.5",
-                          pinned ? "fill-primary text-primary" : "text-muted-foreground"
+                          pinned ? "text-primary" : "text-muted-foreground"
                         )} />
                       </Button>
                     </div>
@@ -403,7 +403,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                     key={recent.id}
                     className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group"
                   >
-                    <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <PixelIcon name="clock" className="h-4 w-4 text-muted-foreground shrink-0" />
                     <button
                       onClick={() => handleRecentClick(recent)}
                       className="text-sm truncate flex-1 text-left"
@@ -419,7 +419,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                       className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={() => handleTogglePin(recent.lat, recent.lng, recent.displayName)}
                     >
-                      <Star className="h-3.5 w-3.5 text-muted-foreground" />
+                      <PixelIcon name="star" className="h-3.5 w-3.5 text-muted-foreground" />
                     </Button>
                   </div>
                 ))}
@@ -431,7 +431,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
         {/* Empty state */}
         {!parsedType && !searchResults.length && !pinnedPlaces.length && !filteredRecents.length && !isSearching && (
           <div className="text-center py-6 text-muted-foreground">
-            <Search className="h-8 w-8 mx-auto mb-2 opacity-40" />
+            <PixelIcon name="search" className="h-8 w-8 mx-auto mb-2 opacity-40" />
             <p className="text-sm">Enter coordinates or a place name</p>
             <p className="text-xs mt-1 opacity-70">
               Examples: 41.9028, 12.4964 · 12345:67890 · Tokyo

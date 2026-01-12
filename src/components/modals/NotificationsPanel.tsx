@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bell, Users, Shield, Swords, Paintbrush, Check, X, Loader2, CheckCheck, MapPin } from "lucide-react";
+import { PixelIcon } from "@/components/icons";
 import { GamePanel } from "./GamePanel";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -16,11 +16,11 @@ interface NotificationsPanelProps {
 }
 
 const typeIcons: Record<NotificationType, React.ReactNode> = {
-  ALLIANCE_INVITE: <Users className="h-4 w-4 text-primary" />,
-  PIXEL_TAKEOVER: <Paintbrush className="h-4 w-4 text-destructive" />,
-  PIXEL_DEFENDED: <Shield className="h-4 w-4 text-emerald-500" />,
-  PIXEL_ATTACKED: <Swords className="h-4 w-4 text-amber-500" />,
-  SYSTEM: <Bell className="h-4 w-4 text-muted-foreground" />,
+  ALLIANCE_INVITE: <PixelIcon name="users" className="h-4 w-4 text-primary" />,
+  PIXEL_TAKEOVER: <PixelIcon name="brush" className="h-4 w-4 text-destructive" />,
+  PIXEL_DEFENDED: <PixelIcon name="shield" className="h-4 w-4 text-emerald-500" />,
+  PIXEL_ATTACKED: <PixelIcon name="swords" className="h-4 w-4 text-amber-500" />,
+  SYSTEM: <PixelIcon name="bell" className="h-4 w-4 text-muted-foreground" />,
 };
 
 const typeColors: Record<NotificationType, string> = {
@@ -133,7 +133,7 @@ export function NotificationsPanel({ open, onOpenChange }: NotificationsPanelPro
       onOpenChange={onOpenChange}
       title="Notifications"
       description={unreadCount > 0 ? `${unreadCount} unread` : "All caught up"}
-      icon={<Bell className="h-5 w-5" />}
+      icon={<PixelIcon name="bell" className="h-5 w-5" />}
       size="sm"
     >
       <div className="space-y-4">
@@ -146,7 +146,7 @@ export function NotificationsPanel({ open, onOpenChange }: NotificationsPanelPro
               onClick={markAllAsRead}
               className="text-xs text-muted-foreground hover:text-foreground"
             >
-              <CheckCheck className="h-3.5 w-3.5 mr-1" />
+              <PixelIcon name="checkDouble" className="h-3.5 w-3.5 mr-1" />
               Mark all as read
             </Button>
           </div>
@@ -154,11 +154,11 @@ export function NotificationsPanel({ open, onOpenChange }: NotificationsPanelPro
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <PixelIcon name="loader" className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : !hasContent ? (
           <div className="text-center py-12 text-muted-foreground">
-            <Bell className="h-10 w-10 mx-auto mb-3 opacity-30" />
+            <PixelIcon name="bell" className="h-10 w-10 mx-auto mb-3 opacity-30" />
             <p className="text-sm">No notifications</p>
           </div>
         ) : (
@@ -204,10 +204,10 @@ export function NotificationsPanel({ open, onOpenChange }: NotificationsPanelPro
                       disabled={processingId === invite.id}
                     >
                       {processingId === invite.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <PixelIcon name="loader" className="h-4 w-4 animate-spin" />
                       ) : (
                         <>
-                          <Check className="h-4 w-4 mr-1" />
+                          <PixelIcon name="check" className="h-4 w-4 mr-1" />
                           Accept
                         </>
                       )}
@@ -220,10 +220,10 @@ export function NotificationsPanel({ open, onOpenChange }: NotificationsPanelPro
                       disabled={processingId === invite.id}
                     >
                       {processingId === invite.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <PixelIcon name="loader" className="h-4 w-4 animate-spin" />
                       ) : (
                         <>
-                          <X className="h-4 w-4 mr-1" />
+                          <PixelIcon name="close" className="h-4 w-4 mr-1" />
                           Decline
                         </>
                       )}
@@ -266,7 +266,7 @@ export function NotificationsPanel({ open, onOpenChange }: NotificationsPanelPro
                         </p>
                         {notification.meta?.pixel_x !== undefined && (
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
+                            <PixelIcon name="pin" className="h-3 w-3" />
                             ({notification.meta.pixel_x}, {notification.meta.pixel_y})
                           </span>
                         )}

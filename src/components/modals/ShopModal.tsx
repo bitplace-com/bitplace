@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Coins, Copy, Check, ExternalLink, RefreshCw, Smartphone } from "lucide-react";
+import { PixelIcon } from "@/components/icons";
 import { QRCodeSVG } from "qrcode.react";
 import { GamePanel } from "./GamePanel";
 import { Button } from "@/components/ui/button";
@@ -72,14 +72,14 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
       onOpenChange={onOpenChange}
       title="Get more PE"
       description={`Increase your Pixel Energy by adding ${assetSymbol} to your wallet`}
-      icon={<Coins className="h-5 w-5" />}
+      icon={<PixelIcon name="coins" className="h-5 w-5" />}
       size="sm"
     >
       <div className="space-y-4">
         {!isConnected ? (
           <div className="text-center py-6">
             <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
-              <Coins className="h-6 w-6 text-muted-foreground" />
+              <PixelIcon name="coins" className="h-6 w-6 text-muted-foreground" />
             </div>
             <p className="font-medium text-foreground mb-1">Connect Your Wallet</p>
             <p className="text-sm text-muted-foreground">
@@ -112,9 +112,9 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
                   onClick={handleCopyAddress}
                 >
                   {copied ? (
-                    <Check className="h-4 w-4 text-emerald-500" />
+                    <PixelIcon name="check" className="h-4 w-4 text-emerald-500" />
                   ) : (
-                    <Copy className="h-4 w-4" />
+                    <PixelIcon name="copy" className="h-4 w-4" />
                   )}
                 </Button>
               </div>
@@ -142,11 +142,11 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
                 onClick={handleOpenPhantomSwap}
                 disabled={!isMobile}
               >
-                <ExternalLink className="h-4 w-4" />
+                <PixelIcon name="externalLink" className="h-4 w-4" />
                 <span>Open Phantom Swap</span>
                 {!isMobile && (
                   <span className="flex items-center gap-1 text-xs text-muted-foreground ml-1">
-                    <Smartphone className="h-3 w-3" />
+                    <PixelIcon name="smartphone" className="h-3 w-3" />
                     Mobile only
                   </span>
                 )}
@@ -158,7 +158,7 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
                 onClick={handleRefreshBalance}
                 disabled={isRefreshing}
               >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <PixelIcon name="refresh" className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 <span>{isRefreshing ? "Refreshing..." : "Refresh Balance"}</span>
               </Button>
             </div>

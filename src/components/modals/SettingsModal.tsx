@@ -1,8 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { 
-  User, Globe, Link, Volume2, VolumeX, 
-  Upload, ExternalLink, FileText, Shield, Instagram, Twitter, Settings
-} from "lucide-react";
+import { PixelIcon } from "@/components/icons";
 import { GamePanel } from "./GamePanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -166,14 +163,14 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       open={open}
       onOpenChange={onOpenChange}
       title="Settings"
-      icon={<Settings className="h-5 w-5" />}
+      icon={<PixelIcon name="settings" className="h-5 w-5" />}
       size="md"
     >
       <div className="space-y-6">
         {/* Identity Section */}
         <section className="space-y-4">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-            <User className="h-4 w-4" />
+            <PixelIcon name="user" className="h-4 w-4" />
             Identity
           </h3>
           
@@ -209,7 +206,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 disabled={!isAuthenticated || isUploading}
                 className="gap-2"
               >
-                <Upload className="h-4 w-4" />
+                <PixelIcon name="upload" className="h-4 w-4" />
                 Upload
               </Button>
               <input
@@ -259,7 +256,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         {/* About Section */}
         <section className="space-y-4">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-            <FileText className="h-4 w-4" />
+            <PixelIcon name="book" className="h-4 w-4" />
             About
           </h3>
           
@@ -290,14 +287,14 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         {/* Links Section */}
         <section className="space-y-4">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-            <Link className="h-4 w-4" />
+            <PixelIcon name="link" className="h-4 w-4" />
             Links
           </h3>
           
           {/* X/Twitter */}
           <div className="space-y-2">
             <Label htmlFor="social-x" className="flex items-center gap-2">
-              <Twitter className="h-4 w-4" />
+              <PixelIcon name="twitter" className="h-4 w-4" />
               X / Twitter
             </Label>
             <Input
@@ -312,7 +309,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           {/* Instagram */}
           <div className="space-y-2">
             <Label htmlFor="social-instagram" className="flex items-center gap-2">
-              <Instagram className="h-4 w-4" />
+              <PixelIcon name="instagram" className="h-4 w-4" />
               Instagram
             </Label>
             <Input
@@ -327,7 +324,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           {/* Website */}
           <div className="space-y-2">
             <Label htmlFor="social-website" className="flex items-center gap-2">
-              <Globe className="h-4 w-4" />
+              <PixelIcon name="globe" className="h-4 w-4" />
               Website
             </Label>
             <Input
@@ -351,7 +348,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           {/* Sound */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              <PixelIcon name={soundEnabled ? "volumeOn" : "volumeOff"} className="h-4 w-4" />
               <Label>Sound Effects</Label>
             </div>
             <Switch
@@ -366,7 +363,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         {/* Legal Section */}
         <section className="space-y-4">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-            <Shield className="h-4 w-4" />
+            <PixelIcon name="shield" className="h-4 w-4" />
             Legal
           </h3>
           
@@ -376,18 +373,18 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               className="text-sm text-primary hover:underline flex items-center gap-1"
               onClick={(e) => e.preventDefault()}
             >
-              <FileText className="h-4 w-4" />
+              <PixelIcon name="book" className="h-4 w-4" />
               Terms & Conditions
-              <ExternalLink className="h-3 w-3" />
+              <PixelIcon name="externalLink" className="h-3 w-3" />
             </a>
             <a 
               href="#" 
               className="text-sm text-primary hover:underline flex items-center gap-1"
               onClick={(e) => e.preventDefault()}
             >
-              <Shield className="h-4 w-4" />
+              <PixelIcon name="shield" className="h-4 w-4" />
               Privacy Policy
-              <ExternalLink className="h-3 w-3" />
+              <PixelIcon name="externalLink" className="h-3 w-3" />
             </a>
           </div>
           
