@@ -166,7 +166,7 @@ export function PixelInspectorCard({
                 <div
                   className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold text-sm shrink-0"
                   style={{
-                    background: pixel.color || generateAvatarGradient(pixel.owner?.id || 'unknown'),
+                    background: generateAvatarGradient(pixel.owner?.id || 'unknown'),
                   }}
                 >
                   {getAvatarInitial(pixel.owner?.display_name, pixel.owner?.wallet_short)}

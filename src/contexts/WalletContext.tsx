@@ -803,7 +803,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     toast.success('Wallet disconnected');
   };
 
-  const updateUser = async (updates: Partial<Pick<User, 'display_name' | 'country_code' | 'alliance_tag' | 'avatar_url'>>) => {
+  const updateUser = async (updates: Partial<Pick<User, 'display_name' | 'country_code' | 'alliance_tag' | 'avatar_url' | 'bio' | 'social_x' | 'social_instagram' | 'social_website'>>) => {
     const token = getSessionToken();
     if (!token) {
       toast.error('Not authenticated');

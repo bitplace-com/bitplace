@@ -92,9 +92,11 @@ function PlayerRow({ entry, onPlayerClick }: { entry: PlayerEntry; onPlayerClick
         />
       ) : (
         <div
-          className="w-8 h-8 rounded-full flex-shrink-0"
+          className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-sm"
           style={{ background: gradient }}
-        />
+        >
+          {(entry.displayName?.[0] || '?').toUpperCase()}
+        </div>
       )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
@@ -133,9 +135,11 @@ function PlayerRow({ entry, onPlayerClick }: { entry: PlayerEntry; onPlayerClick
               />
             ) : (
               <div
-                className="w-10 h-10 rounded-full"
+                className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-base"
                 style={{ background: gradient }}
-              />
+              >
+                {(entry.displayName?.[0] || '?').toUpperCase()}
+              </div>
             )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">

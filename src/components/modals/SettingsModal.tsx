@@ -15,6 +15,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useWallet } from "@/contexts/WalletContext";
 import { generateAvatarGradient } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface SettingsModalProps {
   open: boolean;
@@ -23,6 +24,8 @@ interface SettingsModalProps {
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/;
 const MAX_BIO_LENGTH = 160;
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const { user, isAuthenticated } = useWallet();
@@ -90,6 +93,22 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validate file type
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      toast.error('Invalid file type', {
+        description: 'Please upload a JPG, PNG, or WebP image.'
+      });
+      return;
+    }
+
+    // Validate file size (10MB)
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error('File too large', {
+        description: `Maximum size is 10MB. Your file is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`
+      });
+      return;
+    }
 
     // Show preview
     const reader = new FileReader();
