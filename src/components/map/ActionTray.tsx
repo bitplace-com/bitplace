@@ -5,7 +5,6 @@ import { BASE_PALETTE_GRID, ALL_COLORS } from '@/lib/palettes/basePaletteGrid';
 import { MATERIALS, getMaterialsByCategory, isMaterial, getMaterial } from '@/lib/materials/materialRegistry';
 import { useSound } from '@/hooks/useSound';
 import { cn } from '@/lib/utils';
-import { canInteractAtZoom } from '@/lib/pixelGrid';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { Input } from '@/components/ui/input';
 import { PlacesModal } from '@/components/modals/PlacesModal';
@@ -35,6 +34,10 @@ interface ActionTrayProps {
   // Map position for places
   currentLat?: number;
   currentLng?: number;
+  
+  // Zoom helper
+  canPaint: boolean;
+  onZoomIn: () => void;
   
   // Callbacks
   onColorSelect: (color: string | null) => void;
@@ -82,6 +85,8 @@ export function ActionTray({
   onEyedropperToggle,
   currentLat = 0,
   currentLng = 0,
+  canPaint: canPaintProp,
+  onZoomIn,
   onColorSelect,
   onPaintToolChange,
   onBrushSizeChange,
@@ -95,7 +100,8 @@ export function ActionTray({
   
   const materialsByCategory = getMaterialsByCategory();
   
-  const canPaint = canInteractAtZoom(zoom);
+  // Use prop for external canPaint control
+  const canPaint = canPaintProp;
   const isPaintMode = mode === 'paint';
   const isEraser = paintTool === 'ERASER';
   
@@ -141,9 +147,18 @@ export function ActionTray({
 
   return (
     <div 
-      className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] sm:bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] max-w-[calc(100vw-1rem)] sm:max-w-[540px]"
+      className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] sm:bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] max-w-[calc(100vw-1rem)] sm:max-w-[540px] flex flex-col items-center"
       style={{ width: isExpanded ? '100%' : 'auto' }}
     >
+      {/* Zoom helper button - positioned above the ActionTray */}
+      {!canPaint && (
+        <button
+          onClick={onZoomIn}
+          className="mb-2 px-3 py-1.5 text-xs font-medium rounded-full bg-muted/60 backdrop-blur-sm text-foreground hover:bg-muted border border-border/50 transition-all pointer-events-auto hover:scale-105 active:scale-95"
+        >
+          Zoom in to see paints
+        </button>
+      )}
       <div 
         className={cn(
           "pointer-events-auto overflow-hidden transition-all duration-200 rounded-2xl shadow-lg",
