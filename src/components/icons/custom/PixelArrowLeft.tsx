@@ -3,14 +3,7 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelArrowLeft(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="10" y="4" width="2" height="2" />
-      <rect x="8" y="6" width="2" height="2" />
-      <rect x="6" y="8" width="2" height="2" />
-      <rect x="4" y="10" width="2" height="4" />
-      <rect x="6" y="14" width="2" height="2" />
-      <rect x="8" y="16" width="2" height="2" />
-      <rect x="10" y="18" width="2" height="2" />
-      <rect x="6" y="10" width="14" height="4" />
+      <polygon points="1 13 1 11 2 11 2 10 3 10 3 9 4 9 4 8 5 8 5 7 6 7 6 6 7 6 7 5 8 5 8 4 9 4 9 3 10 3 10 2 11 2 11 1 12 1 12 2 13 2 13 3 14 3 14 4 13 4 13 5 12 5 12 6 11 6 11 7 10 7 10 8 9 8 9 9 8 9 8 10 23 10 23 14 8 14 8 15 9 15 9 16 10 16 10 17 11 17 11 18 12 18 12 19 13 19 13 20 14 20 14 21 13 21 13 22 12 22 12 23 11 23 11 22 10 22 10 21 9 21 9 20 8 20 8 19 7 19 7 18 6 18 6 17 5 17 5 16 4 16 4 15 3 15 3 14 2 14 2 13 1 13" />
     </PixelSVG>
   );
 }

@@ -3,16 +3,9 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelBrush(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="18" y="2" width="4" height="2" />
-      <rect x="16" y="4" width="4" height="2" />
-      <rect x="14" y="6" width="4" height="2" />
-      <rect x="12" y="8" width="4" height="2" />
-      <rect x="10" y="10" width="4" height="2" />
-      <rect x="8" y="12" width="4" height="2" />
-      <rect x="6" y="14" width="4" height="2" />
-      <rect x="4" y="16" width="4" height="2" />
-      <rect x="2" y="18" width="4" height="2" />
-      <rect x="2" y="20" width="2" height="2" />
+      <polygon points="22 4 22 7 21 7 21 8 20 8 20 7 19 7 19 6 18 6 18 5 17 5 17 4 18 4 18 3 21 3 21 4 22 4" />
+      <polygon points="17 14 18 14 18 21 17 21 17 22 2 22 2 21 1 21 1 6 2 6 2 5 14 5 14 6 13 6 13 7 3 7 3 20 16 20 16 15 17 15 17 14" />
+      <polygon points="18 8 19 8 19 10 18 10 18 11 17 11 17 12 16 12 16 13 15 13 15 14 14 14 14 15 13 15 13 16 12 16 12 17 11 17 11 18 7 18 7 14 8 14 8 13 9 13 9 12 10 12 10 11 11 11 11 10 12 10 12 9 13 9 13 8 14 8 14 7 15 7 15 6 17 6 17 7 18 7 18 8" />
     </PixelSVG>
   );
 }

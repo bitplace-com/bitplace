@@ -3,17 +3,9 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelInstagram(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="4" y="2" width="16" height="2" />
-      <rect x="2" y="4" width="2" height="16" />
-      <rect x="20" y="4" width="2" height="16" />
-      <rect x="4" y="20" width="16" height="2" />
-      {/* Camera lens */}
-      <rect x="8" y="8" width="8" height="2" />
-      <rect x="8" y="14" width="8" height="2" />
-      <rect x="8" y="10" width="2" height="4" />
-      <rect x="14" y="10" width="2" height="4" />
-      {/* Flash dot */}
-      <rect x="16" y="4" width="2" height="2" />
+      <path d="m17,9v-1h-1v-1h-1v-1h-6v1h-1v1h-1v1h-1v6h1v1h1v1h1v1h6v-1h1v-1h1v-1h1v-6h-1Zm-1,5h-1v1h-1v1h-4v-1h-1v-1h-1v-4h1v-1h1v-1h4v1h1v1h1v4Z" />
+      <path d="m22,5v-2h-1v-1h-2v-1H5v1h-2v1h-1v2h-1v14h1v2h1v1h2v1h14v-1h2v-1h1v-2h1V5h-1Zm-1,14h-1v1h-1v1H5v-1h-1v-1h-1V5h1v-1h1v-1h14v1h1v1h1v14Z" />
+      <rect x="17" y="5" width="2" height="2" />
     </PixelSVG>
   );
 }

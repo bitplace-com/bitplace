@@ -3,19 +3,7 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelClose(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="4" y="4" width="2" height="2" />
-      <rect x="6" y="6" width="2" height="2" />
-      <rect x="8" y="8" width="2" height="2" />
-      <rect x="10" y="10" width="4" height="4" />
-      <rect x="14" y="14" width="2" height="2" />
-      <rect x="16" y="16" width="2" height="2" />
-      <rect x="18" y="18" width="2" height="2" />
-      <rect x="18" y="4" width="2" height="2" />
-      <rect x="16" y="6" width="2" height="2" />
-      <rect x="14" y="8" width="2" height="2" />
-      <rect x="8" y="14" width="2" height="2" />
-      <rect x="6" y="16" width="2" height="2" />
-      <rect x="4" y="18" width="2" height="2" />
+      <polygon points="15 13 16 13 16 14 17 14 17 15 18 15 18 16 19 16 19 17 20 17 20 18 21 18 21 19 22 19 22 20 21 20 21 21 20 21 20 22 19 22 19 21 18 21 18 20 17 20 17 19 16 19 16 18 15 18 15 17 14 17 14 16 13 16 13 15 11 15 11 16 10 16 10 17 9 17 9 18 8 18 8 19 7 19 7 20 6 20 6 21 5 21 5 22 4 22 4 21 3 21 3 20 2 20 2 19 3 19 3 18 4 18 4 17 5 17 5 16 6 16 6 15 7 15 7 14 8 14 8 13 9 13 9 11 8 11 8 10 7 10 7 9 6 9 6 8 5 8 5 7 4 7 4 6 3 6 3 5 2 5 2 4 3 4 3 3 4 3 4 2 5 2 5 3 6 3 6 4 7 4 7 5 8 5 8 6 9 6 9 7 10 7 10 8 11 8 11 9 13 9 13 8 14 8 14 7 15 7 15 6 16 6 16 5 17 5 17 4 18 4 18 3 19 3 19 2 20 2 20 3 21 3 21 4 22 4 22 5 21 5 21 6 20 6 20 7 19 7 19 8 18 8 18 9 17 9 17 10 16 10 16 11 15 11 15 13" />
     </PixelSVG>
   );
 }

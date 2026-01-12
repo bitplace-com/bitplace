@@ -1,22 +1,10 @@
 import { PixelSVG, PixelSVGProps } from './base';
 
+// Twitter/X icon
 export function PixelTwitter(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      {/* X shape for Twitter/X */}
-      <rect x="4" y="4" width="2" height="2" />
-      <rect x="6" y="6" width="2" height="2" />
-      <rect x="8" y="8" width="2" height="2" />
-      <rect x="10" y="10" width="4" height="4" />
-      <rect x="14" y="14" width="2" height="2" />
-      <rect x="16" y="16" width="2" height="2" />
-      <rect x="18" y="18" width="2" height="2" />
-      <rect x="18" y="4" width="2" height="2" />
-      <rect x="16" y="6" width="2" height="2" />
-      <rect x="14" y="8" width="2" height="2" />
-      <rect x="8" y="14" width="2" height="2" />
-      <rect x="6" y="16" width="2" height="2" />
-      <rect x="4" y="18" width="2" height="2" />
+      <path d="m15.5,10v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h-3v1h-1v1h-1v1h-1v1h-1v1h-1v1h-2v-1h-1v-1h-1v-2h-1v-1h-1v-1H1.5v1h1v1h1v1h1v2h1v1h1v2h1v1h1v2h1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h3v-1h1v-1h1v-1h1v-1h1v-1h1v-1h2v1h1v1h1v2h1v1h1v1h7v-1h-1v-1h-1v-1h-1v-2h-1v-1h-1v-2h-1v-1h-1v-2h-1v-1h1Zm0,4v1h1v2h1v1h1v2h-3v-2h-1v-1h-1v-1h-1v-2h-1v-1h-1v-1h-1v-2h-1v-1h-1v-2h-1v-1h-1v-2h3v1h1v2h1v1h1v2h1v1h1v1h1v2h1Z" />
     </PixelSVG>
   );
 }

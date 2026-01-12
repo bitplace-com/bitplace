@@ -3,14 +3,13 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelLoader(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="10" y="2" width="4" height="4" />
-      <rect x="16" y="4" width="4" height="4" />
-      <rect x="18" y="10" width="4" height="4" />
-      <rect x="16" y="16" width="4" height="4" />
-      <rect x="10" y="18" width="4" height="4" />
-      <rect x="4" y="16" width="4" height="4" />
-      <rect x="2" y="10" width="4" height="4" />
-      <rect x="4" y="4" width="4" height="4" />
+      <polygon points="7 5 8 5 8 7 7 7 7 8 5 8 5 7 4 7 4 5 5 5 5 4 7 4 7 5" />
+      <polygon points="13 2 14 2 14 4 13 4 13 5 11 5 11 4 10 4 10 2 11 2 11 1 13 1 13 2" />
+      <polygon points="4 14 2 14 2 13 1 13 1 11 2 11 2 10 4 10 4 11 5 11 5 13 4 13 4 14" />
+      <polygon points="7 17 8 17 8 19 7 19 7 20 5 20 5 19 4 19 4 17 5 17 5 16 7 16 7 17" />
+      <polygon points="23 11 23 13 22 13 22 14 20 14 20 13 19 13 19 11 20 11 20 10 22 10 22 11 23 11" />
+      <polygon points="19 17 20 17 20 19 19 19 19 20 17 20 17 19 16 19 16 17 17 17 17 16 19 16 19 17" />
+      <polygon points="13 20 14 20 14 22 13 22 13 23 11 23 11 22 10 22 10 20 11 20 11 19 13 19 13 20" />
     </PixelSVG>
   );
 }

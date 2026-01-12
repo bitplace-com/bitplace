@@ -3,19 +3,7 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelAlert(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="10" y="2" width="4" height="2" />
-      <rect x="8" y="4" width="2" height="2" />
-      <rect x="14" y="4" width="2" height="2" />
-      <rect x="6" y="6" width="2" height="4" />
-      <rect x="16" y="6" width="2" height="4" />
-      <rect x="4" y="10" width="2" height="4" />
-      <rect x="18" y="10" width="2" height="4" />
-      <rect x="4" y="14" width="2" height="4" />
-      <rect x="18" y="14" width="2" height="4" />
-      <rect x="4" y="18" width="16" height="2" />
-      {/* Exclamation mark */}
-      <rect x="10" y="8" width="4" height="6" />
-      <rect x="10" y="16" width="4" height="2" />
+      <path d="m22,20v-2h-1v-2h-1v-2h-1v-2h-1v-2h-1v-2h-1v-2h-1v-2h-1v-2h-1v-1h-2v1h-1v2h-1v2h-1v2h-1v2h-1v2h-1v2h-1v2h-1v2h-1v2h1v1h20v-1h1v-2h-1Zm-12-9h4v3h-1v3h-2v-3h-1v-3Zm1,7h2v2h-2v-2Z" />
     </PixelSVG>
   );
 }

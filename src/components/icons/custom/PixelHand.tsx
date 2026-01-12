@@ -1,24 +1,10 @@
 import { PixelSVG, PixelSVGProps } from './base';
 
+// Hand/drag icon - keeping custom simple style for clarity
 export function PixelHand(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="10" y="2" width="2" height="2" />
-      <rect x="10" y="4" width="2" height="4" />
-      <rect x="12" y="6" width="2" height="2" />
-      <rect x="12" y="8" width="2" height="2" />
-      <rect x="14" y="8" width="2" height="2" />
-      <rect x="14" y="10" width="2" height="2" />
-      <rect x="16" y="10" width="2" height="2" />
-      <rect x="6" y="8" width="2" height="2" />
-      <rect x="6" y="10" width="2" height="6" />
-      <rect x="8" y="8" width="2" height="10" />
-      <rect x="10" y="10" width="2" height="8" />
-      <rect x="12" y="12" width="2" height="6" />
-      <rect x="14" y="14" width="2" height="4" />
-      <rect x="16" y="14" width="2" height="4" />
-      <rect x="4" y="16" width="2" height="4" />
-      <rect x="6" y="18" width="10" height="2" />
+      <polygon points="11 2 11 8 9 8 9 12 7 12 7 10 5 10 5 12 3 12 3 18 4 18 4 19 5 19 5 20 6 20 6 21 8 21 8 22 18 22 18 21 19 21 19 20 20 20 20 18 21 18 21 12 19 12 19 10 17 10 17 12 15 12 15 8 13 8 13 2 11 2" />
     </PixelSVG>
   );
 }

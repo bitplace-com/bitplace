@@ -3,14 +3,7 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelCheck(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <rect x="4" y="12" width="2" height="2" />
-      <rect x="6" y="14" width="2" height="2" />
-      <rect x="8" y="16" width="2" height="2" />
-      <rect x="10" y="14" width="2" height="2" />
-      <rect x="12" y="12" width="2" height="2" />
-      <rect x="14" y="10" width="2" height="2" />
-      <rect x="16" y="8" width="2" height="2" />
-      <rect x="18" y="6" width="2" height="2" />
+      <polygon points="23 5 23 6 22 6 22 7 21 7 21 8 20 8 20 9 19 9 19 10 18 10 18 11 17 11 17 12 16 12 16 13 15 13 15 14 14 14 14 15 13 15 13 16 12 16 12 17 11 17 11 18 10 18 10 19 8 19 8 18 7 18 7 17 6 17 6 16 5 16 5 15 4 15 4 14 3 14 3 13 2 13 2 12 1 12 1 11 2 11 2 10 3 10 3 9 4 9 4 10 5 10 5 11 6 11 6 12 7 12 7 13 8 13 8 14 10 14 10 13 11 13 11 12 12 12 12 11 13 11 13 10 14 10 14 9 15 9 15 8 16 8 16 7 17 7 17 6 18 6 18 5 19 5 19 4 20 4 20 3 21 3 21 4 22 4 22 5 23 5" />
     </PixelSVG>
   );
 }
