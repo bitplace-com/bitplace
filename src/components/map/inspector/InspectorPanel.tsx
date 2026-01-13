@@ -45,6 +45,9 @@ interface InspectorPanelProps {
   onClearDraft?: () => void;
   // Real progress from SSE stream
   progress?: { processed: number; total: number } | null;
+  // State machine props
+  isSelectionChanged?: boolean;
+  lastCommitFailed?: boolean;
 }
 
 export function InspectorPanel({
@@ -69,6 +72,8 @@ export function InspectorPanel({
   onUndoDraft,
   onClearDraft,
   progress,
+  isSelectionChanged = false,
+  lastCommitFailed = false,
 }: InspectorPanelProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [withdrawStats, setWithdrawStats] = useState<WithdrawStats | null>(null);
@@ -297,6 +302,8 @@ export function InspectorPanel({
         onUndoDraft={onUndoDraft}
         onClearDraft={onClearDraft}
         progress={progress}
+        isSelectionChanged={isSelectionChanged}
+        lastCommitFailed={lastCommitFailed}
       />
     </>
   );
