@@ -29,11 +29,14 @@ import { useBrushSelection, MAX_BRUSH_SELECTION } from './hooks/useBrushSelectio
 import { usePointerInteraction, type PointerInputType } from './hooks/usePointerInteraction';
 import { useSupabasePixels } from '@/hooks/useSupabasePixels';
 import { useGameActions, type GameMode } from '@/hooks/useGameActions';
+import { usePaintStateMachine } from '@/hooks/usePaintStateMachine';
 import { useWallet } from '@/contexts/WalletContext';
 import { useWalletGate } from '@/hooks/useWalletGate';
 import { useMapUrl } from '@/hooks/useMapUrl';
 import { useSound } from '@/hooks/useSound';
 import { usePeBalance } from '@/hooks/usePeBalance';
+import { getValidSessionToken } from '@/lib/authHelpers';
+import { computePixelHash } from '@/lib/pixelHash';
 import { lngLatToGridInt, getViewportGridBounds, Z_SHOW_PAINTS } from '@/lib/pixelGrid';
 import { haptic } from '@/lib/haptics';
 import { markMapMountStart } from '@/lib/perfMetrics';
@@ -77,7 +80,23 @@ export function BitplaceMap() {
   const { selection, startSelection, updateSelection, endSelection, clearSelection, getNormalizedBounds, getSelectedPixels } = useSelection();
   const { mode, selectedColor, paintTool, brushSize, zoom, artOpacity, interactionMode, setMode, setSelectedColor, setZoom, toggleArtOpacity, setInteractionMode, setPaintTool, setBrushSize, canPaint } = useMapState();
   const { dbPixels, updateViewport, removePixels, addPixels } = useSupabasePixels(zoom);
-  const { validate, commit, validationResult, invalidPixels, isValidating, isCommitting, clearValidation } = useGameActions();
+  const { validate, commit, validationResult, invalidPixels, isValidating, isCommitting, clearValidation, progress: gameProgress } = useGameActions();
+  const { 
+    state: paintState, 
+    frozenPayload, 
+    lastCommitFailed,
+    enterDraft,
+    freeze: freezePayload,
+    startValidation: startPaintValidation,
+    completeValidation: completePaintValidation,
+    failValidation: failPaintValidation,
+    startCommit: startPaintCommit,
+    completeCommit: completePaintCommit,
+    failCommit: failPaintCommit,
+    invalidate: invalidatePaintState,
+    reset: resetPaintState,
+    checkSelectionChanged,
+  } = usePaintStateMachine();
   const { queue: paintQueue, queueSize, isSpacePainting, isFlushing, startSpacePaint, stopSpacePaint, addToQueue, flushQueue } = usePaintQueue(paintPixel, confirmPixel);
   const { draft: draftPixels, draftCount, draftColor, isAtLimit: isDraftAtLimit, draftDirty, addToDraft, removeFromDraft, removeInvalidFromDraft, undoLast: undoDraft, clearDraft, getDraftPixels, setDraftDirty } = useDraftPaint();
   const { brushSelection, selectionCount, isSelectionAtLimit, hasShownLimitToast, startBrushSelection, addToBrushSelection, endBrushSelection, clearBrushSelection, getSelectedPixels: getBrushSelectedPixels, setFromRectSelection } = useBrushSelection();
@@ -93,6 +112,13 @@ export function BitplaceMap() {
   const { play: playSound } = useSound();
   const peBalance = usePeBalance(user?.id);
   const isMobile = useIsMobile();
+
+  // Track if selection changed after validation (for auto-invalidation hint)
+  const isSelectionChangedAfterValidation = useMemo(() => {
+    if (paintState !== 'VALIDATED' || !frozenPayload) return false;
+    const currentDraftPixels = getDraftPixels();
+    return checkSelectionChanged(currentDraftPixels);
+  }, [paintState, frozenPayload, getDraftPixels, checkSelectionChanged]);
 
   // Reset selectedColor when wallet disconnects
   useEffect(() => {
@@ -648,18 +674,28 @@ export function BitplaceMap() {
   // Track when validation just completed to prevent immediate auto-invalidation
   const lastValidationTimeRef = useRef<number>(0);
   
-  // Auto-invalidate validation when draft changes (state machine: DRAFT state resets VALIDATED_READY)
-  // But add debounce to prevent clearing validation immediately after it's set
+  // Auto-invalidate validation when draft changes (state machine integration)
+  // Uses state machine's auto-invalidation logic
   useEffect(() => {
     if (draftDirty && validationResult) {
       const timeSinceValidation = Date.now() - lastValidationTimeRef.current;
       // Only auto-invalidate if validation was set more than 200ms ago
       if (timeSinceValidation > 200) {
         clearValidation();
+        invalidatePaintState();
         setDraftDirty(false);
       }
     }
-  }, [draftDirty, validationResult, clearValidation, setDraftDirty]);
+  }, [draftDirty, validationResult, clearValidation, setDraftDirty, invalidatePaintState]);
+  
+  // Enter DRAFT state when user starts drafting
+  useEffect(() => {
+    if (draftCount > 0 && paintState === 'IDLE') {
+      enterDraft();
+    } else if (draftCount === 0 && paintState !== 'IDLE') {
+      resetPaintState();
+    }
+  }, [draftCount, paintState, enterDraft, resetPaintState]);
 
   // Execute single-pixel erase with auto validate+commit
   const executeErase = useCallback(async (x: number, y: number) => {
@@ -1012,6 +1048,14 @@ export function BitplaceMap() {
 
   const handleValidate = useCallback(async () => {
     if (!user) { toast.error('Please connect wallet first'); return; }
+    
+    // Session check - gate before proceeding
+    const token = getValidSessionToken();
+    if (!token) {
+      setWalletModalOpen(true);
+      return;
+    }
+    
     // Check if eraser is active (selectedColor === null) in paint mode
     const isEraseAction = mode === 'paint' && selectedColor === null;
     const gameMode = isEraseAction ? 'ERASE' : getGameMode(mode);
@@ -1024,44 +1068,114 @@ export function BitplaceMap() {
       return;
     }
     
+    // STATE MACHINE: Freeze payload for PAINT mode
+    if (gameMode === 'PAINT' && selectedColor) {
+      freezePayload(pixelsToValidate, selectedColor);
+      startPaintValidation();
+    }
+    
     // Clear draftDirty before validation to prevent auto-clear race condition
     setDraftDirty(false);
     
-    const result = await validate({ mode: gameMode as GameMode, pixels: pixelsToValidate, color: gameMode === 'PAINT' ? selectedColor : undefined, pePerPixel: gameMode !== 'PAINT' && gameMode !== 'ERASE' ? pePerPixel : undefined });
+    const result = await validate({ 
+      mode: gameMode as GameMode, 
+      pixels: pixelsToValidate, 
+      color: gameMode === 'PAINT' ? selectedColor : undefined, 
+      pePerPixel: gameMode !== 'PAINT' && gameMode !== 'ERASE' ? pePerPixel : undefined 
+    });
     
     // Track validation completion time to prevent immediate auto-invalidation
     if (result) {
       lastValidationTimeRef.current = Date.now();
+      
+      // STATE MACHINE: Complete or fail validation
+      if (gameMode === 'PAINT') {
+        if (result.ok || result.partialValid) {
+          completePaintValidation(result);
+        } else {
+          failPaintValidation();
+        }
+      }
+    } else {
+      // Validation returned null (error)
+      if (gameMode === 'PAINT') {
+        failPaintValidation();
+      }
     }
-  }, [user, mode, pendingPixels, selectedColor, pePerPixel, validate, getGameMode, getDraftPixels, setDraftDirty]);
+  }, [user, mode, pendingPixels, selectedColor, pePerPixel, validate, getGameMode, getDraftPixels, setDraftDirty, setWalletModalOpen, freezePayload, startPaintValidation, completePaintValidation, failPaintValidation]);
 
-  const handleClearSelection = useCallback(() => { clearSelection(); clearValidation(); setPendingPixels([]); playSound('pixel_deselect'); }, [clearSelection, clearValidation, playSound]);
+  const handleClearSelection = useCallback(() => { 
+    clearSelection(); 
+    clearValidation(); 
+    setPendingPixels([]); 
+    resetPaintState();
+    playSound('pixel_deselect'); 
+  }, [clearSelection, clearValidation, playSound, resetPaintState]);
 
   const handleConfirm = useCallback(async () => {
+    // Session check - gate before proceeding
+    const token = getValidSessionToken();
+    if (!token) {
+      setWalletModalOpen(true);
+      return;
+    }
+    
     // Check if eraser is active (selectedColor === null) in paint mode
     const isEraseAction = mode === 'paint' && selectedColor === null;
     const gameMode = isEraseAction ? 'ERASE' : getGameMode(mode);
     
-    // Use draftPixels for PAINT mode, pendingPixels for others
-    const pixelsToCommit = gameMode === 'PAINT' ? getDraftPixels() : pendingPixels;
+    // STATE MACHINE: For PAINT mode, use frozen payload if available (VALIDATED state)
+    // This ensures we commit exactly what was validated, not potentially changed draft
+    let pixelsToCommit: { x: number; y: number }[];
+    let colorToCommit: string | null = selectedColor;
+    let snapshotHashToUse: string | undefined = validationResult?.snapshotHash;
+    
+    if (gameMode === 'PAINT' && frozenPayload && paintState === 'VALIDATED') {
+      // Use frozen payload (guaranteed to match validation)
+      pixelsToCommit = frozenPayload.pixels;
+      colorToCommit = frozenPayload.color;
+      snapshotHashToUse = frozenPayload.snapshotHash;
+    } else {
+      // Fallback: use current draft/pending
+      pixelsToCommit = gameMode === 'PAINT' ? getDraftPixels() : pendingPixels;
+    }
     
     if (pixelsToCommit.length === 0) {
       toast.info('No pixels to commit');
       return;
     }
     
-    if (!validationResult?.ok) {
+    // STATE MACHINE: Start commit for PAINT mode
+    if (gameMode === 'PAINT' && paintState === 'VALIDATED') {
+      startPaintCommit();
+    }
+    
+    if (!validationResult?.ok && !frozenPayload?.snapshotHash) {
+      // No valid validation - need to validate first
       if (gameMode === 'PAINT') {
-        const result = await validate({ mode: 'PAINT', pixels: pixelsToCommit, color: selectedColor });
-        if (!result?.ok) return;
-        const success = await commit({ mode: 'PAINT', pixels: pixelsToCommit, color: selectedColor, snapshotHash: result.snapshotHash });
+        freezePayload(pixelsToCommit, colorToCommit!);
+        startPaintValidation();
+        
+        const result = await validate({ mode: 'PAINT', pixels: pixelsToCommit, color: colorToCommit });
+        if (!result?.ok) {
+          failPaintValidation();
+          return;
+        }
+        
+        completePaintValidation(result);
+        startPaintCommit();
+        
+        const success = await commit({ mode: 'PAINT', pixels: pixelsToCommit, color: colorToCommit, snapshotHash: result.snapshotHash });
         if (success) { 
           // Optimistic update - add pixels to tile cache and dbPixels immediately
-          addPixels(pixelsToCommit.map(({ x, y }) => ({ x, y, color: selectedColor! })));
+          addPixels(pixelsToCommit.map(({ x, y }) => ({ x, y, color: colorToCommit! })));
           refreshUser(); 
           clearDraft();
+          completePaintCommit();
           handleClearSelection();
           playSound('paint_commit');
+        } else {
+          failPaintCommit();
         }
       } else if (gameMode === 'ERASE') {
         const result = await validate({ mode: 'ERASE', pixels: pixelsToCommit });
@@ -1077,12 +1191,22 @@ export function BitplaceMap() {
       }
       return;
     }
-    const success = await commit({ mode: gameMode as GameMode, pixels: pixelsToCommit, color: gameMode === 'PAINT' ? selectedColor : undefined, pePerPixel: gameMode !== 'PAINT' && gameMode !== 'ERASE' ? pePerPixel : undefined, snapshotHash: validationResult.snapshotHash });
+    
+    // Have valid validation - proceed with commit using frozen/validated data
+    const success = await commit({ 
+      mode: gameMode as GameMode, 
+      pixels: pixelsToCommit, 
+      color: gameMode === 'PAINT' ? colorToCommit : undefined, 
+      pePerPixel: gameMode !== 'PAINT' && gameMode !== 'ERASE' ? pePerPixel : undefined, 
+      snapshotHash: snapshotHashToUse! 
+    });
+    
     if (success) {
       if (gameMode === 'PAINT') {
         // Optimistic update - add pixels to tile cache and dbPixels immediately
-        addPixels(pixelsToCommit.map(({ x, y }) => ({ x, y, color: selectedColor! })));
+        addPixels(pixelsToCommit.map(({ x, y }) => ({ x, y, color: colorToCommit! })));
         clearDraft();
+        completePaintCommit();
         playSound('paint_commit');
       } else if (gameMode === 'ERASE') {
         // Optimistic removal - remove pixels from UI immediately
@@ -1097,8 +1221,13 @@ export function BitplaceMap() {
       }
       refreshUser(); 
       handleClearSelection();
+    } else {
+      // Commit failed - stay in VALIDATED for retry
+      if (gameMode === 'PAINT' && paintState === 'COMMITTING') {
+        failPaintCommit();
+      }
     }
-  }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, validate, getGameMode, refreshUser, handleClearSelection, playSound, getDraftPixels, clearDraft, removePixels, addPixels]);
+  }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, validate, getGameMode, refreshUser, handleClearSelection, playSound, getDraftPixels, clearDraft, removePixels, addPixels, frozenPayload, paintState, setWalletModalOpen, freezePayload, startPaintValidation, completePaintValidation, failPaintValidation, startPaintCommit, completePaintCommit, failPaintCommit]);
 
   // Inspector card handlers
   const handleInspectorPaint = useCallback(async (x: number, y: number) => {
@@ -1277,6 +1406,9 @@ export function BitplaceMap() {
                 draftCount={draftCount}
                 onUndoDraft={undoDraft}
                 onClearDraft={clearDraft}
+                progress={gameProgress}
+                isSelectionChanged={isSelectionChangedAfterValidation}
+                lastCommitFailed={lastCommitFailed}
               />
             </div>
           </div>
@@ -1306,6 +1438,9 @@ export function BitplaceMap() {
             draftCount={draftCount}
             onUndoDraft={undoDraft}
             onClearDraft={clearDraft}
+            progress={gameProgress}
+            isSelectionChanged={isSelectionChangedAfterValidation}
+            lastCommitFailed={lastCommitFailed}
           />
         )}
 

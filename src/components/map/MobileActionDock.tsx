@@ -45,6 +45,9 @@ interface MobileActionDockProps {
   onClearDraft?: () => void;
   // Progress tracking
   progress?: { processed: number; total: number } | null;
+  // State machine hints
+  isSelectionChanged?: boolean;
+  lastCommitFailed?: boolean;
 }
 
 export function MobileActionDock({
@@ -70,6 +73,8 @@ export function MobileActionDock({
   onUndoDraft,
   onClearDraft,
   progress,
+  isSelectionChanged = false,
+  lastCommitFailed = false,
 }: MobileActionDockProps) {
   const [dockState, setDockState] = useState<DockState>('hidden');
   const [withdrawStats, setWithdrawStats] = useState<WithdrawStats | null>(null);
@@ -349,6 +354,8 @@ export function MobileActionDock({
                     onUndoDraft={onUndoDraft}
                     onClearDraft={onClearDraft}
                     progress={progress}
+                    isSelectionChanged={isSelectionChanged}
+                    lastCommitFailed={lastCommitFailed}
                   />
                 </>
               )}
