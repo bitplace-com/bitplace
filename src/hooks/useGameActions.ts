@@ -23,14 +23,14 @@ export interface Breakdown {
 
 export interface ValidateResult {
   ok: boolean;
-  partialValid?: boolean; // For ERASE: some pixels valid, some invalid - enables "Exclude Invalid" flow
-  validPixelCount?: number; // For ERASE: count of valid pixels
+  partialValid?: boolean;
+  validPixelCount?: number;
   requiredPeTotal: number;
   snapshotHash: string;
   invalidPixels: InvalidPixel[];
   breakdown: Breakdown;
   availablePe: number;
-  unlockPeTotal?: number; // For ERASE mode - sum of owner_stake_pe being refunded
+  unlockPeTotal?: number;
   error?: string;
   message?: string;
   contributionsPurged?: boolean;
@@ -64,6 +64,52 @@ export interface CommitResult {
   message?: string;
   contributionsPurged?: boolean;
   purgedContributionCount?: number;
+}
+
+// Retry configuration
+const MAX_RETRIES = 2;
+const INITIAL_DELAY_MS = 1000;
+
+// Helper function to invoke edge functions with retry logic
+async function invokeWithRetry<T>(
+  functionName: string,
+  options: { headers: Record<string, string>; body: unknown }
+): Promise<{ data: T | null; error: Error | null }> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    // Wait before retry (exponential backoff)
+    if (attempt > 0) {
+      const delay = INITIAL_DELAY_MS * Math.pow(2, attempt - 1);
+      console.log(`[invokeWithRetry] Retry attempt ${attempt} after ${delay}ms`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    
+    try {
+      const result = await supabase.functions.invoke<T>(functionName, options);
+      
+      // If no error or non-retryable error, return immediately
+      if (!result.error) {
+        return result;
+      }
+      
+      // Only retry on network/fetch errors
+      if (result.error instanceof FunctionsFetchError) {
+        console.warn(`[invokeWithRetry] Network error on attempt ${attempt + 1}:`, result.error.message);
+        lastError = result.error;
+        continue; // Retry
+      }
+      
+      // Non-retryable error (HTTP errors, relay errors, etc.)
+      return result;
+    } catch (err) {
+      console.error(`[invokeWithRetry] Exception on attempt ${attempt + 1}:`, err);
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+  
+  // All retries exhausted
+  return { data: null, error: lastError };
 }
 
 export function useGameActions() {
@@ -117,30 +163,51 @@ export function useGameActions() {
     setOperationStartTime(Date.now());
     setOperationPixelCount(deduplicatedPixels.length);
 
-    // Create abort controller for timeout (60s for large operations)
-    const controller = new AbortController();
-    const timeoutMs = Math.max(30000, deduplicatedPixels.length * 100); // Min 30s, scale with pixel count
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    // Show progress toast for large operations
+    const showProgress = deduplicatedPixels.length > 150;
+    let progressToastId: string | number | undefined;
+    if (showProgress) {
+      progressToastId = toast.loading(`Validating ${deduplicatedPixels.length} pixels...`);
+    }
 
     try {
-      const { data, error } = await supabase.functions.invoke('game-validate', {
+      const { data, error } = await invokeWithRetry<ValidateResult>('game-validate', {
         headers,
         body: validatedParams,
       });
+
+      // Dismiss progress toast
+      if (progressToastId) {
+        toast.dismiss(progressToastId);
+      }
 
       if (error) {
         console.error('[useGameActions] Validate error object:', error);
         
         let errorMessage = 'Validation failed';
         let errorStatus: number | undefined;
-        let errorBody: any = null;
+        let errorBody: unknown = null;
+        
+        // Handle network/fetch errors with user-friendly message
+        if (error instanceof FunctionsFetchError) {
+          toast.error('Network error. Please check your connection and try again.');
+          return null;
+        }
         
         // Extract real error from FunctionsHttpError context
         if (error instanceof FunctionsHttpError) {
+          errorStatus = error.context.status;
+          
+          // Handle gateway timeout (edge function timeout)
+          if (errorStatus === 504) {
+            toast.error('Server timeout. Try selecting fewer pixels.');
+            return null;
+          }
+          
           try {
             errorBody = await error.context.json();
-            errorMessage = errorBody.message || errorBody.error || 'Validation failed';
-            errorStatus = error.context.status;
+            errorMessage = (errorBody as { message?: string; error?: string }).message || 
+                          (errorBody as { error?: string }).error || 'Validation failed';
           } catch {
             try {
               const text = await error.context.text();
@@ -148,7 +215,6 @@ export function useGameActions() {
             } catch {
               errorMessage = `Validation failed (status ${error.context.status})`;
             }
-            errorStatus = error.context.status;
           }
           
           console.error('[useGameActions] Validate HTTP error:', {
@@ -159,9 +225,6 @@ export function useGameActions() {
         } else if (error instanceof FunctionsRelayError) {
           errorMessage = `Network error: ${error.message}`;
           console.error('[useGameActions] Validate relay error:', error.message);
-        } else if (error instanceof FunctionsFetchError) {
-          errorMessage = `Connection error: ${error.message}`;
-          console.error('[useGameActions] Validate fetch error:', error.message);
         } else {
           // Fallback for other error types
           errorMessage = error.message || 'Validation failed';
@@ -169,8 +232,9 @@ export function useGameActions() {
         }
         
         // Handle specific error types
-        if (errorBody?.error === 'RATE_LIMITED' || errorStatus === 429) {
-          toast.warning(errorBody?.message || 'Too many requests. Please wait.');
+        const errorBodyTyped = errorBody as { error?: string; message?: string } | null;
+        if (errorBodyTyped?.error === 'RATE_LIMITED' || errorStatus === 429) {
+          toast.warning(errorBodyTyped?.message || 'Too many requests. Please wait.');
           return null;
         }
         
@@ -207,20 +271,18 @@ export function useGameActions() {
 
       return result;
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        console.error('[useGameActions] Validate timeout');
-        toast.error('Validation timed out. Try selecting fewer pixels.');
-        return null;
+      // Dismiss progress toast on error
+      if (progressToastId) {
+        toast.dismiss(progressToastId);
       }
       console.error('[useGameActions] Validate exception:', err);
-      toast.error('Validation error');
+      toast.error('Validation error. Please try again.');
       return null;
     } finally {
-      clearTimeout(timeoutId);
       setIsValidating(false);
       setOperationStartTime(null);
     }
-  }, [user?.id]);
+  }, [user?.id, getAuthHeaders]);
 
   const commit = useCallback(async (params: CommitParams): Promise<CommitResult | null> => {
     if (!user?.id) {
@@ -238,29 +300,51 @@ export function useGameActions() {
     setOperationStartTime(Date.now());
     setOperationPixelCount(params.pixels.length);
 
-    // Create abort controller for timeout (90s for large operations - commit is slower)
-    const controller = new AbortController();
-    const timeoutMs = Math.max(45000, params.pixels.length * 120); // Min 45s, scale with pixel count
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    // Show progress toast for large operations
+    const showProgress = params.pixels.length > 150;
+    let progressToastId: string | number | undefined;
+    if (showProgress) {
+      progressToastId = toast.loading(`Committing ${params.pixels.length} pixels...`);
+    }
 
     try {
-      const { data, error } = await supabase.functions.invoke('game-commit', {
+      const { data, error } = await invokeWithRetry<CommitResult>('game-commit', {
         headers,
         body: params,
       });
+
+      // Dismiss progress toast
+      if (progressToastId) {
+        toast.dismiss(progressToastId);
+      }
+
       if (error) {
         console.error('[useGameActions] Commit error object:', error);
         
         let errorMessage = 'Commit failed';
         let errorStatus: number | undefined;
-        let errorBody: any = null;
+        let errorBody: unknown = null;
+        
+        // Handle network/fetch errors with user-friendly message
+        if (error instanceof FunctionsFetchError) {
+          toast.error('Network error. Please check your connection and try again.');
+          return null;
+        }
         
         // Extract real error from FunctionsHttpError context
         if (error instanceof FunctionsHttpError) {
+          errorStatus = error.context.status;
+          
+          // Handle gateway timeout (edge function timeout)
+          if (errorStatus === 504) {
+            toast.error('Server timeout. Try selecting fewer pixels.');
+            return null;
+          }
+          
           try {
             errorBody = await error.context.json();
-            errorMessage = errorBody.message || errorBody.error || 'Commit failed';
-            errorStatus = error.context.status;
+            errorMessage = (errorBody as { message?: string; error?: string }).message || 
+                          (errorBody as { error?: string }).error || 'Commit failed';
           } catch {
             try {
               const text = await error.context.text();
@@ -268,7 +352,6 @@ export function useGameActions() {
             } catch {
               errorMessage = `Commit failed (status ${error.context.status})`;
             }
-            errorStatus = error.context.status;
           }
           
           console.error('[useGameActions] Commit HTTP error:', {
@@ -279,24 +362,23 @@ export function useGameActions() {
         } else if (error instanceof FunctionsRelayError) {
           errorMessage = `Network error: ${error.message}`;
           console.error('[useGameActions] Commit relay error:', error.message);
-        } else if (error instanceof FunctionsFetchError) {
-          errorMessage = `Connection error: ${error.message}`;
-          console.error('[useGameActions] Commit fetch error:', error.message);
         } else {
           errorMessage = error.message || 'Commit failed';
           console.error('[useGameActions] Commit unknown error:', error);
         }
         
+        const errorBodyTyped = errorBody as { error?: string; message?: string } | null;
+        
         // Handle rate limit
-        if (errorBody?.error === 'RATE_LIMITED' || errorStatus === 429) {
-          toast.warning(errorBody?.message || 'Action too fast. Please wait a moment before trying again.');
+        if (errorBodyTyped?.error === 'RATE_LIMITED' || errorStatus === 429) {
+          toast.warning(errorBodyTyped?.message || 'Action too fast. Please wait a moment before trying again.');
           return null;
         }
         
         // Handle state changed (409) - prompt user to re-validate
-        if (errorBody?.error === 'STATE_CHANGED' || errorStatus === 409) {
+        if (errorBodyTyped?.error === 'STATE_CHANGED' || errorStatus === 409) {
           toast.error('Pixel state changed - please re-validate and try again');
-          setValidationResult(null); // Clear stale validation so user must re-validate
+          setValidationResult(null);
           return null;
         }
         
@@ -311,20 +393,20 @@ export function useGameActions() {
       }
 
       // Show toast if contributions were purged due to under-collateralization
-      if (data.contributionsPurged) {
+      if (data?.contributionsPurged) {
         toast.warning(
           `Your DEF/ATK contributions (${data.purgedContributionCount}) were removed due to insufficient collateral`,
           { duration: 5000 }
         );
       }
 
-      if (!data.ok) {
-        if (data.error === 'STATE_CHANGED') {
+      if (!data?.ok) {
+        if (data?.error === 'STATE_CHANGED') {
           toast.error('Pixel state changed - please try again');
-        } else if (data.error === 'CONTRIBUTIONS_PURGED') {
+        } else if (data?.error === 'CONTRIBUTIONS_PURGED') {
           // Already showed toast above
         } else {
-          toast.error(data.message || 'Commit failed');
+          toast.error(data?.message || 'Commit failed');
         }
         return null;
       }
@@ -334,16 +416,14 @@ export function useGameActions() {
       setInvalidPixels([]);
       return data as CommitResult;
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        console.error('[useGameActions] Commit timeout');
-        toast.error('Operation timed out. Try selecting fewer pixels.');
-        return null;
+      // Dismiss progress toast on error
+      if (progressToastId) {
+        toast.dismiss(progressToastId);
       }
       console.error('[useGameActions] Commit exception:', err);
-      toast.error('Commit error');
+      toast.error('Commit error. Please try again.');
       return null;
     } finally {
-      clearTimeout(timeoutId);
       setIsCommitting(false);
       setOperationStartTime(null);
     }
