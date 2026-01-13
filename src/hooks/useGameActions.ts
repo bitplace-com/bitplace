@@ -3,8 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { FunctionsHttpError, FunctionsRelayError, FunctionsFetchError } from '@supabase/supabase-js';
 import { useWallet } from '@/contexts/WalletContext';
 import { toast } from 'sonner';
-
-const SESSION_TOKEN_KEY = 'bitplace_session_token';
+import { getAuthHeadersOrExpire } from '@/lib/authHelpers';
 
 export type GameMode = 'PAINT' | 'DEFEND' | 'ATTACK' | 'REINFORCE' | 'ERASE';
 
@@ -75,9 +74,7 @@ export function useGameActions() {
   const [isCommitting, setIsCommitting] = useState(false);
 
   const getAuthHeaders = useCallback(() => {
-    const token = localStorage.getItem(SESSION_TOKEN_KEY);
-    if (!token) return undefined;
-    return { Authorization: `Bearer ${token}` };
+    return getAuthHeadersOrExpire();
   }, []);
 
   const validate = useCallback(async (params: ValidateParams): Promise<ValidateResult | null> => {

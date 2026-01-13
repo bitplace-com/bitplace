@@ -29,7 +29,7 @@ interface EnergyRefreshResult {
   message?: string;
 }
 
-const SESSION_TOKEN_KEY = 'bitplace_session_token';
+import { getAuthHeadersOrExpire } from '@/lib/authHelpers';
 
 export function useEnergy(userId: string | undefined) {
   const [state, setState] = useState<EnergyState>({
@@ -54,16 +54,14 @@ export function useEnergy(userId: string | undefined) {
   const refresh = useCallback(async (): Promise<EnergyRefreshResult | null> => {
     if (!userId) return null;
 
-    const token = localStorage.getItem(SESSION_TOKEN_KEY);
-    if (!token) return null;
+    const headers = getAuthHeadersOrExpire();
+    if (!headers) return null;
 
     setState(prev => ({ ...prev, isRefreshing: true }));
 
     try {
       const { data, error } = await supabase.functions.invoke<EnergyRefreshResult>('energy-refresh', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
       });
 
       if (error) {

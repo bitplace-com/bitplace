@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { ENERGY_ASSET, ENERGY_CONFIG } from '@/config/energy';
 import { useBalance } from '@/hooks/useBalance';
 import { soundEngine } from '@/lib/soundEngine';
+import { TOKEN_EXPIRED_EVENT } from '@/lib/authHelpers';
 
 interface PhantomProvider {
   isPhantom?: boolean;
@@ -705,6 +706,24 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     phantom.on('disconnect', handleDisconnect);
     return () => phantom.off('disconnect', handleDisconnect);
   }, []);
+
+  // Listen for token expired events (from API calls that detect expired tokens)
+  useEffect(() => {
+    const handleTokenExpired = () => {
+      walletDebug('token_expired_event');
+      
+      // Only transition if currently authenticated
+      if (walletState === 'AUTHENTICATED') {
+        setWalletState('AUTH_REQUIRED');
+        toast.info('Session expired', { 
+          description: 'Please sign in again to continue' 
+        });
+      }
+    };
+
+    window.addEventListener(TOKEN_EXPIRED_EVENT, handleTokenExpired);
+    return () => window.removeEventListener(TOKEN_EXPIRED_EVENT, handleTokenExpired);
+  }, [walletState]);
 
   // Periodically check if energy is stale
   useEffect(() => {
