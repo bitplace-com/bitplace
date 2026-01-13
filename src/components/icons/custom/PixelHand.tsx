@@ -1,10 +1,10 @@
 import { PixelSVG, PixelSVGProps } from './base';
 
-// Hand/drag icon - keeping custom simple style for clarity
+// Hand/drag icon - cleaner open palm design from HackerNoon
 export function PixelHand(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <polygon points="11 2 11 8 9 8 9 12 7 12 7 10 5 10 5 12 3 12 3 18 4 18 4 19 5 19 5 20 6 20 6 21 8 21 8 22 18 22 18 21 19 21 19 20 20 20 20 18 21 18 21 12 19 12 19 10 17 10 17 12 15 12 15 8 13 8 13 2 11 2" />
+      <polygon points="11 1 11 2 10 2 10 8 8 8 8 10 7 10 7 11 6 11 6 9 5 9 5 11 4 11 4 9 3 9 3 11 2 11 2 18 3 18 3 19 4 19 4 20 5 20 5 21 7 21 7 22 17 22 17 21 18 21 18 20 19 20 19 19 20 19 20 17 21 17 21 11 20 11 20 9 18 9 18 11 17 11 17 8 16 8 16 2 15 2 15 1 11 1" />
     </PixelSVG>
   );
 }
