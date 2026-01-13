@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Allowed origins for CORS (restrict to known origins for authenticated endpoints)
+// Allowed origins for CORS
 const ALLOWED_ORIGINS = [
   "https://bitplace.app",
   "https://www.bitplace.app",
@@ -21,7 +21,7 @@ function getCorsHeaders(req: Request): Record<string, string> {
   };
 }
 
-// Verify JWT token - extract userId from token instead of trusting request body
+// Verify JWT token
 async function verifyToken(token: string, secret: string): Promise<{ wallet: string; userId: string; exp: number } | null> {
   try {
     const [headerB64, payloadB64, signatureB64] = token.split(".");
@@ -42,7 +42,6 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
     if (!valid) return null;
 
     const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
-    // Token expiry is in milliseconds (from auth-verify)
     if (payload.exp && Date.now() > payload.exp) return null;
 
     return payload;
@@ -55,7 +54,6 @@ type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE";
 
 // Paint-specific limits
 const MAX_PAINT_PIXELS = 500;
-const PAINT_COOLDOWN_SECONDS = 30;
 
 // Streaming batch size
 const STREAM_BATCH_SIZE = 50;
@@ -88,6 +86,7 @@ interface PixelData {
   x: number;
   y: number;
   id?: number;
+  pixel_id?: bigint;
   owner_user_id?: string | null;
   owner_stake_pe?: number;
   color?: string | null;
@@ -97,13 +96,13 @@ interface PixelData {
   ownerData?: OwnerData;
 }
 
-// Rate limiting: in-memory store per instance
+// Rate limiting
 const rateLimits = new Map<string, { 
   validateCount: number; 
   validateWindowStart: number;
 }>();
 
-const VALIDATE_LIMIT = 5; // max 5 validates per second
+const VALIDATE_LIMIT = 5;
 const VALIDATE_WINDOW_MS = 1000;
 
 function checkValidateRateLimit(userId: string): { ok: boolean; retryAfter?: number } {
@@ -115,7 +114,6 @@ function checkValidateRateLimit(userId: string): { ok: boolean; retryAfter?: num
     rateLimits.set(userId, entry);
   }
   
-  // Reset window if expired
   if (now - entry.validateWindowStart > VALIDATE_WINDOW_MS) {
     entry.validateCount = 0;
     entry.validateWindowStart = now;
@@ -130,8 +128,13 @@ function checkValidateRateLimit(userId: string): { ok: boolean; retryAfter?: num
   return { ok: true };
 }
 
+// Compute pixel_id from (x, y) - matches DB column: (x << 32) | y
+function computePixelId(x: number, y: number): bigint {
+  return (BigInt(x) << 32n) | BigInt(y & 0xFFFFFFFF);
+}
+
 // Constants for rebalance calculations
-const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 function getNextTickTime(now: Date): Date {
   const ms = now.getTime();
@@ -209,77 +212,62 @@ function generateSnapshotHash(pixelStates: PixelData[]): string {
   return hash.toString(36);
 }
 
-// Batch size for pixel queries (prevents URL too long errors with many pixels)
-const PIXEL_QUERY_BATCH_SIZE = 50;
-// Max parallel batches to run concurrently (balance speed vs DB load)
-const PARALLEL_BATCH_LIMIT = 5;
-
+// OPTIMIZED: Fetch pixels using pixel_id IN(...) - single query for up to 500 pixels
 // deno-lint-ignore no-explicit-any
-async function fetchPixelsInBatches(
+async function fetchPixelsByPixelIds(
   supabase: any,
   pixels: Array<{ x: number; y: number }>
-): Promise<Array<{ id: number; x: number; y: number; owner_user_id: string | null; owner_stake_pe: number | null; color: string | null }>> {
-  const allPixels: Array<{ id: number; x: number; y: number; owner_user_id: string | null; owner_stake_pe: number | null; color: string | null }> = [];
-
-  // Split into batches
-  const batches: Array<Array<{ x: number; y: number }>> = [];
-  for (let i = 0; i < pixels.length; i += PIXEL_QUERY_BATCH_SIZE) {
-    batches.push(pixels.slice(i, i + PIXEL_QUERY_BATCH_SIZE));
-  }
-
-  // Process batches in parallel with concurrency limit
-  for (let i = 0; i < batches.length; i += PARALLEL_BATCH_LIMIT) {
-    const parallelBatches = batches.slice(i, i + PARALLEL_BATCH_LIMIT);
-    
-    const results = await Promise.all(
-      parallelBatches.map(batch =>
-        supabase
-          .from("pixels")
-          .select("id, x, y, owner_user_id, owner_stake_pe, color")
-          .or(batch.map((p: { x: number; y: number }) => `and(x.eq.${p.x},y.eq.${p.y})`).join(","))
-      )
-    );
-
-    for (const { data, error } of results) {
-      if (error) throw error;
-      if (data) allPixels.push(...data);
-    }
-  }
-
-  return allPixels;
+): Promise<Array<{ 
+  id: number; 
+  x: number; 
+  y: number; 
+  pixel_id: string;
+  owner_user_id: string | null; 
+  owner_stake_pe: number | null; 
+  color: string | null;
+  def_total: number;
+  atk_total: number;
+}>> {
+  if (pixels.length === 0) return [];
+  
+  // Compute pixel_ids
+  const pixelIds = pixels.map(p => computePixelId(p.x, p.y).toString());
+  
+  // Single query with IN clause
+  const { data, error } = await supabase
+    .from("pixels")
+    .select("id, x, y, pixel_id, owner_user_id, owner_stake_pe, color, def_total, atk_total")
+    .in("pixel_id", pixelIds);
+  
+  if (error) throw error;
+  return data || [];
 }
 
-// Fetch contributions in parallel batches
-const CONTRIB_BATCH_SIZE = 100;
-
+// Fetch user contributions for checking existing side (needed for DEFEND/ATTACK mode)
 // deno-lint-ignore no-explicit-any
-async function fetchContributionsInBatches(
+async function fetchUserContributionsForPixels(
   supabase: any,
-  pixelIds: number[]
-): Promise<Array<{ pixel_id: number; user_id: string; side: string; amount_pe: number }>> {
-  if (pixelIds.length === 0) return [];
-
-  const batches: number[][] = [];
-  for (let i = 0; i < pixelIds.length; i += CONTRIB_BATCH_SIZE) {
-    batches.push(pixelIds.slice(i, i + CONTRIB_BATCH_SIZE));
+  pixelIds: number[],
+  userId: string
+): Promise<Map<number, "DEF" | "ATK">> {
+  if (pixelIds.length === 0) return new Map();
+  
+  const { data, error } = await supabase
+    .from("pixel_contributions")
+    .select("pixel_id, side")
+    .in("pixel_id", pixelIds)
+    .eq("user_id", userId);
+  
+  if (error) {
+    console.error("[game-validate] User contributions fetch error:", error);
+    return new Map();
   }
-
-  // Run all batches in parallel
-  const results = await Promise.all(
-    batches.map(batch =>
-      supabase
-        .from("pixel_contributions")
-        .select("pixel_id, user_id, side, amount_pe")
-        .in("pixel_id", batch)
-    )
-  );
-
-  const contributions: Array<{ pixel_id: number; user_id: string; side: string; amount_pe: number }> = [];
-  for (const { data, error } of results) {
-    if (error) console.error("[game-validate] Contribution batch error:", error);
-    if (data) contributions.push(...data);
-  }
-  return contributions;
+  
+  const result = new Map<number, "DEF" | "ATK">();
+  (data || []).forEach((c: { pixel_id: number; side: string }) => {
+    result.set(c.pixel_id, c.side as "DEF" | "ATK");
+  });
+  return result;
 }
 
 // Valid material IDs
@@ -297,7 +285,6 @@ function isValidPaintId(paintId: string): boolean {
 
 // SSE streaming response handler
 async function handleStreamingValidate(
-  req: Request,
   corsHeaders: Record<string, string>,
   // deno-lint-ignore no-explicit-any
   supabase: any,
@@ -319,13 +306,12 @@ async function handleStreamingValidate(
       };
 
       try {
-        // Emit initial progress
         emit({ type: "progress", phase: "validate", processed: 0, total });
 
-        // Phase 1: Fetch pixels (emit progress after fetch)
-        let existingPixels: Awaited<ReturnType<typeof fetchPixelsInBatches>> = [];
+        // Phase 1: Fetch pixels using optimized pixel_id IN query
+        let existingPixels: Awaited<ReturnType<typeof fetchPixelsByPixelIds>> = [];
         try {
-          existingPixels = await fetchPixelsInBatches(supabase, pixels);
+          existingPixels = await fetchPixelsByPixelIds(supabase, pixels);
           emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.3), total });
         } catch (pixelsError) {
           console.error("[game-validate] Pixels fetch error:", pixelsError);
@@ -334,12 +320,14 @@ async function handleStreamingValidate(
           return;
         }
 
+        // Build pixel map keyed by computed pixel_id
         const pixelMap = new Map<string, typeof existingPixels[0]>();
         existingPixels.forEach(p => {
-          pixelMap.set(`${p.x}:${p.y}`, p);
+          const key = computePixelId(Number(p.x), Number(p.y)).toString();
+          pixelMap.set(key, p);
         });
 
-        // Fetch owner data
+        // Fetch owner data for all pixel owners
         const ownerIds = [...new Set(existingPixels.map(p => p.owner_user_id).filter(Boolean))];
         const ownerDataMap = new Map<string, OwnerData>();
         
@@ -356,29 +344,14 @@ async function handleStreamingValidate(
 
         emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.4), total });
 
-        // Fetch contributions
-        const pixelIds = existingPixels.map(p => p.id);
-        let contributions: { pixel_id: number; user_id: string; side: string; amount_pe: number }[] = [];
-        
-        if (pixelIds.length > 0) {
-          try {
-            contributions = await fetchContributionsInBatches(supabase, pixelIds);
-          } catch (contribsError) {
-            console.error("[game-validate] Contributions fetch error:", contribsError);
-          }
+        // For DEFEND/ATTACK: fetch user's existing contributions
+        let userContribSides = new Map<number, "DEF" | "ATK">();
+        if (mode === "DEFEND" || mode === "ATTACK") {
+          const pixelIds = existingPixels.map(p => p.id);
+          userContribSides = await fetchUserContributionsForPixels(supabase, pixelIds, userId);
         }
 
         emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.5), total });
-
-        // Group contributions by pixel
-        const contribsByPixel = new Map<number, { defSum: number; atkSum: number; userSide?: "DEF" | "ATK" }>();
-        contributions.forEach(c => {
-          const existing = contribsByPixel.get(c.pixel_id) || { defSum: 0, atkSum: 0 };
-          if (c.side === "DEF") existing.defSum += c.amount_pe;
-          else if (c.side === "ATK") existing.atkSum += c.amount_pe;
-          if (c.user_id === userId) existing.userSide = c.side as "DEF" | "ATK";
-          contribsByPixel.set(c.pixel_id, existing);
-        });
 
         // Fetch user's staked PE
         const { data: userOwnedPixels } = await supabase
@@ -408,15 +381,7 @@ async function handleStreamingValidate(
           if (!delError) {
             purgedContributionCount = deleted?.length || 0;
             contributionsPurged = true;
-            contributions = contributions.filter(c => c.user_id !== userId);
-            
-            contribsByPixel.clear();
-            contributions.forEach(c => {
-              const existing = contribsByPixel.get(c.pixel_id) || { defSum: 0, atkSum: 0 };
-              if (c.side === "DEF") existing.defSum += c.amount_pe;
-              else if (c.side === "ATK") existing.atkSum += c.amount_pe;
-              contribsByPixel.set(c.pixel_id, existing);
-            });
+            userContribSides.clear();
           }
         }
 
@@ -425,7 +390,7 @@ async function handleStreamingValidate(
 
         emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.6), total });
 
-        // Build enriched pixel data and validate in batches
+        // Build enriched pixel data and validate
         const invalidPixels: InvalidPixel[] = [];
         let requiredPeTotal = 0;
         let ownedByUser = 0;
@@ -436,25 +401,27 @@ async function handleStreamingValidate(
         const breakdown: { [key: string]: number } = {};
         const pixelStates: PixelData[] = [];
 
-        // Process pixels in batches for progress
         for (let i = 0; i < pixels.length; i += STREAM_BATCH_SIZE) {
           const batch = pixels.slice(i, i + STREAM_BATCH_SIZE);
           
           for (const p of batch) {
-            const existing = pixelMap.get(`${p.x}:${p.y}`);
-            const contribs = existing ? contribsByPixel.get(existing.id) : undefined;
+            const key = computePixelId(p.x, p.y).toString();
+            const existing = pixelMap.get(key);
             const ownerData = existing?.owner_user_id ? ownerDataMap.get(existing.owner_user_id) : undefined;
+            const userSide = existing ? userContribSides.get(existing.id) : undefined;
             
+            // Use def_total and atk_total from pixels table directly
             const pixel: PixelData = {
               x: p.x,
               y: p.y,
               id: existing?.id,
+              pixel_id: existing ? BigInt(existing.pixel_id) : undefined,
               owner_user_id: existing?.owner_user_id,
               owner_stake_pe: existing?.owner_stake_pe || 0,
               color: existing?.color,
-              defSum: contribs?.defSum || 0,
-              atkSum: contribs?.atkSum || 0,
-              userContributionSide: contribs?.userSide,
+              defSum: existing?.def_total || 0,
+              atkSum: existing?.atk_total || 0,
+              userContributionSide: userSide,
               ownerData,
             };
             
@@ -520,7 +487,6 @@ async function handleStreamingValidate(
             }
           }
 
-          // Emit progress after each batch
           const processed = Math.min(i + STREAM_BATCH_SIZE, pixels.length);
           const progressPct = 0.6 + (processed / pixels.length) * 0.4;
           emit({ type: "progress", phase: "validate", processed: Math.floor(total * progressPct), total });
@@ -600,7 +566,6 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get("authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.log("[game-validate] Missing or invalid Authorization header");
       return new Response(JSON.stringify({ ok: false, error: "UNAUTHORIZED", message: "Missing authentication token" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -610,7 +575,6 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const authSecret = Deno.env.get("AUTH_SECRET");
     if (!authSecret) {
-      console.error("[game-validate] AUTH_SECRET not configured");
       return new Response(JSON.stringify({ ok: false, error: "SERVER_ERROR" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -619,7 +583,6 @@ Deno.serve(async (req) => {
 
     const payload = await verifyToken(token, authSecret);
     if (!payload) {
-      console.log("[game-validate] Invalid or expired token");
       return new Response(JSON.stringify({ ok: false, error: "UNAUTHORIZED", message: "Invalid or expired token" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -654,10 +617,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Rate limiting check
+    // Rate limiting
     const rateCheck = checkValidateRateLimit(userId);
     if (!rateCheck.ok) {
-      console.log(`[game-validate] Rate limited user ${userId}`);
       return new Response(JSON.stringify({ 
         ok: false, 
         error: "RATE_LIMITED", 
@@ -676,19 +638,17 @@ Deno.serve(async (req) => {
     }
 
     // PAINT-specific limits
-    if (mode === "PAINT") {
-      if (pixels.length > MAX_PAINT_PIXELS) {
-        return new Response(JSON.stringify({
-          ok: false,
-          error: "MAX_PIXELS_EXCEEDED",
-          message: `Maximum ${MAX_PAINT_PIXELS} pixels per paint`,
-          max: MAX_PAINT_PIXELS,
-          requested: pixels.length,
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    if (mode === "PAINT" && pixels.length > MAX_PAINT_PIXELS) {
+      return new Response(JSON.stringify({
+        ok: false,
+        error: "MAX_PIXELS_EXCEEDED",
+        message: `Maximum ${MAX_PAINT_PIXELS} pixels per paint`,
+        max: MAX_PAINT_PIXELS,
+        requested: pixels.length,
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     if (!["PAINT", "DEFEND", "ATTACK", "REINFORCE", "ERASE"].includes(mode)) {
@@ -706,9 +666,7 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-    } else if (mode === "ERASE") {
-      // ERASE mode doesn't require color or pePerPixel
-    } else {
+    } else if (mode !== "ERASE") {
       if (!pePerPixel || pePerPixel < 1 || !Number.isInteger(pePerPixel)) {
         return new Response(JSON.stringify({ ok: false, error: "INVALID_PE", message: `${mode} requires positive integer pePerPixel` }), {
           status: 400,
@@ -717,7 +675,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch user data (including paint_cooldown_until)
+    // Fetch user data
     const { data: user, error: userError } = await supabase
       .from("users")
       .select("id, pe_total_pe, paint_cooldown_until")
@@ -725,7 +683,6 @@ Deno.serve(async (req) => {
       .single();
 
     if (userError || !user) {
-      console.error("[game-validate] User fetch error:", userError);
       return new Response(JSON.stringify({ ok: false, error: "USER_NOT_FOUND" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -738,7 +695,6 @@ Deno.serve(async (req) => {
       const now = new Date();
       if (now < cooldownUntil) {
         const retryAfterSeconds = Math.ceil((cooldownUntil.getTime() - now.getTime()) / 1000);
-        console.log(`[game-validate] PAINT cooldown active for user ${userId}: ${retryAfterSeconds}s remaining`);
         return new Response(JSON.stringify({
           ok: false,
           error: "PAINT_COOLDOWN",
@@ -754,15 +710,15 @@ Deno.serve(async (req) => {
 
     // Use streaming for large operations
     if (stream && pixels.length >= MIN_PIXELS_FOR_STREAMING) {
-      return handleStreamingValidate(req, corsHeaders, supabase, userId, mode, pixels, color, pePerPixel, user);
+      return handleStreamingValidate(corsHeaders, supabase, userId, mode, pixels, color, pePerPixel, user);
     }
 
-    // Standard non-streaming response for smaller operations
-    // Fetch all pixels at selected coordinates (in batches to avoid URL length limits)
-    let existingPixels: Awaited<ReturnType<typeof fetchPixelsInBatches>> = [];
+    // Standard non-streaming response
+    // OPTIMIZED: Fetch pixels using pixel_id IN query
+    let existingPixels: Awaited<ReturnType<typeof fetchPixelsByPixelIds>> = [];
     try {
-      existingPixels = await fetchPixelsInBatches(supabase, pixels);
-      console.log(`[game-validate] Fetched ${existingPixels.length} existing pixels in batches`);
+      existingPixels = await fetchPixelsByPixelIds(supabase, pixels);
+      console.log(`[game-validate] Fetched ${existingPixels.length} pixels via pixel_id IN`);
     } catch (pixelsError) {
       console.error("[game-validate] Pixels fetch error:", pixelsError);
       return new Response(JSON.stringify({ ok: false, error: "DB_ERROR" }), {
@@ -772,12 +728,13 @@ Deno.serve(async (req) => {
     }
 
     const pixelMap = new Map<string, typeof existingPixels[0]>();
-    (existingPixels || []).forEach(p => {
-      pixelMap.set(`${p.x}:${p.y}`, p);
+    existingPixels.forEach(p => {
+      const key = computePixelId(Number(p.x), Number(p.y)).toString();
+      pixelMap.set(key, p);
     });
 
-    // Fetch owner data for all pixel owners
-    const ownerIds = [...new Set((existingPixels || []).map(p => p.owner_user_id).filter(Boolean))];
+    // Fetch owner data
+    const ownerIds = [...new Set(existingPixels.map(p => p.owner_user_id).filter(Boolean))];
     const ownerDataMap = new Map<string, OwnerData>();
     
     if (ownerIds.length > 0) {
@@ -791,28 +748,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch contributions on selected pixels (in parallel batches)
-    const pixelIds = (existingPixels || []).map(p => p.id);
-    let contributions: { pixel_id: number; user_id: string; side: string; amount_pe: number }[] = [];
-    
-    if (pixelIds.length > 0) {
-      try {
-        contributions = await fetchContributionsInBatches(supabase, pixelIds);
-        console.log(`[game-validate] Fetched ${contributions.length} contributions in parallel batches`);
-      } catch (contribsError) {
-        console.error("[game-validate] Contributions fetch error:", contribsError);
-      }
+    // For DEFEND/ATTACK: fetch user's existing contributions
+    let userContribSides = new Map<number, "DEF" | "ATK">();
+    if (mode === "DEFEND" || mode === "ATTACK") {
+      const pixelIds = existingPixels.map(p => p.id);
+      userContribSides = await fetchUserContributionsForPixels(supabase, pixelIds, userId);
     }
-
-    // Group contributions by pixel
-    const contribsByPixel = new Map<number, { defSum: number; atkSum: number; userSide?: "DEF" | "ATK" }>();
-    contributions.forEach(c => {
-      const existing = contribsByPixel.get(c.pixel_id) || { defSum: 0, atkSum: 0 };
-      if (c.side === "DEF") existing.defSum += c.amount_pe;
-      else if (c.side === "ATK") existing.atkSum += c.amount_pe;
-      if (c.user_id === userId) existing.userSide = c.side as "DEF" | "ATK";
-      contribsByPixel.set(c.pixel_id, existing);
-    });
 
     // Fetch user's staked PE
     const { data: userOwnedPixels } = await supabase
@@ -833,8 +774,6 @@ Deno.serve(async (req) => {
     let purgedContributionCount = 0;
     
     if (contributionsSum > user.pe_total_pe) {
-      console.log(`[game-validate] User ${userId} contributions under-collateralized`);
-      
       const { data: deleted, error: delError } = await supabase
         .from("pixel_contributions")
         .delete()
@@ -844,15 +783,7 @@ Deno.serve(async (req) => {
       if (!delError) {
         purgedContributionCount = deleted?.length || 0;
         contributionsPurged = true;
-        contributions = contributions.filter(c => c.user_id !== userId);
-        
-        contribsByPixel.clear();
-        contributions.forEach(c => {
-          const existing = contribsByPixel.get(c.pixel_id) || { defSum: 0, atkSum: 0 };
-          if (c.side === "DEF") existing.defSum += c.amount_pe;
-          else if (c.side === "ATK") existing.atkSum += c.amount_pe;
-          contribsByPixel.set(c.pixel_id, existing);
-        });
+        userContribSides.clear();
       }
     }
 
@@ -861,31 +792,34 @@ Deno.serve(async (req) => {
 
     // Build enriched pixel data
     const pixelStates: PixelData[] = pixels.map(p => {
-      const existing = pixelMap.get(`${p.x}:${p.y}`);
-      const contribs = existing ? contribsByPixel.get(existing.id) : undefined;
+      const key = computePixelId(p.x, p.y).toString();
+      const existing = pixelMap.get(key);
       const ownerData = existing?.owner_user_id ? ownerDataMap.get(existing.owner_user_id) : undefined;
+      const userSide = existing ? userContribSides.get(existing.id) : undefined;
+      
       return {
         x: p.x,
         y: p.y,
         id: existing?.id,
+        pixel_id: existing ? BigInt(existing.pixel_id) : undefined,
         owner_user_id: existing?.owner_user_id,
         owner_stake_pe: existing?.owner_stake_pe || 0,
         color: existing?.color,
-        defSum: contribs?.defSum || 0,
-        atkSum: contribs?.atkSum || 0,
-        userContributionSide: contribs?.userSide,
+        defSum: existing?.def_total || 0,
+        atkSum: existing?.atk_total || 0,
+        userContributionSide: userSide,
         ownerData,
       };
     });
 
-    // Validate each pixel and compute required PE
+    // Validate each pixel
     const invalidPixels: InvalidPixel[] = [];
     let requiredPeTotal = 0;
     let ownedByUser = 0;
     let ownedByOthers = 0;
     let emptyCount = 0;
     let floorBasedCount = 0;
-    let validPixelCount = 0; // Track valid pixels for ERASE partial success
+    let validPixelCount = 0;
     const breakdown: { [key: string]: number } = {};
 
     for (const pixel of pixelStates) {
@@ -898,7 +832,6 @@ Deno.serve(async (req) => {
       else ownedByOthers++;
 
       if (mode === "ERASE") {
-        // ERASE: Only own pixels can be erased
         if (isEmpty) {
           invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
           continue;
@@ -907,10 +840,7 @@ Deno.serve(async (req) => {
           invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "NOT_OWNER" });
           continue;
         }
-        // Valid pixel for erase
         validPixelCount++;
-        // ERASE doesn't cost PE - it refunds PE
-        // Track the PE that will be unlocked
         breakdown["eraseRefund"] = (breakdown["eraseRefund"] || 0) + (pixel.owner_stake_pe || 0);
       } else if (mode === "REINFORCE") {
         if (isEmpty) {
@@ -953,7 +883,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Check PE availability (not needed for ERASE since it refunds PE)
+    // Check PE availability
     if (mode !== "ERASE" && invalidPixels.length === 0 && requiredPeTotal > peFree) {
       return new Response(JSON.stringify({
         ok: false,
@@ -969,19 +899,14 @@ Deno.serve(async (req) => {
     }
 
     const snapshotHash = generateSnapshotHash(pixelStates);
-
-    // Calculate unlockPeTotal for ERASE mode
     const unlockPeTotal = mode === "ERASE" ? (breakdown["eraseRefund"] || 0) : undefined;
-
-    // For ERASE mode: allow partial success (ok: true) if at least some pixels are valid
-    // This enables "Exclude Invalid" flow in the UI
     const isErasePartialSuccess = mode === "ERASE" && validPixelCount > 0 && invalidPixels.length > 0;
     const eraseHasValidPixels = mode === "ERASE" && validPixelCount > 0;
 
-    const result = {
+    return new Response(JSON.stringify({
       ok: mode === "ERASE" ? eraseHasValidPixels : invalidPixels.length === 0,
-      partialValid: isErasePartialSuccess, // New: indicates some valid, some invalid
-      validPixelCount: mode === "ERASE" ? validPixelCount : undefined, // New: count of valid pixels
+      partialValid: isErasePartialSuccess,
+      validPixelCount: mode === "ERASE" ? validPixelCount : undefined,
       requiredPeTotal,
       snapshotHash,
       invalidPixels,
@@ -997,11 +922,7 @@ Deno.serve(async (req) => {
       unlockPeTotal,
       contributionsPurged,
       purgedContributionCount,
-    };
-
-    console.log("[game-validate] Result:", { ok: result.ok, partialValid: result.partialValid, validPixelCount, requiredPeTotal, invalidCount: invalidPixels.length });
-
-    return new Response(JSON.stringify(result), {
+    }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

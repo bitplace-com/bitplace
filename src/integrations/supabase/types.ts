@@ -318,6 +318,7 @@ export type Database = {
           id: number
           owner_stake_pe: number
           owner_user_id: string | null
+          pixel_id: number | null
           tile_x: number | null
           tile_y: number | null
           updated_at: string | null
@@ -332,6 +333,7 @@ export type Database = {
           id?: number
           owner_stake_pe?: number
           owner_user_id?: string | null
+          pixel_id?: number | null
           tile_x?: number | null
           tile_y?: number | null
           updated_at?: string | null
@@ -346,6 +348,7 @@ export type Database = {
           id?: number
           owner_stake_pe?: number
           owner_user_id?: string | null
+          pixel_id?: number | null
           tile_x?: number | null
           tile_y?: number | null
           updated_at?: string | null
