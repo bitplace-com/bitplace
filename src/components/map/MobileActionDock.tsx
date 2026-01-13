@@ -44,8 +44,7 @@ interface MobileActionDockProps {
   onUndoDraft?: () => void;
   onClearDraft?: () => void;
   // Progress tracking
-  operationStartTime?: number | null;
-  operationPixelCount?: number;
+  progress?: { processed: number; total: number } | null;
 }
 
 export function MobileActionDock({
@@ -70,8 +69,7 @@ export function MobileActionDock({
   draftCount = 0,
   onUndoDraft,
   onClearDraft,
-  operationStartTime,
-  operationPixelCount = 0,
+  progress,
 }: MobileActionDockProps) {
   const [dockState, setDockState] = useState<DockState>('hidden');
   const [withdrawStats, setWithdrawStats] = useState<WithdrawStats | null>(null);
@@ -350,8 +348,7 @@ export function MobileActionDock({
                     draftCount={draftCount}
                     onUndoDraft={onUndoDraft}
                     onClearDraft={onClearDraft}
-                    operationStartTime={operationStartTime}
-                    operationPixelCount={operationPixelCount}
+                    progress={progress}
                   />
                 </>
               )}
