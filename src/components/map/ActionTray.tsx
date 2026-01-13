@@ -117,18 +117,14 @@ export function ActionTray({
   }, [isExpanded, play]);
 
   const handleColorClick = useCallback((color: string) => {
-    console.log('[ActionTray] handleColorClick', { canPaint, color, currentInteractionMode: interactionMode });
-    if (!canPaint) {
-      console.log('[ActionTray] BLOCKED: canPaint is false');
-      return;
-    }
+    if (!canPaint) return;
     // onColorSelect now atomically sets color + enables draw mode
     onColorSelect(color);
     // Only need to change paint tool if eraser was active
     if (paintTool === 'ERASER') {
       onPaintToolChange('BRUSH');
     }
-  }, [canPaint, onColorSelect, paintTool, onPaintToolChange, interactionMode]);
+  }, [canPaint, onColorSelect, paintTool, onPaintToolChange]);
 
   const handleToolClick = useCallback((tool: PaintTool, size?: BrushSize) => {
     if (!canPaint) return;
