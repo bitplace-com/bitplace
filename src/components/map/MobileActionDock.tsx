@@ -43,6 +43,9 @@ interface MobileActionDockProps {
   draftCount?: number;
   onUndoDraft?: () => void;
   onClearDraft?: () => void;
+  // Progress tracking
+  operationStartTime?: number | null;
+  operationPixelCount?: number;
 }
 
 export function MobileActionDock({
@@ -67,6 +70,8 @@ export function MobileActionDock({
   draftCount = 0,
   onUndoDraft,
   onClearDraft,
+  operationStartTime,
+  operationPixelCount = 0,
 }: MobileActionDockProps) {
   const [dockState, setDockState] = useState<DockState>('hidden');
   const [withdrawStats, setWithdrawStats] = useState<WithdrawStats | null>(null);
@@ -218,6 +223,7 @@ export function MobileActionDock({
             requiredPe={requiredPe}
             selectedColor={selectedColor}
             onExpand={handleExpand}
+            isProcessing={isValidating || isCommitting}
           />
         ) : (
           <div className="glass-hud rounded-xl border border-border/50 overflow-hidden">
@@ -344,6 +350,8 @@ export function MobileActionDock({
                     draftCount={draftCount}
                     onUndoDraft={onUndoDraft}
                     onClearDraft={onClearDraft}
+                    operationStartTime={operationStartTime}
+                    operationPixelCount={operationPixelCount}
                   />
                 </>
               )}

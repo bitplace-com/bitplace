@@ -72,6 +72,10 @@ export function useGameActions() {
   const [invalidPixels, setInvalidPixels] = useState<InvalidPixel[]>([]);
   const [isValidating, setIsValidating] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
+  
+  // Operation progress tracking
+  const [operationStartTime, setOperationStartTime] = useState<number | null>(null);
+  const [operationPixelCount, setOperationPixelCount] = useState(0);
 
   const getAuthHeaders = useCallback(() => {
     return getAuthHeadersOrExpire();
@@ -110,6 +114,8 @@ export function useGameActions() {
 
     setIsValidating(true);
     setInvalidPixels([]);
+    setOperationStartTime(Date.now());
+    setOperationPixelCount(deduplicatedPixels.length);
 
     try {
       const { data, error } = await supabase.functions.invoke('game-validate', {
@@ -201,6 +207,7 @@ export function useGameActions() {
       return null;
     } finally {
       setIsValidating(false);
+      setOperationStartTime(null);
     }
   }, [user?.id]);
 
@@ -217,13 +224,14 @@ export function useGameActions() {
     }
 
     setIsCommitting(true);
+    setOperationStartTime(Date.now());
+    setOperationPixelCount(params.pixels.length);
 
     try {
       const { data, error } = await supabase.functions.invoke('game-commit', {
         headers,
         body: params,
       });
-
       if (error) {
         console.error('[useGameActions] Commit error object:', error);
         
@@ -315,6 +323,7 @@ export function useGameActions() {
       return null;
     } finally {
       setIsCommitting(false);
+      setOperationStartTime(null);
     }
   }, [user?.id, getAuthHeaders]);
 
@@ -331,6 +340,9 @@ export function useGameActions() {
     isValidating,
     isCommitting,
     clearValidation,
+    // Progress tracking
+    operationStartTime,
+    operationPixelCount,
   };
 }
 
