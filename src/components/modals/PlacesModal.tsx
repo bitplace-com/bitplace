@@ -138,7 +138,7 @@ export function PlacesModal({
       onOpenChange={onOpenChange}
       title="Pinned Locations"
       description="Discover and save interesting places"
-      icon={<PixelIcon name="pin" className="h-5 w-5" />}
+      icon={<PixelIcon name="thumbtack" className="h-5 w-5" />}
       size="md"
     >
       {/* Main Tabs: Discover / My Pins */}

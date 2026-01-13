@@ -127,6 +127,12 @@ export function ActionTray({
 
   const handleToolClick = useCallback((tool: PaintTool, size?: BrushSize) => {
     if (!canPaint) return;
+    
+    // Auto-switch to draw mode when selecting a tool
+    if (interactionMode !== 'draw') {
+      onInteractionModeChange('draw');
+    }
+    
     if (tool === 'ERASER') {
       onPaintToolChange('ERASER');
     } else {
@@ -135,7 +141,7 @@ export function ActionTray({
         onBrushSizeChange(size);
       }
     }
-  }, [canPaint, onPaintToolChange, onBrushSizeChange]);
+  }, [canPaint, interactionMode, onInteractionModeChange, onPaintToolChange, onBrushSizeChange]);
 
   const handleEyedropperClick = useCallback(() => {
     if (!canPaint) return;
@@ -168,17 +174,20 @@ export function ActionTray({
       >
         {/* Header - always visible */}
         <div className="flex items-center justify-between gap-2 px-3 py-2">
-          {/* Left: Fire button + Interaction mode toggle */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* Pin button for Places */}
+          {/* Left: Pin button (separated) + Interaction mode toggle */}
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Pin button for Places - visually separated */}
             <GlassIconButton
               variant="ghost"
               size="sm"
               onClick={() => setPlacesOpen(true)}
               title="Pinned Locations"
             >
-              <PixelIcon name="pin" className="h-4 w-4" />
+              <PixelIcon name="thumbtack" className="h-4 w-4" />
             </GlassIconButton>
+            
+            {/* Visual separator */}
+            <div className="w-px h-5 bg-border/50 mx-0.5" />
             
             {canPaint && (
               <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5">
@@ -373,10 +382,10 @@ export function ActionTray({
                   isEraser && "opacity-40 pointer-events-none"
                 )}>
 
-                <div className="max-h-48 overflow-y-auto overflow-x-hidden py-1.5 px-0.5">
+                <div className="max-h-48 overflow-y-auto overflow-x-hidden py-1.5 px-1">
                   {paletteTab === 'colors' ? (
-                    /* Standard color palette - larger on mobile */
-                    <div className="grid grid-cols-8 sm:grid-cols-12 gap-2 sm:gap-1.5 w-full">
+                    /* Standard color palette - larger on mobile, with proper spacing */
+                    <div className="grid grid-cols-8 sm:grid-cols-12 gap-1.5 w-full pr-0.5">
                       {ALL_COLORS.map((color, index) => {
                         const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
                         return (
@@ -385,7 +394,7 @@ export function ActionTray({
                             onClick={() => handleColorClick(color)}
                             disabled={!canPaint}
                             className={cn(
-                              "w-9 h-9 sm:w-7 sm:h-7 rounded-lg sm:rounded-md transition-all duration-100 focus:outline-none touch-target",
+                              "w-8 h-8 sm:w-6 sm:h-6 rounded-lg sm:rounded-md transition-all duration-100 focus:outline-none touch-target",
                               canPaint && "hover:ring-1 hover:ring-foreground/30",
                               isSelected && "ring-2 ring-foreground scale-105 z-10",
                               !canPaint && "opacity-40 cursor-not-allowed"
