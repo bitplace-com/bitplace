@@ -43,6 +43,9 @@ interface InspectorPanelProps {
   draftCount?: number;
   onUndoDraft?: () => void;
   onClearDraft?: () => void;
+  // Progress tracking
+  operationStartTime?: number | null;
+  operationPixelCount?: number;
 }
 
 export function InspectorPanel({
@@ -66,6 +69,8 @@ export function InspectorPanel({
   draftCount = 0,
   onUndoDraft,
   onClearDraft,
+  operationStartTime,
+  operationPixelCount = 0,
 }: InspectorPanelProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [withdrawStats, setWithdrawStats] = useState<WithdrawStats | null>(null);
@@ -293,6 +298,8 @@ export function InspectorPanel({
         draftCount={draftCount}
         onUndoDraft={onUndoDraft}
         onClearDraft={onClearDraft}
+        operationStartTime={operationStartTime}
+        operationPixelCount={operationPixelCount}
       />
     </>
   );

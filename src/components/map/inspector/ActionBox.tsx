@@ -2,6 +2,7 @@ import { Paintbrush, Shield, Swords, Loader2, Eraser, Undo2, Trash2, Check, Aler
 import { Button } from '@/components/ui/button';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { PeInput } from '../PeInput';
+import { OperationProgress } from '../OperationProgress';
 import type { GameMode, ValidateResult } from '@/hooks/useGameActions';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +25,9 @@ interface ActionBoxProps {
   draftCount?: number;
   onUndoDraft?: () => void;
   onClearDraft?: () => void;
+  // Progress tracking
+  operationStartTime?: number | null;
+  operationPixelCount?: number;
 }
 
 const modeConfig: Record<GameMode, { icon: React.ReactNode; label: string }> = {
@@ -52,6 +56,8 @@ export function ActionBox({
   draftCount = 0,
   onUndoDraft,
   onClearDraft,
+  operationStartTime,
+  operationPixelCount = 0,
 }: ActionBoxProps) {
   const config = modeConfig[mode];
   const needsValidation = mode === 'ERASE' || mode !== 'PAINT' || pixelCount > 1;
@@ -255,7 +261,7 @@ export function ActionBox({
             {isValidating ? (
               <>
                 <Loader2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 mr-1.5 animate-spin" />
-                Checking...
+                {effectiveCount > 50 ? `Checking ${effectiveCount} px...` : 'Checking...'}
               </>
             ) : (
               'Validate'
@@ -273,7 +279,7 @@ export function ActionBox({
             {isCommitting ? (
               <>
                 <Loader2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 mr-1.5 animate-spin" />
-                ...
+                {effectiveCount > 50 ? `${effectiveCount} px...` : '...'}
               </>
             ) : (
               <>
@@ -284,6 +290,15 @@ export function ActionBox({
           </Button>
         )}
       </div>
+
+      {/* Progress indicator for long operations */}
+      <OperationProgress
+        isActive={isValidating || isCommitting}
+        operation={isValidating ? 'validate' : 'commit'}
+        mode={mode}
+        pixelCount={operationPixelCount}
+        startedAt={operationStartTime ?? null}
+      />
     </div>
   );
 }
