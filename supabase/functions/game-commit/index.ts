@@ -97,6 +97,31 @@ function checkCommitRateLimit(userId: string): { ok: boolean; retryAfter?: numbe
   return { ok: true };
 }
 
+// Batch pixel queries to avoid URL length limits
+const PIXEL_QUERY_BATCH_SIZE = 50;
+
+async function fetchPixelsInBatches(
+  supabase: any,
+  pixels: Array<{ x: number; y: number }>
+): Promise<Array<{ id: number; x: number; y: number; owner_user_id: string | null; owner_stake_pe: number | null; color: string | null }>> {
+  const allPixels: Array<{ id: number; x: number; y: number; owner_user_id: string | null; owner_stake_pe: number | null; color: string | null }> = [];
+
+  for (let i = 0; i < pixels.length; i += PIXEL_QUERY_BATCH_SIZE) {
+    const batch = pixels.slice(i, i + PIXEL_QUERY_BATCH_SIZE);
+    const { data, error } = await supabase
+      .from("pixels")
+      .select("id, x, y, owner_user_id, owner_stake_pe, color")
+      .or(batch.map((p: { x: number; y: number }) => `and(x.eq.${p.x},y.eq.${p.y})`).join(","));
+
+    if (error) {
+      console.error("[game-commit] Batch pixel fetch error:", error);
+      throw error;
+    }
+    if (data) allPixels.push(...data);
+  }
+  return allPixels;
+}
+
 const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 function getNextTickTime(now: Date): Date {
@@ -268,14 +293,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch current pixel states
-    const { data: existingPixels, error: pixelsError } = await supabase
-      .from("pixels")
-      .select("id, x, y, owner_user_id, owner_stake_pe, color")
-      .or(pixels.map(p => `and(x.eq.${p.x},y.eq.${p.y})`).join(","));
-
-    if (pixelsError) {
-      return new Response(JSON.stringify({ ok: false, error: "DB_ERROR" }), {
+    // Fetch current pixel states in batches to avoid URL length limits
+    let existingPixels: Array<{ id: number; x: number; y: number; owner_user_id: string | null; owner_stake_pe: number | null; color: string | null }> = [];
+    try {
+      existingPixels = await fetchPixelsInBatches(supabase, pixels);
+    } catch (pixelsError) {
+      console.error("[game-commit] Pixels fetch error:", pixelsError);
+      return new Response(JSON.stringify({ ok: false, error: "DB_ERROR", message: "Failed to fetch pixels" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -413,9 +437,9 @@ Deno.serve(async (req) => {
         x: p.x,
         y: p.y,
         id: existing?.id,
-        owner_user_id: existing?.owner_user_id,
+        owner_user_id: existing?.owner_user_id ?? undefined,
         owner_stake_pe: existing?.owner_stake_pe || 0,
-        color: existing?.color,
+        color: existing?.color ?? undefined,
         defSum: contribs?.defSum || 0,
         atkSum: contribs?.atkSum || 0,
         ownerData,
@@ -529,77 +553,116 @@ Deno.serve(async (req) => {
         }
       }
     } else if (mode === "PAINT") {
+      // Categorize pixels for optimized batch operations
+      const toInsert: Array<{ x: number; y: number; color: string; owner_user_id: string; owner_stake_pe: number; created_at: string; updated_at: string }> = [];
+      const toUpdateOwned: Array<{ id: number; x: number; y: number }> = [];
+      const toTakeover: PixelData[] = [];
+
       for (const pixel of pixelStates) {
         const isEmpty = !pixel.id;
         const isOwnedByUser = pixel.owner_user_id === userId;
 
         if (isEmpty) {
-          const { error } = await supabase
-            .from("pixels")
-            .insert({
-              x: pixel.x,
-              y: pixel.y,
-              color: color!,
-              owner_user_id: userId,
-              owner_stake_pe: 1,
-              created_at: now,
-              updated_at: now
-            });
-          if (!error) affectedPixels++;
+          toInsert.push({
+            x: pixel.x,
+            y: pixel.y,
+            color: color!,
+            owner_user_id: userId,
+            owner_stake_pe: 1,
+            created_at: now,
+            updated_at: now
+          });
         } else if (isOwnedByUser) {
-          const { error } = await supabase
+          toUpdateOwned.push({ id: pixel.id!, x: pixel.x, y: pixel.y });
+        } else {
+          toTakeover.push(pixel);
+        }
+      }
+
+      // Bulk insert new pixels (most efficient)
+      if (toInsert.length > 0) {
+        const { data: insertedData, error: insertError } = await supabase
+          .from("pixels")
+          .insert(toInsert)
+          .select("id");
+        
+        if (insertError) {
+          console.error("[game-commit] Bulk insert error:", insertError);
+        } else {
+          affectedPixels += insertedData?.length || 0;
+          console.log("[game-commit] Bulk inserted", insertedData?.length, "new pixels");
+        }
+      }
+
+      // Bulk update owned pixels (color change only) - batch by chunks
+      if (toUpdateOwned.length > 0) {
+        const UPDATE_BATCH_SIZE = 50;
+        for (let i = 0; i < toUpdateOwned.length; i += UPDATE_BATCH_SIZE) {
+          const batch = toUpdateOwned.slice(i, i + UPDATE_BATCH_SIZE);
+          const ids = batch.map(p => p.id);
+          const { error: updateError } = await supabase
             .from("pixels")
             .update({ color: color!, updated_at: now })
-            .eq("id", pixel.id);
-          if (!error) affectedPixels++;
-        } else {
-          const threshold = calculateThreshold(pixel);
-
-          // Delete DEF contributions
-          if (pixel.id) {
-            await supabase
-              .from("pixel_contributions")
-              .delete()
-              .eq("pixel_id", pixel.id)
-              .eq("side", "DEF");
-          }
-
-          // Convert ATK to DEF
-          if (pixel.id) {
-            await supabase
-              .from("pixel_contributions")
-              .update({ side: "DEF" })
-              .eq("pixel_id", pixel.id)
-              .eq("side", "ATK");
-          }
-
-          // Update pixel with new owner
-          const previousOwnerId = pixel.owner_user_id;
-          const { error } = await supabase
-            .from("pixels")
-            .update({
-              owner_user_id: userId,
-              owner_stake_pe: threshold,
-              color: color!,
-              updated_at: now
-            })
-            .eq("id", pixel.id);
+            .in("id", ids);
           
-          if (!error) {
-            affectedPixels++;
-            // Notify previous owner about takeover
-            if (previousOwnerId && previousOwnerId !== userId) {
-              await supabase.from("notifications").insert({
-                user_id: previousOwnerId,
-                type: "PIXEL_TAKEOVER",
-                title: "Your pixel was taken!",
-                body: `Someone painted over your pixel at (${pixel.x}, ${pixel.y})`,
-                meta: { pixel_x: pixel.x, pixel_y: pixel.y, actor_id: userId, color }
-              });
-            }
+          if (!updateError) {
+            affectedPixels += batch.length;
+          } else {
+            console.error("[game-commit] Batch update error:", updateError);
+          }
+        }
+        console.log("[game-commit] Updated", toUpdateOwned.length, "owned pixels");
+      }
+
+      // Handle takeovers individually (complex logic with contributions and notifications)
+      for (const pixel of toTakeover) {
+        const threshold = calculateThreshold(pixel);
+
+        // Delete DEF contributions
+        if (pixel.id) {
+          await supabase
+            .from("pixel_contributions")
+            .delete()
+            .eq("pixel_id", pixel.id)
+            .eq("side", "DEF");
+        }
+
+        // Convert ATK to DEF
+        if (pixel.id) {
+          await supabase
+            .from("pixel_contributions")
+            .update({ side: "DEF" })
+            .eq("pixel_id", pixel.id)
+            .eq("side", "ATK");
+        }
+
+        // Update pixel with new owner
+        const previousOwnerId = pixel.owner_user_id;
+        const { error } = await supabase
+          .from("pixels")
+          .update({
+            owner_user_id: userId,
+            owner_stake_pe: threshold,
+            color: color!,
+            updated_at: now
+          })
+          .eq("id", pixel.id);
+        
+        if (!error) {
+          affectedPixels++;
+          // Notify previous owner about takeover
+          if (previousOwnerId && previousOwnerId !== userId) {
+            await supabase.from("notifications").insert({
+              user_id: previousOwnerId,
+              type: "PIXEL_TAKEOVER",
+              title: "Your pixel was taken!",
+              body: `Someone painted over your pixel at (${pixel.x}, ${pixel.y})`,
+              meta: { pixel_x: pixel.x, pixel_y: pixel.y, actor_id: userId, color }
+            });
           }
         }
       }
+      console.log("[game-commit] PAINT complete: inserted", toInsert.length, ", updated", toUpdateOwned.length, ", takeover", toTakeover.length);
     }
 
     // Notify followers about this user's paint action
