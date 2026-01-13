@@ -202,6 +202,8 @@ function generateSnapshotHash(pixelStates: PixelData[]): string {
 
 // Batch size for pixel queries (prevents URL too long errors with many pixels)
 const PIXEL_QUERY_BATCH_SIZE = 50;
+// Max parallel batches to run concurrently (balance speed vs DB load)
+const PARALLEL_BATCH_LIMIT = 5;
 
 // deno-lint-ignore no-explicit-any
 async function fetchPixelsInBatches(
@@ -210,23 +212,65 @@ async function fetchPixelsInBatches(
 ): Promise<Array<{ id: number; x: number; y: number; owner_user_id: string | null; owner_stake_pe: number | null; color: string | null }>> {
   const allPixels: Array<{ id: number; x: number; y: number; owner_user_id: string | null; owner_stake_pe: number | null; color: string | null }> = [];
 
-  // Process in batches to avoid URL length limits
+  // Split into batches
+  const batches: Array<Array<{ x: number; y: number }>> = [];
   for (let i = 0; i < pixels.length; i += PIXEL_QUERY_BATCH_SIZE) {
-    const batch = pixels.slice(i, i + PIXEL_QUERY_BATCH_SIZE);
-    const { data, error } = await supabase
-      .from("pixels")
-      .select("id, x, y, owner_user_id, owner_stake_pe, color")
-      .or(batch.map((p: { x: number; y: number }) => `and(x.eq.${p.x},y.eq.${p.y})`).join(","));
+    batches.push(pixels.slice(i, i + PIXEL_QUERY_BATCH_SIZE));
+  }
 
-    if (error) {
-      throw error;
-    }
-    if (data) {
-      allPixels.push(...data);
+  // Process batches in parallel with concurrency limit
+  for (let i = 0; i < batches.length; i += PARALLEL_BATCH_LIMIT) {
+    const parallelBatches = batches.slice(i, i + PARALLEL_BATCH_LIMIT);
+    
+    const results = await Promise.all(
+      parallelBatches.map(batch =>
+        supabase
+          .from("pixels")
+          .select("id, x, y, owner_user_id, owner_stake_pe, color")
+          .or(batch.map((p: { x: number; y: number }) => `and(x.eq.${p.x},y.eq.${p.y})`).join(","))
+      )
+    );
+
+    for (const { data, error } of results) {
+      if (error) throw error;
+      if (data) allPixels.push(...data);
     }
   }
 
   return allPixels;
+}
+
+// Fetch contributions in parallel batches
+const CONTRIB_BATCH_SIZE = 100;
+
+// deno-lint-ignore no-explicit-any
+async function fetchContributionsInBatches(
+  supabase: any,
+  pixelIds: number[]
+): Promise<Array<{ pixel_id: number; user_id: string; side: string; amount_pe: number }>> {
+  if (pixelIds.length === 0) return [];
+
+  const batches: number[][] = [];
+  for (let i = 0; i < pixelIds.length; i += CONTRIB_BATCH_SIZE) {
+    batches.push(pixelIds.slice(i, i + CONTRIB_BATCH_SIZE));
+  }
+
+  // Run all batches in parallel
+  const results = await Promise.all(
+    batches.map(batch =>
+      supabase
+        .from("pixel_contributions")
+        .select("pixel_id, user_id, side, amount_pe")
+        .in("pixel_id", batch)
+    )
+  );
+
+  const contributions: Array<{ pixel_id: number; user_id: string; side: string; amount_pe: number }> = [];
+  for (const { data, error } of results) {
+    if (error) console.error("[game-validate] Contribution batch error:", error);
+    if (data) contributions.push(...data);
+  }
+  return contributions;
 }
 
 Deno.serve(async (req) => {
@@ -401,18 +445,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch contributions on selected pixels
+    // Fetch contributions on selected pixels (in parallel batches)
     const pixelIds = (existingPixels || []).map(p => p.id);
     let contributions: { pixel_id: number; user_id: string; side: string; amount_pe: number }[] = [];
     
     if (pixelIds.length > 0) {
-      const { data: contribs, error: contribsError } = await supabase
-        .from("pixel_contributions")
-        .select("pixel_id, user_id, side, amount_pe")
-        .in("pixel_id", pixelIds);
-      
-      if (!contribsError) {
-        contributions = contribs || [];
+      try {
+        contributions = await fetchContributionsInBatches(supabase, pixelIds);
+        console.log(`[game-validate] Fetched ${contributions.length} contributions in parallel batches`);
+      } catch (contribsError) {
+        console.error("[game-validate] Contributions fetch error:", contribsError);
       }
     }
 
