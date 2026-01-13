@@ -212,9 +212,9 @@ function generateSnapshotHash(pixelStates: PixelData[]): string {
   return hash.toString(36);
 }
 
-// OPTIMIZED: Fetch pixels using pixel_id IN(...) - single query for up to 500 pixels
+// OPTIMIZED: Fetch pixels using RPC with (x,y) coordinates - avoids BigInt precision issues
 // deno-lint-ignore no-explicit-any
-async function fetchPixelsByPixelIds(
+async function fetchPixelsByCoords(
   supabase: any,
   pixels: Array<{ x: number; y: number }>
 ): Promise<Array<{ 
@@ -230,16 +230,18 @@ async function fetchPixelsByPixelIds(
 }>> {
   if (pixels.length === 0) return [];
   
-  // Compute pixel_ids
-  const pixelIds = pixels.map(p => computePixelId(p.x, p.y).toString());
+  const t0 = Date.now();
   
-  // Single query with IN clause
-  const { data, error } = await supabase
-    .from("pixels")
-    .select("id, x, y, pixel_id, owner_user_id, owner_stake_pe, color, def_total, atk_total")
-    .in("pixel_id", pixelIds);
+  // Use RPC function with JSON coordinates - bypasses BigInt issues
+  const coords = pixels.map(p => ({ x: p.x, y: p.y }));
+  const { data, error } = await supabase.rpc('fetch_pixels_by_coords', { coords });
   
-  if (error) throw error;
+  console.log(`[game-validate] fetchPixelsByCoords: ${Date.now() - t0}ms, input: ${pixels.length}, found: ${data?.length || 0}`);
+  
+  if (error) {
+    console.error('[game-validate] RPC fetch_pixels_by_coords error:', error);
+    throw error;
+  }
   return data || [];
 }
 
@@ -308,10 +310,10 @@ async function handleStreamingValidate(
       try {
         emit({ type: "progress", phase: "validate", processed: 0, total });
 
-        // Phase 1: Fetch pixels using optimized pixel_id IN query
-        let existingPixels: Awaited<ReturnType<typeof fetchPixelsByPixelIds>> = [];
+        // Phase 1: Fetch pixels using RPC with (x,y) coordinates
+        let existingPixels: Awaited<ReturnType<typeof fetchPixelsByCoords>> = [];
         try {
-          existingPixels = await fetchPixelsByPixelIds(supabase, pixels);
+          existingPixels = await fetchPixelsByCoords(supabase, pixels);
           emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.3), total });
         } catch (pixelsError) {
           console.error("[game-validate] Pixels fetch error:", pixelsError);
@@ -714,11 +716,10 @@ Deno.serve(async (req) => {
     }
 
     // Standard non-streaming response
-    // OPTIMIZED: Fetch pixels using pixel_id IN query
-    let existingPixels: Awaited<ReturnType<typeof fetchPixelsByPixelIds>> = [];
+    // Fetch pixels using RPC with (x,y) coordinates
+    let existingPixels: Awaited<ReturnType<typeof fetchPixelsByCoords>> = [];
     try {
-      existingPixels = await fetchPixelsByPixelIds(supabase, pixels);
-      console.log(`[game-validate] Fetched ${existingPixels.length} pixels via pixel_id IN`);
+      existingPixels = await fetchPixelsByCoords(supabase, pixels);
     } catch (pixelsError) {
       console.error("[game-validate] Pixels fetch error:", pixelsError);
       return new Response(JSON.stringify({ ok: false, error: "DB_ERROR" }), {

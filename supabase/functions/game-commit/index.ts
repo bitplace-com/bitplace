@@ -112,9 +112,9 @@ function computePixelId(x: number, y: number): bigint {
   return (BigInt(x) << 32n) | BigInt(y & 0xFFFFFFFF);
 }
 
-// OPTIMIZED: Fetch pixels using pixel_id IN(...) - single query for up to 500 pixels
+// OPTIMIZED: Fetch pixels using RPC with (x,y) coordinates - avoids BigInt precision issues
 // deno-lint-ignore no-explicit-any
-async function fetchPixelsByPixelIds(
+async function fetchPixelsByCoords(
   supabase: any,
   pixels: Array<{ x: number; y: number }>
 ): Promise<Array<{ 
@@ -130,14 +130,18 @@ async function fetchPixelsByPixelIds(
 }>> {
   if (pixels.length === 0) return [];
   
-  const pixelIds = pixels.map(p => computePixelId(p.x, p.y).toString());
+  const t0 = Date.now();
   
-  const { data, error } = await supabase
-    .from("pixels")
-    .select("id, x, y, pixel_id, owner_user_id, owner_stake_pe, color, def_total, atk_total")
-    .in("pixel_id", pixelIds);
+  // Use RPC function with JSON coordinates - bypasses BigInt issues
+  const coords = pixels.map(p => ({ x: p.x, y: p.y }));
+  const { data, error } = await supabase.rpc('fetch_pixels_by_coords', { coords });
   
-  if (error) throw error;
+  console.log(`[game-commit] fetchPixelsByCoords: ${Date.now() - t0}ms, input: ${pixels.length}, found: ${data?.length || 0}`);
+  
+  if (error) {
+    console.error('[game-commit] RPC fetch_pixels_by_coords error:', error);
+    throw error;
+  }
   return data || [];
 }
 
@@ -632,10 +636,10 @@ async function handleStreamingCommit(
       try {
         emit({ type: "progress", phase: "commit", processed: 0, total });
 
-        // Fetch pixels using optimized query
-        let existingPixels: Awaited<ReturnType<typeof fetchPixelsByPixelIds>> = [];
+        // Fetch pixels using RPC with (x,y) coordinates
+        let existingPixels: Awaited<ReturnType<typeof fetchPixelsByCoords>> = [];
         try {
-          existingPixels = await fetchPixelsByPixelIds(supabase, pixels);
+          existingPixels = await fetchPixelsByCoords(supabase, pixels);
         } catch (pixelsError) {
           console.error("[game-commit] Pixels fetch error:", pixelsError);
           emit({ type: "error", error: "DB_ERROR", message: "Failed to fetch pixels" });
@@ -862,11 +866,10 @@ Deno.serve(async (req) => {
     }
 
     // Standard non-streaming response
-    // Fetch current pixel states
-    let existingPixels: Awaited<ReturnType<typeof fetchPixelsByPixelIds>> = [];
+    // Fetch current pixel states using RPC
+    let existingPixels: Awaited<ReturnType<typeof fetchPixelsByCoords>> = [];
     try {
-      existingPixels = await fetchPixelsByPixelIds(supabase, pixels);
-      console.log(`[game-commit] Fetched ${existingPixels.length} pixels via pixel_id IN`);
+      existingPixels = await fetchPixelsByCoords(supabase, pixels);
     } catch (pixelsError) {
       console.error("[game-commit] Pixels fetch error:", pixelsError);
       return new Response(JSON.stringify({ ok: false, error: "DB_ERROR", message: "Failed to fetch pixels" }), {

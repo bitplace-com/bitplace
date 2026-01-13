@@ -870,7 +870,20 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      fetch_pixels_by_coords: {
+        Args: { coords: Json }
+        Returns: {
+          atk_total: number
+          color: string
+          def_total: number
+          id: number
+          owner_stake_pe: number
+          owner_user_id: string
+          pixel_id: number
+          x: number
+          y: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
