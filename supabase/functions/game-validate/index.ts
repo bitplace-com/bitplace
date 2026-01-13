@@ -57,11 +57,16 @@ type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE";
 const MAX_PAINT_PIXELS = 500;
 const PAINT_COOLDOWN_SECONDS = 30;
 
+// Streaming batch size
+const STREAM_BATCH_SIZE = 50;
+const MIN_PIXELS_FOR_STREAMING = 50;
+
 interface ValidateRequest {
   mode: GameMode;
   pixels: { x: number; y: number }[];
   color?: string;
   pePerPixel?: number;
+  stream?: boolean;
 }
 
 interface InvalidPixel {
@@ -277,6 +282,314 @@ async function fetchContributionsInBatches(
   return contributions;
 }
 
+// Valid material IDs
+const VALID_MATERIALS = [
+  'mat:gold', 'mat:silver', 'mat:bronze',
+  'mat:holo_rainbow', 'mat:prism',
+  'mat:ice', 'mat:fire', 'mat:lava',
+  'mat:aurora', 'mat:nebula', 'mat:pearl', 'mat:carbon'
+];
+
+function isValidPaintId(paintId: string): boolean {
+  if (/^#[0-9A-Fa-f]{6}$/i.test(paintId)) return true;
+  return VALID_MATERIALS.includes(paintId);
+}
+
+// SSE streaming response handler
+async function handleStreamingValidate(
+  req: Request,
+  corsHeaders: Record<string, string>,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  userId: string,
+  mode: GameMode,
+  pixels: Array<{ x: number; y: number }>,
+  color: string | undefined,
+  pePerPixel: number | undefined,
+  // deno-lint-ignore no-explicit-any
+  user: any
+): Promise<Response> {
+  const encoder = new TextEncoder();
+  const total = pixels.length;
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const emit = (data: object) => {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+      };
+
+      try {
+        // Emit initial progress
+        emit({ type: "progress", phase: "validate", processed: 0, total });
+
+        // Phase 1: Fetch pixels (emit progress after fetch)
+        let existingPixels: Awaited<ReturnType<typeof fetchPixelsInBatches>> = [];
+        try {
+          existingPixels = await fetchPixelsInBatches(supabase, pixels);
+          emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.3), total });
+        } catch (pixelsError) {
+          console.error("[game-validate] Pixels fetch error:", pixelsError);
+          emit({ type: "error", error: "DB_ERROR", message: "Failed to fetch pixels" });
+          controller.close();
+          return;
+        }
+
+        const pixelMap = new Map<string, typeof existingPixels[0]>();
+        existingPixels.forEach(p => {
+          pixelMap.set(`${p.x}:${p.y}`, p);
+        });
+
+        // Fetch owner data
+        const ownerIds = [...new Set(existingPixels.map(p => p.owner_user_id).filter(Boolean))];
+        const ownerDataMap = new Map<string, OwnerData>();
+        
+        if (ownerIds.length > 0) {
+          const { data: owners } = await supabase
+            .from("users")
+            .select("id, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier")
+            .in("id", ownerIds);
+          
+          (owners || []).forEach((o: OwnerData) => {
+            ownerDataMap.set(o.id, o);
+          });
+        }
+
+        emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.4), total });
+
+        // Fetch contributions
+        const pixelIds = existingPixels.map(p => p.id);
+        let contributions: { pixel_id: number; user_id: string; side: string; amount_pe: number }[] = [];
+        
+        if (pixelIds.length > 0) {
+          try {
+            contributions = await fetchContributionsInBatches(supabase, pixelIds);
+          } catch (contribsError) {
+            console.error("[game-validate] Contributions fetch error:", contribsError);
+          }
+        }
+
+        emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.5), total });
+
+        // Group contributions by pixel
+        const contribsByPixel = new Map<number, { defSum: number; atkSum: number; userSide?: "DEF" | "ATK" }>();
+        contributions.forEach(c => {
+          const existing = contribsByPixel.get(c.pixel_id) || { defSum: 0, atkSum: 0 };
+          if (c.side === "DEF") existing.defSum += c.amount_pe;
+          else if (c.side === "ATK") existing.atkSum += c.amount_pe;
+          if (c.user_id === userId) existing.userSide = c.side as "DEF" | "ATK";
+          contribsByPixel.set(c.pixel_id, existing);
+        });
+
+        // Fetch user's staked PE
+        const { data: userOwnedPixels } = await supabase
+          .from("pixels")
+          .select("owner_stake_pe")
+          .eq("owner_user_id", userId);
+
+        const { data: userContributions } = await supabase
+          .from("pixel_contributions")
+          .select("amount_pe")
+          .eq("user_id", userId);
+
+        const ownedStakeSum = (userOwnedPixels || []).reduce((sum: number, p: { owner_stake_pe: number }) => sum + (p.owner_stake_pe || 0), 0);
+        const contributionsSum = (userContributions || []).reduce((sum: number, c: { amount_pe: number }) => sum + c.amount_pe, 0);
+
+        // Check under-collateralized contributions
+        let contributionsPurged = false;
+        let purgedContributionCount = 0;
+        
+        if (contributionsSum > user.pe_total_pe) {
+          const { data: deleted, error: delError } = await supabase
+            .from("pixel_contributions")
+            .delete()
+            .eq("user_id", userId)
+            .select("id");
+          
+          if (!delError) {
+            purgedContributionCount = deleted?.length || 0;
+            contributionsPurged = true;
+            contributions = contributions.filter(c => c.user_id !== userId);
+            
+            contribsByPixel.clear();
+            contributions.forEach(c => {
+              const existing = contribsByPixel.get(c.pixel_id) || { defSum: 0, atkSum: 0 };
+              if (c.side === "DEF") existing.defSum += c.amount_pe;
+              else if (c.side === "ATK") existing.atkSum += c.amount_pe;
+              contribsByPixel.set(c.pixel_id, existing);
+            });
+          }
+        }
+
+        const peStaked = ownedStakeSum + (contributionsPurged ? 0 : contributionsSum);
+        const peFree = user.pe_total_pe - peStaked;
+
+        emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.6), total });
+
+        // Build enriched pixel data and validate in batches
+        const invalidPixels: InvalidPixel[] = [];
+        let requiredPeTotal = 0;
+        let ownedByUser = 0;
+        let ownedByOthers = 0;
+        let emptyCount = 0;
+        let floorBasedCount = 0;
+        let validPixelCount = 0;
+        const breakdown: { [key: string]: number } = {};
+        const pixelStates: PixelData[] = [];
+
+        // Process pixels in batches for progress
+        for (let i = 0; i < pixels.length; i += STREAM_BATCH_SIZE) {
+          const batch = pixels.slice(i, i + STREAM_BATCH_SIZE);
+          
+          for (const p of batch) {
+            const existing = pixelMap.get(`${p.x}:${p.y}`);
+            const contribs = existing ? contribsByPixel.get(existing.id) : undefined;
+            const ownerData = existing?.owner_user_id ? ownerDataMap.get(existing.owner_user_id) : undefined;
+            
+            const pixel: PixelData = {
+              x: p.x,
+              y: p.y,
+              id: existing?.id,
+              owner_user_id: existing?.owner_user_id,
+              owner_stake_pe: existing?.owner_stake_pe || 0,
+              color: existing?.color,
+              defSum: contribs?.defSum || 0,
+              atkSum: contribs?.atkSum || 0,
+              userContributionSide: contribs?.userSide,
+              ownerData,
+            };
+            
+            pixelStates.push(pixel);
+
+            const isEmpty = !pixel.id;
+            const isOwnedByUser = pixel.owner_user_id === userId;
+            const isOwnedByOthers = !isEmpty && !isOwnedByUser;
+
+            if (isEmpty) emptyCount++;
+            else if (isOwnedByUser) ownedByUser++;
+            else ownedByOthers++;
+
+            if (mode === "ERASE") {
+              if (isEmpty) {
+                invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
+                continue;
+              }
+              if (!isOwnedByUser) {
+                invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "NOT_OWNER" });
+                continue;
+              }
+              validPixelCount++;
+              breakdown["eraseRefund"] = (breakdown["eraseRefund"] || 0) + (pixel.owner_stake_pe || 0);
+            } else if (mode === "REINFORCE") {
+              if (isEmpty) {
+                invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
+                continue;
+              }
+              if (!isOwnedByUser) {
+                invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "NOT_OWNER" });
+                continue;
+              }
+              requiredPeTotal += pePerPixel!;
+            } else if (mode === "DEFEND" || mode === "ATTACK") {
+              if (isEmpty) {
+                invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
+                continue;
+              }
+              if (isOwnedByUser) {
+                invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "IS_OWNER" });
+                continue;
+              }
+              const oppositeSide = mode === "DEFEND" ? "ATK" : "DEF";
+              if (pixel.userContributionSide === oppositeSide) {
+                invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "OPPOSITE_SIDE" });
+                continue;
+              }
+              requiredPeTotal += pePerPixel!;
+            } else if (mode === "PAINT") {
+              if (isEmpty) {
+                requiredPeTotal += 1;
+                breakdown["empty"] = (breakdown["empty"] || 0) + 1;
+              } else if (isOwnedByUser) {
+                breakdown["colorChange"] = (breakdown["colorChange"] || 0) + 1;
+              } else {
+                const { threshold, isFloorBased } = calculateThreshold(pixel);
+                requiredPeTotal += threshold;
+                breakdown["takeover"] = (breakdown["takeover"] || 0) + 1;
+                breakdown[`threshold_${pixel.x}_${pixel.y}`] = threshold;
+                if (isFloorBased) floorBasedCount++;
+              }
+            }
+          }
+
+          // Emit progress after each batch
+          const processed = Math.min(i + STREAM_BATCH_SIZE, pixels.length);
+          const progressPct = 0.6 + (processed / pixels.length) * 0.4;
+          emit({ type: "progress", phase: "validate", processed: Math.floor(total * progressPct), total });
+        }
+
+        // Check PE availability
+        if (mode !== "ERASE" && invalidPixels.length === 0 && requiredPeTotal > peFree) {
+          emit({
+            type: "done",
+            result: {
+              ok: false,
+              error: "INSUFFICIENT_PE",
+              message: `Need ${requiredPeTotal} PE but only ${peFree} available`,
+              requiredPeTotal,
+              availablePe: peFree,
+              invalidPixels: [],
+            }
+          });
+          controller.close();
+          return;
+        }
+
+        const snapshotHash = generateSnapshotHash(pixelStates);
+        const unlockPeTotal = mode === "ERASE" ? (breakdown["eraseRefund"] || 0) : undefined;
+        const isErasePartialSuccess = mode === "ERASE" && validPixelCount > 0 && invalidPixels.length > 0;
+        const eraseHasValidPixels = mode === "ERASE" && validPixelCount > 0;
+
+        const result = {
+          ok: mode === "ERASE" ? eraseHasValidPixels : invalidPixels.length === 0,
+          partialValid: isErasePartialSuccess,
+          validPixelCount: mode === "ERASE" ? validPixelCount : undefined,
+          requiredPeTotal,
+          snapshotHash,
+          invalidPixels,
+          breakdown: {
+            pixelCount: pixels.length,
+            ownedByUser,
+            ownedByOthers,
+            empty: emptyCount,
+            floorBasedCount,
+            pePerType: breakdown,
+          },
+          availablePe: peFree,
+          unlockPeTotal,
+          contributionsPurged,
+          purgedContributionCount,
+        };
+
+        emit({ type: "done", result });
+        controller.close();
+
+      } catch (err) {
+        console.error("[game-validate] Streaming error:", err);
+        emit({ type: "error", error: "INTERNAL_ERROR", message: String(err) });
+        controller.close();
+      }
+    }
+  });
+
+  return new Response(stream, {
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    },
+  });
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   
@@ -320,7 +633,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body: ValidateRequest = await req.json();
-    const { mode, pixels: rawPixels, color, pePerPixel } = body;
+    const { mode, pixels: rawPixels, color, pePerPixel, stream = false } = body;
 
     // Deduplicate pixels
     const pixelSet = new Set<string>();
@@ -331,7 +644,7 @@ Deno.serve(async (req) => {
       return true;
     });
 
-    console.log("[game-validate] Request:", { userId, mode, pixelCount: pixels.length, color, pePerPixel });
+    console.log("[game-validate] Request:", { userId, mode, pixelCount: pixels.length, color, pePerPixel, stream });
 
     // Input validation
     if (!mode || !pixels || !Array.isArray(pixels) || pixels.length === 0) {
@@ -364,7 +677,6 @@ Deno.serve(async (req) => {
 
     // PAINT-specific limits
     if (mode === "PAINT") {
-      // Check pixel limit for PAINT
       if (pixels.length > MAX_PAINT_PIXELS) {
         return new Response(JSON.stringify({
           ok: false,
@@ -384,19 +696,6 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    // Valid material IDs
-    const VALID_MATERIALS = [
-      'mat:gold', 'mat:silver', 'mat:bronze',
-      'mat:holo_rainbow', 'mat:prism',
-      'mat:ice', 'mat:fire', 'mat:lava',
-      'mat:aurora', 'mat:nebula', 'mat:pearl', 'mat:carbon'
-    ];
-
-    function isValidPaintId(paintId: string): boolean {
-      if (/^#[0-9A-Fa-f]{6}$/i.test(paintId)) return true;
-      return VALID_MATERIALS.includes(paintId);
     }
 
     // Mode-specific validation
@@ -453,6 +752,12 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Use streaming for large operations
+    if (stream && pixels.length >= MIN_PIXELS_FOR_STREAMING) {
+      return handleStreamingValidate(req, corsHeaders, supabase, userId, mode, pixels, color, pePerPixel, user);
+    }
+
+    // Standard non-streaming response for smaller operations
     // Fetch all pixels at selected coordinates (in batches to avoid URL length limits)
     let existingPixels: Awaited<ReturnType<typeof fetchPixelsInBatches>> = [];
     try {
@@ -481,7 +786,7 @@ Deno.serve(async (req) => {
         .select("id, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier")
         .in("id", ownerIds);
       
-      (owners || []).forEach(o => {
+      (owners || []).forEach((o: OwnerData) => {
         ownerDataMap.set(o.id, o);
       });
     }
@@ -520,8 +825,8 @@ Deno.serve(async (req) => {
       .select("amount_pe")
       .eq("user_id", userId);
 
-    const ownedStakeSum = (userOwnedPixels || []).reduce((sum, p) => sum + (p.owner_stake_pe || 0), 0);
-    const contributionsSum = (userContributions || []).reduce((sum, c) => sum + c.amount_pe, 0);
+    const ownedStakeSum = (userOwnedPixels || []).reduce((sum: number, p: { owner_stake_pe: number }) => sum + (p.owner_stake_pe || 0), 0);
+    const contributionsSum = (userContributions || []).reduce((sum: number, c: { amount_pe: number }) => sum + c.amount_pe, 0);
 
     // Check under-collateralized contributions
     let contributionsPurged = false;

@@ -16,18 +16,16 @@ interface ActionBoxProps {
   onColorSelect: (color: string) => void;
   onValidate: () => void;
   onConfirm: () => void;
-  onBack?: () => void; // New: Back button to return from VALIDATED_READY to DRAFT
-  onExcludeInvalid?: () => void; // New: Exclude invalid pixels from selection
+  onBack?: () => void;
+  onExcludeInvalid?: () => void;
   isValidating: boolean;
   isCommitting: boolean;
-  // Draft-specific props
   isDraftMode?: boolean;
   draftCount?: number;
   onUndoDraft?: () => void;
   onClearDraft?: () => void;
-  // Progress tracking
-  operationStartTime?: number | null;
-  operationPixelCount?: number;
+  // Real progress from SSE stream
+  progress?: { processed: number; total: number } | null;
 }
 
 const modeConfig: Record<GameMode, { icon: React.ReactNode; label: string }> = {
@@ -56,8 +54,7 @@ export function ActionBox({
   draftCount = 0,
   onUndoDraft,
   onClearDraft,
-  operationStartTime,
-  operationPixelCount = 0,
+  progress,
 }: ActionBoxProps) {
   const config = modeConfig[mode];
   const needsValidation = mode === 'ERASE' || mode !== 'PAINT' || pixelCount > 1;
@@ -296,8 +293,7 @@ export function ActionBox({
         isActive={isValidating || isCommitting}
         operation={isValidating ? 'validate' : 'commit'}
         mode={mode}
-        pixelCount={operationPixelCount}
-        startedAt={operationStartTime ?? null}
+        progress={progress ?? null}
       />
     </div>
   );

@@ -4,6 +4,7 @@ import { FunctionsHttpError, FunctionsRelayError, FunctionsFetchError } from '@s
 import { useWallet } from '@/contexts/WalletContext';
 import { toast } from 'sonner';
 import { getAuthHeadersOrExpire } from '@/lib/authHelpers';
+import { streamingInvoke } from '@/lib/streamingFetch';
 
 export type GameMode = 'PAINT' | 'DEFEND' | 'ATTACK' | 'REINFORCE' | 'ERASE';
 
@@ -60,7 +61,6 @@ export interface CommitResult {
     pixelStakeTotal?: number;
     contributionTotal?: number;
   };
-  // Paint cooldown info
   paintCooldownUntil?: string;
   paintCooldownSeconds?: number;
   error?: string;
@@ -72,8 +72,9 @@ export interface CommitResult {
 // Retry configuration
 const MAX_RETRIES = 2;
 const INITIAL_DELAY_MS = 1000;
+const MIN_PIXELS_FOR_STREAMING = 50;
 
-// Helper function to invoke edge functions with retry logic
+// Helper function to invoke edge functions with retry logic (for small operations)
 async function invokeWithRetry<T>(
   functionName: string,
   options: { headers: Record<string, string>; body: unknown }
@@ -81,37 +82,29 @@ async function invokeWithRetry<T>(
   let lastError: Error | null = null;
   
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    // Wait before retry (exponential backoff)
     if (attempt > 0) {
       const delay = INITIAL_DELAY_MS * Math.pow(2, attempt - 1);
-      console.log(`[invokeWithRetry] Retry attempt ${attempt} after ${delay}ms`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
     
     try {
       const result = await supabase.functions.invoke<T>(functionName, options);
       
-      // If no error or non-retryable error, return immediately
       if (!result.error) {
         return result;
       }
       
-      // Only retry on network/fetch errors
       if (result.error instanceof FunctionsFetchError) {
-        console.warn(`[invokeWithRetry] Network error on attempt ${attempt + 1}:`, result.error.message);
         lastError = result.error;
-        continue; // Retry
+        continue;
       }
       
-      // Non-retryable error (HTTP errors, relay errors, etc.)
       return result;
     } catch (err) {
-      console.error(`[invokeWithRetry] Exception on attempt ${attempt + 1}:`, err);
       lastError = err instanceof Error ? err : new Error(String(err));
     }
   }
   
-  // All retries exhausted
   return { data: null, error: lastError };
 }
 
@@ -122,9 +115,8 @@ export function useGameActions() {
   const [isValidating, setIsValidating] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   
-  // Operation progress tracking
-  const [operationStartTime, setOperationStartTime] = useState<number | null>(null);
-  const [operationPixelCount, setOperationPixelCount] = useState(0);
+  // Real progress tracking from SSE stream
+  const [progress, setProgress] = useState<{ processed: number; total: number } | null>(null);
 
   const getAuthHeaders = useCallback(() => {
     return getAuthHeadersOrExpire();
@@ -142,7 +134,6 @@ export function useGameActions() {
       return null;
     }
 
-    // Deduplicate and validate pixels
     const pixelSet = new Set<string>();
     const deduplicatedPixels = params.pixels.filter(p => {
       const key = `${Math.floor(p.x)}:${Math.floor(p.y)}`;
@@ -153,149 +144,75 @@ export function useGameActions() {
 
     const validatedParams = { ...params, pixels: deduplicatedPixels };
 
-    console.log('[useGameActions] Validate request:', {
-      mode: validatedParams.mode,
-      pixelCount: validatedParams.pixels.length,
-      sampleCoords: validatedParams.pixels.slice(0, 3),
-      color: validatedParams.color,
-      pePerPixel: validatedParams.pePerPixel,
-    });
-
     setIsValidating(true);
     setInvalidPixels([]);
-    setOperationStartTime(Date.now());
-    setOperationPixelCount(deduplicatedPixels.length);
-
-    // Show progress toast for large operations
-    const showProgress = deduplicatedPixels.length > 150;
-    let progressToastId: string | number | undefined;
-    if (showProgress) {
-      progressToastId = toast.loading(`Validating ${deduplicatedPixels.length} pixels...`);
-    }
+    setProgress({ processed: 0, total: deduplicatedPixels.length });
 
     try {
-      const { data, error } = await invokeWithRetry<ValidateResult>('game-validate', {
-        headers,
-        body: validatedParams,
-      });
+      let data: ValidateResult | null = null;
+      let error: Error | null = null;
 
-      // Dismiss progress toast
-      if (progressToastId) {
-        toast.dismiss(progressToastId);
+      // Use streaming for large operations
+      if (deduplicatedPixels.length >= MIN_PIXELS_FOR_STREAMING) {
+        const result = await streamingInvoke<ValidateResult>(
+          'game-validate',
+          validatedParams,
+          headers,
+          { onProgress: (processed, total) => setProgress({ processed, total }) }
+        );
+        data = result.data;
+        error = result.error;
+      } else {
+        const result = await invokeWithRetry<ValidateResult>('game-validate', {
+          headers,
+          body: validatedParams,
+        });
+        data = result.data;
+        error = result.error;
       }
 
       if (error) {
-        console.error('[useGameActions] Validate error object:', error);
-        
-        let errorMessage = 'Validation failed';
-        let errorStatus: number | undefined;
-        let errorBody: unknown = null;
-        
-        // Handle network/fetch errors with user-friendly message
         if (error instanceof FunctionsFetchError) {
-          toast.error('Network error. Please check your connection and try again.');
+          toast.error('Network error. Please check your connection.');
           return null;
         }
-        
-        // Extract real error from FunctionsHttpError context
-        if (error instanceof FunctionsHttpError) {
-          errorStatus = error.context.status;
-          
-          // Handle gateway timeout (edge function timeout)
-          if (errorStatus === 504) {
-            toast.error('Server timeout. Try selecting fewer pixels.');
-            return null;
-          }
-          
-          try {
-            errorBody = await error.context.json();
-            errorMessage = (errorBody as { message?: string; error?: string }).message || 
-                          (errorBody as { error?: string }).error || 'Validation failed';
-          } catch {
-            try {
-              const text = await error.context.text();
-              errorMessage = text || `Validation failed (status ${error.context.status})`;
-            } catch {
-              errorMessage = `Validation failed (status ${error.context.status})`;
-            }
-          }
-          
-          console.error('[useGameActions] Validate HTTP error:', {
-            status: errorStatus,
-            body: errorBody,
-            requestPayload: { mode: params.mode, pixelCount: params.pixels.length, sampleCoords: params.pixels.slice(0, 3) },
-          });
-        } else if (error instanceof FunctionsRelayError) {
-          errorMessage = `Network error: ${error.message}`;
-          console.error('[useGameActions] Validate relay error:', error.message);
-        } else {
-          // Fallback for other error types
-          errorMessage = error.message || 'Validation failed';
-          console.error('[useGameActions] Validate unknown error:', error);
-        }
-        
-        // Handle specific error types
-        const errorBodyTyped = errorBody as { error?: string; message?: string; cooldownUntil?: string; retryAfterSeconds?: number; max?: number } | null;
-        if (errorBodyTyped?.error === 'RATE_LIMITED' || errorStatus === 429) {
-          // Check if it's a PAINT_COOLDOWN error
-          if (errorBodyTyped?.error === 'PAINT_COOLDOWN') {
-            const retryAfter = errorBodyTyped.retryAfterSeconds || 30;
-            toast.warning(`Paint cooldown: ${retryAfter}s remaining`);
-          } else {
-            toast.warning(errorBodyTyped?.message || 'Too many requests. Please wait.');
-          }
-          return null;
-        }
-        
-        // Handle MAX_PIXELS_EXCEEDED
-        if (errorBodyTyped?.error === 'MAX_PIXELS_EXCEEDED') {
-          toast.error(`Maximum ${errorBodyTyped.max || 500} pixels per paint`);
-          return null;
-        }
-        
-        toast.error(errorMessage);
+        toast.error(error.message || 'Validation failed');
         return null;
       }
 
-      // Check if response indicates rate limiting
-      if (data?.error === 'RATE_LIMITED') {
-        toast.warning(data.message || 'Too many requests. Please wait a moment.');
-        return null;
+      // Handle error responses in data
+      if (data?.error) {
+        if (data.error === 'RATE_LIMITED' || data.error === 'PAINT_COOLDOWN') {
+          toast.warning(data.message || 'Please wait before trying again.');
+          return null;
+        }
+        if (data.error === 'MAX_PIXELS_EXCEEDED') {
+          toast.error(`Maximum 500 pixels per paint`);
+          return null;
+        }
+        if (data.error === 'INSUFFICIENT_PE') {
+          toast.error(`Insufficient PE: need ${data.requiredPeTotal}, have ${data.availablePe}`);
+        }
       }
 
       const result = data as ValidateResult;
       setValidationResult(result);
       
-      // Show toast if contributions were purged due to under-collateralization
       if (result.contributionsPurged) {
-        toast.warning(
-          `Your DEF/ATK contributions (${result.purgedContributionCount}) were removed due to insufficient collateral`,
-          { duration: 5000 }
-        );
+        toast.warning(`Your contributions were removed due to insufficient collateral`, { duration: 5000 });
       }
       
-      if (!result.ok) {
-        setInvalidPixels(result.invalidPixels || []);
-        if (result.error === 'INSUFFICIENT_PE') {
-          toast.error(`Insufficient PE: need ${result.requiredPeTotal}, have ${result.availablePe}`);
-        } else if (result.invalidPixels?.length > 0) {
-          const firstReason = result.invalidPixels[0].reason;
-          toast.error(`${result.invalidPixels.length} invalid pixel(s): ${formatReason(firstReason)}`);
-        }
+      if (!result.ok && result.invalidPixels?.length > 0) {
+        setInvalidPixels(result.invalidPixels);
       }
 
       return result;
     } catch (err) {
-      // Dismiss progress toast on error
-      if (progressToastId) {
-        toast.dismiss(progressToastId);
-      }
-      console.error('[useGameActions] Validate exception:', err);
       toast.error('Validation error. Please try again.');
       return null;
     } finally {
       setIsValidating(false);
-      setOperationStartTime(null);
+      setProgress(null);
     }
   }, [user?.id, getAuthHeaders]);
 
@@ -312,146 +229,72 @@ export function useGameActions() {
     }
 
     setIsCommitting(true);
-    setOperationStartTime(Date.now());
-    setOperationPixelCount(params.pixels.length);
-
-    // Show progress toast for large operations
-    const showProgress = params.pixels.length > 150;
-    let progressToastId: string | number | undefined;
-    if (showProgress) {
-      progressToastId = toast.loading(`Committing ${params.pixels.length} pixels...`);
-    }
+    setProgress({ processed: 0, total: params.pixels.length });
 
     try {
-      const { data, error } = await invokeWithRetry<CommitResult>('game-commit', {
-        headers,
-        body: params,
-      });
+      let data: CommitResult | null = null;
+      let error: Error | null = null;
 
-      // Dismiss progress toast
-      if (progressToastId) {
-        toast.dismiss(progressToastId);
+      // Use streaming for large operations
+      if (params.pixels.length >= MIN_PIXELS_FOR_STREAMING) {
+        const result = await streamingInvoke<CommitResult>(
+          'game-commit',
+          params,
+          headers,
+          { onProgress: (processed, total) => setProgress({ processed, total }) }
+        );
+        data = result.data;
+        error = result.error;
+      } else {
+        const result = await invokeWithRetry<CommitResult>('game-commit', {
+          headers,
+          body: params,
+        });
+        data = result.data;
+        error = result.error;
       }
 
       if (error) {
-        console.error('[useGameActions] Commit error object:', error);
-        
-        let errorMessage = 'Commit failed';
-        let errorStatus: number | undefined;
-        let errorBody: unknown = null;
-        
-        // Handle network/fetch errors with user-friendly message
         if (error instanceof FunctionsFetchError) {
-          toast.error('Network error. Please check your connection and try again.');
+          toast.error('Network error. Please check your connection.');
           return null;
         }
-        
-        // Extract real error from FunctionsHttpError context
-        if (error instanceof FunctionsHttpError) {
-          errorStatus = error.context.status;
-          
-          // Handle gateway timeout (edge function timeout)
-          if (errorStatus === 504) {
-            toast.error('Server timeout. Try selecting fewer pixels.');
-            return null;
-          }
-          
-          try {
-            errorBody = await error.context.json();
-            errorMessage = (errorBody as { message?: string; error?: string }).message || 
-                          (errorBody as { error?: string }).error || 'Commit failed';
-          } catch {
-            try {
-              const text = await error.context.text();
-              errorMessage = text || `Commit failed (status ${error.context.status})`;
-            } catch {
-              errorMessage = `Commit failed (status ${error.context.status})`;
-            }
-          }
-          
-          console.error('[useGameActions] Commit HTTP error:', {
-            status: errorStatus,
-            body: errorBody,
-            requestPayload: { mode: params.mode, pixelCount: params.pixels.length },
-          });
-        } else if (error instanceof FunctionsRelayError) {
-          errorMessage = `Network error: ${error.message}`;
-          console.error('[useGameActions] Commit relay error:', error.message);
-        } else {
-          errorMessage = error.message || 'Commit failed';
-          console.error('[useGameActions] Commit unknown error:', error);
-        }
-        
-        const errorBodyTyped = errorBody as { error?: string; message?: string; cooldownUntil?: string; retryAfterSeconds?: number; max?: number } | null;
-        
-        // Handle rate limit and paint cooldown
-        if (errorBodyTyped?.error === 'RATE_LIMITED' || errorBodyTyped?.error === 'PAINT_COOLDOWN' || errorStatus === 429) {
-          if (errorBodyTyped?.error === 'PAINT_COOLDOWN') {
-            const retryAfter = errorBodyTyped.retryAfterSeconds || 30;
-            toast.warning(`Paint cooldown: ${retryAfter}s remaining`);
-          } else {
-            toast.warning(errorBodyTyped?.message || 'Action too fast. Please wait a moment before trying again.');
-          }
+        toast.error(error.message || 'Commit failed');
+        return null;
+      }
+
+      // Handle error responses
+      if (data?.error) {
+        if (data.error === 'RATE_LIMITED' || data.error === 'PAINT_COOLDOWN') {
+          toast.warning(data.message || 'Please wait before trying again.');
           return null;
         }
-        
-        // Handle MAX_PIXELS_EXCEEDED
-        if (errorBodyTyped?.error === 'MAX_PIXELS_EXCEEDED') {
-          toast.error(`Maximum ${errorBodyTyped.max || 500} pixels per paint`);
-          return null;
-        }
-        
-        // Handle state changed (409) - prompt user to re-validate
-        if (errorBodyTyped?.error === 'STATE_CHANGED' || errorStatus === 409) {
-          toast.error('Pixel state changed - please re-validate and try again');
+        if (data.error === 'STATE_CHANGED') {
+          toast.error('Pixel state changed - please re-validate');
           setValidationResult(null);
           return null;
         }
-        
-        toast.error(errorMessage);
+        toast.error(data.message || 'Commit failed');
         return null;
       }
 
-      // Check if response indicates rate limiting
-      if (data?.error === 'RATE_LIMITED') {
-        toast.warning(data.message || 'Action too fast. Please wait a moment before trying again.');
-        return null;
-      }
-
-      // Show toast if contributions were purged due to under-collateralization
       if (data?.contributionsPurged) {
-        toast.warning(
-          `Your DEF/ATK contributions (${data.purgedContributionCount}) were removed due to insufficient collateral`,
-          { duration: 5000 }
-        );
+        toast.warning(`Your contributions were removed due to insufficient collateral`, { duration: 5000 });
       }
 
-      if (!data?.ok) {
-        if (data?.error === 'STATE_CHANGED') {
-          toast.error('Pixel state changed - please try again');
-        } else if (data?.error === 'CONTRIBUTIONS_PURGED') {
-          // Already showed toast above
-        } else {
-          toast.error(data?.message || 'Commit failed');
-        }
-        return null;
+      if (data?.ok) {
+        toast.success(`${formatMode(params.mode)} ${data.affectedPixels} pixel(s)`);
+        setValidationResult(null);
+        setInvalidPixels([]);
       }
-
-      toast.success(`${formatMode(params.mode)} ${data.affectedPixels} pixel(s)`);
-      setValidationResult(null);
-      setInvalidPixels([]);
+      
       return data as CommitResult;
     } catch (err) {
-      // Dismiss progress toast on error
-      if (progressToastId) {
-        toast.dismiss(progressToastId);
-      }
-      console.error('[useGameActions] Commit exception:', err);
       toast.error('Commit error. Please try again.');
       return null;
     } finally {
       setIsCommitting(false);
-      setOperationStartTime(null);
+      setProgress(null);
     }
   }, [user?.id, getAuthHeaders]);
 
@@ -468,20 +311,8 @@ export function useGameActions() {
     isValidating,
     isCommitting,
     clearValidation,
-    // Progress tracking
-    operationStartTime,
-    operationPixelCount,
+    progress,
   };
-}
-
-function formatReason(reason: string): string {
-  switch (reason) {
-    case 'NOT_OWNER': return 'You must own these pixels';
-    case 'IS_OWNER': return 'Cannot target your own pixels';
-    case 'OPPOSITE_SIDE': return 'Already have opposite contribution';
-    case 'EMPTY_PIXEL': return 'Pixel must be owned';
-    default: return reason;
-  }
 }
 
 function formatMode(mode: GameMode): string {

@@ -55,12 +55,17 @@ type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE";
 const MAX_PAINT_PIXELS = 500;
 const PAINT_COOLDOWN_SECONDS = 30;
 
+// Streaming batch sizes
+const STREAM_BATCH_SIZE = 50;
+const MIN_PIXELS_FOR_STREAMING = 50;
+
 interface CommitRequest {
   mode: GameMode;
   pixels: { x: number; y: number }[];
   color?: string;
   pePerPixel?: number;
   snapshotHash: string;
+  stream?: boolean;
 }
 
 interface OwnerData {
@@ -106,6 +111,7 @@ const PIXEL_QUERY_BATCH_SIZE = 50;
 // Max parallel batches to run concurrently
 const PARALLEL_BATCH_LIMIT = 5;
 
+// deno-lint-ignore no-explicit-any
 async function fetchPixelsInBatches(
   supabase: any,
   pixels: Array<{ x: number; y: number }>
@@ -145,6 +151,7 @@ async function fetchPixelsInBatches(
 // Fetch contributions in parallel batches
 const CONTRIB_BATCH_SIZE = 100;
 
+// deno-lint-ignore no-explicit-any
 async function fetchContributionsInBatches(
   supabase: any,
   pixelIds: number[]
@@ -252,6 +259,531 @@ function calculateLevel(pixelsPainted: number): number {
   return Math.min(MAX_LEVEL, Math.floor(Math.sqrt(pixelsPainted / LEVEL_BASE)) + 1);
 }
 
+// Valid material IDs for PAINT mode
+const VALID_MATERIALS = [
+  'mat:gold', 'mat:silver', 'mat:bronze',
+  'mat:holo_rainbow', 'mat:prism',
+  'mat:ice', 'mat:fire', 'mat:lava',
+  'mat:aurora', 'mat:nebula', 'mat:pearl', 'mat:carbon'
+];
+
+function isValidPaintId(paintId: string): boolean {
+  if (/^#[0-9A-Fa-f]{6}$/i.test(paintId)) return true;
+  return VALID_MATERIALS.includes(paintId);
+}
+
+// SSE streaming commit handler
+async function handleStreamingCommit(
+  corsHeaders: Record<string, string>,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  userId: string,
+  mode: GameMode,
+  pixels: Array<{ x: number; y: number }>,
+  color: string | undefined,
+  pePerPixel: number | undefined,
+  snapshotHash: string,
+  // deno-lint-ignore no-explicit-any
+  user: any
+): Promise<Response> {
+  const encoder = new TextEncoder();
+  const total = pixels.length;
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const emit = (data: object) => {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+      };
+
+      try {
+        // Emit initial progress
+        emit({ type: "progress", phase: "commit", processed: 0, total });
+
+        // Phase 1: Fetch and prepare data
+        let existingPixels: Array<{ id: number; x: number; y: number; owner_user_id: string | null; owner_stake_pe: number | null; color: string | null }> = [];
+        try {
+          existingPixels = await fetchPixelsInBatches(supabase, pixels);
+        } catch (pixelsError) {
+          console.error("[game-commit] Pixels fetch error:", pixelsError);
+          emit({ type: "error", error: "DB_ERROR", message: "Failed to fetch pixels" });
+          controller.close();
+          return;
+        }
+
+        emit({ type: "progress", phase: "commit", processed: Math.floor(total * 0.1), total });
+
+        const pixelMap = new Map<string, typeof existingPixels[0]>();
+        existingPixels.forEach(p => {
+          pixelMap.set(`${p.x}:${p.y}`, p);
+        });
+
+        // Fetch owner data
+        const ownerIds = [...new Set(existingPixels.map(p => p.owner_user_id).filter(Boolean))];
+        const ownerDataMap = new Map<string, OwnerData>();
+        
+        if (ownerIds.length > 0) {
+          const { data: owners } = await supabase
+            .from("users")
+            .select("id, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier")
+            .in("id", ownerIds);
+          
+          (owners || []).forEach((o: OwnerData) => {
+            ownerDataMap.set(o.id, o);
+          });
+        }
+
+        emit({ type: "progress", phase: "commit", processed: Math.floor(total * 0.15), total });
+
+        // Fetch contributions
+        const pixelIds = existingPixels.map(p => p.id);
+        let contributions: { pixel_id: number; user_id: string; side: string; amount_pe: number }[] = [];
+        
+        if (pixelIds.length > 0) {
+          try {
+            contributions = await fetchContributionsInBatches(supabase, pixelIds);
+          } catch (contribsError) {
+            console.error("[game-commit] Contributions fetch error:", contribsError);
+          }
+        }
+
+        emit({ type: "progress", phase: "commit", processed: Math.floor(total * 0.2), total });
+
+        // Check contributors' collateral
+        const contributorIds = [...new Set(contributions.map(c => c.user_id))];
+        if (contributorIds.length > 0) {
+          const contributorTotals = new Map<string, number>();
+          
+          const { data: allContribs } = await supabase
+            .from("pixel_contributions")
+            .select("user_id, amount_pe")
+            .in("user_id", contributorIds);
+          
+          (allContribs || []).forEach((c: { user_id: string; amount_pe: number }) => {
+            const current = contributorTotals.get(c.user_id) || 0;
+            contributorTotals.set(c.user_id, current + c.amount_pe);
+          });
+
+          const { data: contributorUsers } = await supabase
+            .from("users")
+            .select("id, pe_total_pe")
+            .in("id", contributorIds);
+
+          const underCollateralizedContributors = new Set<string>();
+          (contributorUsers || []).forEach((u: { id: string; pe_total_pe: number }) => {
+            const contribTotal = contributorTotals.get(u.id) || 0;
+            if (u.pe_total_pe < contribTotal) {
+              underCollateralizedContributors.add(u.id);
+            }
+          });
+
+          if (underCollateralizedContributors.size > 0) {
+            contributions = contributions.filter(c => !underCollateralizedContributors.has(c.user_id));
+          }
+        }
+
+        const contribsByPixel = new Map<number, { defSum: number; atkSum: number }>();
+        contributions.forEach(c => {
+          const existing = contribsByPixel.get(c.pixel_id) || { defSum: 0, atkSum: 0 };
+          if (c.side === "DEF") existing.defSum += c.amount_pe;
+          else if (c.side === "ATK") existing.atkSum += c.amount_pe;
+          contribsByPixel.set(c.pixel_id, existing);
+        });
+
+        emit({ type: "progress", phase: "commit", processed: Math.floor(total * 0.25), total });
+
+        // Build pixel states and verify hash
+        const pixelStates: PixelData[] = pixels.map(p => {
+          const existing = pixelMap.get(`${p.x}:${p.y}`);
+          const contribs = existing ? contribsByPixel.get(existing.id) : undefined;
+          const ownerData = existing?.owner_user_id ? ownerDataMap.get(existing.owner_user_id) : undefined;
+          return {
+            x: p.x,
+            y: p.y,
+            id: existing?.id,
+            owner_user_id: existing?.owner_user_id ?? undefined,
+            owner_stake_pe: existing?.owner_stake_pe || 0,
+            color: existing?.color ?? undefined,
+            defSum: contribs?.defSum || 0,
+            atkSum: contribs?.atkSum || 0,
+            ownerData,
+          };
+        });
+
+        const currentHash = generateSnapshotHash(pixelStates);
+        if (currentHash !== snapshotHash) {
+          emit({ type: "error", error: "STATE_CHANGED", message: "Pixel state changed, please re-validate" });
+          controller.close();
+          return;
+        }
+
+        emit({ type: "progress", phase: "commit", processed: Math.floor(total * 0.3), total });
+
+        // Phase 2: Apply changes
+        let affectedPixels = 0;
+        const now = new Date().toISOString();
+        let processedCount = 0;
+
+        if (mode === "ERASE") {
+          for (let i = 0; i < pixelStates.length; i += STREAM_BATCH_SIZE) {
+            const batch = pixelStates.slice(i, i + STREAM_BATCH_SIZE);
+            
+            for (const pixel of batch) {
+              if (!pixel.id || pixel.owner_user_id !== userId) continue;
+              
+              await supabase
+                .from("pixel_contributions")
+                .delete()
+                .eq("pixel_id", pixel.id);
+              
+              const { error } = await supabase
+                .from("pixels")
+                .delete()
+                .eq("id", pixel.id)
+                .eq("owner_user_id", userId);
+              
+              if (!error) affectedPixels++;
+            }
+            
+            processedCount += batch.length;
+            const progress = 0.3 + (processedCount / pixelStates.length) * 0.6;
+            emit({ type: "progress", phase: "commit", processed: Math.floor(total * progress), total });
+          }
+        } else if (mode === "REINFORCE") {
+          for (let i = 0; i < pixelStates.length; i += STREAM_BATCH_SIZE) {
+            const batch = pixelStates.slice(i, i + STREAM_BATCH_SIZE);
+            
+            for (const pixel of batch) {
+              if (!pixel.id || pixel.owner_user_id !== userId) continue;
+              const { error } = await supabase
+                .from("pixels")
+                .update({ 
+                  owner_stake_pe: (pixel.owner_stake_pe || 0) + pePerPixel!,
+                  updated_at: now
+                })
+                .eq("id", pixel.id)
+                .eq("owner_user_id", userId);
+              
+              if (!error) affectedPixels++;
+            }
+            
+            processedCount += batch.length;
+            const progress = 0.3 + (processedCount / pixelStates.length) * 0.6;
+            emit({ type: "progress", phase: "commit", processed: Math.floor(total * progress), total });
+          }
+        } else if (mode === "DEFEND" || mode === "ATTACK") {
+          const side = mode === "DEFEND" ? "DEF" : "ATK";
+          
+          for (let i = 0; i < pixelStates.length; i += STREAM_BATCH_SIZE) {
+            const batch = pixelStates.slice(i, i + STREAM_BATCH_SIZE);
+            
+            for (const pixel of batch) {
+              if (!pixel.id) continue;
+              
+              const { data: existing } = await supabase
+                .from("pixel_contributions")
+                .select("id, amount_pe")
+                .eq("pixel_id", pixel.id)
+                .eq("user_id", userId)
+                .eq("side", side)
+                .single();
+
+              if (existing) {
+                const { error } = await supabase
+                  .from("pixel_contributions")
+                  .update({ amount_pe: existing.amount_pe + pePerPixel! })
+                  .eq("id", existing.id);
+                if (!error) affectedPixels++;
+              } else {
+                const { error } = await supabase
+                  .from("pixel_contributions")
+                  .insert({
+                    pixel_id: pixel.id,
+                    user_id: userId,
+                    side,
+                    amount_pe: pePerPixel!
+                  });
+                if (!error) affectedPixels++;
+              }
+
+              // Notify pixel owner
+              if (pixel.owner_user_id && pixel.owner_user_id !== userId) {
+                const notificationType = mode === "DEFEND" ? "PIXEL_DEFENDED" : "PIXEL_ATTACKED";
+                const notificationTitle = mode === "DEFEND" 
+                  ? "Your pixel was defended!" 
+                  : "Your pixel is under attack!";
+                const notificationBody = mode === "DEFEND"
+                  ? `Someone added ${pePerPixel} PE defense to (${pixel.x}, ${pixel.y})`
+                  : `Someone added ${pePerPixel} PE attack to (${pixel.x}, ${pixel.y})`;
+
+                await supabase.from("notifications").insert({
+                  user_id: pixel.owner_user_id,
+                  type: notificationType,
+                  title: notificationTitle,
+                  body: notificationBody,
+                  meta: { 
+                    pixel_x: pixel.x, 
+                    pixel_y: pixel.y, 
+                    actor_id: userId, 
+                    amount: pePerPixel,
+                    side 
+                  }
+                });
+              }
+            }
+            
+            processedCount += batch.length;
+            const progress = 0.3 + (processedCount / pixelStates.length) * 0.6;
+            emit({ type: "progress", phase: "commit", processed: Math.floor(total * progress), total });
+          }
+        } else if (mode === "PAINT") {
+          // Categorize pixels
+          const toInsert: Array<{ x: number; y: number; color: string; owner_user_id: string; owner_stake_pe: number; created_at: string; updated_at: string }> = [];
+          const toUpdateOwned: Array<{ id: number; x: number; y: number }> = [];
+          const toTakeover: PixelData[] = [];
+
+          for (const pixel of pixelStates) {
+            const isEmpty = !pixel.id;
+            const isOwnedByUser = pixel.owner_user_id === userId;
+
+            if (isEmpty) {
+              toInsert.push({
+                x: pixel.x,
+                y: pixel.y,
+                color: color!,
+                owner_user_id: userId,
+                owner_stake_pe: 1,
+                created_at: now,
+                updated_at: now
+              });
+            } else if (isOwnedByUser) {
+              toUpdateOwned.push({ id: pixel.id!, x: pixel.x, y: pixel.y });
+            } else {
+              toTakeover.push(pixel);
+            }
+          }
+
+          emit({ type: "progress", phase: "commit", processed: Math.floor(total * 0.35), total });
+
+          // Bulk insert new pixels
+          if (toInsert.length > 0) {
+            const { data: insertedData, error: insertError } = await supabase
+              .from("pixels")
+              .insert(toInsert)
+              .select("id");
+            
+            if (insertError) {
+              console.error("[game-commit] Bulk insert error:", insertError);
+            } else {
+              affectedPixels += insertedData?.length || 0;
+            }
+          }
+
+          emit({ type: "progress", phase: "commit", processed: Math.floor(total * 0.5), total });
+
+          // Bulk update owned pixels
+          if (toUpdateOwned.length > 0) {
+            const UPDATE_BATCH_SIZE = 50;
+            for (let i = 0; i < toUpdateOwned.length; i += UPDATE_BATCH_SIZE) {
+              const batch = toUpdateOwned.slice(i, i + UPDATE_BATCH_SIZE);
+              const ids = batch.map(p => p.id);
+              const { error: updateError } = await supabase
+                .from("pixels")
+                .update({ color: color!, updated_at: now })
+                .in("id", ids);
+              
+              if (!updateError) {
+                affectedPixels += batch.length;
+              }
+            }
+          }
+
+          emit({ type: "progress", phase: "commit", processed: Math.floor(total * 0.6), total });
+
+          // Handle takeovers
+          let takeoverProcessed = 0;
+          for (const pixel of toTakeover) {
+            const threshold = calculateThreshold(pixel);
+
+            if (pixel.id) {
+              await supabase
+                .from("pixel_contributions")
+                .delete()
+                .eq("pixel_id", pixel.id)
+                .eq("side", "DEF");
+
+              await supabase
+                .from("pixel_contributions")
+                .update({ side: "DEF" })
+                .eq("pixel_id", pixel.id)
+                .eq("side", "ATK");
+            }
+
+            const previousOwnerId = pixel.owner_user_id;
+            const { error } = await supabase
+              .from("pixels")
+              .update({
+                owner_user_id: userId,
+                owner_stake_pe: threshold,
+                color: color!,
+                updated_at: now
+              })
+              .eq("id", pixel.id);
+            
+            if (!error) {
+              affectedPixels++;
+              if (previousOwnerId && previousOwnerId !== userId) {
+                await supabase.from("notifications").insert({
+                  user_id: previousOwnerId,
+                  type: "PIXEL_TAKEOVER",
+                  title: "Your pixel was taken!",
+                  body: `Someone painted over your pixel at (${pixel.x}, ${pixel.y})`,
+                  meta: { pixel_x: pixel.x, pixel_y: pixel.y, actor_id: userId, color }
+                });
+              }
+            }
+
+            takeoverProcessed++;
+            if (toTakeover.length > 0) {
+              const progress = 0.6 + (takeoverProcessed / toTakeover.length) * 0.3;
+              emit({ type: "progress", phase: "commit", processed: Math.floor(total * progress), total });
+            }
+          }
+        }
+
+        emit({ type: "progress", phase: "commit", processed: Math.floor(total * 0.9), total });
+
+        // Notify followers for PAINT
+        if (mode === "PAINT" && affectedPixels > 0) {
+          const { data: followers } = await supabase
+            .from("user_follows")
+            .select("follower_id")
+            .eq("followed_id", userId);
+
+          if (followers && followers.length > 0) {
+            const followerNotifications = followers.map((f: { follower_id: string }) => ({
+              user_id: f.follower_id,
+              type: "FOLLOWED_PLAYER_PAINTED",
+              title: "A player you follow painted!",
+              body: `Painted ${affectedPixels} pixel${affectedPixels > 1 ? 's' : ''}`,
+              meta: { actor_id: userId, pixel_count: affectedPixels, color }
+            }));
+
+            await supabase.from("notifications").insert(followerNotifications);
+          }
+        }
+
+        // Calculate bounding box
+        const xs = pixels.map(p => p.x);
+        const ys = pixels.map(p => p.y);
+        const bbox = {
+          minX: Math.min(...xs),
+          maxX: Math.max(...xs),
+          minY: Math.min(...ys),
+          maxY: Math.max(...ys)
+        };
+
+        // Update user stats for PAINT
+        let newLevel = user.level || 1;
+        let newPixelsPaintedTotal = user.pixels_painted_total || 0;
+        let paintCooldownUntil: Date | null = null;
+        
+        if (mode === "PAINT" && affectedPixels > 0) {
+          newPixelsPaintedTotal = (user.pixels_painted_total || 0) + affectedPixels;
+          newLevel = calculateLevel(newPixelsPaintedTotal);
+          paintCooldownUntil = new Date(Date.now() + PAINT_COOLDOWN_SECONDS * 1000);
+          
+          await supabase
+            .from("users")
+            .update({ 
+              pixels_painted_total: newPixelsPaintedTotal, 
+              level: newLevel,
+              paint_cooldown_until: paintCooldownUntil.toISOString(),
+            })
+            .eq("id", userId);
+        }
+
+        // Log paint event
+        const { data: eventData } = await supabase
+          .from("paint_events")
+          .insert({
+            user_id: userId,
+            action_type: mode,
+            pixel_count: affectedPixels,
+            bbox,
+            details: { color, pePerPixel, pixelsPainted: newPixelsPaintedTotal },
+            created_at: now
+          })
+          .select("id")
+          .single();
+
+        // Calculate updated PE status
+        const { data: updatedPixelStakes } = await supabase
+          .from("pixels")
+          .select("owner_stake_pe")
+          .eq("owner_user_id", userId);
+
+        const updatedPixelStakeTotal = (updatedPixelStakes || []).reduce(
+          (sum: number, p: { owner_stake_pe: number }) => sum + Number(p.owner_stake_pe || 0),
+          0
+        );
+
+        const { data: updatedContribs } = await supabase
+          .from("pixel_contributions")
+          .select("amount_pe")
+          .eq("user_id", userId);
+
+        const updatedContribTotal = (updatedContribs || []).reduce(
+          (sum: number, c: { amount_pe: number }) => sum + Number(c.amount_pe || 0),
+          0
+        );
+
+        const peUsed = updatedPixelStakeTotal + updatedContribTotal;
+        const peAvailable = Math.max(0, user.pe_total_pe - peUsed);
+
+        emit({ type: "progress", phase: "commit", processed: total, total });
+
+        const result = {
+          ok: true,
+          affectedPixels,
+          pixelsPaintedTotal: newPixelsPaintedTotal,
+          level: newLevel,
+          eventId: eventData?.id,
+          contributionsPurged: false,
+          purgedContributionCount: 0,
+          peStatus: {
+            total: user.pe_total_pe,
+            used: peUsed,
+            available: peAvailable,
+            pixelStakeTotal: updatedPixelStakeTotal,
+            contributionTotal: updatedContribTotal,
+          },
+          ...(mode === "PAINT" && paintCooldownUntil ? {
+            paintCooldownUntil: paintCooldownUntil.toISOString(),
+            paintCooldownSeconds: PAINT_COOLDOWN_SECONDS,
+          } : {}),
+        };
+
+        emit({ type: "done", result });
+        controller.close();
+
+      } catch (err) {
+        console.error("[game-commit] Streaming error:", err);
+        emit({ type: "error", error: "INTERNAL_ERROR", message: String(err) });
+        controller.close();
+      }
+    }
+  });
+
+  return new Response(stream, {
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    },
+  });
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   
@@ -292,7 +824,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body: CommitRequest = await req.json();
-    const { mode, pixels: rawPixels, color, pePerPixel, snapshotHash } = body;
+    const { mode, pixels: rawPixels, color, pePerPixel, snapshotHash, stream = false } = body;
 
     // Deduplicate pixels
     const pixelSet = new Set<string>();
@@ -303,7 +835,7 @@ Deno.serve(async (req) => {
       return true;
     });
 
-    console.log("[game-commit] Request:", { userId, mode, pixelCount: pixels.length, snapshotHash });
+    console.log("[game-commit] Request:", { userId, mode, pixelCount: pixels.length, snapshotHash, stream });
 
     if (!mode || !pixels || !Array.isArray(pixels) || pixels.length === 0 || !snapshotHash) {
       return new Response(JSON.stringify({ ok: false, error: "INVALID_INPUT" }), {
@@ -327,19 +859,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Valid material IDs for PAINT mode
-    const VALID_MATERIALS = [
-      'mat:gold', 'mat:silver', 'mat:bronze',
-      'mat:holo_rainbow', 'mat:prism',
-      'mat:ice', 'mat:fire', 'mat:lava',
-      'mat:aurora', 'mat:nebula', 'mat:pearl', 'mat:carbon'
-    ];
-
-    function isValidPaintId(paintId: string): boolean {
-      if (/^#[0-9A-Fa-f]{6}$/i.test(paintId)) return true;
-      return VALID_MATERIALS.includes(paintId);
-    }
-
     // Validate color for PAINT mode
     if (mode === "PAINT" && (!color || !isValidPaintId(color))) {
       return new Response(JSON.stringify({ ok: false, error: "INVALID_COLOR", message: "PAINT requires valid hex color or material ID" }), {
@@ -360,7 +879,46 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch current pixel states in batches to avoid URL length limits
+    // Fetch user data
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("id, pe_total_pe, pixels_painted_total, level, paint_cooldown_until")
+      .eq("id", userId)
+      .single();
+
+    if (userError || !user) {
+      return new Response(JSON.stringify({ ok: false, error: "USER_NOT_FOUND" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Re-check PAINT cooldown
+    if (mode === "PAINT" && user.paint_cooldown_until) {
+      const cooldownUntil = new Date(user.paint_cooldown_until);
+      const now = new Date();
+      if (now < cooldownUntil) {
+        const retryAfterSeconds = Math.ceil((cooldownUntil.getTime() - now.getTime()) / 1000);
+        return new Response(JSON.stringify({
+          ok: false,
+          error: "PAINT_COOLDOWN",
+          message: `Paint cooldown active. Wait ${retryAfterSeconds}s`,
+          cooldownUntil: cooldownUntil.toISOString(),
+          retryAfterSeconds,
+        }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Use streaming for large operations
+    if (stream && pixels.length >= MIN_PIXELS_FOR_STREAMING) {
+      return handleStreamingCommit(corsHeaders, supabase, userId, mode, pixels, color, pePerPixel, snapshotHash, user);
+    }
+
+    // Standard non-streaming response
+    // Fetch current pixel states in batches
     let existingPixels: Array<{ id: number; x: number; y: number; owner_user_id: string | null; owner_stake_pe: number | null; color: string | null }> = [];
     try {
       existingPixels = await fetchPixelsInBatches(supabase, pixels);
@@ -377,39 +935,6 @@ Deno.serve(async (req) => {
       pixelMap.set(`${p.x}:${p.y}`, p);
     });
 
-    const { data: user, error: userError } = await supabase
-      .from("users")
-      .select("id, pe_total_pe, pixels_painted_total, level, paint_cooldown_until")
-      .eq("id", userId)
-      .single();
-
-    if (userError || !user) {
-      return new Response(JSON.stringify({ ok: false, error: "USER_NOT_FOUND" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Re-check PAINT cooldown (protect against race conditions / multiple tabs)
-    if (mode === "PAINT" && user.paint_cooldown_until) {
-      const cooldownUntil = new Date(user.paint_cooldown_until);
-      const now = new Date();
-      if (now < cooldownUntil) {
-        const retryAfterSeconds = Math.ceil((cooldownUntil.getTime() - now.getTime()) / 1000);
-        console.log(`[game-commit] PAINT cooldown active for user ${userId}: ${retryAfterSeconds}s remaining`);
-        return new Response(JSON.stringify({
-          ok: false,
-          error: "PAINT_COOLDOWN",
-          message: `Paint cooldown active. Wait ${retryAfterSeconds}s`,
-          cooldownUntil: cooldownUntil.toISOString(),
-          retryAfterSeconds,
-        }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
-
     // Fetch owner data
     const ownerIds = [...new Set((existingPixels || []).map(p => p.owner_user_id).filter(Boolean))];
     const ownerDataMap = new Map<string, OwnerData>();
@@ -420,7 +945,7 @@ Deno.serve(async (req) => {
         .select("id, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier")
         .in("id", ownerIds);
       
-      (owners || []).forEach(o => {
+      (owners || []).forEach((o: OwnerData) => {
         ownerDataMap.set(o.id, o);
       });
     }
@@ -431,7 +956,7 @@ Deno.serve(async (req) => {
       .select("amount_pe")
       .eq("user_id", userId);
 
-    const userContribTotal = (allUserContribs || []).reduce((sum, c) => sum + c.amount_pe, 0);
+    const userContribTotal = (allUserContribs || []).reduce((sum: number, c: { amount_pe: number }) => sum + c.amount_pe, 0);
 
     let contributionsPurged = false;
     let purgedContributionCount = 0;
@@ -462,14 +987,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch contributions for selected pixels (in parallel batches)
+    // Fetch contributions for selected pixels
     const pixelIds = (existingPixels || []).map(p => p.id);
     let contributions: { pixel_id: number; user_id: string; side: string; amount_pe: number }[] = [];
     
     if (pixelIds.length > 0) {
       try {
         contributions = await fetchContributionsInBatches(supabase, pixelIds);
-        console.log(`[game-commit] Fetched ${contributions.length} contributions in parallel batches`);
       } catch (contribsError) {
         console.error("[game-commit] Contributions fetch error:", contribsError);
       }
@@ -485,7 +1009,7 @@ Deno.serve(async (req) => {
         .select("user_id, amount_pe")
         .in("user_id", contributorIds);
       
-      (allContribs || []).forEach(c => {
+      (allContribs || []).forEach((c: { user_id: string; amount_pe: number }) => {
         const current = contributorTotals.get(c.user_id) || 0;
         contributorTotals.set(c.user_id, current + c.amount_pe);
       });
@@ -496,7 +1020,7 @@ Deno.serve(async (req) => {
         .in("id", contributorIds);
 
       const underCollateralizedContributors = new Set<string>();
-      (contributorUsers || []).forEach(u => {
+      (contributorUsers || []).forEach((u: { id: string; pe_total_pe: number }) => {
         const contribTotal = contributorTotals.get(u.id) || 0;
         if (u.pe_total_pe < contribTotal) {
           underCollateralizedContributors.add(u.id);
@@ -547,20 +1071,14 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString();
 
     if (mode === "ERASE") {
-      // ERASE: Delete owned pixels and their contributions
-      // PE is automatically "refunded" since it's no longer locked
       for (const pixel of pixelStates) {
         if (!pixel.id || pixel.owner_user_id !== userId) continue;
         
-        // 1. Delete all contributions on this pixel (DEF and ATK)
-        // Contributors get their PE back (unlocked)
         await supabase
           .from("pixel_contributions")
           .delete()
           .eq("pixel_id", pixel.id);
         
-        // 2. Delete the pixel itself
-        // Owner gets their owner_stake_pe back (unlocked)
         const { error } = await supabase
           .from("pixels")
           .delete()
@@ -615,7 +1133,6 @@ Deno.serve(async (req) => {
           if (!error) affectedPixels++;
         }
 
-        // Notify pixel owner about defend/attack (only if not the owner themselves)
         if (pixel.owner_user_id && pixel.owner_user_id !== userId) {
           const notificationType = mode === "DEFEND" ? "PIXEL_DEFENDED" : "PIXEL_ATTACKED";
           const notificationTitle = mode === "DEFEND" 
@@ -641,7 +1158,6 @@ Deno.serve(async (req) => {
         }
       }
     } else if (mode === "PAINT") {
-      // Categorize pixels for optimized batch operations
       const toInsert: Array<{ x: number; y: number; color: string; owner_user_id: string; owner_stake_pe: number; created_at: string; updated_at: string }> = [];
       const toUpdateOwned: Array<{ id: number; x: number; y: number }> = [];
       const toTakeover: PixelData[] = [];
@@ -667,7 +1183,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Bulk insert new pixels (most efficient)
       if (toInsert.length > 0) {
         const { data: insertedData, error: insertError } = await supabase
           .from("pixels")
@@ -678,11 +1193,9 @@ Deno.serve(async (req) => {
           console.error("[game-commit] Bulk insert error:", insertError);
         } else {
           affectedPixels += insertedData?.length || 0;
-          console.log("[game-commit] Bulk inserted", insertedData?.length, "new pixels");
         }
       }
 
-      // Bulk update owned pixels (color change only) - batch by chunks
       if (toUpdateOwned.length > 0) {
         const UPDATE_BATCH_SIZE = 50;
         for (let i = 0; i < toUpdateOwned.length; i += UPDATE_BATCH_SIZE) {
@@ -695,18 +1208,13 @@ Deno.serve(async (req) => {
           
           if (!updateError) {
             affectedPixels += batch.length;
-          } else {
-            console.error("[game-commit] Batch update error:", updateError);
           }
         }
-        console.log("[game-commit] Updated", toUpdateOwned.length, "owned pixels");
       }
 
-      // Handle takeovers individually (complex logic with contributions and notifications)
       for (const pixel of toTakeover) {
         const threshold = calculateThreshold(pixel);
 
-        // Delete DEF contributions
         if (pixel.id) {
           await supabase
             .from("pixel_contributions")
@@ -715,7 +1223,6 @@ Deno.serve(async (req) => {
             .eq("side", "DEF");
         }
 
-        // Convert ATK to DEF
         if (pixel.id) {
           await supabase
             .from("pixel_contributions")
@@ -724,7 +1231,6 @@ Deno.serve(async (req) => {
             .eq("side", "ATK");
         }
 
-        // Update pixel with new owner
         const previousOwnerId = pixel.owner_user_id;
         const { error } = await supabase
           .from("pixels")
@@ -738,7 +1244,6 @@ Deno.serve(async (req) => {
         
         if (!error) {
           affectedPixels++;
-          // Notify previous owner about takeover
           if (previousOwnerId && previousOwnerId !== userId) {
             await supabase.from("notifications").insert({
               user_id: previousOwnerId,
@@ -750,10 +1255,9 @@ Deno.serve(async (req) => {
           }
         }
       }
-      console.log("[game-commit] PAINT complete: inserted", toInsert.length, ", updated", toUpdateOwned.length, ", takeover", toTakeover.length);
     }
 
-    // Notify followers about this user's paint action
+    // Notify followers
     if (mode === "PAINT" && affectedPixels > 0) {
       const { data: followers } = await supabase
         .from("user_follows")
@@ -761,7 +1265,7 @@ Deno.serve(async (req) => {
         .eq("followed_id", userId);
 
       if (followers && followers.length > 0) {
-        const followerNotifications = followers.map(f => ({
+        const followerNotifications = followers.map((f: { follower_id: string }) => ({
           user_id: f.follower_id,
           type: "FOLLOWED_PLAYER_PAINTED",
           title: "A player you follow painted!",
@@ -773,7 +1277,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Calculate bounding box
     const xs = pixels.map(p => p.x);
     const ys = pixels.map(p => p.y);
     const bbox = {
@@ -783,7 +1286,6 @@ Deno.serve(async (req) => {
       maxY: Math.max(...ys)
     };
 
-    // Update pixels_painted_total, level, and cooldown for PAINT mode only
     let newLevel = user.level || 1;
     let newPixelsPaintedTotal = user.pixels_painted_total || 0;
     let paintCooldownUntil: Date | null = null;
@@ -801,17 +1303,8 @@ Deno.serve(async (req) => {
           paint_cooldown_until: paintCooldownUntil.toISOString(),
         })
         .eq("id", userId);
-      
-      console.log("[game-commit] Updated pixels_painted_total and cooldown:", { 
-        userId, 
-        affectedPixels, 
-        newTotal: newPixelsPaintedTotal, 
-        newLevel,
-        paintCooldownUntil: paintCooldownUntil.toISOString(),
-      });
     }
 
-    // Log paint event
     const { data: eventData } = await supabase
       .from("paint_events")
       .insert({
@@ -825,14 +1318,13 @@ Deno.serve(async (req) => {
       .select("id")
       .single();
 
-    // Calculate updated PE status
     const { data: updatedPixelStakes } = await supabase
       .from("pixels")
       .select("owner_stake_pe")
       .eq("owner_user_id", userId);
 
     const updatedPixelStakeTotal = (updatedPixelStakes || []).reduce(
-      (sum, p) => sum + Number(p.owner_stake_pe || 0),
+      (sum: number, p: { owner_stake_pe: number }) => sum + Number(p.owner_stake_pe || 0),
       0
     );
 
@@ -842,14 +1334,12 @@ Deno.serve(async (req) => {
       .eq("user_id", userId);
 
     const updatedContribTotal = (updatedContribs || []).reduce(
-      (sum, c) => sum + Number(c.amount_pe || 0),
+      (sum: number, c: { amount_pe: number }) => sum + Number(c.amount_pe || 0),
       0
     );
 
     const peUsed = updatedPixelStakeTotal + updatedContribTotal;
     const peAvailable = Math.max(0, user.pe_total_pe - peUsed);
-
-    console.log("[game-commit] Success:", { mode, affectedPixels, pixelsPaintedTotal: newPixelsPaintedTotal, level: newLevel, peUsed, peAvailable });
 
     return new Response(JSON.stringify({
       ok: true,
@@ -866,7 +1356,6 @@ Deno.serve(async (req) => {
         pixelStakeTotal: updatedPixelStakeTotal,
         contributionTotal: updatedContribTotal,
       },
-      // Include cooldown info for PAINT mode
       ...(mode === "PAINT" && paintCooldownUntil ? {
         paintCooldownUntil: paintCooldownUntil.toISOString(),
         paintCooldownSeconds: PAINT_COOLDOWN_SECONDS,
