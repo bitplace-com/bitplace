@@ -58,6 +58,8 @@ interface EnergyState {
   lastSyncAt: Date | null;
   isRefreshing: boolean;
   isStale: boolean;
+  // Paint cooldown
+  paintCooldownUntil: Date | null;
 }
 
 // Wallet State Machine
@@ -151,6 +153,7 @@ const defaultEnergyState: EnergyState = {
   lastSyncAt: null,
   isRefreshing: false,
   isStale: true,
+  paintCooldownUntil: null,
 };
 
 // Parse JWT payload safely (handles URL-safe base64)
@@ -279,6 +282,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       lastSyncAt,
       isRefreshing: false,
       isStale,
+      paintCooldownUntil: prev.paintCooldownUntil,
     }));
   }, []);
 
@@ -354,6 +358,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         stale: data.stale 
       });
       
+      // Parse paint cooldown from response
+      const paintCooldownUntil = data.paintCooldownUntil ? new Date(data.paintCooldownUntil) : null;
+      
       setEnergy({
         energyAsset: (data.energyAsset as 'SOL' | 'BTP') || ENERGY_ASSET,
         nativeSymbol: data.nativeSymbol || ENERGY_CONFIG[ENERGY_ASSET].symbol,
@@ -367,6 +374,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         lastSyncAt,
         isRefreshing: false,
         isStale: data.stale ?? false,
+        paintCooldownUntil,
       });
 
       // Also update user's pe_total_pe
@@ -407,6 +415,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           peAvailable 
         });
         
+        // Parse paint cooldown from response
+        const paintCooldownUntil = data.paintCooldownUntil ? new Date(data.paintCooldownUntil) : null;
+        
         setEnergy({
           energyAsset: (data.energyAsset as 'SOL' | 'BTP') || ENERGY_ASSET,
           nativeSymbol: data.nativeSymbol || ENERGY_CONFIG[ENERGY_ASSET].symbol,
@@ -420,6 +431,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           lastSyncAt,
           isRefreshing: false,
           isStale: data.stale ?? false,
+          paintCooldownUntil,
         });
 
         // Update user's pe_total_pe

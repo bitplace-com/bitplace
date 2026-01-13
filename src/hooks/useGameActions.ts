@@ -60,6 +60,9 @@ export interface CommitResult {
     pixelStakeTotal?: number;
     contributionTotal?: number;
   };
+  // Paint cooldown info
+  paintCooldownUntil?: string;
+  paintCooldownSeconds?: number;
   error?: string;
   message?: string;
   contributionsPurged?: boolean;
@@ -232,9 +235,21 @@ export function useGameActions() {
         }
         
         // Handle specific error types
-        const errorBodyTyped = errorBody as { error?: string; message?: string } | null;
+        const errorBodyTyped = errorBody as { error?: string; message?: string; cooldownUntil?: string; retryAfterSeconds?: number; max?: number } | null;
         if (errorBodyTyped?.error === 'RATE_LIMITED' || errorStatus === 429) {
-          toast.warning(errorBodyTyped?.message || 'Too many requests. Please wait.');
+          // Check if it's a PAINT_COOLDOWN error
+          if (errorBodyTyped?.error === 'PAINT_COOLDOWN') {
+            const retryAfter = errorBodyTyped.retryAfterSeconds || 30;
+            toast.warning(`Paint cooldown: ${retryAfter}s remaining`);
+          } else {
+            toast.warning(errorBodyTyped?.message || 'Too many requests. Please wait.');
+          }
+          return null;
+        }
+        
+        // Handle MAX_PIXELS_EXCEEDED
+        if (errorBodyTyped?.error === 'MAX_PIXELS_EXCEEDED') {
+          toast.error(`Maximum ${errorBodyTyped.max || 500} pixels per paint`);
           return null;
         }
         
@@ -367,11 +382,22 @@ export function useGameActions() {
           console.error('[useGameActions] Commit unknown error:', error);
         }
         
-        const errorBodyTyped = errorBody as { error?: string; message?: string } | null;
+        const errorBodyTyped = errorBody as { error?: string; message?: string; cooldownUntil?: string; retryAfterSeconds?: number; max?: number } | null;
         
-        // Handle rate limit
-        if (errorBodyTyped?.error === 'RATE_LIMITED' || errorStatus === 429) {
-          toast.warning(errorBodyTyped?.message || 'Action too fast. Please wait a moment before trying again.');
+        // Handle rate limit and paint cooldown
+        if (errorBodyTyped?.error === 'RATE_LIMITED' || errorBodyTyped?.error === 'PAINT_COOLDOWN' || errorStatus === 429) {
+          if (errorBodyTyped?.error === 'PAINT_COOLDOWN') {
+            const retryAfter = errorBodyTyped.retryAfterSeconds || 30;
+            toast.warning(`Paint cooldown: ${retryAfter}s remaining`);
+          } else {
+            toast.warning(errorBodyTyped?.message || 'Action too fast. Please wait a moment before trying again.');
+          }
+          return null;
+        }
+        
+        // Handle MAX_PIXELS_EXCEEDED
+        if (errorBodyTyped?.error === 'MAX_PIXELS_EXCEEDED') {
+          toast.error(`Maximum ${errorBodyTyped.max || 500} pixels per paint`);
           return null;
         }
         

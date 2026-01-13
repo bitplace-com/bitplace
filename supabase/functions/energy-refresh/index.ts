@@ -232,10 +232,10 @@ Deno.serve(async (req) => {
       },
     });
 
-    // Fetch user from DB
+    // Fetch user from DB (including paint_cooldown_until)
     const { data: userData, error: userError } = await supabase
       .from("users")
-      .select("id, wallet_address, native_balance, usd_price, wallet_usd, pe_total_pe, last_energy_sync_at, sol_cluster, pixels_painted_total, level")
+      .select("id, wallet_address, native_balance, usd_price, wallet_usd, pe_total_pe, last_energy_sync_at, sol_cluster, pixels_painted_total, level, paint_cooldown_until")
       .eq("id", userId)
       .maybeSingle();
 
@@ -286,6 +286,18 @@ Deno.serve(async (req) => {
       const peTotal = Number(userData.pe_total_pe) || 0;
       const peUsed = pixelStakeTotal + contribTotal;
       const peAvailable = Math.max(0, peTotal - peUsed);
+
+      // Calculate paint cooldown remaining
+      let paintCooldownUntil: string | null = null;
+      let paintCooldownRemainingSeconds = 0;
+      if (userData.paint_cooldown_until) {
+        const cooldownTime = new Date(userData.paint_cooldown_until);
+        const nowTime = new Date();
+        if (nowTime < cooldownTime) {
+          paintCooldownUntil = cooldownTime.toISOString();
+          paintCooldownRemainingSeconds = Math.ceil((cooldownTime.getTime() - nowTime.getTime()) / 1000);
+        }
+      }
       
       return new Response(
         JSON.stringify({
@@ -304,6 +316,8 @@ Deno.serve(async (req) => {
           lastSyncAt: userData.last_energy_sync_at,
           pixelsPaintedTotal: Number(userData.pixels_painted_total) || 0,
           level: userData.level || 1,
+          paintCooldownUntil,
+          paintCooldownRemainingSeconds,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -452,6 +466,18 @@ Deno.serve(async (req) => {
 
     console.log(`[energy-refresh] Final PE status: total=${peTotal}, used=${peUsed}, available=${peAvailable}`);
 
+    // Calculate paint cooldown remaining for response
+    let paintCooldownUntil: string | null = null;
+    let paintCooldownRemainingSeconds = 0;
+    if (userData.paint_cooldown_until) {
+      const cooldownTime = new Date(userData.paint_cooldown_until);
+      const nowTime = new Date();
+      if (nowTime < cooldownTime) {
+        paintCooldownUntil = cooldownTime.toISOString();
+        paintCooldownRemainingSeconds = Math.ceil((cooldownTime.getTime() - nowTime.getTime()) / 1000);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         ok: true,
@@ -468,6 +494,8 @@ Deno.serve(async (req) => {
         lastSyncAt: syncAt,
         pixelsPaintedTotal: Number(userData.pixels_painted_total) || 0,
         level: userData.level || 1,
+        paintCooldownUntil,
+        paintCooldownRemainingSeconds,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

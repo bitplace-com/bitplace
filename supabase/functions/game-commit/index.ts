@@ -51,6 +51,10 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
 
 type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE";
 
+// Paint-specific limits
+const MAX_PAINT_PIXELS = 500;
+const PAINT_COOLDOWN_SECONDS = 30;
+
 interface CommitRequest {
   mode: GameMode;
   pixels: { x: number; y: number }[];
@@ -308,6 +312,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    // PAINT-specific limits (re-check server-side)
+    if (mode === "PAINT") {
+      if (pixels.length > MAX_PAINT_PIXELS) {
+        return new Response(JSON.stringify({
+          ok: false,
+          error: "MAX_PIXELS_EXCEEDED",
+          message: `Maximum ${MAX_PAINT_PIXELS} pixels per paint`,
+          max: MAX_PAINT_PIXELS,
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Valid material IDs for PAINT mode
     const VALID_MATERIALS = [
       'mat:gold', 'mat:silver', 'mat:bronze',
@@ -360,7 +379,7 @@ Deno.serve(async (req) => {
 
     const { data: user, error: userError } = await supabase
       .from("users")
-      .select("id, pe_total_pe, pixels_painted_total, level")
+      .select("id, pe_total_pe, pixels_painted_total, level, paint_cooldown_until")
       .eq("id", userId)
       .single();
 
@@ -369,6 +388,26 @@ Deno.serve(async (req) => {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Re-check PAINT cooldown (protect against race conditions / multiple tabs)
+    if (mode === "PAINT" && user.paint_cooldown_until) {
+      const cooldownUntil = new Date(user.paint_cooldown_until);
+      const now = new Date();
+      if (now < cooldownUntil) {
+        const retryAfterSeconds = Math.ceil((cooldownUntil.getTime() - now.getTime()) / 1000);
+        console.log(`[game-commit] PAINT cooldown active for user ${userId}: ${retryAfterSeconds}s remaining`);
+        return new Response(JSON.stringify({
+          ok: false,
+          error: "PAINT_COOLDOWN",
+          message: `Paint cooldown active. Wait ${retryAfterSeconds}s`,
+          cooldownUntil: cooldownUntil.toISOString(),
+          retryAfterSeconds,
+        }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Fetch owner data
@@ -744,27 +783,31 @@ Deno.serve(async (req) => {
       maxY: Math.max(...ys)
     };
 
-    // Update pixels_painted_total and level for PAINT mode only
+    // Update pixels_painted_total, level, and cooldown for PAINT mode only
     let newLevel = user.level || 1;
     let newPixelsPaintedTotal = user.pixels_painted_total || 0;
+    let paintCooldownUntil: Date | null = null;
     
     if (mode === "PAINT" && affectedPixels > 0) {
       newPixelsPaintedTotal = (user.pixels_painted_total || 0) + affectedPixels;
       newLevel = calculateLevel(newPixelsPaintedTotal);
+      paintCooldownUntil = new Date(Date.now() + PAINT_COOLDOWN_SECONDS * 1000);
       
       await supabase
         .from("users")
         .update({ 
           pixels_painted_total: newPixelsPaintedTotal, 
-          level: newLevel 
+          level: newLevel,
+          paint_cooldown_until: paintCooldownUntil.toISOString(),
         })
         .eq("id", userId);
       
-      console.log("[game-commit] Updated pixels_painted_total:", { 
+      console.log("[game-commit] Updated pixels_painted_total and cooldown:", { 
         userId, 
         affectedPixels, 
         newTotal: newPixelsPaintedTotal, 
-        newLevel 
+        newLevel,
+        paintCooldownUntil: paintCooldownUntil.toISOString(),
       });
     }
 
@@ -823,6 +866,11 @@ Deno.serve(async (req) => {
         pixelStakeTotal: updatedPixelStakeTotal,
         contributionTotal: updatedContribTotal,
       },
+      // Include cooldown info for PAINT mode
+      ...(mode === "PAINT" && paintCooldownUntil ? {
+        paintCooldownUntil: paintCooldownUntil.toISOString(),
+        paintCooldownSeconds: PAINT_COOLDOWN_SECONDS,
+      } : {}),
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -1,7 +1,9 @@
 import { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 
-const MAX_DRAFT = 10000;
+// Max pixels per paint action - exported for UI display
+export const PAINT_MAX_PIXELS = 500;
+const MAX_DRAFT = PAINT_MAX_PIXELS;
 
 export interface DraftPixel {
   x: number;
@@ -59,7 +61,7 @@ export function useDraftPaint(): UseDraftPaintResult {
     // Check limit
     if (draft.size >= MAX_DRAFT) {
       if (!hasShownLimitToast.current) {
-        toast.warning('Draft limit reached — validate to continue');
+        toast.warning(`Max ${MAX_DRAFT} pixels per paint`);
         hasShownLimitToast.current = true;
       }
       return false;
