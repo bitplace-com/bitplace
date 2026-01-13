@@ -31,6 +31,9 @@ export interface StreamingInvokeOptions {
  * Invoke an edge function with SSE streaming for progress updates
  * Falls back to regular response parsing if non-streaming response is received
  */
+// Timeout for edge function calls (30s to handle cold starts)
+const STREAM_TIMEOUT_MS = 30000;
+
 export async function streamingInvoke<T>(
   functionName: string,
   body: object,
@@ -41,9 +44,14 @@ export async function streamingInvoke<T>(
   const apiKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   const url = `${supabaseUrl}/functions/v1/${functionName}`;
 
+  // Create abort controller for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
+
   try {
     const response = await fetch(url, {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         ...headers,
         'Content-Type': 'application/json',
@@ -51,6 +59,8 @@ export async function streamingInvoke<T>(
       },
       body: JSON.stringify({ ...body, stream: true }),
     });
+
+    clearTimeout(timeoutId);
 
     // Handle error responses
     if (!response.ok) {
@@ -74,6 +84,17 @@ export async function streamingInvoke<T>(
     const data = await response.json();
     return { data: data as T, error: null };
   } catch (err) {
+    clearTimeout(timeoutId);
+    
+    // Handle abort/timeout specifically
+    if (err instanceof Error && err.name === 'AbortError') {
+      console.warn('[streamingInvoke] Request timed out after', STREAM_TIMEOUT_MS, 'ms');
+      return { 
+        data: null, 
+        error: new Error('Request timed out. Please try again.') 
+      };
+    }
+    
     console.error('[streamingInvoke] Error:', err);
     return { 
       data: null, 
