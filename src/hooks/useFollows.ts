@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/contexts/WalletContext";
-
-const SESSION_TOKEN_KEY = 'bitplace_session_token';
-const getSessionToken = () => localStorage.getItem(SESSION_TOKEN_KEY);
+import { getAuthHeadersOrExpire } from '@/lib/authHelpers';
 
 interface UseFollowsResult {
   followedIds: string[];
@@ -66,12 +64,12 @@ export function useFollows(): UseFollowsResult {
   }, [followedIds]);
 
   const follow = useCallback(async (targetUserId: string): Promise<boolean> => {
-    const token = getSessionToken();
-    if (!userId || !token || targetUserId === userId) return false;
+    const headers = getAuthHeadersOrExpire();
+    if (!userId || !headers || targetUserId === userId) return false;
 
     try {
       const { error } = await supabase.functions.invoke("notifications-manage", {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
         body: { action: "follow", targetUserId }
       });
 
@@ -87,12 +85,12 @@ export function useFollows(): UseFollowsResult {
   }, [userId]);
 
   const unfollow = useCallback(async (targetUserId: string): Promise<boolean> => {
-    const token = getSessionToken();
-    if (!userId || !token) return false;
+    const headers = getAuthHeadersOrExpire();
+    if (!userId || !headers) return false;
 
     try {
       const { error } = await supabase.functions.invoke("notifications-manage", {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
         body: { action: "unfollow", targetUserId }
       });
 

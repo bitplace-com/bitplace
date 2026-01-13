@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-
-const SESSION_TOKEN_KEY = 'bitplace_session_token';
+import { getAuthHeadersOrExpire } from '@/lib/authHelpers';
 
 export interface Alliance {
   id: string;
@@ -46,8 +45,8 @@ export function useAlliance(userId: string | undefined): UseAllianceResult {
     setError(null);
 
     try {
-      const token = localStorage.getItem(SESSION_TOKEN_KEY);
-      if (!token) {
+      const headers = getAuthHeadersOrExpire();
+      if (!headers) {
         setAlliance(null);
         setMembers([]);
         return;
@@ -55,7 +54,7 @@ export function useAlliance(userId: string | undefined): UseAllianceResult {
 
       const { data, error: fnError } = await supabase.functions.invoke("alliance-manage", {
         body: { action: "get" },
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       });
 
       if (fnError) {

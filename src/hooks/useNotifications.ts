@@ -1,9 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-
-const SESSION_TOKEN_KEY = 'bitplace_session_token';
-
-const getSessionToken = () => localStorage.getItem(SESSION_TOKEN_KEY);
+import { getAuthHeadersOrExpire } from '@/lib/authHelpers';
 
 export type NotificationType = 
   | 'ALLIANCE_INVITE' 
@@ -37,8 +34,8 @@ export function useNotifications(userId: string | undefined): UseNotificationsRe
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
-    const token = getSessionToken();
-    if (!userId || !token) {
+    const headers = getAuthHeadersOrExpire();
+    if (!userId || !headers) {
       setNotifications([]);
       return;
     }
@@ -47,7 +44,7 @@ export function useNotifications(userId: string | undefined): UseNotificationsRe
     try {
       const response = await supabase.functions.invoke('notifications-manage', {
         body: { action: 'get' },
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       });
 
       if (response.error) {
@@ -75,13 +72,13 @@ export function useNotifications(userId: string | undefined): UseNotificationsRe
   }, [userId]);
 
   const markAsRead = useCallback(async (id: string) => {
-    const token = getSessionToken();
-    if (!token) return;
+    const headers = getAuthHeadersOrExpire();
+    if (!headers) return;
 
     try {
       await supabase.functions.invoke('notifications-manage', {
         body: { action: 'mark-read', notificationIds: [id] },
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       });
 
       setNotifications(prev =>
@@ -93,13 +90,13 @@ export function useNotifications(userId: string | undefined): UseNotificationsRe
   }, []);
 
   const markAllAsRead = useCallback(async () => {
-    const token = getSessionToken();
-    if (!token) return;
+    const headers = getAuthHeadersOrExpire();
+    if (!headers) return;
 
     try {
       await supabase.functions.invoke('notifications-manage', {
         body: { action: 'mark-all-read' },
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       });
 
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
@@ -109,13 +106,13 @@ export function useNotifications(userId: string | undefined): UseNotificationsRe
   }, []);
 
   const deleteNotification = useCallback(async (id: string) => {
-    const token = getSessionToken();
-    if (!token) return;
+    const headers = getAuthHeadersOrExpire();
+    if (!headers) return;
 
     try {
       await supabase.functions.invoke('notifications-manage', {
         body: { action: 'delete', notificationIds: [id] },
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       });
 
       setNotifications(prev => prev.filter(n => n.id !== id));
