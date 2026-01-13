@@ -53,6 +53,10 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
 
 type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE";
 
+// Paint-specific limits
+const MAX_PAINT_PIXELS = 500;
+const PAINT_COOLDOWN_SECONDS = 30;
+
 interface ValidateRequest {
   mode: GameMode;
   pixels: { x: number; y: number }[];
@@ -358,6 +362,23 @@ Deno.serve(async (req) => {
       });
     }
 
+    // PAINT-specific limits
+    if (mode === "PAINT") {
+      // Check pixel limit for PAINT
+      if (pixels.length > MAX_PAINT_PIXELS) {
+        return new Response(JSON.stringify({
+          ok: false,
+          error: "MAX_PIXELS_EXCEEDED",
+          message: `Maximum ${MAX_PAINT_PIXELS} pixels per paint`,
+          max: MAX_PAINT_PIXELS,
+          requested: pixels.length,
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     if (!["PAINT", "DEFEND", "ATTACK", "REINFORCE", "ERASE"].includes(mode)) {
       return new Response(JSON.stringify({ ok: false, error: "INVALID_MODE" }), {
         status: 400,
@@ -397,10 +418,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch user data
+    // Fetch user data (including paint_cooldown_until)
     const { data: user, error: userError } = await supabase
       .from("users")
-      .select("id, pe_total_pe")
+      .select("id, pe_total_pe, paint_cooldown_until")
       .eq("id", userId)
       .single();
 
@@ -410,6 +431,26 @@ Deno.serve(async (req) => {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Check PAINT cooldown
+    if (mode === "PAINT" && user.paint_cooldown_until) {
+      const cooldownUntil = new Date(user.paint_cooldown_until);
+      const now = new Date();
+      if (now < cooldownUntil) {
+        const retryAfterSeconds = Math.ceil((cooldownUntil.getTime() - now.getTime()) / 1000);
+        console.log(`[game-validate] PAINT cooldown active for user ${userId}: ${retryAfterSeconds}s remaining`);
+        return new Response(JSON.stringify({
+          ok: false,
+          error: "PAINT_COOLDOWN",
+          message: `Paint cooldown active. Wait ${retryAfterSeconds}s`,
+          cooldownUntil: cooldownUntil.toISOString(),
+          retryAfterSeconds,
+        }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(retryAfterSeconds) },
+        });
+      }
     }
 
     // Fetch all pixels at selected coordinates (in batches to avoid URL length limits)

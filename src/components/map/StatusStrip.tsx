@@ -2,10 +2,12 @@ import { PixelIcon } from '@/components/icons';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { usePeBalance } from '@/hooks/usePeBalance';
 import { useWallet } from '@/contexts/WalletContext';
+import { usePaintCooldown } from '@/hooks/usePaintCooldown';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { StatusAlerts } from './StatusAlerts';
+import { PAINT_MAX_PIXELS } from './hooks/useDraftPaint';
 
 interface StatusStripProps {
   userId?: string;
@@ -41,6 +43,8 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
   const { isLoading, rebalanceActive, healthMultiplier, rebalanceEndsAt } = usePeBalance(userId);
   // Use WalletContext for PE totals (server truth)
   const { energy, refreshEnergy, needsSignature, signIn } = useWallet();
+  // Paint cooldown
+  const { isOnCooldown, formatCooldown } = usePaintCooldown(energy.paintCooldownUntil);
 
   if (!userId) {
     return (
@@ -71,12 +75,30 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             </button>
           )}
           
-          {/* Draft Counter */}
+          {/* Draft Counter with limit */}
           {draftCount > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg">
+            <div className={cn(
+              "flex items-center gap-2 px-3 py-1.5 border rounded-lg",
+              draftCount >= PAINT_MAX_PIXELS 
+                ? "bg-amber-500/10 border-amber-500/20" 
+                : "bg-primary/10 border-primary/20"
+            )}>
               <PixelIcon name="brush" className="h-3.5 w-3.5 text-foreground" />
-              <span className="text-xs font-medium text-foreground tabular-nums">
-                Draft: {draftCount.toLocaleString()} px
+              <span className={cn(
+                "text-xs font-medium tabular-nums",
+                draftCount >= PAINT_MAX_PIXELS ? "text-amber-600 dark:text-amber-400" : "text-foreground"
+              )}>
+                {draftCount.toLocaleString()}/{PAINT_MAX_PIXELS}
+              </span>
+            </div>
+          )}
+          
+          {/* Paint Cooldown */}
+          {isOnCooldown && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <PixelIcon name="clock" className="h-3.5 w-3.5 text-destructive" />
+              <span className="text-xs font-semibold text-destructive tabular-nums">
+                {formatCooldown()}
               </span>
             </div>
           )}

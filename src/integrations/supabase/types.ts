@@ -643,6 +643,7 @@ export type Database = {
           native_balance: number | null
           native_symbol: string | null
           owner_health_multiplier: number
+          paint_cooldown_until: string | null
           pe_total_pe: number
           pixels_painted_total: number
           rebalance_active: boolean
@@ -672,6 +673,7 @@ export type Database = {
           native_balance?: number | null
           native_symbol?: string | null
           owner_health_multiplier?: number
+          paint_cooldown_until?: string | null
           pe_total_pe?: number
           pixels_painted_total?: number
           rebalance_active?: boolean
@@ -701,6 +703,7 @@ export type Database = {
           native_balance?: number | null
           native_symbol?: string | null
           owner_health_multiplier?: number
+          paint_cooldown_until?: string | null
           pe_total_pe?: number
           pixels_painted_total?: number
           rebalance_active?: boolean
