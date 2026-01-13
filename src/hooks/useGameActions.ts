@@ -117,6 +117,11 @@ export function useGameActions() {
     setOperationStartTime(Date.now());
     setOperationPixelCount(deduplicatedPixels.length);
 
+    // Create abort controller for timeout (60s for large operations)
+    const controller = new AbortController();
+    const timeoutMs = Math.max(30000, deduplicatedPixels.length * 100); // Min 30s, scale with pixel count
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
       const { data, error } = await supabase.functions.invoke('game-validate', {
         headers,
@@ -202,10 +207,16 @@ export function useGameActions() {
 
       return result;
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.error('[useGameActions] Validate timeout');
+        toast.error('Validation timed out. Try selecting fewer pixels.');
+        return null;
+      }
       console.error('[useGameActions] Validate exception:', err);
       toast.error('Validation error');
       return null;
     } finally {
+      clearTimeout(timeoutId);
       setIsValidating(false);
       setOperationStartTime(null);
     }
@@ -226,6 +237,11 @@ export function useGameActions() {
     setIsCommitting(true);
     setOperationStartTime(Date.now());
     setOperationPixelCount(params.pixels.length);
+
+    // Create abort controller for timeout (90s for large operations - commit is slower)
+    const controller = new AbortController();
+    const timeoutMs = Math.max(45000, params.pixels.length * 120); // Min 45s, scale with pixel count
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const { data, error } = await supabase.functions.invoke('game-commit', {
@@ -318,10 +334,16 @@ export function useGameActions() {
       setInvalidPixels([]);
       return data as CommitResult;
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.error('[useGameActions] Commit timeout');
+        toast.error('Operation timed out. Try selecting fewer pixels.');
+        return null;
+      }
       console.error('[useGameActions] Commit exception:', err);
       toast.error('Commit error');
       return null;
     } finally {
+      clearTimeout(timeoutId);
       setIsCommitting(false);
       setOperationStartTime(null);
     }
