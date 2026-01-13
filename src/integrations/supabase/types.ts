@@ -884,6 +884,17 @@ export type Database = {
           y: number
         }[]
       }
+      get_pixels_by_tiles: {
+        Args: { tile_x_list: number[]; tile_y_list: number[] }
+        Returns: {
+          color: string
+          id: number
+          tile_x: number
+          tile_y: number
+          x: number
+          y: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

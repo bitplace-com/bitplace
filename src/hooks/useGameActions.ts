@@ -73,6 +73,7 @@ export interface CommitResult {
 const MAX_RETRIES = 2;
 const INITIAL_DELAY_MS = 1000;
 const MIN_PIXELS_FOR_STREAMING = 50;
+const MAX_STREAM_RETRIES = 1; // Retry once for cold start timeouts
 
 // Helper function to invoke edge functions with retry logic (for small operations)
 async function invokeWithRetry<T>(
@@ -152,16 +153,31 @@ export function useGameActions() {
       let data: ValidateResult | null = null;
       let error: Error | null = null;
 
-      // Use streaming for large operations
+      // Use streaming for large operations (with retry for cold start)
       if (deduplicatedPixels.length >= MIN_PIXELS_FOR_STREAMING) {
-        const result = await streamingInvoke<ValidateResult>(
-          'game-validate',
-          validatedParams,
-          headers,
-          { onProgress: (processed, total) => setProgress({ processed, total }) }
-        );
-        data = result.data;
-        error = result.error;
+        let retryCount = 0;
+        while (retryCount <= MAX_STREAM_RETRIES) {
+          const result = await streamingInvoke<ValidateResult>(
+            'game-validate',
+            validatedParams,
+            headers,
+            { onProgress: (processed, total) => setProgress({ processed, total }) }
+          );
+          data = result.data;
+          error = result.error;
+          
+          // If success or non-timeout error, break
+          if (data || !error?.message?.includes('timed out')) {
+            break;
+          }
+          
+          // Retry on timeout (cold start)
+          retryCount++;
+          if (retryCount <= MAX_STREAM_RETRIES) {
+            console.log('[validate] Retrying after timeout (attempt', retryCount + 1, ')');
+            setProgress({ processed: 0, total: deduplicatedPixels.length });
+          }
+        }
       } else {
         const result = await invokeWithRetry<ValidateResult>('game-validate', {
           headers,
@@ -235,16 +251,31 @@ export function useGameActions() {
       let data: CommitResult | null = null;
       let error: Error | null = null;
 
-      // Use streaming for large operations
+      // Use streaming for large operations (with retry for cold start)
       if (params.pixels.length >= MIN_PIXELS_FOR_STREAMING) {
-        const result = await streamingInvoke<CommitResult>(
-          'game-commit',
-          params,
-          headers,
-          { onProgress: (processed, total) => setProgress({ processed, total }) }
-        );
-        data = result.data;
-        error = result.error;
+        let retryCount = 0;
+        while (retryCount <= MAX_STREAM_RETRIES) {
+          const result = await streamingInvoke<CommitResult>(
+            'game-commit',
+            params,
+            headers,
+            { onProgress: (processed, total) => setProgress({ processed, total }) }
+          );
+          data = result.data;
+          error = result.error;
+          
+          // If success or non-timeout error, break
+          if (data || !error?.message?.includes('timed out')) {
+            break;
+          }
+          
+          // Retry on timeout (cold start)
+          retryCount++;
+          if (retryCount <= MAX_STREAM_RETRIES) {
+            console.log('[commit] Retrying after timeout (attempt', retryCount + 1, ')');
+            setProgress({ processed: 0, total: params.pixels.length });
+          }
+        }
       } else {
         const result = await invokeWithRetry<CommitResult>('game-commit', {
           headers,
