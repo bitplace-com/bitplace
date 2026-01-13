@@ -823,20 +823,7 @@ export function BitplaceMap() {
     };
 
     const handleMapMouseDown = (e: maplibregl.MapMouseEvent) => {
-      console.log('[PAINT DEBUG] mousedown', { 
-        canPaint, 
-        interactionMode, 
-        mode, 
-        selectedColor,
-        paintTool,
-        isSpaceHeld,
-        isShiftHeld
-      });
-      
-      if (!canPaint) {
-        console.log('[PAINT DEBUG] BLOCKED: canPaint is false (zoom too low?)');
-        return;
-      }
+      if (!canPaint) return;
       
       // Handle eyedropper mode or Alt+Click
       if (isEyedropperActive || e.originalEvent.altKey) {
@@ -945,23 +932,14 @@ export function BitplaceMap() {
       // Single click (minimal drag distance)
       if (dragDistance < 5 && canPaint) {
         const { x, y } = dragStartRef.current;
-        console.log('[PAINT DEBUG] single click detected', { 
-          x, y, 
-          interactionMode, 
-          mode, 
-          selectedColor,
-          paintTool 
-        });
         
         // HAND MODE: Always open inspector only - NO action selection, NO eraser exception
         if (interactionMode === 'drag') {
-          console.log('[PAINT DEBUG] HAND mode - opening inspector');
           setInspectedPixel({ x, y });
           playSound('pixel_select');
         }
         // DRAW mode in PAINT: single click adds single pixel to draft
         else if (mode === 'paint' && interactionMode === 'draw') {
-          console.log('[PAINT DEBUG] DRAW mode - adding to draft');
           const action = (paintTool === 'ERASER' || selectedColor === null) ? 'erase' : 'paint';
           if (!requireWallet(action)) {
             isDraggingRef.current = false;
@@ -1188,7 +1166,9 @@ export function BitplaceMap() {
                 ? "touch-action-none"
                 : "touch-action-pan-zoom"
             )}
-            style={{ pointerEvents: interactionMode === 'draw' ? 'auto' : 'none' }}
+            // On mobile/touch: capture in DRAW mode for touch painting
+            // On desktop: always 'none' so mouse clicks reach MapLibre canvas
+            style={{ pointerEvents: interactionMode === 'draw' && isMobile ? 'auto' : 'none' }}
           />
         )}
 

@@ -48,25 +48,14 @@ export function useMapState() {
   }, []);
 
   const setSelectedColor = useCallback((color: string | null) => {
-    console.log('[useMapState] setSelectedColor called', { color });
-    setState((prev) => {
-      const newPaintTool: PaintTool = color === null ? 'ERASER' : 'BRUSH';
-      const newInteractionMode: InteractionMode = color !== null ? 'draw' : prev.interactionMode;
-      const newState: MapState = {
-        ...prev,
-        selectedColor: color,
-        lastBrushColor: color !== null ? color : prev.lastBrushColor,
-        paintTool: newPaintTool,
-        // Atomic auto-switch: selecting a color enables draw mode
-        interactionMode: newInteractionMode,
-      };
-      console.log('[useMapState] new state', { 
-        selectedColor: newState.selectedColor, 
-        interactionMode: newState.interactionMode,
-        paintTool: newState.paintTool 
-      });
-      return newState;
-    });
+    setState((prev) => ({
+      ...prev,
+      selectedColor: color,
+      lastBrushColor: color !== null ? color : prev.lastBrushColor,
+      paintTool: color === null ? 'ERASER' : 'BRUSH',
+      // Atomic auto-switch: selecting a color enables draw mode
+      interactionMode: color !== null ? 'draw' : prev.interactionMode,
+    }));
   }, []);
 
   const setZoom = useCallback((zoom: number) => {
