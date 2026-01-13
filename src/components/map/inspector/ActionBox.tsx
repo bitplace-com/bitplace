@@ -1,4 +1,4 @@
-import { Paintbrush, Shield, Swords, Loader2, Eraser, Undo2, Trash2, Check, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Paintbrush, Shield, Swords, Loader2, Eraser, Undo2, Trash2, Check, AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { PeInput } from '../PeInput';
@@ -26,6 +26,9 @@ interface ActionBoxProps {
   onClearDraft?: () => void;
   // Real progress from SSE stream
   progress?: { processed: number; total: number } | null;
+  // State machine hints
+  isSelectionChanged?: boolean;
+  lastCommitFailed?: boolean;
 }
 
 const modeConfig: Record<GameMode, { icon: React.ReactNode; label: string }> = {
@@ -55,6 +58,8 @@ export function ActionBox({
   onUndoDraft,
   onClearDraft,
   progress,
+  isSelectionChanged = false,
+  lastCommitFailed = false,
 }: ActionBoxProps) {
   const config = modeConfig[mode];
   const needsValidation = mode === 'ERASE' || mode !== 'PAINT' || pixelCount > 1;
@@ -234,6 +239,14 @@ export function ActionBox({
         </div>
       )}
 
+      {/* Selection changed hint - auto-invalidation message */}
+      {isSelectionChanged && (
+        <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-amber-500/10 text-amber-500 text-[11px]">
+          <AlertCircle className="h-3 w-3 flex-shrink-0" />
+          <span>Selection changed — re-validate</span>
+        </div>
+      )}
+
       {/* Action Buttons - larger touch targets on mobile */}
       <div className="flex gap-2 sm:gap-1.5">
         {/* Back button - shows after validation to return to draft state */}
@@ -269,7 +282,7 @@ export function ActionBox({
         {(isValidated || !needsValidation) && (
           <Button
             className="flex-1 rounded-lg h-11 sm:h-8 text-sm sm:text-xs touch-target"
-            variant="default"
+            variant={lastCommitFailed ? "destructive" : "default"}
             onClick={onConfirm}
             disabled={!canConfirm && needsValidation}
           >
@@ -277,6 +290,11 @@ export function ActionBox({
               <>
                 <Loader2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 mr-1.5 animate-spin" />
                 {effectiveCount > 50 ? `${effectiveCount} px...` : '...'}
+              </>
+            ) : lastCommitFailed ? (
+              <>
+                <RefreshCw className="h-4 w-4 sm:h-3.5 sm:w-3.5 mr-1.5" />
+                <span>Retry {config.label}</span>
               </>
             ) : (
               <>
