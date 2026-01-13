@@ -123,7 +123,11 @@ export function ActionTray({
     if (paintTool === 'ERASER') {
       onPaintToolChange('BRUSH');
     }
-  }, [canPaint, onColorSelect, paintTool, onPaintToolChange]);
+    // Auto-switch to draw mode when selecting a color
+    if (interactionMode !== 'draw') {
+      onInteractionModeChange('draw');
+    }
+  }, [canPaint, onColorSelect, paintTool, onPaintToolChange, interactionMode, onInteractionModeChange]);
 
   const handleToolClick = useCallback((tool: PaintTool, size?: BrushSize) => {
     if (!canPaint) return;
