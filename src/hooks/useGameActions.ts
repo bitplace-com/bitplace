@@ -269,6 +269,13 @@ export function useGameActions() {
           return null;
         }
         
+        // Handle state changed (409) - prompt user to re-validate
+        if (errorBody?.error === 'STATE_CHANGED' || errorStatus === 409) {
+          toast.error('Pixel state changed - please re-validate and try again');
+          setValidationResult(null); // Clear stale validation so user must re-validate
+          return null;
+        }
+        
         toast.error(errorMessage);
         return null;
       }
