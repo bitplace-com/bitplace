@@ -79,9 +79,9 @@ interface PixelData {
   x: number;
   y: number;
   id?: number;
-  owner_user_id?: string;
+  owner_user_id?: string | null;
   owner_stake_pe?: number;
-  color?: string;
+  color?: string | null;
   defSum: number;
   atkSum: number;
   userContributionSide?: "DEF" | "ATK";
@@ -198,6 +198,35 @@ function generateSnapshotHash(pixelStates: PixelData[]): string {
     hash = hash & hash;
   }
   return hash.toString(36);
+}
+
+// Batch size for pixel queries (prevents URL too long errors with many pixels)
+const PIXEL_QUERY_BATCH_SIZE = 50;
+
+// deno-lint-ignore no-explicit-any
+async function fetchPixelsInBatches(
+  supabase: any,
+  pixels: Array<{ x: number; y: number }>
+): Promise<Array<{ id: number; x: number; y: number; owner_user_id: string | null; owner_stake_pe: number | null; color: string | null }>> {
+  const allPixels: Array<{ id: number; x: number; y: number; owner_user_id: string | null; owner_stake_pe: number | null; color: string | null }> = [];
+
+  // Process in batches to avoid URL length limits
+  for (let i = 0; i < pixels.length; i += PIXEL_QUERY_BATCH_SIZE) {
+    const batch = pixels.slice(i, i + PIXEL_QUERY_BATCH_SIZE);
+    const { data, error } = await supabase
+      .from("pixels")
+      .select("id, x, y, owner_user_id, owner_stake_pe, color")
+      .or(batch.map((p: { x: number; y: number }) => `and(x.eq.${p.x},y.eq.${p.y})`).join(","));
+
+    if (error) {
+      throw error;
+    }
+    if (data) {
+      allPixels.push(...data);
+    }
+  }
+
+  return allPixels;
 }
 
 Deno.serve(async (req) => {
@@ -339,13 +368,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch all pixels at selected coordinates
-    const { data: existingPixels, error: pixelsError } = await supabase
-      .from("pixels")
-      .select("id, x, y, owner_user_id, owner_stake_pe, color")
-      .or(pixels.map(p => `and(x.eq.${p.x},y.eq.${p.y})`).join(","));
-
-    if (pixelsError) {
+    // Fetch all pixels at selected coordinates (in batches to avoid URL length limits)
+    let existingPixels: Awaited<ReturnType<typeof fetchPixelsInBatches>> = [];
+    try {
+      existingPixels = await fetchPixelsInBatches(supabase, pixels);
+      console.log(`[game-validate] Fetched ${existingPixels.length} existing pixels in batches`);
+    } catch (pixelsError) {
       console.error("[game-validate] Pixels fetch error:", pixelsError);
       return new Response(JSON.stringify({ ok: false, error: "DB_ERROR" }), {
         status: 500,
