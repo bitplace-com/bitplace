@@ -1047,10 +1047,23 @@ export function BitplaceMap() {
   const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), []);
 
   const handleValidate = useCallback(async () => {
-    if (!user) { toast.error('Please connect wallet first'); return; }
+    console.log('[handleValidate] Starting...', {
+      user: !!user,
+      mode,
+      draftCount,
+      pendingPixelsCount: pendingPixels.length,
+      selectedColor,
+    });
+    
+    if (!user) { 
+      console.log('[handleValidate] No user - aborting');
+      toast.error('Please connect wallet first'); 
+      return; 
+    }
     
     // Session check - gate before proceeding
     const token = getValidSessionToken();
+    console.log('[handleValidate] Token:', token ? 'present' : 'missing');
     if (!token) {
       setWalletModalOpen(true);
       return;

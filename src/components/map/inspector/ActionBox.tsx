@@ -62,7 +62,15 @@ export function ActionBox({
   lastCommitFailed = false,
 }: ActionBoxProps) {
   const config = modeConfig[mode];
-  const needsValidation = mode === 'ERASE' || mode !== 'PAINT' || pixelCount > 1;
+  
+  // Get effective count first (draft for paint, selection for others)
+  const effectiveCount = mode === 'PAINT' ? draftCount : pixelCount;
+  
+  // Determine if validation is required:
+  // - Always for ERASE (even single pixel)
+  // - Always for non-PAINT modes (DEFEND/ATTACK/REINFORCE)
+  // - For PAINT: only if more than 1 pixel
+  const needsValidation = mode === 'ERASE' || mode !== 'PAINT' || effectiveCount > 1;
 
   // Calculate PE values - always use live calculation for DEF/ATK/REINFORCE
   const requiredPe = (() => {
@@ -89,9 +97,6 @@ export function ActionBox({
 
   const isValidated = validationResult?.ok === true && !isValidationStale;
   const canConfirm = isValidated && !isCommitting;
-
-  // Get effective count (draft for paint, selection for others)
-  const effectiveCount = mode === 'PAINT' ? draftCount : pixelCount;
 
   return (
     <div className="border-t border-border p-3 space-y-3 bg-muted/50">
