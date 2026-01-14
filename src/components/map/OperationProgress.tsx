@@ -1,5 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import type { GameMode } from '@/hooks/useGameActions';
@@ -21,6 +20,7 @@ interface OperationProgressProps {
   operation: 'validate' | 'commit';
   mode: GameMode;
   progress: { processed: number; total: number } | null;
+  isStalled?: boolean;
   className?: string;
 }
 
@@ -29,14 +29,17 @@ export function OperationProgress({
   operation,
   mode,
   progress,
+  isStalled = false,
   className,
 }: OperationProgressProps) {
-  // Only show for active operations with real progress and >= 50 pixels
-  if (!isActive || !progress || progress.total < 50) {
+  // Show for any active operation with progress (removed 50px minimum - PROMPT 44)
+  if (!isActive || !progress) {
     return null;
   }
 
-  const percent = Math.floor((progress.processed / progress.total) * 100);
+  const percent = progress.total > 0 
+    ? Math.floor((progress.processed / progress.total) * 100) 
+    : 0;
   const phaseLabel = operation === 'validate' 
     ? STATUS_MESSAGES.validate 
     : STATUS_MESSAGES.commit[mode] || 'Processing';
@@ -49,6 +52,13 @@ export function OperationProgress({
           <Loader2 className="h-3 w-3 animate-spin" />
           <span>{phaseLabel}... {percent}% ({progress.processed}/{progress.total})</span>
         </div>
+        {/* Stall indicator - PROMPT 44 */}
+        {isStalled && (
+          <div className="flex items-center gap-1 text-amber-500">
+            <AlertCircle className="h-3 w-3" />
+            <span>Still working...</span>
+          </div>
+        )}
       </div>
     </div>
   );

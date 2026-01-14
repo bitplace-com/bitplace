@@ -9,7 +9,7 @@ import { MAX_SELECTION_PIXELS } from './hooks/useSelection';
 import { supabase } from '@/integrations/supabase/client';
 import { useWithdrawContribution } from '@/hooks/useWithdrawContribution';
 import { cn } from '@/lib/utils';
-import type { GameMode, ValidateResult, InvalidPixel } from '@/hooks/useGameActions';
+import type { GameMode, ValidateResult, InvalidPixel, ActionError } from '@/hooks/useGameActions';
 
 type DockState = 'hidden' | 'collapsed' | 'expanded';
 
@@ -45,9 +45,14 @@ interface MobileActionDockProps {
   onClearDraft?: () => void;
   // Progress tracking
   progress?: { processed: number; total: number } | null;
+  // Stall detection
+  isStalled?: boolean;
   // State machine hints
   isSelectionChanged?: boolean;
   lastCommitFailed?: boolean;
+  // Inline error display (PROMPT 44)
+  lastError?: ActionError | null;
+  onRetryValidate?: () => void;
 }
 
 export function MobileActionDock({
@@ -73,8 +78,11 @@ export function MobileActionDock({
   onUndoDraft,
   onClearDraft,
   progress,
+  isStalled = false,
   isSelectionChanged = false,
   lastCommitFailed = false,
+  lastError,
+  onRetryValidate,
 }: MobileActionDockProps) {
   const [dockState, setDockState] = useState<DockState>('hidden');
   const [withdrawStats, setWithdrawStats] = useState<WithdrawStats | null>(null);
@@ -354,8 +362,11 @@ export function MobileActionDock({
                     onUndoDraft={onUndoDraft}
                     onClearDraft={onClearDraft}
                     progress={progress}
+                    isStalled={isStalled}
                     isSelectionChanged={isSelectionChanged}
                     lastCommitFailed={lastCommitFailed}
+                    lastError={lastError}
+                    onRetryValidate={onRetryValidate}
                   />
                 </>
               )}

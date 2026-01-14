@@ -25,14 +25,17 @@ export type StreamEvent<T> = ProgressEvent | DoneEvent<T> | ErrorEvent;
 
 export interface StreamingInvokeOptions {
   onProgress: (processed: number, total: number) => void;
+  onStall?: () => void; // Called if no events received for STALL_THRESHOLD_MS
 }
 
 /**
  * Invoke an edge function with SSE streaming for progress updates
  * Falls back to regular response parsing if non-streaming response is received
  */
-// Timeout for edge function calls (60s to handle cold starts)
-const STREAM_TIMEOUT_MS = 60000;
+// Timeout for edge function calls (90s to handle cold starts - PROMPT 44)
+const STREAM_TIMEOUT_MS = 90000;
+// Stall detection threshold (5s without progress)
+const STALL_THRESHOLD_MS = 5000;
 
 export async function streamingInvoke<T>(
   functionName: string,
@@ -119,12 +122,29 @@ async function parseSSEStream<T>(
   let buffer = '';
   let result: T | null = null;
   let streamError: Error | null = null;
+  
+  // Stall detection timer
+  let stallTimer: ReturnType<typeof setTimeout> | null = null;
+  const resetStallTimer = () => {
+    if (stallTimer) clearTimeout(stallTimer);
+    if (options.onStall) {
+      stallTimer = setTimeout(() => {
+        options.onStall?.();
+      }, STALL_THRESHOLD_MS);
+    }
+  };
+  
+  // Start stall timer
+  resetStallTimer();
 
   try {
     while (true) {
       const { done, value } = await reader.read();
       
       if (done) break;
+      
+      // Reset stall timer on any data received
+      resetStallTimer();
       
       buffer += decoder.decode(value, { stream: true });
       
@@ -163,6 +183,9 @@ async function parseSSEStream<T>(
         }
       }
     }
+    
+    // Clear stall timer when stream completes
+    if (stallTimer) clearTimeout(stallTimer);
 
     // Process any remaining buffer
     if (buffer.trim()) {

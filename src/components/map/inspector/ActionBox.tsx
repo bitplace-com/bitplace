@@ -1,9 +1,9 @@
-import { Paintbrush, Shield, Swords, Loader2, Eraser, Undo2, Trash2, Check, AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Paintbrush, Shield, Swords, Loader2, Eraser, Undo2, Trash2, AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { PeInput } from '../PeInput';
 import { OperationProgress } from '../OperationProgress';
-import type { GameMode, ValidateResult } from '@/hooks/useGameActions';
+import type { GameMode, ValidateResult, ActionError } from '@/hooks/useGameActions';
 import { cn } from '@/lib/utils';
 
 interface ActionBoxProps {
@@ -26,9 +26,14 @@ interface ActionBoxProps {
   onClearDraft?: () => void;
   // Real progress from SSE stream
   progress?: { processed: number; total: number } | null;
+  // Stall detection
+  isStalled?: boolean;
   // State machine hints
   isSelectionChanged?: boolean;
   lastCommitFailed?: boolean;
+  // Inline error display (PROMPT 44)
+  lastError?: ActionError | null;
+  onRetryValidate?: () => void;
 }
 
 const modeConfig: Record<GameMode, { icon: React.ReactNode; label: string }> = {
@@ -58,8 +63,11 @@ export function ActionBox({
   onUndoDraft,
   onClearDraft,
   progress,
+  isStalled = false,
   isSelectionChanged = false,
   lastCommitFailed = false,
+  lastError,
+  onRetryValidate,
 }: ActionBoxProps) {
   const config = modeConfig[mode];
   
@@ -252,6 +260,35 @@ export function ActionBox({
         </div>
       )}
 
+      {/* Inline error display with retry button (PROMPT 44) */}
+      {lastError && (
+        <div className="space-y-2 px-2 py-2 rounded-lg bg-destructive/10 border border-destructive/20">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-destructive">{lastError.message}</p>
+              {lastError.requestId && (
+                <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                  ID: {lastError.requestId}
+                </p>
+              )}
+            </div>
+          </div>
+          {lastError.canRetry && onRetryValidate && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full h-9"
+              onClick={onRetryValidate}
+              disabled={isValidating || isCommitting}
+            >
+              <RefreshCw className="h-3 w-3 mr-1.5" />
+              Retry
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Action Buttons - larger touch targets on mobile */}
       <div className="flex gap-2 sm:gap-1.5">
         {/* Back button - shows after validation to return to draft state */}
@@ -261,6 +298,7 @@ export function ActionBox({
             className="rounded-lg h-11 sm:h-8 px-4 sm:px-3 touch-target"
             variant="ghost"
             onClick={onBack}
+            disabled={isValidating || isCommitting}
           >
             <ArrowLeft className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           </Button>
@@ -271,7 +309,7 @@ export function ActionBox({
             className="flex-1 rounded-lg h-11 sm:h-8 text-sm sm:text-xs touch-target"
             variant="outline"
             onClick={onValidate}
-            disabled={isValidating || effectiveCount === 0}
+            disabled={isValidating || isCommitting || effectiveCount === 0}
           >
             {isValidating ? (
               <>
@@ -289,7 +327,7 @@ export function ActionBox({
             className="flex-1 rounded-lg h-11 sm:h-8 text-sm sm:text-xs touch-target"
             variant={lastCommitFailed ? "destructive" : "default"}
             onClick={onConfirm}
-            disabled={!canConfirm && needsValidation}
+            disabled={isValidating || isCommitting || (!canConfirm && needsValidation)}
           >
             {isCommitting ? (
               <>
@@ -317,6 +355,7 @@ export function ActionBox({
         operation={isValidating ? 'validate' : 'commit'}
         mode={mode}
         progress={progress ?? null}
+        isStalled={isStalled}
       />
     </div>
   );

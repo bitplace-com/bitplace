@@ -36,6 +36,8 @@ export interface ValidateResult {
   message?: string;
   contributionsPurged?: boolean;
   purgedContributionCount?: number;
+  requestId?: string;
+  timings?: Record<string, number>;
 }
 
 export interface ValidateParams {
@@ -67,14 +69,25 @@ export interface CommitResult {
   message?: string;
   contributionsPurged?: boolean;
   purgedContributionCount?: number;
+  requestId?: string;
 }
 
-// Retry configuration
-const MAX_RETRIES = 3;
+// Error interface for inline display
+export interface ActionError {
+  code: string;
+  message: string;
+  statusCode?: number;
+  requestId?: string;
+  timings?: Record<string, number>;
+  canRetry: boolean;
+}
+
+// Retry configuration - PROMPT 44: reduced retries to avoid long waits
+const MAX_RETRIES = 0;           // No auto-retry for small ops - let user manually retry
 const INITIAL_DELAY_MS = 2000;
 const MIN_PIXELS_FOR_STREAMING = 50;
-const MAX_STREAM_RETRIES = 2; // Retry twice for cold start timeouts
-const INVOKE_TIMEOUT_MS = 60000; // 60s timeout for direct invocations
+const MAX_STREAM_RETRIES = 1;    // At most 1 retry for cold start
+const INVOKE_TIMEOUT_MS = 90000; // 90s fallback timeout
 
 // Check if error is a timeout error
 function isTimeoutError(error: Error | null): boolean {
@@ -168,20 +181,39 @@ export function useGameActions() {
   
   // Real progress tracking from SSE stream
   const [progress, setProgress] = useState<{ processed: number; total: number } | null>(null);
+  
+  // Stall detection for progress
+  const [isStalled, setIsStalled] = useState(false);
+  
+  // Error state for inline display (PROMPT 44)
+  const [lastError, setLastError] = useState<ActionError | null>(null);
 
   const getAuthHeaders = useCallback(() => {
     return getAuthHeadersOrExpire();
   }, []);
+  
+  // Clear error when starting new operation
+  const clearError = useCallback(() => {
+    setLastError(null);
+  }, []);
 
   const validate = useCallback(async (params: ValidateParams): Promise<ValidateResult | null> => {
     if (!user?.id) {
-      toast.error('Please connect wallet first');
+      setLastError({
+        code: 'NOT_CONNECTED',
+        message: 'Please connect wallet first',
+        canRetry: false,
+      });
       return null;
     }
 
     const headers = getAuthHeaders();
     if (!headers) {
-      toast.error('Session expired. Please reconnect wallet.');
+      setLastError({
+        code: 'SESSION_EXPIRED',
+        message: 'Session expired. Please reconnect wallet.',
+        canRetry: false,
+      });
       return null;
     }
 
@@ -197,13 +229,15 @@ export function useGameActions() {
 
     setIsValidating(true);
     setInvalidPixels([]);
+    setLastError(null);
+    setIsStalled(false);
     setProgress({ processed: 0, total: deduplicatedPixels.length });
 
     try {
       let data: ValidateResult | null = null;
       let error: Error | null = null;
 
-      // Use streaming for large operations (with retry for cold start)
+      // Use streaming for large operations (with limited retry for cold start)
       if (deduplicatedPixels.length >= MIN_PIXELS_FOR_STREAMING) {
         let retryCount = 0;
         while (retryCount <= MAX_STREAM_RETRIES) {
@@ -211,7 +245,13 @@ export function useGameActions() {
             'game-validate',
             validatedParams,
             headers,
-            { onProgress: (processed, total) => setProgress({ processed, total }) }
+            { 
+              onProgress: (processed, total) => {
+                setProgress({ processed, total });
+                setIsStalled(false);
+              },
+              onStall: () => setIsStalled(true),
+            }
           );
           data = result.data;
           error = result.error;
@@ -226,6 +266,7 @@ export function useGameActions() {
           if (retryCount <= MAX_STREAM_RETRIES) {
             console.log('[validate] Retrying after timeout (attempt', retryCount + 1, ')');
             setProgress({ processed: 0, total: deduplicatedPixels.length });
+            setIsStalled(false);
           }
         }
       } else {
@@ -238,26 +279,42 @@ export function useGameActions() {
       }
 
       if (error) {
-        if (error instanceof FunctionsFetchError) {
-          toast.error('Network error. Please check your connection.');
-          return null;
-        }
-        toast.error(error.message || 'Validation failed');
+        const isNetwork = error instanceof FunctionsFetchError;
+        const isTimeout = isTimeoutError(error);
+        setLastError({
+          code: isTimeout ? 'TIMEOUT' : isNetwork ? 'NETWORK_ERROR' : 'REQUEST_FAILED',
+          message: isTimeout 
+            ? 'Request timed out. The server may be busy.'
+            : isNetwork 
+              ? 'Network error. Please check your connection.'
+              : error.message || 'Validation failed',
+          canRetry: true,
+        });
         return null;
       }
 
       // Handle error responses in data
       if (data?.error) {
         if (data.error === 'RATE_LIMITED' || data.error === 'PAINT_COOLDOWN') {
-          toast.warning(data.message || 'Please wait before trying again.');
+          setLastError({
+            code: data.error,
+            message: data.message || 'Please wait before trying again.',
+            requestId: data.requestId,
+            canRetry: false,
+          });
           return null;
         }
         if (data.error === 'MAX_PIXELS_EXCEEDED') {
-          toast.error(`Maximum 500 pixels per paint`);
+          setLastError({
+            code: 'MAX_PIXELS_EXCEEDED',
+            message: 'Maximum 500 pixels per paint',
+            requestId: data.requestId,
+            canRetry: false,
+          });
           return null;
         }
         if (data.error === 'INSUFFICIENT_PE') {
-          toast.error(`Insufficient PE: need ${data.requiredPeTotal}, have ${data.availablePe}`);
+          // Don't set error - let UI show insufficient PE state
         }
       }
 
@@ -274,34 +331,49 @@ export function useGameActions() {
 
       return result;
     } catch (err) {
-      toast.error('Validation error. Please try again.');
+      setLastError({
+        code: 'UNEXPECTED_ERROR',
+        message: 'Validation error. Please try again.',
+        canRetry: true,
+      });
       return null;
     } finally {
       setIsValidating(false);
       setProgress(null);
+      setIsStalled(false);
     }
   }, [user?.id, getAuthHeaders]);
 
   const commit = useCallback(async (params: CommitParams): Promise<CommitResult | null> => {
     if (!user?.id) {
-      toast.error('Please connect wallet first');
+      setLastError({
+        code: 'NOT_CONNECTED',
+        message: 'Please connect wallet first',
+        canRetry: false,
+      });
       return null;
     }
 
     const headers = getAuthHeaders();
     if (!headers) {
-      toast.error('Session expired. Please reconnect wallet.');
+      setLastError({
+        code: 'SESSION_EXPIRED',
+        message: 'Session expired. Please reconnect wallet.',
+        canRetry: false,
+      });
       return null;
     }
 
     setIsCommitting(true);
+    setLastError(null);
+    setIsStalled(false);
     setProgress({ processed: 0, total: params.pixels.length });
 
     try {
       let data: CommitResult | null = null;
       let error: Error | null = null;
 
-      // Use streaming for large operations (with retry for cold start)
+      // Use streaming for large operations (with limited retry for cold start)
       if (params.pixels.length >= MIN_PIXELS_FOR_STREAMING) {
         let retryCount = 0;
         while (retryCount <= MAX_STREAM_RETRIES) {
@@ -309,7 +381,13 @@ export function useGameActions() {
             'game-commit',
             params,
             headers,
-            { onProgress: (processed, total) => setProgress({ processed, total }) }
+            { 
+              onProgress: (processed, total) => {
+                setProgress({ processed, total });
+                setIsStalled(false);
+              },
+              onStall: () => setIsStalled(true),
+            }
           );
           data = result.data;
           error = result.error;
@@ -324,6 +402,7 @@ export function useGameActions() {
           if (retryCount <= MAX_STREAM_RETRIES) {
             console.log('[commit] Retrying after timeout (attempt', retryCount + 1, ')');
             setProgress({ processed: 0, total: params.pixels.length });
+            setIsStalled(false);
           }
         }
       } else {
@@ -336,26 +415,47 @@ export function useGameActions() {
       }
 
       if (error) {
-        if (error instanceof FunctionsFetchError) {
-          toast.error('Network error. Please check your connection.');
-          return null;
-        }
-        toast.error(error.message || 'Commit failed');
+        const isNetwork = error instanceof FunctionsFetchError;
+        const isTimeout = isTimeoutError(error);
+        setLastError({
+          code: isTimeout ? 'TIMEOUT' : isNetwork ? 'NETWORK_ERROR' : 'COMMIT_FAILED',
+          message: isTimeout 
+            ? 'Request timed out. The server may be busy.'
+            : isNetwork 
+              ? 'Network error. Please check your connection.'
+              : error.message || 'Commit failed',
+          canRetry: true,
+        });
         return null;
       }
 
       // Handle error responses
       if (data?.error) {
         if (data.error === 'RATE_LIMITED' || data.error === 'PAINT_COOLDOWN') {
-          toast.warning(data.message || 'Please wait before trying again.');
+          setLastError({
+            code: data.error,
+            message: data.message || 'Please wait before trying again.',
+            requestId: data.requestId,
+            canRetry: false,
+          });
           return null;
         }
         if (data.error === 'STATE_CHANGED') {
-          toast.error('Pixel state changed - please re-validate');
+          setLastError({
+            code: 'STATE_CHANGED',
+            message: 'Pixel state changed - please re-validate',
+            requestId: data.requestId,
+            canRetry: false,
+          });
           setValidationResult(null);
           return null;
         }
-        toast.error(data.message || 'Commit failed');
+        setLastError({
+          code: data.error,
+          message: data.message || 'Commit failed',
+          requestId: data.requestId,
+          canRetry: true,
+        });
         return null;
       }
 
@@ -367,21 +467,28 @@ export function useGameActions() {
         toast.success(`${formatMode(params.mode)} ${data.affectedPixels} pixel(s)`);
         setValidationResult(null);
         setInvalidPixels([]);
+        setLastError(null);
       }
       
       return data as CommitResult;
     } catch (err) {
-      toast.error('Commit error. Please try again.');
+      setLastError({
+        code: 'UNEXPECTED_ERROR',
+        message: 'Commit error. Please try again.',
+        canRetry: true,
+      });
       return null;
     } finally {
       setIsCommitting(false);
       setProgress(null);
+      setIsStalled(false);
     }
   }, [user?.id, getAuthHeaders]);
 
   const clearValidation = useCallback(() => {
     setValidationResult(null);
     setInvalidPixels([]);
+    setLastError(null);
   }, []);
 
   return {
@@ -393,6 +500,9 @@ export function useGameActions() {
     isCommitting,
     clearValidation,
     progress,
+    isStalled,
+    lastError,
+    clearError,
   };
 }
 
