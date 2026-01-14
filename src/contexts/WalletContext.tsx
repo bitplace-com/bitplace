@@ -88,7 +88,7 @@ interface WalletContextType {
   refreshUser: () => Promise<void>;
   refreshEnergy: () => Promise<void>;
   refreshPeStatus: () => Promise<void>;
-  updatePeStatus: (peStatus: { total: number; used: number; available: number }) => void;
+  updatePeStatus: (peStatus: { total: number; used: number; available: number }, cooldownUntil?: string) => void;
   
   // Derived helpers for backward compatibility
   isConnected: boolean;
@@ -444,13 +444,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Update PE status directly (called after game-commit response)
-  const updatePeStatus = useCallback((peStatus: { total: number; used: number; available: number }) => {
-    console.log('[WalletContext] updatePeStatus called:', peStatus);
+  // PROMPT 55: Added optional cooldownUntil parameter
+  const updatePeStatus = useCallback((
+    peStatus: { total: number; used: number; available: number },
+    cooldownUntil?: string
+  ) => {
+    console.log('[WalletContext] updatePeStatus called:', peStatus, cooldownUntil);
     setEnergy(prev => ({
       ...prev,
       peTotal: peStatus.total,
       peUsed: peStatus.used,
       peAvailable: peStatus.available,
+      // PROMPT 55: Update cooldown immediately if provided
+      paintCooldownUntil: cooldownUntil ? new Date(cooldownUntil) : prev.paintCooldownUntil,
     }));
     
     // Also update user's pe_total_pe
