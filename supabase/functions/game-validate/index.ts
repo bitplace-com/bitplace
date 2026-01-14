@@ -310,13 +310,31 @@ async function handleStreamingValidate(
       try {
         emit({ type: "progress", phase: "validate", processed: 0, total });
 
-        // Phase 1: Fetch pixels using RPC with (x,y) coordinates
-        let existingPixels: Awaited<ReturnType<typeof fetchPixelsByCoords>> = [];
-        try {
-          existingPixels = await fetchPixelsByCoords(supabase, pixels);
-          emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.3), total });
-        } catch (pixelsError) {
-          console.error("[game-validate] Pixels fetch error:", pixelsError);
+        // ===== PARALLEL FETCH: All data at once =====
+        const t0 = Date.now();
+        
+        const [
+          existingPixelsResult,
+          userOwnedPixelsResult,
+          userContributionsResult,
+        ] = await Promise.all([
+          fetchPixelsByCoords(supabase, pixels).catch(err => ({ error: err, data: null })),
+          supabase.from("pixels").select("owner_stake_pe").eq("owner_user_id", userId),
+          supabase.from("pixel_contributions").select("amount_pe, pixel_id, side").eq("user_id", userId),
+        ]);
+
+        console.log(`[game-validate] Streaming parallel fetch: ${Date.now() - t0}ms`);
+        emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.3), total });
+
+        // Handle pixels fetch
+        // deno-lint-ignore no-explicit-any
+        const pixelsResult = existingPixelsResult as any;
+        const existingPixels = Array.isArray(pixelsResult) 
+          ? pixelsResult 
+          : (pixelsResult?.data || []);
+        
+        if (pixelsResult?.error) {
+          console.error("[game-validate] Pixels fetch error:", pixelsResult.error);
           emit({ type: "error", error: "DB_ERROR", message: "Failed to fetch pixels" });
           controller.close();
           return;
@@ -324,13 +342,13 @@ async function handleStreamingValidate(
 
         // Build pixel map keyed by computed pixel_id
         const pixelMap = new Map<string, typeof existingPixels[0]>();
-        existingPixels.forEach(p => {
+        existingPixels.forEach((p: typeof existingPixels[0]) => {
           const key = computePixelId(Number(p.x), Number(p.y)).toString();
           pixelMap.set(key, p);
         });
 
         // Fetch owner data for all pixel owners
-        const ownerIds = [...new Set(existingPixels.map(p => p.owner_user_id).filter(Boolean))];
+        const ownerIds = [...new Set(existingPixels.map((p: typeof existingPixels[0]) => p.owner_user_id).filter(Boolean))] as string[];
         const ownerDataMap = new Map<string, OwnerData>();
         
         if (ownerIds.length > 0) {
@@ -346,25 +364,20 @@ async function handleStreamingValidate(
 
         emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.4), total });
 
-        // For DEFEND/ATTACK: fetch user's existing contributions
-        let userContribSides = new Map<number, "DEF" | "ATK">();
+        // Build user contribution sides from already-fetched data
+        const userContribSides = new Map<number, "DEF" | "ATK">();
         if (mode === "DEFEND" || mode === "ATTACK") {
-          const pixelIds = existingPixels.map(p => p.id);
-          userContribSides = await fetchUserContributionsForPixels(supabase, pixelIds, userId);
+          const userContribData = userContributionsResult.data || [];
+          userContribData.forEach((c: { pixel_id: number; side: string }) => {
+            userContribSides.set(c.pixel_id, c.side as "DEF" | "ATK");
+          });
         }
 
         emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.5), total });
 
-        // Fetch user's staked PE
-        const { data: userOwnedPixels } = await supabase
-          .from("pixels")
-          .select("owner_stake_pe")
-          .eq("owner_user_id", userId);
-
-        const { data: userContributions } = await supabase
-          .from("pixel_contributions")
-          .select("amount_pe")
-          .eq("user_id", userId);
+        // Use already-fetched data
+        const { data: userOwnedPixels } = userOwnedPixelsResult;
+        const { data: userContributions } = userContributionsResult;
 
         const ownedStakeSum = (userOwnedPixels || []).reduce((sum: number, p: { owner_stake_pe: number }) => sum + (p.owner_stake_pe || 0), 0);
         const contributionsSum = (userContributions || []).reduce((sum: number, c: { amount_pe: number }) => sum + c.amount_pe, 0);
@@ -561,8 +574,18 @@ async function handleStreamingValidate(
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   
+  // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Health check endpoint for warm-up - respond immediately
+  const url = new URL(req.url);
+  if (url.pathname.endsWith('/health') || url.searchParams.has('health')) {
+    return new Response(JSON.stringify({ ok: true, ts: Date.now() }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
@@ -677,13 +700,30 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch user data
-    const { data: user, error: userError } = await supabase
-      .from("users")
-      .select("id, pe_total_pe, paint_cooldown_until")
-      .eq("id", userId)
-      .single();
+    // ===== PARALLEL FETCH: User data + Pixels + User PE data =====
+    const t0 = Date.now();
+    
+    // Start all independent queries in parallel
+    const [
+      userResult,
+      existingPixelsResult,
+      userOwnedPixelsResult,
+      userContributionsResult,
+    ] = await Promise.all([
+      // 1. Fetch user data
+      supabase.from("users").select("id, pe_total_pe, paint_cooldown_until").eq("id", userId).single(),
+      // 2. Fetch pixels by coordinates (RPC)
+      fetchPixelsByCoords(supabase, pixels).catch(err => ({ error: err, data: null })),
+      // 3. Fetch user's owned pixels stake
+      supabase.from("pixels").select("owner_stake_pe").eq("owner_user_id", userId),
+      // 4. Fetch user's contributions
+      supabase.from("pixel_contributions").select("amount_pe, pixel_id, side").eq("user_id", userId),
+    ]);
 
+    console.log(`[game-validate] Parallel fetch completed in ${Date.now() - t0}ms`);
+
+    // Handle user fetch result
+    const { data: user, error: userError } = userResult;
     if (userError || !user) {
       return new Response(JSON.stringify({ ok: false, error: "USER_NOT_FOUND" }), {
         status: 404,
@@ -710,32 +750,34 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Use streaming for large operations
-    if (stream && pixels.length >= MIN_PIXELS_FOR_STREAMING) {
-      return handleStreamingValidate(corsHeaders, supabase, userId, mode, pixels, color, pePerPixel, user);
-    }
-
-    // Standard non-streaming response
-    // Fetch pixels using RPC with (x,y) coordinates
-    let existingPixels: Awaited<ReturnType<typeof fetchPixelsByCoords>> = [];
-    try {
-      existingPixels = await fetchPixelsByCoords(supabase, pixels);
-    } catch (pixelsError) {
-      console.error("[game-validate] Pixels fetch error:", pixelsError);
+    // Handle pixels fetch result
+    // deno-lint-ignore no-explicit-any
+    const pixelsResult = existingPixelsResult as any;
+    const existingPixels = Array.isArray(pixelsResult) 
+      ? pixelsResult 
+      : (pixelsResult?.data || []);
+    
+    if (pixelsResult?.error) {
+      console.error("[game-validate] Pixels fetch error:", pixelsResult.error);
       return new Response(JSON.stringify({ ok: false, error: "DB_ERROR" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // Use streaming for large operations (after initial data is fetched)
+    if (stream && pixels.length >= MIN_PIXELS_FOR_STREAMING) {
+      return handleStreamingValidate(corsHeaders, supabase, userId, mode, pixels, color, pePerPixel, user);
+    }
+
     const pixelMap = new Map<string, typeof existingPixels[0]>();
-    existingPixels.forEach(p => {
+    existingPixels.forEach((p: typeof existingPixels[0]) => {
       const key = computePixelId(Number(p.x), Number(p.y)).toString();
       pixelMap.set(key, p);
     });
 
-    // Fetch owner data
-    const ownerIds = [...new Set(existingPixels.map(p => p.owner_user_id).filter(Boolean))];
+    // ===== SECOND PARALLEL FETCH: Owner data (depends on existingPixels) =====
+    const ownerIds = [...new Set(existingPixels.map((p: typeof existingPixels[0]) => p.owner_user_id).filter(Boolean))] as string[];
     const ownerDataMap = new Map<string, OwnerData>();
     
     if (ownerIds.length > 0) {
@@ -749,23 +791,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    // For DEFEND/ATTACK: fetch user's existing contributions
-    let userContribSides = new Map<number, "DEF" | "ATK">();
+    // Build user contribution sides from already-fetched data
+    const userContribSides = new Map<number, "DEF" | "ATK">();
     if (mode === "DEFEND" || mode === "ATTACK") {
-      const pixelIds = existingPixels.map(p => p.id);
-      userContribSides = await fetchUserContributionsForPixels(supabase, pixelIds, userId);
+      const userContribData = userContributionsResult.data || [];
+      userContribData.forEach((c: { pixel_id: number; side: string }) => {
+        userContribSides.set(c.pixel_id, c.side as "DEF" | "ATK");
+      });
     }
 
-    // Fetch user's staked PE
-    const { data: userOwnedPixels } = await supabase
-      .from("pixels")
-      .select("owner_stake_pe")
-      .eq("owner_user_id", userId);
-
-    const { data: userContributions } = await supabase
-      .from("pixel_contributions")
-      .select("amount_pe")
-      .eq("user_id", userId);
+    // Use already-fetched data for PE calculations
+    const { data: userOwnedPixels } = userOwnedPixelsResult;
+    const { data: userContributions } = userContributionsResult;
 
     const ownedStakeSum = (userOwnedPixels || []).reduce((sum: number, p: { owner_stake_pe: number }) => sum + (p.owner_stake_pe || 0), 0);
     const contributionsSum = (userContributions || []).reduce((sum: number, c: { amount_pe: number }) => sum + c.amount_pe, 0);
