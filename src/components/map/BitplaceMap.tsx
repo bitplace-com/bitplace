@@ -17,6 +17,7 @@ import { ActionTray } from './ActionTray';
 import { MapMenuDrawer } from './MapMenuDrawer';
 import { QuickActions } from './QuickActions';
 import { PerfHud } from './PerfHud';
+import { DevDiagnostics } from './DevDiagnostics';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { WalletButton } from '@/components/wallet/WalletButton';
 import { WalletSelectModal } from '@/components/modals/WalletSelectModal';
@@ -79,7 +80,7 @@ export function BitplaceMap() {
   const { localPixels, paintPixel, mergePixels, confirmPixel } = usePixelStore();
   const { selection, startSelection, updateSelection, endSelection, clearSelection, getNormalizedBounds, getSelectedPixels } = useSelection();
   const { mode, selectedColor, paintTool, brushSize, zoom, artOpacity, interactionMode, setMode, setSelectedColor, setZoom, toggleArtOpacity, setInteractionMode, setPaintTool, setBrushSize, canPaint } = useMapState();
-  const { dbPixels, updateViewport, removePixels, addPixels, reconcileTiles } = useSupabasePixels(zoom);
+  const { dbPixels, updateViewport, removePixels, addPixels, reconcileTiles, realtimeStatus, reconnectAttempts } = useSupabasePixels(zoom);
   const { validate, commit, validationResult, invalidPixels, isValidating, isCommitting, clearValidation, progress: gameProgress } = useGameActions();
   const { 
     state: paintState, 
@@ -1485,6 +1486,16 @@ export function BitplaceMap() {
       
       {/* Performance HUD (visible only with ?debug=1) */}
       <PerfHud />
+      
+      {/* Dev Diagnostics Panel (toggle with bug icon) */}
+      <DevDiagnostics 
+        map={mapRef.current}
+        zoom={zoom}
+        canPaint={canPaint}
+        isSelecting={!!selection || brushSelection.pixels.size > 0}
+        realtimeStatus={realtimeStatus}
+        reconnectAttempts={reconnectAttempts}
+      />
       {/* Wallet Connect Modal - triggered when trying to paint without connection */}
       <WalletSelectModal
         open={isWalletModalOpen}

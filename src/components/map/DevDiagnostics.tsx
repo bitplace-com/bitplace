@@ -3,15 +3,26 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 import { PixelIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { useWallet } from '@/contexts/WalletContext';
+import { cn } from '@/lib/utils';
+import type { RealtimeStatus } from '@/hooks/useSupabasePixels';
 
 interface DevDiagnosticsProps {
   map: MapLibreMap | null;
   zoom: number;
   canPaint: boolean;
   isSelecting: boolean;
+  realtimeStatus?: RealtimeStatus;
+  reconnectAttempts?: number;
 }
 
-export function DevDiagnostics({ map, zoom, canPaint, isSelecting }: DevDiagnosticsProps) {
+export function DevDiagnostics({ 
+  map, 
+  zoom, 
+  canPaint, 
+  isSelecting,
+  realtimeStatus = 'disconnected',
+  reconnectAttempts = 0,
+}: DevDiagnosticsProps) {
   const [visible, setVisible] = useState(false);
   const [center, setCenter] = useState<{ lng: number; lat: number }>({ lng: 0, lat: 0 });
   const [handlers, setHandlers] = useState({
@@ -141,6 +152,47 @@ export function DevDiagnostics({ map, zoom, canPaint, isSelecting }: DevDiagnost
         <HandlerStatus name="doubleClickZoom" enabled={handlers.doubleClickZoom} />
         <HandlerStatus name="touchZoomRotate" enabled={handlers.touchZoomRotate} />
       </div>
+
+      {/* Realtime Status (debug only) */}
+      {isDebugMode && (
+        <div className="border-t border-border pt-2 space-y-1">
+          <div className="text-foreground font-medium mb-1 flex items-center gap-1.5">
+            <PixelIcon name="refresh" size="xs" />
+            Realtime Status
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Status:</span>
+            <span className={cn(
+              'font-semibold',
+              realtimeStatus === 'connected' && 'text-green-500',
+              realtimeStatus === 'reconnecting' && 'text-amber-500',
+              realtimeStatus === 'disconnected' && 'text-destructive',
+            )}>
+              {realtimeStatus.toUpperCase()}
+            </span>
+          </div>
+          
+          {realtimeStatus !== 'connected' && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Reconnect Attempts:</span>
+              <span className="font-mono text-foreground">{reconnectAttempts}</span>
+            </div>
+          )}
+          
+          {realtimeStatus === 'disconnected' && (
+            <div className="text-xs text-muted-foreground/80 mt-1 bg-muted/50 rounded px-2 py-1">
+              Fallback polling active (12s interval)
+            </div>
+          )}
+          
+          {realtimeStatus === 'reconnecting' && (
+            <div className="text-xs text-amber-500/80 mt-1">
+              Attempting to reconnect...
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Wallet & Balance Section (visible with ?debug=1) */}
       {isDebugMode && (
