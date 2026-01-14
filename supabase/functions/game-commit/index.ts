@@ -238,6 +238,17 @@ function isValidPaintId(paintId: string): boolean {
   return VALID_MATERIALS.includes(paintId);
 }
 
+// PROMPT 55: Changed pixel structure for immediate UI update
+interface ChangedPixel {
+  x: number;
+  y: number;
+  color: string;
+  owner_user_id: string;
+  owner_stake_pe: number;
+  def_total: number;
+  atk_total: number;
+}
+
 // Core commit logic - shared between streaming and non-streaming
 async function executeCommit(
   // deno-lint-ignore no-explicit-any
@@ -264,10 +275,15 @@ async function executeCommit(
   peStatus: any;
   paintCooldownUntil?: string;
   paintCooldownSeconds?: number;
+  // PROMPT 55: Return changed pixels for immediate UI update
+  changedPixels?: ChangedPixel[];
 }> {
   const total = pixels.length;
   let affectedPixels = 0;
   const now = new Date().toISOString();
+  
+  // PROMPT 55: Track upserted pixels for changedPixels response
+  let upsertedPixels: ChangedPixel[] | undefined = undefined;
 
   onProgress?.(Math.floor(total * 0.3), total);
 
@@ -458,6 +474,19 @@ async function executeCommit(
     }
 
     affectedPixels = upserted?.length || 0;
+    
+    // PROMPT 55: Store upserted pixels for changedPixels response
+    if (upserted && upserted.length > 0) {
+      upsertedPixels = upserted.map((p: { x: number; y: number; color: string; owner_user_id: string; owner_stake_pe: number; def_total: number; atk_total: number }) => ({
+        x: Number(p.x),
+        y: Number(p.y),
+        color: p.color,
+        owner_user_id: p.owner_user_id,
+        owner_stake_pe: Number(p.owner_stake_pe) || 0,
+        def_total: Number(p.def_total) || 0,
+        atk_total: Number(p.atk_total) || 0,
+      }));
+    }
 
     onProgress?.(Math.floor(total * 0.7), total);
 
@@ -556,6 +585,7 @@ async function executeCommit(
 
   onProgress?.(total, total);
 
+  // PROMPT 55: Return changedPixels for immediate UI update (PAINT mode only)
   return {
     ok: true,
     affectedPixels,
@@ -573,6 +603,8 @@ async function executeCommit(
       paintCooldownUntil: paintCooldownUntil.toISOString(),
       paintCooldownSeconds: PAINT_COOLDOWN_SECONDS,
     } : {}),
+    // PROMPT 55: Include changed pixels for immediate cache update
+    ...(mode === "PAINT" && upsertedPixels ? { changedPixels: upsertedPixels } : {}),
   };
 }
 

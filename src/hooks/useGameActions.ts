@@ -65,6 +65,16 @@ export interface CommitResult {
   };
   paintCooldownUntil?: string;
   paintCooldownSeconds?: number;
+  // PROMPT 55: Changed pixels for immediate UI update
+  changedPixels?: Array<{
+    x: number;
+    y: number;
+    color: string;
+    owner_user_id: string;
+    owner_stake_pe: number;
+    def_total: number;
+    atk_total: number;
+  }>;
   error?: string;
   message?: string;
   contributionsPurged?: boolean;

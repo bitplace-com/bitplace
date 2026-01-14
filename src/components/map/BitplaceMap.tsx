@@ -74,7 +74,7 @@ export function BitplaceMap() {
   const [previewHiddenPixels, setPreviewHiddenPixels] = useState<Set<string>>(new Set());
   const [validatedActionPixels, setValidatedActionPixels] = useState<Set<string> | null>(null);
   
-  const { user, refreshUser, connect, isConnecting } = useWallet();
+  const { user, refreshUser, connect, isConnecting, updatePeStatus } = useWallet();
   const { isWalletModalOpen, setWalletModalOpen, requireWallet } = useWalletGate();
   const { getUrlPosition, setUrlPosition } = useMapUrl();
   const { localPixels, paintPixel, mergePixels, confirmPixel } = usePixelStore();
@@ -1184,9 +1184,18 @@ export function BitplaceMap() {
         
         const success = await commit({ mode: 'PAINT', pixels: pixelsToCommit, color: colorToCommit, snapshotHash: result.snapshotHash });
         if (success) { 
-          // Optimistic update - add pixels to tile cache and dbPixels immediately
-          const touchedTiles = addPixels(pixelsToCommit.map(({ x, y }) => ({ x, y, color: colorToCommit! })));
-          refreshUser(); 
+          // PROMPT 55: Use changedPixels from response if available, fallback to draft
+          const pixelsForCache = success.changedPixels?.length 
+            ? success.changedPixels.map(p => ({ x: p.x, y: p.y, color: p.color }))
+            : pixelsToCommit.map(({ x, y }) => ({ x, y, color: colorToCommit! }));
+          
+          const touchedTiles = addPixels(pixelsForCache);
+          
+          // PROMPT 55: Update PE status immediately from commit response (no extra API call)
+          if (success.peStatus) {
+            updatePeStatus(success.peStatus, success.paintCooldownUntil);
+          }
+          
           clearDraft();
           completePaintCommit();
           handleClearSelection();
@@ -1204,7 +1213,12 @@ export function BitplaceMap() {
         if (success) { 
           // Optimistic removal - remove pixels from UI immediately
           const touchedTiles = removePixels(pixelsToCommit);
-          refreshUser(); 
+          
+          // PROMPT 55: Update PE status from commit response
+          if (success.peStatus) {
+            updatePeStatus(success.peStatus);
+          }
+          
           handleClearSelection();
           playSound('erase_success');
           
@@ -1226,8 +1240,18 @@ export function BitplaceMap() {
     
     if (success) {
       if (gameMode === 'PAINT') {
-        // Optimistic update - add pixels to tile cache and dbPixels immediately
-        const touchedTiles = addPixels(pixelsToCommit.map(({ x, y }) => ({ x, y, color: colorToCommit! })));
+        // PROMPT 55: Use changedPixels from response if available, fallback to draft
+        const pixelsForCache = success.changedPixels?.length 
+          ? success.changedPixels.map(p => ({ x: p.x, y: p.y, color: p.color }))
+          : pixelsToCommit.map(({ x, y }) => ({ x, y, color: colorToCommit! }));
+        
+        const touchedTiles = addPixels(pixelsForCache);
+        
+        // PROMPT 55: Update PE status immediately from commit response
+        if (success.peStatus) {
+          updatePeStatus(success.peStatus, success.paintCooldownUntil);
+        }
+        
         clearDraft();
         completePaintCommit();
         playSound('paint_commit');
@@ -1236,17 +1260,25 @@ export function BitplaceMap() {
       } else if (gameMode === 'ERASE') {
         // Optimistic removal - remove pixels from UI immediately
         const touchedTiles = removePixels(pixelsToCommit);
+        
+        // PROMPT 55: Update PE status from commit response
+        if (success.peStatus) {
+          updatePeStatus(success.peStatus);
+        }
+        
         playSound('erase_success');
         // Background reconciliation
         reconcileTiles(touchedTiles);
       } else if (gameMode === 'DEFEND') {
+        if (success.peStatus) updatePeStatus(success.peStatus);
         playSound('defend_success');
       } else if (gameMode === 'ATTACK') {
+        if (success.peStatus) updatePeStatus(success.peStatus);
         playSound('attack_success');
       } else if (gameMode === 'REINFORCE') {
+        if (success.peStatus) updatePeStatus(success.peStatus);
         playSound('reinforce_success');
       }
-      refreshUser(); 
       handleClearSelection();
     } else {
       // Commit failed - stay in VALIDATED for retry
@@ -1254,7 +1286,7 @@ export function BitplaceMap() {
         failPaintCommit();
       }
     }
-  }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, validate, getGameMode, refreshUser, handleClearSelection, playSound, getDraftPixels, clearDraft, removePixels, addPixels, reconcileTiles, frozenPayload, paintState, setWalletModalOpen, freezePayload, startPaintValidation, completePaintValidation, failPaintValidation, startPaintCommit, completePaintCommit, failPaintCommit]);
+  }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, validate, getGameMode, handleClearSelection, playSound, getDraftPixels, clearDraft, removePixels, addPixels, reconcileTiles, frozenPayload, paintState, setWalletModalOpen, freezePayload, startPaintValidation, completePaintValidation, failPaintValidation, startPaintCommit, completePaintCommit, failPaintCommit, updatePeStatus]);
 
   // Inspector card handlers
   const handleInspectorPaint = useCallback(async (x: number, y: number) => {
