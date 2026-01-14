@@ -81,7 +81,7 @@ export function BitplaceMap() {
   const { selection, startSelection, updateSelection, endSelection, clearSelection, getNormalizedBounds, getSelectedPixels } = useSelection();
   const { mode, selectedColor, paintTool, brushSize, zoom, artOpacity, interactionMode, setMode, setSelectedColor, setZoom, toggleArtOpacity, setInteractionMode, setPaintTool, setBrushSize, canPaint } = useMapState();
   const { dbPixels, updateViewport, removePixels, addPixels, reconcileTiles, realtimeStatus, reconnectAttempts } = useSupabasePixels(zoom);
-  const { validate, commit, validationResult, invalidPixels, isValidating, isCommitting, clearValidation, progress: gameProgress } = useGameActions();
+  const { validate, commit, validationResult, invalidPixels, isValidating, isCommitting, clearValidation, progress: gameProgress, lastError, isStalled, clearError } = useGameActions();
   const { 
     state: paintState, 
     frozenPayload, 
@@ -1048,6 +1048,9 @@ export function BitplaceMap() {
   const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), []);
 
   const handleValidate = useCallback(async () => {
+    // Clear any previous error before starting new validation
+    clearError();
+    
     console.log('[handleValidate] Starting...', {
       user: !!user,
       mode,
@@ -1116,7 +1119,7 @@ export function BitplaceMap() {
         failPaintValidation();
       }
     }
-  }, [user, mode, pendingPixels, selectedColor, pePerPixel, validate, getGameMode, getDraftPixels, setDraftDirty, setWalletModalOpen, freezePayload, startPaintValidation, completePaintValidation, failPaintValidation]);
+  }, [user, mode, pendingPixels, selectedColor, pePerPixel, validate, getGameMode, getDraftPixels, setDraftDirty, setWalletModalOpen, freezePayload, startPaintValidation, completePaintValidation, failPaintValidation, clearError]);
 
   const handleClearSelection = useCallback(() => { 
     clearSelection(); 
@@ -1431,8 +1434,11 @@ export function BitplaceMap() {
                 onUndoDraft={undoDraft}
                 onClearDraft={clearDraft}
                 progress={gameProgress}
+                isStalled={isStalled}
                 isSelectionChanged={isSelectionChangedAfterValidation}
                 lastCommitFailed={lastCommitFailed}
+                lastError={lastError}
+                onRetryValidate={handleValidate}
               />
             </div>
           </div>
@@ -1463,8 +1469,11 @@ export function BitplaceMap() {
             onUndoDraft={undoDraft}
             onClearDraft={clearDraft}
             progress={gameProgress}
+            isStalled={isStalled}
             isSelectionChanged={isSelectionChangedAfterValidation}
             lastCommitFailed={lastCommitFailed}
+            lastError={lastError}
+            onRetryValidate={handleValidate}
           />
         )}
 
