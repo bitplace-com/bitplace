@@ -49,7 +49,7 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
   }
 }
 
-type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE";
+type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE" | "PING";
 
 // Paint-specific limits
 const MAX_PAINT_PIXELS = 500;
@@ -778,12 +778,28 @@ Deno.serve(async (req) => {
     }
 
     const userId = payload.userId;
+    const t0 = Date.now();
+
+    const body: CommitRequest = await req.json();
+
+    // === PING MODE: Fast auth-path warmup (no DB queries) ===
+    if (body.mode === "PING") {
+      const authMs = t0 - Date.now();
+      console.log(`[game-commit] PING from ${userId} - auth path warmed`);
+      return new Response(JSON.stringify({ 
+        ok: true, 
+        warm: true, 
+        ts: Date.now(),
+        authMs 
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const body: CommitRequest = await req.json();
     const { mode, pixels: rawPixels, color, pePerPixel, snapshotHash, stream = false } = body;
 
     // Deduplicate pixels
