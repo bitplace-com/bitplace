@@ -78,6 +78,20 @@ export function getCachedPixelData(x: number, y: number): PixelData | undefined 
   return entry.pixels.get(pixelKey(x, y));
 }
 
+// Get visible tiles for a viewport bounds (standalone export for fallback polling)
+export function getVisibleTiles(bounds: ViewportBounds, margin = 1): Array<{ tx: number; ty: number }> {
+  const minTile = pixelToTile(bounds.minX, bounds.minY);
+  const maxTile = pixelToTile(bounds.maxX, bounds.maxY);
+  
+  const tiles: Array<{ tx: number; ty: number }> = [];
+  for (let tx = minTile.tx - margin; tx <= maxTile.tx + margin; tx++) {
+    for (let ty = minTile.ty - margin; ty <= maxTile.ty + margin; ty++) {
+      tiles.push({ tx, ty });
+    }
+  }
+  return tiles;
+}
+
 function touchTile(key: string): void {
   const idx = tileLRU.indexOf(key);
   if (idx > -1) tileLRU.splice(idx, 1);

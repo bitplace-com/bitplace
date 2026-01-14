@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { pixelKey, type PixelStore, type PixelData } from '@/components/map/hooks/usePixelStore';
-import { useTileCache, subscribeToCacheChanges } from './useTileCache';
+import { useTileCache, subscribeToCacheChanges, getVisibleTiles } from './useTileCache';
 import { markFirstPixelsRendered } from '@/lib/perfMetrics';
 
 interface ViewportBounds {
@@ -20,12 +20,35 @@ interface DbPixel {
   owner_stake_pe: number;
 }
 
+// Realtime connection status
+export type RealtimeStatus = 'connected' | 'reconnecting' | 'disconnected';
+
+// Backoff delays for reconnection (ms)
+const BACKOFF_DELAYS = [1000, 2000, 5000, 10000];
+const MAX_RECONNECT_ATTEMPTS = 10;
+const FALLBACK_POLL_INTERVAL = 12000; // 12s
+const IDLE_THRESHOLD = 2000; // 2s no activity = idle
+
+const getBackoffDelay = (attempt: number) => 
+  BACKOFF_DELAYS[Math.min(attempt, BACKOFF_DELAYS.length - 1)];
+
 export function useSupabasePixels(zoom: number) {
   const [dbPixels, setDbPixels] = useState<PixelStore>(new Map());
   const [isLoading, setIsLoading] = useState(false);
   const [, forceUpdate] = useState(0); // For cache change re-renders
+  
+  // Realtime status tracking
+  const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('disconnected');
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const hasRenderedFirstPixels = useRef(false);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isIdleRef = useRef(true);
+  const lastActivityRef = useRef<number>(Date.now());
+  const lastViewportRef = useRef<ViewportBounds | null>(null);
   
   const { 
     updateViewport: updateTileViewport, 
@@ -51,8 +74,182 @@ export function useSupabasePixels(zoom: number) {
     zoomRef.current = zoom;
   }, [zoom]);
 
+  // Mark activity (for idle detection)
+  const markActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    isIdleRef.current = false;
+  }, []);
+
+  // Check idle status
+  const checkIdle = useCallback(() => {
+    const timeSinceActivity = Date.now() - lastActivityRef.current;
+    isIdleRef.current = timeSinceActivity >= IDLE_THRESHOLD;
+    return isIdleRef.current;
+  }, []);
+
+  // Setup realtime subscription with reconnection logic
+  const setupRealtimeSubscription = useCallback(() => {
+    // Clean up existing channel
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    console.log('[Realtime] Setting up subscription, attempt:', reconnectAttempts);
+    
+    const channel = supabase
+      .channel('pixels-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pixels'
+        },
+        (payload) => {
+          console.log('[Realtime] Update received:', payload.eventType);
+          
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const pixel = payload.new as DbPixel;
+            // Update tile cache
+            updatePixelInCache(pixel.x, pixel.y, pixel.color);
+            // Update local state
+            setDbPixels((prev) => {
+              const next = new Map(prev);
+              next.set(pixelKey(pixel.x, pixel.y), { color: pixel.color });
+              return next;
+            });
+          } else if (payload.eventType === 'DELETE') {
+            const pixel = payload.old as DbPixel;
+            // Update tile cache
+            removePixelFromCache(pixel.x, pixel.y);
+            // Update local state
+            setDbPixels((prev) => {
+              const next = new Map(prev);
+              next.delete(pixelKey(pixel.x, pixel.y));
+              return next;
+            });
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        console.log('[Realtime] Subscription status:', status, err ? `Error: ${err.message}` : '');
+        
+        if (status === 'SUBSCRIBED') {
+          setRealtimeStatus('connected');
+          setReconnectAttempts(0);
+          console.log('[Realtime] Connected successfully');
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('[Realtime] Connection error, scheduling reconnect');
+          setRealtimeStatus('reconnecting');
+          scheduleReconnect();
+        } else if (status === 'CLOSED') {
+          console.warn('[Realtime] Channel closed');
+          // Only go to disconnected if we've exhausted retries
+          if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            setRealtimeStatus('disconnected');
+          } else {
+            setRealtimeStatus('reconnecting');
+            scheduleReconnect();
+          }
+        }
+      });
+
+    channelRef.current = channel;
+  }, [updatePixelInCache, removePixelFromCache, reconnectAttempts]);
+
+  // Schedule reconnection with backoff
+  const scheduleReconnect = useCallback(() => {
+    // Clear any existing timeout
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+
+    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      console.warn('[Realtime] Max reconnect attempts reached, giving up');
+      setRealtimeStatus('disconnected');
+      return;
+    }
+
+    const delay = getBackoffDelay(reconnectAttempts);
+    console.log(`[Realtime] Scheduling reconnect in ${delay}ms (attempt ${reconnectAttempts + 1})`);
+
+    reconnectTimeoutRef.current = setTimeout(() => {
+      setReconnectAttempts(prev => prev + 1);
+      setupRealtimeSubscription();
+    }, delay);
+  }, [reconnectAttempts, setupRealtimeSubscription]);
+
+  // Initial realtime setup
+  useEffect(() => {
+    setupRealtimeSubscription();
+
+    return () => {
+      console.log('[Realtime] Cleaning up subscription');
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, []); // Only run once on mount
+
+  // Fallback polling when disconnected
+  useEffect(() => {
+    // Clear existing polling
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+
+    // Only poll when not connected
+    if (realtimeStatus === 'connected') {
+      console.log('[Polling] Realtime connected, stopping fallback polling');
+      return;
+    }
+
+    console.log('[Polling] Starting fallback polling (12s interval)');
+    
+    pollingIntervalRef.current = setInterval(() => {
+      // Only poll when idle and we have a viewport
+      if (!checkIdle()) {
+        console.log('[Polling] User active, skipping poll');
+        return;
+      }
+
+      if (!lastViewportRef.current) {
+        console.log('[Polling] No viewport, skipping poll');
+        return;
+      }
+
+      // Check zoom level
+      if (zoomRef.current < 12) {
+        return;
+      }
+
+      console.log('[Polling] Fetching viewport tiles (fallback)');
+      const tiles = getVisibleTiles(lastViewportRef.current);
+      refetchTiles(tiles.map(t => ({ tx: t.tx, ty: t.ty })));
+    }, FALLBACK_POLL_INTERVAL);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [realtimeStatus, refetchTiles, checkIdle]);
+
   // Debounced viewport update using tile cache
   const updateViewport = useCallback((bounds: ViewportBounds) => {
+    // Mark activity
+    markActivity();
+    
+    // Store for fallback polling
+    lastViewportRef.current = bounds;
+
     // Abort any pending fetch when new update comes
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
@@ -81,56 +278,7 @@ export function useSupabasePixels(zoom: number) {
         setIsLoading(false);
       }
     }, 80);
-  }, [updateTileViewport, abortFetch]);
-
-  // Subscribe to realtime changes
-  useEffect(() => {
-    console.log('Setting up realtime subscription');
-    
-    const channel = supabase
-      .channel('pixels-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'pixels'
-        },
-        (payload) => {
-          console.log('Realtime update:', payload);
-          
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const pixel = payload.new as DbPixel;
-            // Update tile cache
-            updatePixelInCache(pixel.x, pixel.y, pixel.color);
-            // Update local state
-            setDbPixels((prev) => {
-              const next = new Map(prev);
-              next.set(pixelKey(pixel.x, pixel.y), { color: pixel.color });
-              return next;
-            });
-          } else if (payload.eventType === 'DELETE') {
-            const pixel = payload.old as DbPixel;
-            // Update tile cache
-            removePixelFromCache(pixel.x, pixel.y);
-            // Update local state
-            setDbPixels((prev) => {
-              const next = new Map(prev);
-              next.delete(pixelKey(pixel.x, pixel.y));
-              return next;
-            });
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
-      });
-
-    return () => {
-      console.log('Cleaning up realtime subscription');
-      supabase.removeChannel(channel);
-    };
-  }, [updatePixelInCache, removePixelFromCache]);
+  }, [updateTileViewport, abortFetch, markActivity]);
 
   // Paint pixel via edge function
   const paintPixelToDb = useCallback(async (x: number, y: number, color: string) => {
@@ -211,5 +359,8 @@ export function useSupabasePixels(zoom: number) {
     removePixels,
     addPixels,
     reconcileTiles,
+    // Realtime status for debug display
+    realtimeStatus,
+    reconnectAttempts,
   };
 }
