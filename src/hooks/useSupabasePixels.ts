@@ -33,6 +33,8 @@ export function useSupabasePixels(zoom: number) {
     removePixelFromCache,
     abortFetch,
     getCachedPixels,
+    getTouchedTiles,
+    refetchTiles,
   } = useTileCache();
 
   // Subscribe to cache changes for immediate re-render after optimistic updates
@@ -153,7 +155,8 @@ export function useSupabasePixels(zoom: number) {
   }, []);
 
   // Remove pixels optimistically (for ERASE mode)
-  const removePixels = useCallback((coords: Array<{ x: number; y: number }>) => {
+  // Returns touched tile coords for reconciliation
+  const removePixels = useCallback((coords: Array<{ x: number; y: number }>): Array<{ tx: number; ty: number }> => {
     coords.forEach(({ x, y }) => {
       removePixelFromCache(x, y);
     });
@@ -164,10 +167,14 @@ export function useSupabasePixels(zoom: number) {
       });
       return next;
     });
-  }, [removePixelFromCache]);
+    
+    // Return touched tiles for reconciliation
+    return getTouchedTiles(coords);
+  }, [removePixelFromCache, getTouchedTiles]);
 
   // Add pixels optimistically (for PAINT mode)
-  const addPixels = useCallback((pixelsToAdd: Array<{ x: number; y: number; color: string }>) => {
+  // Returns touched tile coords for reconciliation
+  const addPixels = useCallback((pixelsToAdd: Array<{ x: number; y: number; color: string }>): Array<{ tx: number; ty: number }> => {
     pixelsToAdd.forEach(({ x, y, color }) => {
       updatePixelInCache(x, y, color);
     });
@@ -178,7 +185,23 @@ export function useSupabasePixels(zoom: number) {
       });
       return next;
     });
-  }, [updatePixelInCache]);
+    
+    // Return touched tiles for reconciliation
+    return getTouchedTiles(pixelsToAdd);
+  }, [updatePixelInCache, getTouchedTiles]);
+
+  // Reconcile tiles with server data (call after commit success)
+  const reconcileTiles = useCallback(async (tileCoords: Array<{ tx: number; ty: number }>) => {
+    if (tileCoords.length === 0) return;
+    
+    // Background refetch - don't block UI
+    try {
+      await refetchTiles(tileCoords);
+    } catch (err) {
+      // Silent fail - optimistic update is already visible
+      console.warn('[reconcileTiles] Background refetch failed:', err);
+    }
+  }, [refetchTiles]);
 
   return {
     dbPixels,
@@ -187,5 +210,6 @@ export function useSupabasePixels(zoom: number) {
     paintPixelToDb,
     removePixels,
     addPixels,
+    reconcileTiles,
   };
 }
