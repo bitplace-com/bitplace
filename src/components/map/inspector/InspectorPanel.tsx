@@ -12,7 +12,7 @@ import { MAX_SELECTION_PIXELS } from '../hooks/useSelection';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { useWithdrawContribution } from '@/hooks/useWithdrawContribution';
-import type { GameMode, ValidateResult, InvalidPixel } from '@/hooks/useGameActions';
+import type { GameMode, ValidateResult, InvalidPixel, ActionError } from '@/hooks/useGameActions';
 
 interface WithdrawStats {
   myDefTotal: number;
@@ -45,9 +45,14 @@ interface InspectorPanelProps {
   onClearDraft?: () => void;
   // Real progress from SSE stream
   progress?: { processed: number; total: number } | null;
+  // Stall detection
+  isStalled?: boolean;
   // State machine props
   isSelectionChanged?: boolean;
   lastCommitFailed?: boolean;
+  // Inline error display (PROMPT 44)
+  lastError?: ActionError | null;
+  onRetryValidate?: () => void;
 }
 
 export function InspectorPanel({
@@ -72,8 +77,11 @@ export function InspectorPanel({
   onUndoDraft,
   onClearDraft,
   progress,
+  isStalled = false,
   isSelectionChanged = false,
   lastCommitFailed = false,
+  lastError,
+  onRetryValidate,
 }: InspectorPanelProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [withdrawStats, setWithdrawStats] = useState<WithdrawStats | null>(null);
@@ -302,8 +310,11 @@ export function InspectorPanel({
         onUndoDraft={onUndoDraft}
         onClearDraft={onClearDraft}
         progress={progress}
+        isStalled={isStalled}
         isSelectionChanged={isSelectionChanged}
         lastCommitFailed={lastCommitFailed}
+        lastError={lastError}
+        onRetryValidate={onRetryValidate}
       />
     </>
   );
