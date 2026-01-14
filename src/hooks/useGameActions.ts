@@ -70,10 +70,62 @@ export interface CommitResult {
 }
 
 // Retry configuration
-const MAX_RETRIES = 2;
-const INITIAL_DELAY_MS = 1000;
+const MAX_RETRIES = 3;
+const INITIAL_DELAY_MS = 2000;
 const MIN_PIXELS_FOR_STREAMING = 50;
-const MAX_STREAM_RETRIES = 1; // Retry once for cold start timeouts
+const MAX_STREAM_RETRIES = 2; // Retry twice for cold start timeouts
+const INVOKE_TIMEOUT_MS = 60000; // 60s timeout for direct invocations
+
+// Check if error is a timeout error
+function isTimeoutError(error: Error | null): boolean {
+  if (!error) return false;
+  const msg = error.message.toLowerCase();
+  return msg.includes('timed out') || 
+         msg.includes('timeout') ||
+         msg.includes('aborted') ||
+         msg.includes('abort');
+}
+
+// Helper function to invoke edge functions with explicit timeout (for small operations)
+async function invokeWithTimeout<T>(
+  functionName: string,
+  options: { headers: Record<string, string>; body: unknown },
+  timeoutMs: number = INVOKE_TIMEOUT_MS
+): Promise<{ data: T | null; error: Error | null }> {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const apiKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        ...options.headers,
+        'Content-Type': 'application/json',
+        'apikey': apiKey,
+      },
+      body: JSON.stringify(options.body),
+    });
+    
+    clearTimeout(timeoutId);
+    const data = await response.json();
+    return { data: data as T, error: null };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    
+    if (err instanceof Error && err.name === 'AbortError') {
+      return { data: null, error: new Error('Request timed out. Please try again.') };
+    }
+    
+    return { 
+      data: null, 
+      error: err instanceof Error ? err : new Error(String(err)) 
+    };
+  }
+}
 
 // Helper function to invoke edge functions with retry logic (for small operations)
 async function invokeWithRetry<T>(
@@ -85,24 +137,22 @@ async function invokeWithRetry<T>(
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (attempt > 0) {
       const delay = INITIAL_DELAY_MS * Math.pow(2, attempt - 1);
+      console.log(`[invokeWithRetry] Retry attempt ${attempt} after ${delay}ms`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
     
-    try {
-      const result = await supabase.functions.invoke<T>(functionName, options);
-      
-      if (!result.error) {
-        return result;
-      }
-      
-      if (result.error instanceof FunctionsFetchError) {
-        lastError = result.error;
-        continue;
-      }
-      
+    // Use invokeWithTimeout instead of supabase.functions.invoke
+    const result = await invokeWithTimeout<T>(functionName, options);
+    
+    if (!result.error) {
       return result;
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+    
+    lastError = result.error;
+    
+    // Only retry on timeout or network errors
+    if (!isTimeoutError(result.error) && !(result.error instanceof FunctionsFetchError)) {
+      return result;
     }
   }
   
@@ -167,7 +217,7 @@ export function useGameActions() {
           error = result.error;
           
           // If success or non-timeout error, break
-          if (data || !error?.message?.includes('timed out')) {
+          if (data || !isTimeoutError(error)) {
             break;
           }
           
@@ -265,7 +315,7 @@ export function useGameActions() {
           error = result.error;
           
           // If success or non-timeout error, break
-          if (data || !error?.message?.includes('timed out')) {
+          if (data || !isTimeoutError(error)) {
             break;
           }
           
