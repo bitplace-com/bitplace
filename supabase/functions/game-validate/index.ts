@@ -508,29 +508,9 @@ async function handlePaintFastPath(
     };
   };
   
-  // Streaming response
-  if (stream && pixels.length >= MIN_PIXELS_FOR_STREAMING) {
-    return createStreamResponse(async (emit, close) => {
-      try {
-        emit({ type: "progress", phase: "start", pct: 0, requestId });
-        const result = await executeValidation(emit);
-        emit({ type: "progress", phase: "done", pct: 100, requestId });
-        emit({ type: "done", result });
-        close();
-      } catch (err) {
-        // deno-lint-ignore no-explicit-any
-        const e = err as any;
-        console.error("[game-validate] PAINT fast-path streaming error:", e);
-        emit({ 
-          type: "error", 
-          error: e.error || "INTERNAL_ERROR", 
-          message: e.message || String(err),
-          requestId 
-        });
-        close();
-      }
-    });
-  }
+  // PROMPT 53: PAINT mode ALWAYS uses JSON response (no SSE streaming)
+  // Streaming was removed for PAINT to improve reliability and simplicity
+  // The 'stream' parameter is ignored for PAINT - always returns JSON
   
   // Non-streaming response
   try {

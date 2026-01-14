@@ -87,7 +87,8 @@ const MAX_RETRIES = 0;           // No auto-retry for small ops - let user manua
 const INITIAL_DELAY_MS = 2000;
 const MIN_PIXELS_FOR_STREAMING = 50;
 const MAX_STREAM_RETRIES = 1;    // At most 1 retry for cold start
-const INVOKE_TIMEOUT_MS = 90000; // 90s fallback timeout
+// PROMPT 53: Reduced timeout for PAINT (no streaming = faster response expected)
+const INVOKE_TIMEOUT_MS = 45000; // 45s timeout
 
 // Check if error is a timeout error
 function isTimeoutError(error: Error | null): boolean {
@@ -237,8 +238,13 @@ export function useGameActions() {
       let data: ValidateResult | null = null;
       let error: Error | null = null;
 
-      // Use streaming for large operations (with limited retry for cold start)
-      if (deduplicatedPixels.length >= MIN_PIXELS_FOR_STREAMING) {
+      // PROMPT 53: PAINT always uses simple JSON (no streaming) for reliability
+      // Streaming is only for legacy modes (DEFEND, ATTACK, REINFORCE, ERASE) with many pixels
+      const isPaintMode = params.mode === 'PAINT';
+      const shouldStream = !isPaintMode && deduplicatedPixels.length >= MIN_PIXELS_FOR_STREAMING;
+
+      if (shouldStream) {
+        // Legacy modes with streaming
         let retryCount = 0;
         while (retryCount <= MAX_STREAM_RETRIES) {
           const result = await streamingInvoke<ValidateResult>(
@@ -270,9 +276,10 @@ export function useGameActions() {
           }
         }
       } else {
+        // PAINT or small operations: simple JSON invoke
         const result = await invokeWithRetry<ValidateResult>('game-validate', {
           headers,
-          body: validatedParams,
+          body: { ...validatedParams, stream: false }, // Explicitly disable streaming
         });
         data = result.data;
         error = result.error;
@@ -373,8 +380,13 @@ export function useGameActions() {
       let data: CommitResult | null = null;
       let error: Error | null = null;
 
-      // Use streaming for large operations (with limited retry for cold start)
-      if (params.pixels.length >= MIN_PIXELS_FOR_STREAMING) {
+      // PROMPT 53: PAINT always uses simple JSON (no streaming) for reliability
+      // Streaming is only for legacy modes (DEFEND, ATTACK, REINFORCE, ERASE) with many pixels
+      const isPaintMode = params.mode === 'PAINT';
+      const shouldStream = !isPaintMode && params.pixels.length >= MIN_PIXELS_FOR_STREAMING;
+
+      if (shouldStream) {
+        // Legacy modes with streaming
         let retryCount = 0;
         while (retryCount <= MAX_STREAM_RETRIES) {
           const result = await streamingInvoke<CommitResult>(
@@ -406,9 +418,10 @@ export function useGameActions() {
           }
         }
       } else {
+        // PAINT or small operations: simple JSON invoke
         const result = await invokeWithRetry<CommitResult>('game-commit', {
           headers,
-          body: params,
+          body: { ...params, stream: false }, // Explicitly disable streaming
         });
         data = result.data;
         error = result.error;
