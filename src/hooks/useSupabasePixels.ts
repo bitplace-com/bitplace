@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { pixelKey, type PixelStore, type PixelData } from '@/components/map/hooks/usePixelStore';
-import { useTileCache } from './useTileCache';
+import { useTileCache, subscribeToCacheChanges } from './useTileCache';
 import { markFirstPixelsRendered } from '@/lib/perfMetrics';
 
 interface ViewportBounds {
@@ -23,6 +23,7 @@ interface DbPixel {
 export function useSupabasePixels(zoom: number) {
   const [dbPixels, setDbPixels] = useState<PixelStore>(new Map());
   const [isLoading, setIsLoading] = useState(false);
+  const [, forceUpdate] = useState(0); // For cache change re-renders
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const hasRenderedFirstPixels = useRef(false);
   
@@ -31,7 +32,16 @@ export function useSupabasePixels(zoom: number) {
     updatePixelInCache, 
     removePixelFromCache,
     abortFetch,
+    getCachedPixels,
   } = useTileCache();
+
+  // Subscribe to cache changes for immediate re-render after optimistic updates
+  useEffect(() => {
+    const unsubscribe = subscribeToCacheChanges(() => {
+      forceUpdate(v => v + 1);
+    });
+    return unsubscribe;
+  }, []);
   
   // Use ref for zoom to avoid recreating fetch when zoom changes
   const zoomRef = useRef(zoom);
