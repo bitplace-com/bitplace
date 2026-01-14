@@ -5,6 +5,7 @@ import { ENERGY_ASSET, ENERGY_CONFIG } from '@/config/energy';
 import { useBalance } from '@/hooks/useBalance';
 import { soundEngine } from '@/lib/soundEngine';
 import { TOKEN_EXPIRED_EVENT } from '@/lib/authHelpers';
+import { warmupAuthenticatedFunctions } from '@/hooks/useEdgeFunctionWarmup';
 
 interface PhantomProvider {
   isPhantom?: boolean;
@@ -587,6 +588,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       toast.success('Signed in successfully');
       soundEngine.play('wallet_connect');
       
+      // Warm-up critical edge functions with authenticated PING
+      warmupAuthenticatedFunctions(authData.token).catch(err => {
+        walletDebug('warmup_error', err);
+      });
+      
       // Refresh energy + PE status
       setTimeout(() => {
         refreshEnergy();
@@ -663,6 +669,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
               setUser(cachedUser);
               updateEnergyFromUser(cachedUser);
             }
+            
+            // Warm-up critical edge functions with authenticated PING
+            warmupAuthenticatedFunctions(token).catch(err => {
+              walletDebug('warmup_error', err);
+            });
             
             // Fetch fresh data in parallel
             Promise.all([
