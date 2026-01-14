@@ -31,8 +31,8 @@ export interface StreamingInvokeOptions {
  * Invoke an edge function with SSE streaming for progress updates
  * Falls back to regular response parsing if non-streaming response is received
  */
-// Timeout for edge function calls (30s to handle cold starts)
-const STREAM_TIMEOUT_MS = 30000;
+// Timeout for edge function calls (60s to handle cold starts)
+const STREAM_TIMEOUT_MS = 60000;
 
 export async function streamingInvoke<T>(
   functionName: string,
