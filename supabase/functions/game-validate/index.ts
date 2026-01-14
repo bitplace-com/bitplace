@@ -211,9 +211,9 @@ function generateSnapshotHash(pixelStates: PixelData[]): string {
   return hash.toString(36);
 }
 
-// OPTIMIZED: Fetch pixels using RPC with (x,y) coordinates - avoids BigInt precision issues
+// PROMPT 54: Fetch pixels using pixel_id array (faster than JSONB RPC)
 // deno-lint-ignore no-explicit-any
-async function fetchPixelsByCoords(
+async function fetchPixelsByIds(
   supabase: any,
   pixels: Array<{ x: number; y: number }>
 ): Promise<Array<{ 
@@ -229,11 +229,16 @@ async function fetchPixelsByCoords(
 }>> {
   if (pixels.length === 0) return [];
   
-  const coords = pixels.map(p => ({ x: p.x, y: p.y }));
-  const { data, error } = await supabase.rpc('fetch_pixels_by_coords', { coords });
+  // Calculate pixel_ids and use direct query with ANY() for speed
+  const pixelIds = pixels.map(p => computePixelId(p.x, p.y).toString());
+  
+  const { data, error } = await supabase
+    .from("pixels")
+    .select("id, x, y, pixel_id, owner_user_id, owner_stake_pe, color, def_total, atk_total")
+    .in("pixel_id", pixelIds);
   
   if (error) {
-    console.error('[game-validate] RPC fetch_pixels_by_coords error:', error);
+    console.error('[game-validate] fetchPixelsByIds error:', error);
     throw error;
   }
   return data || [];
@@ -356,11 +361,11 @@ async function handlePaintFastPath(
       }
     }
     
-    // Step D: Fetch pixels by coords (1 RPC call)
+    // Step D: Fetch pixels by pixel_id array (PROMPT 54: faster than JSONB RPC)
     emit?.({ type: "progress", phase: "pixels", pct: 25, requestId });
     
     const tFetchPixels = Date.now();
-    const existingPixels = await fetchPixelsByCoords(supabase, pixels);
+    const existingPixels = await fetchPixelsByIds(supabase, pixels);
     const fetchPixelsMs = Date.now() - tFetchPixels;
     
     // Build pixel map for quick lookup
@@ -574,8 +579,8 @@ async function handleLegacyValidate(
         try {
           emit({ type: "progress", phase: "validate", processed: 0, total });
 
-          // Fetch pixels
-          const existingPixels = await fetchPixelsByCoords(supabase, pixels);
+          // Fetch pixels using pixel_id array (PROMPT 54)
+          const existingPixels = await fetchPixelsByIds(supabase, pixels);
           emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.3), total });
 
           const pixelMap = new Map<string, typeof existingPixels[0]>();
@@ -766,8 +771,8 @@ async function handleLegacyValidate(
     });
   }
 
-  // Non-streaming legacy path
-  const existingPixels = await fetchPixelsByCoords(supabase, pixels);
+  // Non-streaming legacy path (PROMPT 54: use pixel_id array)
+  const existingPixels = await fetchPixelsByIds(supabase, pixels);
   
   const pixelMap = new Map<string, typeof existingPixels[0]>();
   existingPixels.forEach((p: typeof existingPixels[0]) => {
