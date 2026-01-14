@@ -79,7 +79,7 @@ export function BitplaceMap() {
   const { localPixels, paintPixel, mergePixels, confirmPixel } = usePixelStore();
   const { selection, startSelection, updateSelection, endSelection, clearSelection, getNormalizedBounds, getSelectedPixels } = useSelection();
   const { mode, selectedColor, paintTool, brushSize, zoom, artOpacity, interactionMode, setMode, setSelectedColor, setZoom, toggleArtOpacity, setInteractionMode, setPaintTool, setBrushSize, canPaint } = useMapState();
-  const { dbPixels, updateViewport, removePixels, addPixels } = useSupabasePixels(zoom);
+  const { dbPixels, updateViewport, removePixels, addPixels, reconcileTiles } = useSupabasePixels(zoom);
   const { validate, commit, validationResult, invalidPixels, isValidating, isCommitting, clearValidation, progress: gameProgress } = useGameActions();
   const { 
     state: paintState, 
@@ -1181,12 +1181,15 @@ export function BitplaceMap() {
         const success = await commit({ mode: 'PAINT', pixels: pixelsToCommit, color: colorToCommit, snapshotHash: result.snapshotHash });
         if (success) { 
           // Optimistic update - add pixels to tile cache and dbPixels immediately
-          addPixels(pixelsToCommit.map(({ x, y }) => ({ x, y, color: colorToCommit! })));
+          const touchedTiles = addPixels(pixelsToCommit.map(({ x, y }) => ({ x, y, color: colorToCommit! })));
           refreshUser(); 
           clearDraft();
           completePaintCommit();
           handleClearSelection();
           playSound('paint_commit');
+          
+          // Background reconciliation (fire-and-forget)
+          reconcileTiles(touchedTiles);
         } else {
           failPaintCommit();
         }
@@ -1196,10 +1199,13 @@ export function BitplaceMap() {
         const success = await commit({ mode: 'ERASE', pixels: pixelsToCommit, snapshotHash: result.snapshotHash });
         if (success) { 
           // Optimistic removal - remove pixels from UI immediately
-          removePixels(pixelsToCommit);
+          const touchedTiles = removePixels(pixelsToCommit);
           refreshUser(); 
           handleClearSelection();
           playSound('erase_success');
+          
+          // Background reconciliation
+          reconcileTiles(touchedTiles);
         }
       }
       return;
@@ -1217,14 +1223,18 @@ export function BitplaceMap() {
     if (success) {
       if (gameMode === 'PAINT') {
         // Optimistic update - add pixels to tile cache and dbPixels immediately
-        addPixels(pixelsToCommit.map(({ x, y }) => ({ x, y, color: colorToCommit! })));
+        const touchedTiles = addPixels(pixelsToCommit.map(({ x, y }) => ({ x, y, color: colorToCommit! })));
         clearDraft();
         completePaintCommit();
         playSound('paint_commit');
+        // Background reconciliation
+        reconcileTiles(touchedTiles);
       } else if (gameMode === 'ERASE') {
         // Optimistic removal - remove pixels from UI immediately
-        removePixels(pixelsToCommit);
+        const touchedTiles = removePixels(pixelsToCommit);
         playSound('erase_success');
+        // Background reconciliation
+        reconcileTiles(touchedTiles);
       } else if (gameMode === 'DEFEND') {
         playSound('defend_success');
       } else if (gameMode === 'ATTACK') {
@@ -1240,7 +1250,7 @@ export function BitplaceMap() {
         failPaintCommit();
       }
     }
-  }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, validate, getGameMode, refreshUser, handleClearSelection, playSound, getDraftPixels, clearDraft, removePixels, addPixels, frozenPayload, paintState, setWalletModalOpen, freezePayload, startPaintValidation, completePaintValidation, failPaintValidation, startPaintCommit, completePaintCommit, failPaintCommit]);
+  }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, validate, getGameMode, refreshUser, handleClearSelection, playSound, getDraftPixels, clearDraft, removePixels, addPixels, reconcileTiles, frozenPayload, paintState, setWalletModalOpen, freezePayload, startPaintValidation, completePaintValidation, failPaintValidation, startPaintCommit, completePaintCommit, failPaintCommit]);
 
   // Inspector card handlers
   const handleInspectorPaint = useCallback(async (x: number, y: number) => {

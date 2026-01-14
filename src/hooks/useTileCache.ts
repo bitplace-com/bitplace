@@ -305,6 +305,97 @@ export function useTileCache() {
     return stale;
   }, []);
 
+  // Calculate tiles touched by pixel coordinates (for reconciliation)
+  const getTouchedTiles = useCallback((pixels: Array<{ x: number; y: number }>): Array<{ tx: number; ty: number }> => {
+    const tileSet = new Map<string, { tx: number; ty: number }>();
+    
+    pixels.forEach(({ x, y }) => {
+      const { tx, ty } = pixelToTile(x, y);
+      const key = tileKey(tx, ty);
+      if (!tileSet.has(key)) {
+        tileSet.set(key, { tx, ty });
+      }
+    });
+    
+    return Array.from(tileSet.values());
+  }, []);
+
+  // Force refetch specific tiles from server (for post-commit reconciliation)
+  const refetchTiles = useCallback(async (tileCoords: Array<{ tx: number; ty: number }>): Promise<boolean> => {
+    if (tileCoords.length === 0) return true;
+    
+    // Deduplicate tile coords
+    const uniqueTiles = Array.from(
+      new Map(tileCoords.map(t => [`${t.tx}:${t.ty}`, t])).values()
+    );
+    
+    if (isDebugTileCache()) {
+      console.debug('[tilecache] refetchTiles', uniqueTiles.map(t => `${t.tx}:${t.ty}`));
+    }
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('pixels-fetch-tiles', {
+        body: { 
+          tiles: uniqueTiles.map(t => ({ tx: t.tx, ty: t.ty })),
+          fields: 'render'
+        },
+      });
+
+      if (error) {
+        console.error('[tilecache] refetchTiles error:', error);
+        return false;
+      }
+
+      // Merge server data into cache
+      const tilesData = data?.tiles as Record<string, Array<{ x: number; y: number; color: string }>> | undefined;
+      
+      if (tilesData) {
+        Object.entries(tilesData).forEach(([key, pixels]) => {
+          const entry = tileCache.get(key);
+          if (entry) {
+            // Server wins - replace all pixels in this tile
+            entry.pixels.clear();
+            pixels.forEach(p => {
+              entry.pixels.set(pixelKey(p.x, p.y), { color: p.color });
+            });
+            entry.status = 'loaded';
+            entry.stale = false;
+            entry.fetchedAt = Date.now();
+            entry.lastUpdatedAt = Date.now();
+          } else {
+            // Tile didn't exist - create it
+            const pixelMap = new Map<string, PixelData>();
+            pixels.forEach(p => {
+              pixelMap.set(pixelKey(p.x, p.y), { color: p.color });
+            });
+            setTileCache(key, pixelMap);
+          }
+        });
+        
+        // Also clear stale flag for requested tiles with no pixels (empty tiles)
+        uniqueTiles.forEach(t => {
+          const key = tileKey(t.tx, t.ty);
+          const entry = tileCache.get(key);
+          if (entry) {
+            entry.status = 'loaded';
+            entry.stale = false;
+          }
+        });
+        
+        notifyCacheChanged();
+      }
+
+      if (isDebugTileCache()) {
+        console.debug('[tilecache] refetchTiles complete', { tilesReconciled: uniqueTiles.length });
+      }
+
+      return true;
+    } catch (err) {
+      console.error('[tilecache] refetchTiles exception:', err);
+      return false;
+    }
+  }, []);
+
   return {
     updateViewport,
     getCachedPixels,
@@ -313,6 +404,8 @@ export function useTileCache() {
     updatePixelInCache,
     removePixelFromCache,
     getStaleTiles,
+    getTouchedTiles,
+    refetchTiles,
     getCacheSize: () => tileCache.size,
   };
 }
