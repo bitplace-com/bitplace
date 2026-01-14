@@ -886,8 +886,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Use streaming for large operations
-    if (stream && pixels.length >= MIN_PIXELS_FOR_STREAMING) {
+    // PROMPT 53: Use streaming ONLY for legacy modes (not PAINT)
+    // PAINT mode always uses simple JSON for reliability
+    if (stream && mode !== "PAINT" && pixels.length >= MIN_PIXELS_FOR_STREAMING) {
       return handleStreamingCommit(corsHeaders, supabase, userId, mode, pixels, color, pePerPixel, snapshotHash, user);
     }
 
