@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { isPixelSyncing, getCachedPixelData, subscribeToCacheChanges } from './useTileCache';
 
 interface OwnerProfile {
   id: string;
@@ -69,15 +70,41 @@ export interface PixelDetails {
   thresholdWithFloor: number;
   isFloorBased: boolean;
   myContribution: MyContribution | null;
+  isSyncing: boolean; // True when tile is optimistic/stale
 }
 
 export function usePixelDetails(x: number | null, y: number | null, currentUserId?: string) {
   const [pixel, setPixel] = useState<PixelDetails | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [, forceUpdate] = useState(0);
+
+  // Subscribe to cache changes to re-check syncing status
+  useEffect(() => {
+    const unsubscribe = subscribeToCacheChanges(() => {
+      forceUpdate(v => v + 1);
+    });
+    return unsubscribe;
+  }, []);
+
+  // Re-fetch when syncing status changes (cache updates)
+  useEffect(() => {
+    if (pixel?.isSyncing && x !== null && y !== null) {
+      const syncing = isPixelSyncing(x, y);
+      if (!syncing) {
+        // Syncing completed, refetch full data from DB
+        fetchPixelDetails();
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pixel?.isSyncing, x, y, forceUpdate]);
 
   const fetchPixelDetails = useCallback(async () => {
     if (x === null || y === null) { setPixel(null); return; }
     setIsLoading(true);
+
+    // Check if pixel is syncing
+    const syncing = isPixelSyncing(x, y);
+    const cachedPixel = getCachedPixelData(x, y);
 
     try {
       // Fetch pixels with denormalized def_total and atk_total columns
@@ -88,8 +115,37 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
         .eq('y', y)
         .maybeSingle();
 
+      // If no data from DB but we have cached pixel (optimistic), show partial data
+      if (!pixelData && cachedPixel) {
+        setPixel({
+          x, y,
+          color: cachedPixel.color,
+          owner: null,
+          owner_stake_pe: 0,
+          defTotal: 0,
+          atkTotal: 0,
+          vNow: 0,
+          threshold: 1,
+          defenders: [],
+          attackers: [],
+          ownerHealthMultiplier: 1,
+          ownerRebalanceActive: false,
+          ownerRebalanceEndsAt: null,
+          effectiveOwnerStake: 0,
+          nextTickTime: null,
+          multiplierAtNextTick: 1,
+          vFloorNext6h: null,
+          thresholdWithFloor: 1,
+          isFloorBased: false,
+          myContribution: null,
+          isSyncing: true, // Mark as syncing
+        });
+        setIsLoading(false);
+        return;
+      }
+
       if (!pixelData) {
-        setPixel({ x, y, color: null, owner: null, owner_stake_pe: 0, defTotal: 0, atkTotal: 0, vNow: 0, threshold: 1, defenders: [], attackers: [], ownerHealthMultiplier: 1, ownerRebalanceActive: false, ownerRebalanceEndsAt: null, effectiveOwnerStake: 0, nextTickTime: null, multiplierAtNextTick: 1, vFloorNext6h: null, thresholdWithFloor: 1, isFloorBased: false, myContribution: null });
+        setPixel({ x, y, color: cachedPixel?.color || null, owner: null, owner_stake_pe: 0, defTotal: 0, atkTotal: 0, vNow: 0, threshold: 1, defenders: [], attackers: [], ownerHealthMultiplier: 1, ownerRebalanceActive: false, ownerRebalanceEndsAt: null, effectiveOwnerStake: 0, nextTickTime: null, multiplierAtNextTick: 1, vFloorNext6h: null, thresholdWithFloor: 1, isFloorBased: false, myContribution: null, isSyncing: syncing });
         setIsLoading(false);
         return;
       }
@@ -187,14 +243,16 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
         isFloorBased = true;
       }
 
-      setPixel({ x, y, color: pixelData.color, owner, owner_stake_pe: ownerStake, defTotal, atkTotal, vNow, threshold: Math.max(0, vNow) + 1, defenders, attackers, ownerHealthMultiplier: healthMultiplier, ownerRebalanceActive: rebalanceActive, ownerRebalanceEndsAt: owner?.rebalance_ends_at ? new Date(owner.rebalance_ends_at) : null, effectiveOwnerStake, nextTickTime, multiplierAtNextTick, vFloorNext6h, thresholdWithFloor, isFloorBased, myContribution });
+      setPixel({ x, y, color: pixelData.color, owner, owner_stake_pe: ownerStake, defTotal, atkTotal, vNow, threshold: Math.max(0, vNow) + 1, defenders, attackers, ownerHealthMultiplier: healthMultiplier, ownerRebalanceActive: rebalanceActive, ownerRebalanceEndsAt: owner?.rebalance_ends_at ? new Date(owner.rebalance_ends_at) : null, effectiveOwnerStake, nextTickTime, multiplierAtNextTick, vFloorNext6h, thresholdWithFloor, isFloorBased, myContribution, isSyncing: syncing });
     } catch (error) {
       console.error('Error fetching pixel details:', error);
+      // Check cached pixel for fallback color
+      const cachedFallback = getCachedPixelData(x ?? 0, y ?? 0);
       // Return safe defaults on error instead of null - prevents UI crashes
       setPixel({
         x: x ?? 0,
         y: y ?? 0,
-        color: null,
+        color: cachedFallback?.color || null,
         owner: null,
         owner_stake_pe: 0,
         defTotal: 0,
@@ -213,12 +271,16 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
         thresholdWithFloor: 1,
         isFloorBased: false,
         myContribution: null,
+        isSyncing: isPixelSyncing(x ?? 0, y ?? 0),
       });
     } finally {
       setIsLoading(false);
     }
   }, [x, y, currentUserId]);
 
-  useEffect(() => { fetchPixelDetails(); }, [fetchPixelDetails]);
-  return { pixel, isLoading, refetch: fetchPixelDetails };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fetchPixelDetailsStable = useCallback(fetchPixelDetails, [x, y, currentUserId]);
+
+  useEffect(() => { fetchPixelDetailsStable(); }, [fetchPixelDetailsStable]);
+  return { pixel, isLoading, refetch: fetchPixelDetailsStable };
 }

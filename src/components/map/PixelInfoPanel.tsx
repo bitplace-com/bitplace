@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, X, Share2, RefreshCw, AlertTriangle, Globe, Flag, Calendar, Expand } from 'lucide-react';
+import { Copy, X, Share2, RefreshCw, AlertTriangle, Globe, Flag, Calendar, Expand, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { toast } from 'sonner';
@@ -160,6 +160,26 @@ export function PixelInfoPanel({
                 <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
                 Retry
               </Button>
+            </div>
+          ) : pixel.isSyncing ? (
+            /* Syncing state - partial data visible */
+            <div className="flex flex-col items-center py-6 gap-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div
+                  className="w-8 h-8 rounded-lg border border-border/50"
+                  style={{ backgroundColor: pixel.color || '#888888' }}
+                />
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+              <div className="text-center">
+                <span className="text-sm font-medium block flex items-center justify-center gap-2">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Syncing...
+                </span>
+                <span className="text-xs text-muted-foreground mt-1 block">
+                  Owner details will appear shortly
+                </span>
+              </div>
             </div>
           ) : !isOwned ? (
             /* Unclaimed Pixel */

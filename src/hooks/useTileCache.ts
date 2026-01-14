@@ -57,6 +57,27 @@ export function getCacheVersion(): number {
   return cacheVersion;
 }
 
+// Get tile entry for a pixel (standalone, not hook) - exported for usePixelDetails
+export function getTileEntryForPixel(x: number, y: number): TileCacheEntry | undefined {
+  const { tx, ty } = pixelToTile(x, y);
+  const key = tileKey(tx, ty);
+  return tileCache.get(key);
+}
+
+// Check if a pixel's tile is still optimistic/syncing
+export function isPixelSyncing(x: number, y: number): boolean {
+  const entry = getTileEntryForPixel(x, y);
+  if (!entry) return false; // No tile = not syncing, just missing
+  return entry.status === 'optimistic' || entry.stale;
+}
+
+// Get pixel from tile cache (for fallback color display)
+export function getCachedPixelData(x: number, y: number): PixelData | undefined {
+  const entry = getTileEntryForPixel(x, y);
+  if (!entry) return undefined;
+  return entry.pixels.get(pixelKey(x, y));
+}
+
 function touchTile(key: string): void {
   const idx = tileLRU.indexOf(key);
   if (idx > -1) tileLRU.splice(idx, 1);
