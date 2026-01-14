@@ -400,6 +400,7 @@ async function executeCommit(
     // PROMPT 54: Batch UPSERT for all PAINT pixels in a single operation
     
     // Build upsert data with calculated thresholds
+    // Note: tile_x and tile_y are GENERATED columns, do not include them
     const upsertData: Array<{
       x: number;
       y: number;
@@ -407,8 +408,6 @@ async function executeCommit(
       color: string;
       owner_user_id: string;
       owner_stake_pe: number;
-      tile_x: number;
-      tile_y: number;
       updated_at: string;
     }> = [];
     
@@ -439,8 +438,7 @@ async function executeCommit(
         color: color!,
         owner_user_id: userId,
         owner_stake_pe: stake,
-        tile_x: Math.floor(pixel.x / 64),
-        tile_y: Math.floor(pixel.y / 64),
+        // tile_x and tile_y are GENERATED columns - do not include them
         updated_at: now,
       });
     }
