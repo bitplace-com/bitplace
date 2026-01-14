@@ -78,7 +78,7 @@ export function getCachedPixelData(x: number, y: number): PixelData | undefined 
   return entry.pixels.get(pixelKey(x, y));
 }
 
-// Get visible tiles for a viewport bounds (standalone export for fallback polling)
+// Get visible tiles for a viewport bounds (standalone export for fallback polling in useSupabasePixels)
 export function getVisibleTiles(bounds: ViewportBounds, margin = 1): Array<{ tx: number; ty: number }> {
   const minTile = pixelToTile(bounds.minX, bounds.minY);
   const maxTile = pixelToTile(bounds.maxX, bounds.maxY);
