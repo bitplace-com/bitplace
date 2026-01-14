@@ -65,6 +65,35 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
     );
   }
 
+  // Syncing state - show partial data with indicator
+  if (pixel.isSyncing) {
+    return (
+      <div className="space-y-4">
+        {/* Coordinates */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>Coordinates</span>
+          <span className="font-mono">({x}, {y})</span>
+        </div>
+
+        {/* Syncing indicator */}
+        <div className="bg-muted/50 rounded-lg p-3 flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Syncing...</span>
+        </div>
+
+        {/* Color preview if available */}
+        {pixel.color && (
+          <div className="bg-muted/50 rounded-lg p-3">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-4 rounded border border-white/14" style={{ backgroundColor: pixel.color }} />
+              <span className="text-sm font-mono">{pixel.color}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const isEmpty = !pixel.owner;
   const isOwnedByUser = pixel.owner?.id === currentUserId;
 
