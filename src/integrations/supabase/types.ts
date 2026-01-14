@@ -648,6 +648,7 @@ export type Database = {
           owner_health_multiplier: number
           paint_cooldown_until: string | null
           pe_total_pe: number
+          pe_used_pe: number
           pixels_painted_total: number
           rebalance_active: boolean
           rebalance_ends_at: string | null
@@ -678,6 +679,7 @@ export type Database = {
           owner_health_multiplier?: number
           paint_cooldown_until?: string | null
           pe_total_pe?: number
+          pe_used_pe?: number
           pixels_painted_total?: number
           rebalance_active?: boolean
           rebalance_ends_at?: string | null
@@ -708,6 +710,7 @@ export type Database = {
           owner_health_multiplier?: number
           paint_cooldown_until?: string | null
           pe_total_pe?: number
+          pe_used_pe?: number
           pixels_painted_total?: number
           rebalance_active?: boolean
           rebalance_ends_at?: string | null
@@ -895,6 +898,7 @@ export type Database = {
           y: number
         }[]
       }
+      recalc_user_pe_used: { Args: { target_user_id: string }; Returns: number }
     }
     Enums: {
       [_ in never]: never

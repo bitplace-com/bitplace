@@ -55,8 +55,7 @@ type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE";
 // Paint-specific limits
 const MAX_PAINT_PIXELS = 500;
 
-// Streaming batch size
-const STREAM_BATCH_SIZE = 50;
+// Streaming thresholds
 const MIN_PIXELS_FOR_STREAMING = 50;
 
 interface ValidateRequest {
@@ -230,46 +229,14 @@ async function fetchPixelsByCoords(
 }>> {
   if (pixels.length === 0) return [];
   
-  const t0 = Date.now();
-  
-  // Use RPC function with JSON coordinates - bypasses BigInt issues
   const coords = pixels.map(p => ({ x: p.x, y: p.y }));
   const { data, error } = await supabase.rpc('fetch_pixels_by_coords', { coords });
-  
-  console.log(`[game-validate] fetchPixelsByCoords: ${Date.now() - t0}ms, input: ${pixels.length}, found: ${data?.length || 0}`);
   
   if (error) {
     console.error('[game-validate] RPC fetch_pixels_by_coords error:', error);
     throw error;
   }
   return data || [];
-}
-
-// Fetch user contributions for checking existing side (needed for DEFEND/ATTACK mode)
-// deno-lint-ignore no-explicit-any
-async function fetchUserContributionsForPixels(
-  supabase: any,
-  pixelIds: number[],
-  userId: string
-): Promise<Map<number, "DEF" | "ATK">> {
-  if (pixelIds.length === 0) return new Map();
-  
-  const { data, error } = await supabase
-    .from("pixel_contributions")
-    .select("pixel_id, side")
-    .in("pixel_id", pixelIds)
-    .eq("user_id", userId);
-  
-  if (error) {
-    console.error("[game-validate] User contributions fetch error:", error);
-    return new Map();
-  }
-  
-  const result = new Map<number, "DEF" | "ATK">();
-  (data || []).forEach((c: { pixel_id: number; side: string }) => {
-    result.set(c.pixel_id, c.side as "DEF" | "ATK");
-  });
-  return result;
 }
 
 // Valid material IDs
@@ -285,147 +252,415 @@ function isValidPaintId(paintId: string): boolean {
   return VALID_MATERIALS.includes(paintId);
 }
 
-// SSE streaming response handler
-async function handleStreamingValidate(
+// =====================================================
+// PAINT FAST-PATH: Optimized validation for PAINT mode
+// Zero global scans, minimal queries, read-only
+// =====================================================
+
+interface PaintFastPathResult {
+  ok: boolean;
+  error?: string;
+  message?: string;
+  requiredPeTotal: number;
+  snapshotHash: string;
+  invalidPixels: InvalidPixel[];
+  breakdown: {
+    pixelCount: number;
+    ownedByUser: number;
+    ownedByOthers: number;
+    empty: number;
+    floorBasedCount: number;
+    pePerType: { [key: string]: number };
+  };
+  availablePe: number;
+  requestId: string;
+  timings: {
+    authMs: number;
+    fetchUserMs: number;
+    fetchPixelsMs: number;
+    fetchOwnersMs: number;
+    computeMs: number;
+    totalMs: number;
+  };
+}
+
+async function handlePaintFastPath(
+  corsHeaders: Record<string, string>,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  userId: string,
+  pixels: Array<{ x: number; y: number }>,
+  color: string,
+  stream: boolean,
+  requestId: string,
+  t0: number,
+  authMs: number
+): Promise<Response> {
+  const encoder = new TextEncoder();
+  
+  // Helper for streaming
+  const createStreamResponse = (streamFn: (emit: (data: object) => void, close: () => void) => Promise<void>) => {
+    const readableStream = new ReadableStream({
+      async start(controller) {
+        const emit = (data: object) => {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+        };
+        const close = () => controller.close();
+        await streamFn(emit, close);
+      }
+    });
+    
+    return new Response(readableStream, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      },
+    });
+  };
+  
+  // Core validation logic (shared between streaming and non-streaming)
+  const executeValidation = async (emit?: (data: object) => void): Promise<PaintFastPathResult> => {
+    const total = pixels.length;
+    
+    // Step A: Auth already done, measure time
+    // Step B: Fetch user row with pe_total_pe and pe_used_pe (1 query)
+    emit?.({ type: "progress", phase: "user", pct: 5, requestId });
+    
+    const tFetchUser = Date.now();
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("id, pe_total_pe, pe_used_pe, paint_cooldown_until")
+      .eq("id", userId)
+      .single();
+    const fetchUserMs = Date.now() - tFetchUser;
+    
+    if (userError || !user) {
+      throw { httpStatus: 404, error: "USER_NOT_FOUND", message: "User not found" };
+    }
+    
+    // Step C: Cooldown check IMMEDIATELY (before any heavy queries)
+    if (user.paint_cooldown_until) {
+      const cooldownUntil = new Date(user.paint_cooldown_until);
+      const now = new Date();
+      if (now < cooldownUntil) {
+        const retryAfterSeconds = Math.ceil((cooldownUntil.getTime() - now.getTime()) / 1000);
+        throw { 
+          httpStatus: 429, 
+          error: "PAINT_COOLDOWN", 
+          message: `Paint cooldown active. Wait ${retryAfterSeconds}s`,
+          cooldownUntil: cooldownUntil.toISOString(),
+          retryAfterSeconds 
+        };
+      }
+    }
+    
+    // Step D: Fetch pixels by coords (1 RPC call)
+    emit?.({ type: "progress", phase: "pixels", pct: 25, requestId });
+    
+    const tFetchPixels = Date.now();
+    const existingPixels = await fetchPixelsByCoords(supabase, pixels);
+    const fetchPixelsMs = Date.now() - tFetchPixels;
+    
+    // Build pixel map for quick lookup
+    const pixelMap = new Map<string, typeof existingPixels[0]>();
+    existingPixels.forEach(p => {
+      const key = computePixelId(Number(p.x), Number(p.y)).toString();
+      pixelMap.set(key, p);
+    });
+    
+    // Step E: Fetch owner data ONLY for owners in rebalance (1 query, deduplicated)
+    emit?.({ type: "progress", phase: "owners", pct: 50, requestId });
+    
+    const tFetchOwners = Date.now();
+    const ownerIds = [...new Set(
+      existingPixels
+        .map(p => p.owner_user_id)
+        .filter((id): id is string => id !== null && id !== userId) // Exclude user's own pixels
+    )];
+    
+    const ownerDataMap = new Map<string, OwnerData>();
+    if (ownerIds.length > 0) {
+      const { data: owners } = await supabase
+        .from("users")
+        .select("id, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier")
+        .in("id", ownerIds);
+      
+      (owners || []).forEach((o: OwnerData) => {
+        ownerDataMap.set(o.id, o);
+      });
+    }
+    const fetchOwnersMs = Date.now() - tFetchOwners;
+    
+    // Step F: Calculate PE availability from counters (NO GLOBAL SCAN)
+    const peTotal = Number(user.pe_total_pe) || 0;
+    const peUsed = Number(user.pe_used_pe) || 0;
+    const peAvailable = peTotal - peUsed;
+    
+    // Step G: Compute required PE for each pixel
+    emit?.({ type: "progress", phase: "compute", pct: 80, requestId });
+    
+    const tCompute = Date.now();
+    const invalidPixels: InvalidPixel[] = [];
+    let requiredPeTotal = 0;
+    let ownedByUser = 0;
+    let ownedByOthers = 0;
+    let emptyCount = 0;
+    let floorBasedCount = 0;
+    const breakdown: { [key: string]: number } = {};
+    const pixelStates: PixelData[] = [];
+    
+    for (const p of pixels) {
+      const key = computePixelId(p.x, p.y).toString();
+      const existing = pixelMap.get(key);
+      const ownerData = existing?.owner_user_id ? ownerDataMap.get(existing.owner_user_id) : undefined;
+      
+      const pixel: PixelData = {
+        x: p.x,
+        y: p.y,
+        id: existing?.id,
+        pixel_id: existing ? BigInt(existing.pixel_id) : undefined,
+        owner_user_id: existing?.owner_user_id,
+        owner_stake_pe: existing?.owner_stake_pe || 0,
+        color: existing?.color,
+        defSum: existing?.def_total || 0,
+        atkSum: existing?.atk_total || 0,
+        ownerData,
+      };
+      
+      pixelStates.push(pixel);
+      
+      const isEmpty = !pixel.id;
+      const isOwnedByUser = pixel.owner_user_id === userId;
+      
+      if (isEmpty) {
+        emptyCount++;
+        requiredPeTotal += 1;
+        breakdown["empty"] = (breakdown["empty"] || 0) + 1;
+      } else if (isOwnedByUser) {
+        ownedByUser++;
+        // Color change only - no PE cost
+        breakdown["colorChange"] = (breakdown["colorChange"] || 0) + 1;
+      } else {
+        ownedByOthers++;
+        const { threshold, isFloorBased } = calculateThreshold(pixel);
+        requiredPeTotal += threshold;
+        breakdown["takeover"] = (breakdown["takeover"] || 0) + 1;
+        breakdown[`threshold_${pixel.x}_${pixel.y}`] = threshold;
+        if (isFloorBased) floorBasedCount++;
+      }
+    }
+    const computeMs = Date.now() - tCompute;
+    
+    // Generate snapshot hash
+    const snapshotHash = generateSnapshotHash(pixelStates);
+    
+    const totalMs = Date.now() - t0;
+    const timings = {
+      authMs,
+      fetchUserMs,
+      fetchPixelsMs,
+      fetchOwnersMs,
+      computeMs,
+      totalMs,
+    };
+    
+    // Check PE availability
+    if (requiredPeTotal > peAvailable) {
+      return {
+        ok: false,
+        error: "INSUFFICIENT_PE",
+        message: `Need ${requiredPeTotal} PE but only ${peAvailable} available`,
+        requiredPeTotal,
+        snapshotHash,
+        invalidPixels: [],
+        breakdown: {
+          pixelCount: total,
+          ownedByUser,
+          ownedByOthers,
+          empty: emptyCount,
+          floorBasedCount,
+          pePerType: breakdown,
+        },
+        availablePe: peAvailable,
+        requestId,
+        timings,
+      };
+    }
+    
+    return {
+      ok: true,
+      requiredPeTotal,
+      snapshotHash,
+      invalidPixels,
+      breakdown: {
+        pixelCount: total,
+        ownedByUser,
+        ownedByOthers,
+        empty: emptyCount,
+        floorBasedCount,
+        pePerType: breakdown,
+      },
+      availablePe: peAvailable,
+      requestId,
+      timings,
+    };
+  };
+  
+  // Streaming response
+  if (stream && pixels.length >= MIN_PIXELS_FOR_STREAMING) {
+    return createStreamResponse(async (emit, close) => {
+      try {
+        emit({ type: "progress", phase: "start", pct: 0, requestId });
+        const result = await executeValidation(emit);
+        emit({ type: "progress", phase: "done", pct: 100, requestId });
+        emit({ type: "done", result });
+        close();
+      } catch (err) {
+        // deno-lint-ignore no-explicit-any
+        const e = err as any;
+        console.error("[game-validate] PAINT fast-path streaming error:", e);
+        emit({ 
+          type: "error", 
+          error: e.error || "INTERNAL_ERROR", 
+          message: e.message || String(err),
+          requestId 
+        });
+        close();
+      }
+    });
+  }
+  
+  // Non-streaming response
+  try {
+    const result = await executeValidation();
+    console.log(`[game-validate] PAINT fast-path completed in ${result.timings.totalMs}ms`, result.timings);
+    
+    return new Response(JSON.stringify(result), {
+      status: result.ok ? 200 : 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    // deno-lint-ignore no-explicit-any
+    const e = err as any;
+    console.error("[game-validate] PAINT fast-path error:", e);
+    return new Response(JSON.stringify({
+      ok: false,
+      error: e.error || "INTERNAL_ERROR",
+      message: e.message || String(err),
+      requestId,
+      ...(e.cooldownUntil && { cooldownUntil: e.cooldownUntil }),
+      ...(e.retryAfterSeconds && { retryAfterSeconds: e.retryAfterSeconds }),
+    }), {
+      status: e.httpStatus || 500,
+      headers: { 
+        ...corsHeaders, 
+        "Content-Type": "application/json",
+        ...(e.retryAfterSeconds && { "Retry-After": String(e.retryAfterSeconds) }),
+      },
+    });
+  }
+}
+
+// =====================================================
+// LEGACY PATH: For DEFEND, ATTACK, REINFORCE, ERASE
+// =====================================================
+
+// deno-lint-ignore no-explicit-any
+async function handleLegacyValidate(
   corsHeaders: Record<string, string>,
   // deno-lint-ignore no-explicit-any
   supabase: any,
   userId: string,
   mode: GameMode,
   pixels: Array<{ x: number; y: number }>,
-  color: string | undefined,
   pePerPixel: number | undefined,
   // deno-lint-ignore no-explicit-any
-  user: any
+  user: any,
+  stream: boolean
 ): Promise<Response> {
   const encoder = new TextEncoder();
   const total = pixels.length;
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      const emit = (data: object) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
-      };
+  // Streaming handler for legacy modes
+  if (stream && pixels.length >= MIN_PIXELS_FOR_STREAMING) {
+    const readableStream = new ReadableStream({
+      async start(controller) {
+        const emit = (data: object) => {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+        };
 
-      try {
-        emit({ type: "progress", phase: "validate", processed: 0, total });
+        try {
+          emit({ type: "progress", phase: "validate", processed: 0, total });
 
-        // ===== PARALLEL FETCH: All data at once =====
-        const t0 = Date.now();
-        
-        const [
-          existingPixelsResult,
-          userOwnedPixelsResult,
-          userContributionsResult,
-        ] = await Promise.all([
-          fetchPixelsByCoords(supabase, pixels).catch(err => ({ error: err, data: null })),
-          supabase.from("pixels").select("owner_stake_pe").eq("owner_user_id", userId),
-          supabase.from("pixel_contributions").select("amount_pe, pixel_id, side").eq("user_id", userId),
-        ]);
+          // Fetch pixels
+          const existingPixels = await fetchPixelsByCoords(supabase, pixels);
+          emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.3), total });
 
-        console.log(`[game-validate] Streaming parallel fetch: ${Date.now() - t0}ms`);
-        emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.3), total });
-
-        // Handle pixels fetch
-        // deno-lint-ignore no-explicit-any
-        const pixelsResult = existingPixelsResult as any;
-        const existingPixels = Array.isArray(pixelsResult) 
-          ? pixelsResult 
-          : (pixelsResult?.data || []);
-        
-        if (pixelsResult?.error) {
-          console.error("[game-validate] Pixels fetch error:", pixelsResult.error);
-          emit({ type: "error", error: "DB_ERROR", message: "Failed to fetch pixels" });
-          controller.close();
-          return;
-        }
-
-        // Build pixel map keyed by computed pixel_id
-        const pixelMap = new Map<string, typeof existingPixels[0]>();
-        existingPixels.forEach((p: typeof existingPixels[0]) => {
-          const key = computePixelId(Number(p.x), Number(p.y)).toString();
-          pixelMap.set(key, p);
-        });
-
-        // Fetch owner data for all pixel owners
-        const ownerIds = [...new Set(existingPixels.map((p: typeof existingPixels[0]) => p.owner_user_id).filter(Boolean))] as string[];
-        const ownerDataMap = new Map<string, OwnerData>();
-        
-        if (ownerIds.length > 0) {
-          const { data: owners } = await supabase
-            .from("users")
-            .select("id, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier")
-            .in("id", ownerIds);
-          
-          (owners || []).forEach((o: OwnerData) => {
-            ownerDataMap.set(o.id, o);
+          const pixelMap = new Map<string, typeof existingPixels[0]>();
+          existingPixels.forEach((p: typeof existingPixels[0]) => {
+            const key = computePixelId(Number(p.x), Number(p.y)).toString();
+            pixelMap.set(key, p);
           });
-        }
 
-        emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.4), total });
-
-        // Build user contribution sides from already-fetched data
-        const userContribSides = new Map<number, "DEF" | "ATK">();
-        if (mode === "DEFEND" || mode === "ATTACK") {
-          const userContribData = userContributionsResult.data || [];
-          userContribData.forEach((c: { pixel_id: number; side: string }) => {
-            userContribSides.set(c.pixel_id, c.side as "DEF" | "ATK");
-          });
-        }
-
-        emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.5), total });
-
-        // Use already-fetched data
-        const { data: userOwnedPixels } = userOwnedPixelsResult;
-        const { data: userContributions } = userContributionsResult;
-
-        const ownedStakeSum = (userOwnedPixels || []).reduce((sum: number, p: { owner_stake_pe: number }) => sum + (p.owner_stake_pe || 0), 0);
-        const contributionsSum = (userContributions || []).reduce((sum: number, c: { amount_pe: number }) => sum + c.amount_pe, 0);
-
-        // Check under-collateralized contributions
-        let contributionsPurged = false;
-        let purgedContributionCount = 0;
-        
-        if (contributionsSum > user.pe_total_pe) {
-          const { data: deleted, error: delError } = await supabase
-            .from("pixel_contributions")
-            .delete()
-            .eq("user_id", userId)
-            .select("id");
+          // Fetch owner data
+          const ownerIds = [...new Set(existingPixels.map((p: typeof existingPixels[0]) => p.owner_user_id).filter(Boolean))] as string[];
+          const ownerDataMap = new Map<string, OwnerData>();
           
-          if (!delError) {
-            purgedContributionCount = deleted?.length || 0;
-            contributionsPurged = true;
-            userContribSides.clear();
+          if (ownerIds.length > 0) {
+            const { data: owners } = await supabase
+              .from("users")
+              .select("id, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier")
+              .in("id", ownerIds);
+            
+            (owners || []).forEach((o: OwnerData) => {
+              ownerDataMap.set(o.id, o);
+            });
           }
-        }
 
-        const peStaked = ownedStakeSum + (contributionsPurged ? 0 : contributionsSum);
-        const peFree = user.pe_total_pe - peStaked;
+          emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.4), total });
 
-        emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.6), total });
+          // Fetch user contribution sides for DEFEND/ATTACK
+          const userContribSides = new Map<number, "DEF" | "ATK">();
+          if (mode === "DEFEND" || mode === "ATTACK") {
+            const pixelIds = existingPixels.map((p: typeof existingPixels[0]) => p.id).filter(Boolean);
+            if (pixelIds.length > 0) {
+              const { data: contribs } = await supabase
+                .from("pixel_contributions")
+                .select("pixel_id, side")
+                .in("pixel_id", pixelIds)
+                .eq("user_id", userId);
+              
+              (contribs || []).forEach((c: { pixel_id: number; side: string }) => {
+                userContribSides.set(c.pixel_id, c.side as "DEF" | "ATK");
+              });
+            }
+          }
 
-        // Build enriched pixel data and validate
-        const invalidPixels: InvalidPixel[] = [];
-        let requiredPeTotal = 0;
-        let ownedByUser = 0;
-        let ownedByOthers = 0;
-        let emptyCount = 0;
-        let floorBasedCount = 0;
-        let validPixelCount = 0;
-        const breakdown: { [key: string]: number } = {};
-        const pixelStates: PixelData[] = [];
+          emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.5), total });
 
-        for (let i = 0; i < pixels.length; i += STREAM_BATCH_SIZE) {
-          const batch = pixels.slice(i, i + STREAM_BATCH_SIZE);
-          
-          for (const p of batch) {
+          // Use pe_used_pe from user record (no global scan)
+          const peTotal = Number(user.pe_total_pe) || 0;
+          const peUsed = Number(user.pe_used_pe) || 0;
+          const peFree = peTotal - peUsed;
+
+          // Build enriched pixel data and validate
+          const invalidPixels: InvalidPixel[] = [];
+          let requiredPeTotal = 0;
+          let ownedByUser = 0;
+          let ownedByOthers = 0;
+          let emptyCount = 0;
+          let validPixelCount = 0;
+          const breakdown: { [key: string]: number } = {};
+          const pixelStates: PixelData[] = [];
+
+          for (const p of pixels) {
             const key = computePixelId(p.x, p.y).toString();
             const existing = pixelMap.get(key);
             const ownerData = existing?.owner_user_id ? ownerDataMap.get(existing.owner_user_id) : undefined;
             const userSide = existing ? userContribSides.get(existing.id) : undefined;
             
-            // Use def_total and atk_total from pixels table directly
             const pixel: PixelData = {
               x: p.x,
               y: p.y,
@@ -444,7 +679,6 @@ async function handleStreamingValidate(
 
             const isEmpty = !pixel.id;
             const isOwnedByUser = pixel.owner_user_id === userId;
-            const isOwnedByOthers = !isEmpty && !isOwnedByUser;
 
             if (isEmpty) emptyCount++;
             else if (isOwnedByUser) ownedByUser++;
@@ -486,93 +720,246 @@ async function handleStreamingValidate(
                 continue;
               }
               requiredPeTotal += pePerPixel!;
-            } else if (mode === "PAINT") {
-              if (isEmpty) {
-                requiredPeTotal += 1;
-                breakdown["empty"] = (breakdown["empty"] || 0) + 1;
-              } else if (isOwnedByUser) {
-                breakdown["colorChange"] = (breakdown["colorChange"] || 0) + 1;
-              } else {
-                const { threshold, isFloorBased } = calculateThreshold(pixel);
-                requiredPeTotal += threshold;
-                breakdown["takeover"] = (breakdown["takeover"] || 0) + 1;
-                breakdown[`threshold_${pixel.x}_${pixel.y}`] = threshold;
-                if (isFloorBased) floorBasedCount++;
-              }
             }
           }
 
-          const processed = Math.min(i + STREAM_BATCH_SIZE, pixels.length);
-          const progressPct = 0.6 + (processed / pixels.length) * 0.4;
-          emit({ type: "progress", phase: "validate", processed: Math.floor(total * progressPct), total });
-        }
+          emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.9), total });
 
-        // Check PE availability
-        if (mode !== "ERASE" && invalidPixels.length === 0 && requiredPeTotal > peFree) {
-          emit({
-            type: "done",
-            result: {
-              ok: false,
-              error: "INSUFFICIENT_PE",
-              message: `Need ${requiredPeTotal} PE but only ${peFree} available`,
-              requiredPeTotal,
-              availablePe: peFree,
-              invalidPixels: [],
-            }
-          });
+          // Check PE availability
+          if (mode !== "ERASE" && invalidPixels.length === 0 && requiredPeTotal > peFree) {
+            emit({
+              type: "done",
+              result: {
+                ok: false,
+                error: "INSUFFICIENT_PE",
+                message: `Need ${requiredPeTotal} PE but only ${peFree} available`,
+                requiredPeTotal,
+                availablePe: peFree,
+                invalidPixels: [],
+              }
+            });
+            controller.close();
+            return;
+          }
+
+          const snapshotHash = generateSnapshotHash(pixelStates);
+          const unlockPeTotal = mode === "ERASE" ? (breakdown["eraseRefund"] || 0) : undefined;
+          const isErasePartialSuccess = mode === "ERASE" && validPixelCount > 0 && invalidPixels.length > 0;
+          const eraseHasValidPixels = mode === "ERASE" && validPixelCount > 0;
+
+          const result = {
+            ok: mode === "ERASE" ? eraseHasValidPixels : invalidPixels.length === 0,
+            partialValid: isErasePartialSuccess,
+            validPixelCount: mode === "ERASE" ? validPixelCount : undefined,
+            requiredPeTotal,
+            snapshotHash,
+            invalidPixels,
+            breakdown: {
+              pixelCount: pixels.length,
+              ownedByUser,
+              ownedByOthers,
+              empty: emptyCount,
+              pePerType: breakdown,
+            },
+            availablePe: peFree,
+            unlockPeTotal,
+          };
+
+          emit({ type: "done", result });
           controller.close();
-          return;
+
+        } catch (err) {
+          console.error("[game-validate] Legacy streaming error:", err);
+          emit({ type: "error", error: "INTERNAL_ERROR", message: String(err) });
+          controller.close();
         }
-
-        const snapshotHash = generateSnapshotHash(pixelStates);
-        const unlockPeTotal = mode === "ERASE" ? (breakdown["eraseRefund"] || 0) : undefined;
-        const isErasePartialSuccess = mode === "ERASE" && validPixelCount > 0 && invalidPixels.length > 0;
-        const eraseHasValidPixels = mode === "ERASE" && validPixelCount > 0;
-
-        const result = {
-          ok: mode === "ERASE" ? eraseHasValidPixels : invalidPixels.length === 0,
-          partialValid: isErasePartialSuccess,
-          validPixelCount: mode === "ERASE" ? validPixelCount : undefined,
-          requiredPeTotal,
-          snapshotHash,
-          invalidPixels,
-          breakdown: {
-            pixelCount: pixels.length,
-            ownedByUser,
-            ownedByOthers,
-            empty: emptyCount,
-            floorBasedCount,
-            pePerType: breakdown,
-          },
-          availablePe: peFree,
-          unlockPeTotal,
-          contributionsPurged,
-          purgedContributionCount,
-        };
-
-        emit({ type: "done", result });
-        controller.close();
-
-      } catch (err) {
-        console.error("[game-validate] Streaming error:", err);
-        emit({ type: "error", error: "INTERNAL_ERROR", message: String(err) });
-        controller.close();
       }
-    }
+    });
+
+    return new Response(readableStream, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      },
+    });
+  }
+
+  // Non-streaming legacy path
+  const existingPixels = await fetchPixelsByCoords(supabase, pixels);
+  
+  const pixelMap = new Map<string, typeof existingPixels[0]>();
+  existingPixels.forEach((p: typeof existingPixels[0]) => {
+    const key = computePixelId(Number(p.x), Number(p.y)).toString();
+    pixelMap.set(key, p);
   });
 
-  return new Response(stream, {
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
+  // Fetch owner data
+  const ownerIds = [...new Set(existingPixels.map((p: typeof existingPixels[0]) => p.owner_user_id).filter(Boolean))] as string[];
+  const ownerDataMap = new Map<string, OwnerData>();
+  
+  if (ownerIds.length > 0) {
+    const { data: owners } = await supabase
+      .from("users")
+      .select("id, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier")
+      .in("id", ownerIds);
+    
+    (owners || []).forEach((o: OwnerData) => {
+      ownerDataMap.set(o.id, o);
+    });
+  }
+
+  // Fetch user contribution sides for DEFEND/ATTACK
+  const userContribSides = new Map<number, "DEF" | "ATK">();
+  if (mode === "DEFEND" || mode === "ATTACK") {
+    const pixelIds = existingPixels.map((p: typeof existingPixels[0]) => p.id).filter(Boolean);
+    if (pixelIds.length > 0) {
+      const { data: contribs } = await supabase
+        .from("pixel_contributions")
+        .select("pixel_id, side")
+        .in("pixel_id", pixelIds)
+        .eq("user_id", userId);
+      
+      (contribs || []).forEach((c: { pixel_id: number; side: string }) => {
+        userContribSides.set(c.pixel_id, c.side as "DEF" | "ATK");
+      });
+    }
+  }
+
+  // Use pe_used_pe from user record (no global scan)
+  const peTotal = Number(user.pe_total_pe) || 0;
+  const peUsed = Number(user.pe_used_pe) || 0;
+  const peFree = peTotal - peUsed;
+
+  // Build enriched pixel data
+  const pixelStates: PixelData[] = pixels.map(p => {
+    const key = computePixelId(p.x, p.y).toString();
+    const existing = pixelMap.get(key);
+    const ownerData = existing?.owner_user_id ? ownerDataMap.get(existing.owner_user_id) : undefined;
+    const userSide = existing ? userContribSides.get(existing.id) : undefined;
+    
+    return {
+      x: p.x,
+      y: p.y,
+      id: existing?.id,
+      pixel_id: existing ? BigInt(existing.pixel_id) : undefined,
+      owner_user_id: existing?.owner_user_id,
+      owner_stake_pe: existing?.owner_stake_pe || 0,
+      color: existing?.color,
+      defSum: existing?.def_total || 0,
+      atkSum: existing?.atk_total || 0,
+      userContributionSide: userSide,
+      ownerData,
+    };
+  });
+
+  // Validate each pixel
+  const invalidPixels: InvalidPixel[] = [];
+  let requiredPeTotal = 0;
+  let ownedByUser = 0;
+  let ownedByOthers = 0;
+  let emptyCount = 0;
+  let validPixelCount = 0;
+  const breakdown: { [key: string]: number } = {};
+
+  for (const pixel of pixelStates) {
+    const isEmpty = !pixel.id;
+    const isOwnedByUser = pixel.owner_user_id === userId;
+
+    if (isEmpty) emptyCount++;
+    else if (isOwnedByUser) ownedByUser++;
+    else ownedByOthers++;
+
+    if (mode === "ERASE") {
+      if (isEmpty) {
+        invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
+        continue;
+      }
+      if (!isOwnedByUser) {
+        invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "NOT_OWNER" });
+        continue;
+      }
+      validPixelCount++;
+      breakdown["eraseRefund"] = (breakdown["eraseRefund"] || 0) + (pixel.owner_stake_pe || 0);
+    } else if (mode === "REINFORCE") {
+      if (isEmpty) {
+        invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
+        continue;
+      }
+      if (!isOwnedByUser) {
+        invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "NOT_OWNER" });
+        continue;
+      }
+      requiredPeTotal += pePerPixel!;
+    } else if (mode === "DEFEND" || mode === "ATTACK") {
+      if (isEmpty) {
+        invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
+        continue;
+      }
+      if (isOwnedByUser) {
+        invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "IS_OWNER" });
+        continue;
+      }
+      const oppositeSide = mode === "DEFEND" ? "ATK" : "DEF";
+      if (pixel.userContributionSide === oppositeSide) {
+        invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "OPPOSITE_SIDE" });
+        continue;
+      }
+      requiredPeTotal += pePerPixel!;
+    }
+  }
+
+  // Check PE availability
+  if (mode !== "ERASE" && invalidPixels.length === 0 && requiredPeTotal > peFree) {
+    return new Response(JSON.stringify({
+      ok: false,
+      error: "INSUFFICIENT_PE",
+      message: `Need ${requiredPeTotal} PE but only ${peFree} available`,
+      requiredPeTotal,
+      availablePe: peFree,
+      invalidPixels: [],
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const snapshotHash = generateSnapshotHash(pixelStates);
+  const unlockPeTotal = mode === "ERASE" ? (breakdown["eraseRefund"] || 0) : undefined;
+  const isErasePartialSuccess = mode === "ERASE" && validPixelCount > 0 && invalidPixels.length > 0;
+  const eraseHasValidPixels = mode === "ERASE" && validPixelCount > 0;
+
+  return new Response(JSON.stringify({
+    ok: mode === "ERASE" ? eraseHasValidPixels : invalidPixels.length === 0,
+    partialValid: isErasePartialSuccess,
+    validPixelCount: mode === "ERASE" ? validPixelCount : undefined,
+    requiredPeTotal,
+    snapshotHash,
+    invalidPixels,
+    breakdown: {
+      pixelCount: pixels.length,
+      ownedByUser,
+      ownedByOthers,
+      empty: emptyCount,
+      pePerType: breakdown,
     },
+    availablePe: peFree,
+    unlockPeTotal,
+  }), {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
 
+// =====================================================
+// MAIN ENTRY POINT
+// =====================================================
+
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
+  const t0 = Date.now();
+  const requestId = crypto.randomUUID();
   
   // CORS preflight
   if (req.method === "OPTIONS") {
@@ -589,6 +976,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // === AUTH ===
     const authHeader = req.headers.get("authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ ok: false, error: "UNAUTHORIZED", message: "Missing authentication token" }), {
@@ -615,6 +1003,7 @@ Deno.serve(async (req) => {
     }
 
     const userId = payload.userId;
+    const authMs = Date.now() - t0;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -632,11 +1021,11 @@ Deno.serve(async (req) => {
       return true;
     });
 
-    console.log("[game-validate] Request:", { userId, mode, pixelCount: pixels.length, color, pePerPixel, stream });
+    console.log(`[game-validate] Request ${requestId}: mode=${mode}, pixels=${pixels.length}, stream=${stream}`);
 
-    // Input validation
+    // === INPUT VALIDATION ===
     if (!mode || !pixels || !Array.isArray(pixels) || pixels.length === 0) {
-      return new Response(JSON.stringify({ ok: false, error: "INVALID_INPUT", message: "Missing required fields" }), {
+      return new Response(JSON.stringify({ ok: false, error: "INVALID_INPUT", message: "Missing required fields", requestId }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -648,7 +1037,8 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ 
         ok: false, 
         error: "RATE_LIMITED", 
-        message: `Too many requests. Retry in ${rateCheck.retryAfter}s` 
+        message: `Too many requests. Retry in ${rateCheck.retryAfter}s`,
+        requestId 
       }), {
         status: 429,
         headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(rateCheck.retryAfter) },
@@ -656,7 +1046,7 @@ Deno.serve(async (req) => {
     }
 
     if (pixels.length > 1000) {
-      return new Response(JSON.stringify({ ok: false, error: "TOO_MANY_PIXELS", message: "Max 1000 pixels per request" }), {
+      return new Response(JSON.stringify({ ok: false, error: "TOO_MANY_PIXELS", message: "Max 1000 pixels per request", requestId }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -670,6 +1060,7 @@ Deno.serve(async (req) => {
         message: `Maximum ${MAX_PAINT_PIXELS} pixels per paint`,
         max: MAX_PAINT_PIXELS,
         requested: pixels.length,
+        requestId,
       }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -677,7 +1068,7 @@ Deno.serve(async (req) => {
     }
 
     if (!["PAINT", "DEFEND", "ATTACK", "REINFORCE", "ERASE"].includes(mode)) {
-      return new Response(JSON.stringify({ ok: false, error: "INVALID_MODE" }), {
+      return new Response(JSON.stringify({ ok: false, error: "INVALID_MODE", requestId }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -686,288 +1077,45 @@ Deno.serve(async (req) => {
     // Mode-specific validation
     if (mode === "PAINT") {
       if (!color || !isValidPaintId(color)) {
-        return new Response(JSON.stringify({ ok: false, error: "INVALID_COLOR", message: "PAINT requires valid hex color or material ID" }), {
+        return new Response(JSON.stringify({ ok: false, error: "INVALID_COLOR", message: "PAINT requires valid hex color or material ID", requestId }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-    } else if (mode !== "ERASE") {
+      
+      // === PAINT FAST-PATH ===
+      return handlePaintFastPath(corsHeaders, supabase, userId, pixels, color, stream, requestId, t0, authMs);
+    }
+    
+    // === LEGACY PATH for DEFEND, ATTACK, REINFORCE, ERASE ===
+    if (mode !== "ERASE") {
       if (!pePerPixel || pePerPixel < 1 || !Number.isInteger(pePerPixel)) {
-        return new Response(JSON.stringify({ ok: false, error: "INVALID_PE", message: `${mode} requires positive integer pePerPixel` }), {
+        return new Response(JSON.stringify({ ok: false, error: "INVALID_PE", message: `${mode} requires positive integer pePerPixel`, requestId }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
 
-    // ===== PARALLEL FETCH: User data + Pixels + User PE data =====
-    const t0 = Date.now();
-    
-    // Start all independent queries in parallel
-    const [
-      userResult,
-      existingPixelsResult,
-      userOwnedPixelsResult,
-      userContributionsResult,
-    ] = await Promise.all([
-      // 1. Fetch user data
-      supabase.from("users").select("id, pe_total_pe, paint_cooldown_until").eq("id", userId).single(),
-      // 2. Fetch pixels by coordinates (RPC)
-      fetchPixelsByCoords(supabase, pixels).catch(err => ({ error: err, data: null })),
-      // 3. Fetch user's owned pixels stake
-      supabase.from("pixels").select("owner_stake_pe").eq("owner_user_id", userId),
-      // 4. Fetch user's contributions
-      supabase.from("pixel_contributions").select("amount_pe, pixel_id, side").eq("user_id", userId),
-    ]);
+    // Fetch user data for legacy modes (with pe_used_pe)
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("id, pe_total_pe, pe_used_pe, paint_cooldown_until")
+      .eq("id", userId)
+      .single();
 
-    console.log(`[game-validate] Parallel fetch completed in ${Date.now() - t0}ms`);
-
-    // Handle user fetch result
-    const { data: user, error: userError } = userResult;
     if (userError || !user) {
-      return new Response(JSON.stringify({ ok: false, error: "USER_NOT_FOUND" }), {
+      return new Response(JSON.stringify({ ok: false, error: "USER_NOT_FOUND", requestId }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Check PAINT cooldown
-    if (mode === "PAINT" && user.paint_cooldown_until) {
-      const cooldownUntil = new Date(user.paint_cooldown_until);
-      const now = new Date();
-      if (now < cooldownUntil) {
-        const retryAfterSeconds = Math.ceil((cooldownUntil.getTime() - now.getTime()) / 1000);
-        return new Response(JSON.stringify({
-          ok: false,
-          error: "PAINT_COOLDOWN",
-          message: `Paint cooldown active. Wait ${retryAfterSeconds}s`,
-          cooldownUntil: cooldownUntil.toISOString(),
-          retryAfterSeconds,
-        }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(retryAfterSeconds) },
-        });
-      }
-    }
-
-    // Handle pixels fetch result
-    // deno-lint-ignore no-explicit-any
-    const pixelsResult = existingPixelsResult as any;
-    const existingPixels = Array.isArray(pixelsResult) 
-      ? pixelsResult 
-      : (pixelsResult?.data || []);
-    
-    if (pixelsResult?.error) {
-      console.error("[game-validate] Pixels fetch error:", pixelsResult.error);
-      return new Response(JSON.stringify({ ok: false, error: "DB_ERROR" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Use streaming for large operations (after initial data is fetched)
-    if (stream && pixels.length >= MIN_PIXELS_FOR_STREAMING) {
-      return handleStreamingValidate(corsHeaders, supabase, userId, mode, pixels, color, pePerPixel, user);
-    }
-
-    const pixelMap = new Map<string, typeof existingPixels[0]>();
-    existingPixels.forEach((p: typeof existingPixels[0]) => {
-      const key = computePixelId(Number(p.x), Number(p.y)).toString();
-      pixelMap.set(key, p);
-    });
-
-    // ===== SECOND PARALLEL FETCH: Owner data (depends on existingPixels) =====
-    const ownerIds = [...new Set(existingPixels.map((p: typeof existingPixels[0]) => p.owner_user_id).filter(Boolean))] as string[];
-    const ownerDataMap = new Map<string, OwnerData>();
-    
-    if (ownerIds.length > 0) {
-      const { data: owners } = await supabase
-        .from("users")
-        .select("id, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier")
-        .in("id", ownerIds);
-      
-      (owners || []).forEach((o: OwnerData) => {
-        ownerDataMap.set(o.id, o);
-      });
-    }
-
-    // Build user contribution sides from already-fetched data
-    const userContribSides = new Map<number, "DEF" | "ATK">();
-    if (mode === "DEFEND" || mode === "ATTACK") {
-      const userContribData = userContributionsResult.data || [];
-      userContribData.forEach((c: { pixel_id: number; side: string }) => {
-        userContribSides.set(c.pixel_id, c.side as "DEF" | "ATK");
-      });
-    }
-
-    // Use already-fetched data for PE calculations
-    const { data: userOwnedPixels } = userOwnedPixelsResult;
-    const { data: userContributions } = userContributionsResult;
-
-    const ownedStakeSum = (userOwnedPixels || []).reduce((sum: number, p: { owner_stake_pe: number }) => sum + (p.owner_stake_pe || 0), 0);
-    const contributionsSum = (userContributions || []).reduce((sum: number, c: { amount_pe: number }) => sum + c.amount_pe, 0);
-
-    // Check under-collateralized contributions
-    let contributionsPurged = false;
-    let purgedContributionCount = 0;
-    
-    if (contributionsSum > user.pe_total_pe) {
-      const { data: deleted, error: delError } = await supabase
-        .from("pixel_contributions")
-        .delete()
-        .eq("user_id", userId)
-        .select("id");
-      
-      if (!delError) {
-        purgedContributionCount = deleted?.length || 0;
-        contributionsPurged = true;
-        userContribSides.clear();
-      }
-    }
-
-    const peStaked = ownedStakeSum + (contributionsPurged ? 0 : contributionsSum);
-    const peFree = user.pe_total_pe - peStaked;
-
-    // Build enriched pixel data
-    const pixelStates: PixelData[] = pixels.map(p => {
-      const key = computePixelId(p.x, p.y).toString();
-      const existing = pixelMap.get(key);
-      const ownerData = existing?.owner_user_id ? ownerDataMap.get(existing.owner_user_id) : undefined;
-      const userSide = existing ? userContribSides.get(existing.id) : undefined;
-      
-      return {
-        x: p.x,
-        y: p.y,
-        id: existing?.id,
-        pixel_id: existing ? BigInt(existing.pixel_id) : undefined,
-        owner_user_id: existing?.owner_user_id,
-        owner_stake_pe: existing?.owner_stake_pe || 0,
-        color: existing?.color,
-        defSum: existing?.def_total || 0,
-        atkSum: existing?.atk_total || 0,
-        userContributionSide: userSide,
-        ownerData,
-      };
-    });
-
-    // Validate each pixel
-    const invalidPixels: InvalidPixel[] = [];
-    let requiredPeTotal = 0;
-    let ownedByUser = 0;
-    let ownedByOthers = 0;
-    let emptyCount = 0;
-    let floorBasedCount = 0;
-    let validPixelCount = 0;
-    const breakdown: { [key: string]: number } = {};
-
-    for (const pixel of pixelStates) {
-      const isEmpty = !pixel.id;
-      const isOwnedByUser = pixel.owner_user_id === userId;
-      const isOwnedByOthers = !isEmpty && !isOwnedByUser;
-
-      if (isEmpty) emptyCount++;
-      else if (isOwnedByUser) ownedByUser++;
-      else ownedByOthers++;
-
-      if (mode === "ERASE") {
-        if (isEmpty) {
-          invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
-          continue;
-        }
-        if (!isOwnedByUser) {
-          invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "NOT_OWNER" });
-          continue;
-        }
-        validPixelCount++;
-        breakdown["eraseRefund"] = (breakdown["eraseRefund"] || 0) + (pixel.owner_stake_pe || 0);
-      } else if (mode === "REINFORCE") {
-        if (isEmpty) {
-          invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
-          continue;
-        }
-        if (!isOwnedByUser) {
-          invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "NOT_OWNER" });
-          continue;
-        }
-        requiredPeTotal += pePerPixel!;
-      } else if (mode === "DEFEND" || mode === "ATTACK") {
-        if (isEmpty) {
-          invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
-          continue;
-        }
-        if (isOwnedByUser) {
-          invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "IS_OWNER" });
-          continue;
-        }
-        const oppositeSide = mode === "DEFEND" ? "ATK" : "DEF";
-        if (pixel.userContributionSide === oppositeSide) {
-          invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "OPPOSITE_SIDE" });
-          continue;
-        }
-        requiredPeTotal += pePerPixel!;
-      } else if (mode === "PAINT") {
-        if (isEmpty) {
-          requiredPeTotal += 1;
-          breakdown["empty"] = (breakdown["empty"] || 0) + 1;
-        } else if (isOwnedByUser) {
-          breakdown["colorChange"] = (breakdown["colorChange"] || 0) + 1;
-        } else {
-          const { threshold, isFloorBased } = calculateThreshold(pixel);
-          requiredPeTotal += threshold;
-          breakdown["takeover"] = (breakdown["takeover"] || 0) + 1;
-          breakdown[`threshold_${pixel.x}_${pixel.y}`] = threshold;
-          if (isFloorBased) floorBasedCount++;
-        }
-      }
-    }
-
-    // Check PE availability
-    if (mode !== "ERASE" && invalidPixels.length === 0 && requiredPeTotal > peFree) {
-      return new Response(JSON.stringify({
-        ok: false,
-        error: "INSUFFICIENT_PE",
-        message: `Need ${requiredPeTotal} PE but only ${peFree} available`,
-        requiredPeTotal,
-        availablePe: peFree,
-        invalidPixels: [],
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const snapshotHash = generateSnapshotHash(pixelStates);
-    const unlockPeTotal = mode === "ERASE" ? (breakdown["eraseRefund"] || 0) : undefined;
-    const isErasePartialSuccess = mode === "ERASE" && validPixelCount > 0 && invalidPixels.length > 0;
-    const eraseHasValidPixels = mode === "ERASE" && validPixelCount > 0;
-
-    return new Response(JSON.stringify({
-      ok: mode === "ERASE" ? eraseHasValidPixels : invalidPixels.length === 0,
-      partialValid: isErasePartialSuccess,
-      validPixelCount: mode === "ERASE" ? validPixelCount : undefined,
-      requiredPeTotal,
-      snapshotHash,
-      invalidPixels,
-      breakdown: {
-        pixelCount: pixels.length,
-        ownedByUser,
-        ownedByOthers,
-        empty: emptyCount,
-        floorBasedCount,
-        pePerType: breakdown,
-      },
-      availablePe: peFree,
-      unlockPeTotal,
-      contributionsPurged,
-      purgedContributionCount,
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return handleLegacyValidate(corsHeaders, supabase, userId, mode, pixels, pePerPixel, user, stream);
 
   } catch (err) {
-    console.error("[game-validate] Error:", err);
-    return new Response(JSON.stringify({ ok: false, error: "INTERNAL_ERROR", message: String(err) }), {
+    console.error(`[game-validate] Error (${requestId}):`, err);
+    return new Response(JSON.stringify({ ok: false, error: "INTERNAL_ERROR", message: String(err), requestId }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
