@@ -4,6 +4,15 @@ import { DATA_TILE_SIZE, tileKey, pixelToTile } from '@/lib/pixelGrid';
 import { pixelKey, type PixelStore, type PixelData } from '@/components/map/hooks/usePixelStore';
 import { markFetchStart, markFetchEnd, updateTileCounts } from '@/lib/perfMetrics';
 
+// Debug flag - enable via localStorage.setItem('DEBUG_TILECACHE', '1')
+const isDebugTileCache = (): boolean => {
+  try {
+    return typeof window !== 'undefined' && localStorage.getItem('DEBUG_TILECACHE') === '1';
+  } catch {
+    return false;
+  }
+};
+
 interface TileCoord {
   tx: number;
   ty: number;
@@ -12,6 +21,9 @@ interface TileCoord {
 interface TileCacheEntry {
   pixels: Map<string, PixelData>;
   fetchedAt: number;
+  status: 'loaded' | 'optimistic';
+  stale: boolean;
+  lastUpdatedAt: number;
 }
 
 interface ViewportBounds {
@@ -26,6 +38,25 @@ const MAX_CACHED_TILES = 150;
 const tileCache = new Map<string, TileCacheEntry>();
 const tileLRU: string[] = []; // Most recently used at end
 
+// Global version counter for cache changes - triggers React re-renders
+let cacheVersion = 0;
+const cacheListeners = new Set<() => void>();
+
+function notifyCacheChanged(): void {
+  cacheVersion++;
+  cacheListeners.forEach(fn => fn());
+}
+
+// Export for hooks to subscribe to cache changes
+export function subscribeToCacheChanges(callback: () => void): () => void {
+  cacheListeners.add(callback);
+  return () => cacheListeners.delete(callback);
+}
+
+export function getCacheVersion(): number {
+  return cacheVersion;
+}
+
 function touchTile(key: string): void {
   const idx = tileLRU.indexOf(key);
   if (idx > -1) tileLRU.splice(idx, 1);
@@ -39,13 +70,44 @@ function touchTile(key: string): void {
 }
 
 function setTileCache(key: string, pixels: Map<string, PixelData>): void {
-  tileCache.set(key, { pixels, fetchedAt: Date.now() });
+  tileCache.set(key, { 
+    pixels, 
+    fetchedAt: Date.now(),
+    status: 'loaded',
+    stale: false,
+    lastUpdatedAt: Date.now(),
+  });
   touchTile(key);
+  notifyCacheChanged();
 }
 
 function getTileCache(key: string): TileCacheEntry | undefined {
   const entry = tileCache.get(key);
   if (entry) touchTile(key);
+  return entry;
+}
+
+// Create tile entry if missing (for optimistic updates)
+function ensureTileEntry(tx: number, ty: number): TileCacheEntry {
+  const key = tileKey(tx, ty);
+  let entry = tileCache.get(key);
+  
+  if (!entry) {
+    entry = {
+      pixels: new Map(),
+      fetchedAt: 0,
+      status: 'optimistic',
+      stale: true,
+      lastUpdatedAt: Date.now(),
+    };
+    tileCache.set(key, entry);
+    touchTile(key);
+    
+    if (isDebugTileCache()) {
+      console.debug('[tilecache] created optimistic tile', key);
+    }
+  }
+  
   return entry;
 }
 
@@ -186,26 +248,61 @@ export function useTileCache() {
     tileCache.delete(key);
     const idx = tileLRU.indexOf(key);
     if (idx > -1) tileLRU.splice(idx, 1);
+    notifyCacheChanged();
   }, []);
 
-  // Update a pixel in cache (for realtime updates)
+  // Update a pixel in cache (for optimistic/realtime updates)
+  // Creates tile if missing - never silently fails
   const updatePixelInCache = useCallback((x: number, y: number, color: string) => {
     const { tx, ty } = pixelToTile(x, y);
-    const key = tileKey(tx, ty);
-    const entry = tileCache.get(key);
-    if (entry) {
-      entry.pixels.set(pixelKey(x, y), { color });
+    const entry = ensureTileEntry(tx, ty);
+    const k = pixelKey(x, y);
+    const prev = entry.pixels.get(k);
+    
+    // Merge with previous data, ensuring color is always present
+    entry.pixels.set(k, {
+      ...prev,
+      color,
+    });
+    
+    entry.stale = true;
+    entry.lastUpdatedAt = Date.now();
+    
+    if (isDebugTileCache()) {
+      console.debug('[tilecache] updatePixel', { x, y, color, tile: tileKey(tx, ty) });
     }
+    
+    notifyCacheChanged();
   }, []);
 
-  // Remove a pixel from cache (for realtime deletes)
+  // Remove a pixel from cache (for optimistic/realtime deletes)
+  // Creates tile if missing so deletion is tracked
   const removePixelFromCache = useCallback((x: number, y: number) => {
     const { tx, ty } = pixelToTile(x, y);
-    const key = tileKey(tx, ty);
-    const entry = tileCache.get(key);
-    if (entry) {
-      entry.pixels.delete(pixelKey(x, y));
+    const entry = ensureTileEntry(tx, ty);
+    const k = pixelKey(x, y);
+    const deleted = entry.pixels.delete(k);
+    
+    entry.stale = true;
+    entry.lastUpdatedAt = Date.now();
+    
+    if (isDebugTileCache() && deleted) {
+      console.debug('[tilecache] removePixel', { x, y, tile: tileKey(tx, ty) });
     }
+    
+    notifyCacheChanged();
+  }, []);
+
+  // Get list of stale tiles that need reconciliation
+  const getStaleTiles = useCallback((): Array<{ tx: number; ty: number }> => {
+    const stale: Array<{ tx: number; ty: number }> = [];
+    tileCache.forEach((entry, key) => {
+      if (entry.stale) {
+        const [txStr, tyStr] = key.split(':');
+        stale.push({ tx: Number(txStr), ty: Number(tyStr) });
+      }
+    });
+    return stale;
   }, []);
 
   return {
@@ -215,6 +312,7 @@ export function useTileCache() {
     invalidateTile,
     updatePixelInCache,
     removePixelFromCache,
+    getStaleTiles,
     getCacheSize: () => tileCache.size,
   };
 }
