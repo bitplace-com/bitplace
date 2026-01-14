@@ -737,8 +737,18 @@ async function handleStreamingCommit(
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   
+  // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Health check endpoint for warm-up - respond immediately (before auth)
+  const url = new URL(req.url);
+  if (url.pathname.endsWith('/health') || url.searchParams.has('health')) {
+    return new Response(JSON.stringify({ ok: true, ts: Date.now() }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
