@@ -11,6 +11,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useEdgeFunctionWarmup } from "@/hooks/useEdgeFunctionWarmup";
 import MapPage from "./pages/MapPage";
 import RulesPage from "./pages/RulesPage";
+import SpecPage from "./pages/SpecPage";
 import ProfilePage from "./pages/ProfilePage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import WalletCallbackPage from "./pages/WalletCallbackPage";
@@ -45,6 +46,7 @@ const App = () => (
                 <Route path="/wallet-callback" element={<WalletCallbackPage />} />
                 {/* Other routes use MainLayout with sidebar */}
                 <Route element={<MainLayout><RulesPage /></MainLayout>} path="/rules" />
+                <Route element={<MainLayout><SpecPage /></MainLayout>} path="/spec" />
                 <Route element={<MainLayout><ProfilePage /></MainLayout>} path="/profile" />
                 <Route element={<MainLayout><LeaderboardPage /></MainLayout>} path="/leaderboard" />
                 <Route path="*" element={<NotFound />} />
