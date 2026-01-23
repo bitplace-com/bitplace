@@ -519,46 +519,62 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         return false;
       }
       
-      // Sign nonce using provider.request() for better popup handling
-      // This method is recommended by Phantom docs and closes the popup reliably
+      // Sign nonce - try provider.request() first, fallback to signMessage()
       walletDebug('auth_sign_start');
       let signatureB64: string;
       try {
         const messageBytes = new TextEncoder().encode(nonceData.nonce);
-        
-        // Use provider.request() instead of signMessage() for better popup behavior
-        // This is the recommended approach per Phantom documentation
-        const signResult = await phantom.request({
-          method: 'signMessage',
-          params: {
-            message: messageBytes,
-            display: 'utf8',
-          },
-        });
-        
-        // Handle signature response - can be Uint8Array or base64 string
         let signatureBytes: Uint8Array;
-        if (signResult.signature instanceof Uint8Array) {
+
+        // Check if request method is available (preferred approach)
+        if (typeof phantom.request === 'function') {
+          walletDebug('auth_sign_using_request');
+          const signResult = await phantom.request({
+            method: 'signMessage',
+            params: {
+              message: messageBytes,
+              display: 'utf8',
+            },
+          });
+          
+          // Handle signature response - can be Uint8Array or base64 string
+          if (signResult.signature instanceof Uint8Array) {
+            signatureBytes = signResult.signature;
+          } else if (typeof signResult.signature === 'string') {
+            // Already base64, decode to bytes first
+            signatureBytes = new Uint8Array(
+              atob(signResult.signature).split('').map(c => c.charCodeAt(0))
+            );
+          } else {
+            // Assume array-like object
+            signatureBytes = new Uint8Array(signResult.signature as ArrayLike<number>);
+          }
+        } else if (typeof phantom.signMessage === 'function') {
+          // Fallback to signMessage method (older Phantom versions / mobile)
+          walletDebug('auth_sign_using_signMessage_fallback');
+          const signResult = await phantom.signMessage(messageBytes);
           signatureBytes = signResult.signature;
-        } else if (typeof signResult.signature === 'string') {
-          // Already base64, decode to bytes first
-          signatureBytes = new Uint8Array(
-            atob(signResult.signature).split('').map(c => c.charCodeAt(0))
-          );
         } else {
-          // Assume array-like object
-          signatureBytes = new Uint8Array(signResult.signature as ArrayLike<number>);
+          // Neither method available
+          walletDebug('auth_sign_no_method_available');
+          throw new Error('Wallet does not support message signing');
         }
         
         signatureB64 = btoa(String.fromCharCode(...signatureBytes));
         walletDebug('auth_sign_success');
       } catch (signError: any) {
-        walletDebug('auth_sign_rejected', { code: signError?.code });
+        walletDebug('auth_sign_rejected', { 
+          code: signError?.code, 
+          message: signError?.message,
+          name: signError?.name 
+        });
         setLastError('user_rejected_signature');
         setWalletState('AUTH_REQUIRED');
         
         if (signError?.code === 4001 || signError?.message?.includes('User rejected')) {
           toast.error('Signature cancelled', { description: 'You cancelled the signature request' });
+        } else {
+          toast.error('Signature failed', { description: signError?.message || 'Could not sign message' });
         }
         return false;
       }
@@ -848,7 +864,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
 
     } catch (error: any) {
-      walletDebug('connect_exception', { error: error?.message || error });
+      walletDebug('connect_exception', { 
+        error: error?.message || error,
+        name: error?.name,
+        code: error?.code,
+        stack: error?.stack?.substring(0, 300)
+      });
       console.error('Wallet connection error:', error);
       toast.error('Failed to connect wallet', {
         description: error instanceof Error ? error.message : 'Unknown error occurred',
