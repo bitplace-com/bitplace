@@ -211,9 +211,9 @@ function generateSnapshotHash(pixelStates: PixelData[]): string {
   return hash.toString(36);
 }
 
-// PROMPT 54: Fetch pixels using pixel_id array (faster than JSONB RPC)
+// Fetch pixels using coordinates - avoids bigint precision issues with pixel_id
 // deno-lint-ignore no-explicit-any
-async function fetchPixelsByIds(
+async function fetchPixelsByCoords(
   supabase: any,
   pixels: Array<{ x: number; y: number }>
 ): Promise<Array<{ 
@@ -229,18 +229,18 @@ async function fetchPixelsByIds(
 }>> {
   if (pixels.length === 0) return [];
   
-  // Calculate pixel_ids and use direct query with ANY() for speed
-  const pixelIds = pixels.map(p => computePixelId(p.x, p.y).toString());
+  // Use database function for reliable coordinate-based lookup
+  const coords = pixels.map(p => ({ x: p.x, y: p.y }));
   
   const { data, error } = await supabase
-    .from("pixels")
-    .select("id, x, y, pixel_id, owner_user_id, owner_stake_pe, color, def_total, atk_total")
-    .in("pixel_id", pixelIds);
+    .rpc("fetch_pixels_by_coords", { coords: JSON.stringify(coords) });
   
   if (error) {
-    console.error('[game-validate] fetchPixelsByIds error:', error);
+    console.error('[game-validate] fetchPixelsByCoords error:', error);
     throw error;
   }
+  
+  console.log(`[game-validate] fetchPixelsByCoords: requested=${pixels.length}, found=${(data || []).length}`);
   return data || [];
 }
 
@@ -361,17 +361,17 @@ async function handlePaintFastPath(
       }
     }
     
-    // Step D: Fetch pixels by pixel_id array (PROMPT 54: faster than JSONB RPC)
+    // Step D: Fetch pixels by coordinates (avoids bigint precision issues)
     emit?.({ type: "progress", phase: "pixels", pct: 25, requestId });
     
     const tFetchPixels = Date.now();
-    const existingPixels = await fetchPixelsByIds(supabase, pixels);
+    const existingPixels = await fetchPixelsByCoords(supabase, pixels);
     const fetchPixelsMs = Date.now() - tFetchPixels;
     
-    // Build pixel map for quick lookup
+    // Build pixel map for quick lookup using x:y key
     const pixelMap = new Map<string, typeof existingPixels[0]>();
     existingPixels.forEach(p => {
-      const key = computePixelId(Number(p.x), Number(p.y)).toString();
+      const key = `${p.x}:${p.y}`;
       pixelMap.set(key, p);
     });
     
@@ -417,7 +417,7 @@ async function handlePaintFastPath(
     const pixelStates: PixelData[] = [];
     
     for (const p of pixels) {
-      const key = computePixelId(p.x, p.y).toString();
+      const key = `${p.x}:${p.y}`;
       const existing = pixelMap.get(key);
       const ownerData = existing?.owner_user_id ? ownerDataMap.get(existing.owner_user_id) : undefined;
       
@@ -579,13 +579,13 @@ async function handleLegacyValidate(
         try {
           emit({ type: "progress", phase: "validate", processed: 0, total });
 
-          // Fetch pixels using pixel_id array (PROMPT 54)
-          const existingPixels = await fetchPixelsByIds(supabase, pixels);
+          // Fetch pixels using coordinates (avoids bigint precision issues)
+          const existingPixels = await fetchPixelsByCoords(supabase, pixels);
           emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.3), total });
 
           const pixelMap = new Map<string, typeof existingPixels[0]>();
           existingPixels.forEach((p: typeof existingPixels[0]) => {
-            const key = computePixelId(Number(p.x), Number(p.y)).toString();
+            const key = `${p.x}:${p.y}`;
             pixelMap.set(key, p);
           });
 
@@ -641,7 +641,7 @@ async function handleLegacyValidate(
           const pixelStates: PixelData[] = [];
 
           for (const p of pixels) {
-            const key = computePixelId(p.x, p.y).toString();
+            const key = `${p.x}:${p.y}`;
             const existing = pixelMap.get(key);
             const ownerData = existing?.owner_user_id ? ownerDataMap.get(existing.owner_user_id) : undefined;
             const userSide = existing ? userContribSides.get(existing.id) : undefined;
@@ -771,12 +771,12 @@ async function handleLegacyValidate(
     });
   }
 
-  // Non-streaming legacy path (PROMPT 54: use pixel_id array)
-  const existingPixels = await fetchPixelsByIds(supabase, pixels);
+  // Non-streaming legacy path: use coordinates for reliable lookup
+  const existingPixels = await fetchPixelsByCoords(supabase, pixels);
   
   const pixelMap = new Map<string, typeof existingPixels[0]>();
   existingPixels.forEach((p: typeof existingPixels[0]) => {
-    const key = computePixelId(Number(p.x), Number(p.y)).toString();
+    const key = `${p.x}:${p.y}`;
     pixelMap.set(key, p);
   });
 
@@ -819,7 +819,7 @@ async function handleLegacyValidate(
 
   // Build enriched pixel data
   const pixelStates: PixelData[] = pixels.map(p => {
-    const key = computePixelId(p.x, p.y).toString();
+    const key = `${p.x}:${p.y}`;
     const existing = pixelMap.get(key);
     const ownerData = existing?.owner_user_id ? ownerDataMap.get(existing.owner_user_id) : undefined;
     const userSide = existing ? userContribSides.get(existing.id) : undefined;
