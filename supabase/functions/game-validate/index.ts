@@ -233,7 +233,7 @@ async function fetchPixelsByCoords(
   const coords = pixels.map(p => ({ x: p.x, y: p.y }));
   
   const { data, error } = await supabase
-    .rpc("fetch_pixels_by_coords", { coords: JSON.stringify(coords) });
+    .rpc("fetch_pixels_by_coords", { coords });
   
   if (error) {
     console.error('[game-validate] fetchPixelsByCoords error:', error);
