@@ -181,6 +181,30 @@ export function ActionBox({
             </span>
           </div>
 
+          {/* PE Breakdown after validation - explains why cost differs from pixel count */}
+          {validationResult && validationResult.breakdown && mode === 'PAINT' && (
+            <div className="space-y-0.5 text-[10px] text-muted-foreground border-t border-border/30 pt-1.5 mt-1">
+              {validationResult.breakdown.empty > 0 && (
+                <div className="flex justify-between">
+                  <span>Empty pixels</span>
+                  <span className="tabular-nums">{validationResult.breakdown.empty} × 1 PE</span>
+                </div>
+              )}
+              {validationResult.breakdown.ownedByUser > 0 && (
+                <div className="flex justify-between text-emerald-500">
+                  <span>Your pixels (color only)</span>
+                  <span className="tabular-nums">{validationResult.breakdown.ownedByUser} × 0 PE</span>
+                </div>
+              )}
+              {validationResult.breakdown.ownedByOthers > 0 && (
+                <div className="flex justify-between text-amber-500">
+                  <span>Takeovers</span>
+                  <span className="tabular-nums">{validationResult.breakdown.ownedByOthers} px</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Available + After action - only after validation */}
           {validationResult && (
             <>

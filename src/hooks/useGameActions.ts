@@ -97,8 +97,15 @@ const MAX_RETRIES = 0;           // No auto-retry for small ops - let user manua
 const INITIAL_DELAY_MS = 2000;
 const MIN_PIXELS_FOR_STREAMING = 50;
 const MAX_STREAM_RETRIES = 1;    // At most 1 retry for cold start
-// PROMPT 53: Reduced timeout for PAINT (no streaming = faster response expected)
-const INVOKE_TIMEOUT_MS = 45000; // 45s timeout
+// PROMPT 53: Base timeout, increased dynamically for large operations
+const BASE_TIMEOUT_MS = 45000; // 45s base timeout
+
+// Calculate dynamic timeout based on pixel count
+function getTimeoutForPixelCount(count: number): number {
+  if (count > 400) return 120000; // 120s for 400+ pixels
+  if (count > 200) return 90000;  // 90s for 200+ pixels
+  return BASE_TIMEOUT_MS;         // 45s for smaller operations
+}
 
 // Check if error is a timeout error
 function isTimeoutError(error: Error | null): boolean {
@@ -110,11 +117,11 @@ function isTimeoutError(error: Error | null): boolean {
          msg.includes('abort');
 }
 
-// Helper function to invoke edge functions with explicit timeout (for small operations)
+// Helper function to invoke edge functions with explicit timeout
 async function invokeWithTimeout<T>(
   functionName: string,
   options: { headers: Record<string, string>; body: unknown },
-  timeoutMs: number = INVOKE_TIMEOUT_MS
+  timeoutMs: number = BASE_TIMEOUT_MS
 ): Promise<{ data: T | null; error: Error | null }> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const apiKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -151,11 +158,13 @@ async function invokeWithTimeout<T>(
   }
 }
 
-// Helper function to invoke edge functions with retry logic (for small operations)
+// Helper function to invoke edge functions with retry logic and dynamic timeout
 async function invokeWithRetry<T>(
   functionName: string,
-  options: { headers: Record<string, string>; body: unknown }
+  options: { headers: Record<string, string>; body: unknown },
+  pixelCount: number = 0
 ): Promise<{ data: T | null; error: Error | null }> {
+  const timeoutMs = getTimeoutForPixelCount(pixelCount);
   let lastError: Error | null = null;
   
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -165,8 +174,8 @@ async function invokeWithRetry<T>(
       await new Promise(resolve => setTimeout(resolve, delay));
     }
     
-    // Use invokeWithTimeout instead of supabase.functions.invoke
-    const result = await invokeWithTimeout<T>(functionName, options);
+    // Use invokeWithTimeout with dynamic timeout based on pixel count
+    const result = await invokeWithTimeout<T>(functionName, options, timeoutMs);
     
     if (!result.error) {
       return result;
@@ -286,11 +295,12 @@ export function useGameActions() {
           }
         }
       } else {
-        // PAINT or small operations: simple JSON invoke
-        const result = await invokeWithRetry<ValidateResult>('game-validate', {
-          headers,
-          body: { ...validatedParams, stream: false }, // Explicitly disable streaming
-        });
+        // PAINT or small operations: simple JSON invoke with dynamic timeout
+        const result = await invokeWithRetry<ValidateResult>(
+          'game-validate',
+          { headers, body: { ...validatedParams, stream: false } },
+          deduplicatedPixels.length
+        );
         data = result.data;
         error = result.error;
       }
@@ -428,11 +438,12 @@ export function useGameActions() {
           }
         }
       } else {
-        // PAINT or small operations: simple JSON invoke
-        const result = await invokeWithRetry<CommitResult>('game-commit', {
-          headers,
-          body: { ...params, stream: false }, // Explicitly disable streaming
-        });
+        // PAINT or small operations: simple JSON invoke with dynamic timeout
+        const result = await invokeWithRetry<CommitResult>(
+          'game-commit',
+          { headers, body: { ...params, stream: false } },
+          params.pixels.length
+        );
         data = result.data;
         error = result.error;
       }
