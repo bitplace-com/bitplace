@@ -446,7 +446,7 @@ export function useGameActions() {
             ? 'Request timed out. The server may be busy.'
             : isNetwork 
               ? 'Network error. Please check your connection.'
-              : error.message || 'Commit failed',
+              : (typeof error.message === 'string' ? error.message : JSON.stringify(error.message)) || 'Commit failed',
           canRetry: true,
         });
         return null;

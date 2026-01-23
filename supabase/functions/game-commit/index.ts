@@ -401,10 +401,10 @@ async function executeCommit(
     
     // Build upsert data with calculated thresholds
     // Note: tile_x and tile_y are GENERATED columns, do not include them
+    // Note: pixel_id, tile_x and tile_y are GENERATED columns, do not include them
     const upsertData: Array<{
       x: number;
       y: number;
-      pixel_id: string;
       color: string;
       owner_user_id: string;
       owner_stake_pe: number;
@@ -434,11 +434,9 @@ async function executeCommit(
       upsertData.push({
         x: pixel.x,
         y: pixel.y,
-        pixel_id: computePixelId(pixel.x, pixel.y).toString(),
         color: color!,
         owner_user_id: userId,
         owner_stake_pe: stake,
-        // tile_x and tile_y are GENERATED columns - do not include them
         updated_at: now,
       });
     }
