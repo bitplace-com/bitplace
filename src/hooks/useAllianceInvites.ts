@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-
-const SESSION_TOKEN_KEY = 'bitplace_session_token';
+import { getAuthHeadersOrExpire } from "@/lib/authHelpers";
 
 export interface AllianceInvite {
   id: string;
@@ -36,15 +35,15 @@ export function useAllianceInvites(userId: string | undefined): UseAllianceInvit
     setError(null);
 
     try {
-      const token = localStorage.getItem(SESSION_TOKEN_KEY);
-      if (!token) {
+      const headers = getAuthHeadersOrExpire();
+      if (!headers) {
         setInvites([]);
         return;
       }
 
       const { data, error: fnError } = await supabase.functions.invoke("alliance-manage", {
         body: { action: "get-invites" },
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       });
 
       if (fnError) {
@@ -64,12 +63,12 @@ export function useAllianceInvites(userId: string | undefined): UseAllianceInvit
 
   const acceptInvite = useCallback(async (inviteId: string): Promise<boolean> => {
     try {
-      const token = localStorage.getItem(SESSION_TOKEN_KEY);
-      if (!token) return false;
+      const headers = getAuthHeadersOrExpire();
+      if (!headers) return false;
 
       const { data, error } = await supabase.functions.invoke("alliance-manage", {
         body: { action: "accept-invite", inviteId },
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       });
 
       if (error || data?.error) {
@@ -87,12 +86,12 @@ export function useAllianceInvites(userId: string | undefined): UseAllianceInvit
 
   const declineInvite = useCallback(async (inviteId: string): Promise<boolean> => {
     try {
-      const token = localStorage.getItem(SESSION_TOKEN_KEY);
-      if (!token) return false;
+      const headers = getAuthHeadersOrExpire();
+      if (!headers) return false;
 
       const { data, error } = await supabase.functions.invoke("alliance-manage", {
         body: { action: "decline-invite", inviteId },
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       });
 
       if (error || data?.error) {
