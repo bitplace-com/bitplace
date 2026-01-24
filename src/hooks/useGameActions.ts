@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { FunctionsHttpError, FunctionsRelayError, FunctionsFetchError } from '@supabase/supabase-js';
 import { useWallet } from '@/contexts/WalletContext';
@@ -119,16 +119,18 @@ function isTimeoutError(error: Error | null): boolean {
          msg.includes('abort');
 }
 
-// Helper function to invoke edge functions with explicit timeout
+// Helper function to invoke edge functions with explicit timeout and external abort support
 async function invokeWithTimeout<T>(
   functionName: string,
   options: { headers: Record<string, string>; body: unknown },
-  timeoutMs: number = BASE_TIMEOUT_MS
-): Promise<{ data: T | null; error: Error | null }> {
+  timeoutMs: number = BASE_TIMEOUT_MS,
+  externalController?: AbortController
+): Promise<{ data: T | null; error: Error | null; aborted?: boolean }> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const apiKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   
-  const controller = new AbortController();
+  // Use external controller if provided, otherwise create internal one
+  const controller = externalController || new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   
   try {
@@ -150,7 +152,13 @@ async function invokeWithTimeout<T>(
     clearTimeout(timeoutId);
     
     if (err instanceof Error && err.name === 'AbortError') {
-      return { data: null, error: new Error('Request timed out. Please try again.') };
+      // Check if aborted by external controller (user cancel) vs timeout
+      const wasExternalAbort = externalController?.signal.aborted;
+      return { 
+        data: null, 
+        error: wasExternalAbort ? new Error('Request cancelled') : new Error('Request timed out. Please try again.'),
+        aborted: wasExternalAbort
+      };
     }
     
     return { 
@@ -164,12 +172,18 @@ async function invokeWithTimeout<T>(
 async function invokeWithRetry<T>(
   functionName: string,
   options: { headers: Record<string, string>; body: unknown },
-  pixelCount: number = 0
-): Promise<{ data: T | null; error: Error | null }> {
+  pixelCount: number = 0,
+  externalController?: AbortController
+): Promise<{ data: T | null; error: Error | null; aborted?: boolean }> {
   const timeoutMs = getTimeoutForPixelCount(pixelCount);
   let lastError: Error | null = null;
   
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    // Check if aborted before attempting
+    if (externalController?.signal.aborted) {
+      return { data: null, error: new Error('Request cancelled'), aborted: true };
+    }
+    
     if (attempt > 0) {
       const delay = INITIAL_DELAY_MS * Math.pow(2, attempt - 1);
       console.log(`[invokeWithRetry] Retry attempt ${attempt} after ${delay}ms`);
@@ -177,7 +191,11 @@ async function invokeWithRetry<T>(
     }
     
     // Use invokeWithTimeout with dynamic timeout based on pixel count
-    const result = await invokeWithTimeout<T>(functionName, options, timeoutMs);
+    const result = await invokeWithTimeout<T>(functionName, options, timeoutMs, externalController);
+    
+    if (result.aborted) {
+      return result;
+    }
     
     if (!result.error) {
       return result;
@@ -209,9 +227,20 @@ export function useGameActions() {
   
   // Error state for inline display (PROMPT 44)
   const [lastError, setLastError] = useState<ActionError | null>(null);
+  
+  // AbortController ref for cancelling in-flight requests
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const getAuthHeaders = useCallback(() => {
     return getAuthHeadersOrExpire();
+  }, []);
+  
+  // Abort any in-flight validation/commit request
+  const abortRequest = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
   }, []);
   
   // Clear error when starting new operation
@@ -249,6 +278,10 @@ export function useGameActions() {
 
     const validatedParams = { ...params, pixels: deduplicatedPixels };
 
+    // Cancel any previous request and create new AbortController
+    abortRequest();
+    abortControllerRef.current = new AbortController();
+
     setIsValidating(true);
     setInvalidPixels([]);
     setLastError(null);
@@ -258,6 +291,7 @@ export function useGameActions() {
     try {
       let data: ValidateResult | null = null;
       let error: Error | null = null;
+      let aborted = false;
 
       // PROMPT 53: PAINT always uses simple JSON (no streaming) for reliability
       // Streaming is only for legacy modes (DEFEND, ATTACK, REINFORCE, ERASE) with many pixels
@@ -301,10 +335,17 @@ export function useGameActions() {
         const result = await invokeWithRetry<ValidateResult>(
           'game-validate',
           { headers, body: { ...validatedParams, stream: false } },
-          deduplicatedPixels.length
+          deduplicatedPixels.length,
+          abortControllerRef.current || undefined
         );
         data = result.data;
         error = result.error;
+        aborted = result.aborted || false;
+      }
+
+      // If request was aborted by user, exit silently
+      if (aborted) {
+        return null;
       }
 
       if (error) {
@@ -371,7 +412,7 @@ export function useGameActions() {
       setProgress(null);
       setIsStalled(false);
     }
-  }, [user?.id, getAuthHeaders]);
+  }, [user?.id, getAuthHeaders, abortRequest]);
 
   const commit = useCallback(async (params: CommitParams): Promise<CommitResult | null> => {
     if (!user?.id) {
@@ -522,10 +563,16 @@ export function useGameActions() {
   }, [user?.id, getAuthHeaders]);
 
   const clearValidation = useCallback(() => {
+    // Abort any in-flight request first
+    abortRequest();
+    setIsValidating(false);
+    setIsCommitting(false);
+    setProgress(null);
+    setIsStalled(false);
     setValidationResult(null);
     setInvalidPixels([]);
     setLastError(null);
-  }, []);
+  }, [abortRequest]);
 
   return {
     validate,
