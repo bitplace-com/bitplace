@@ -211,7 +211,7 @@ function generateSnapshotHash(pixelStates: PixelData[]): string {
   return hash.toString(36);
 }
 
-// Fetch pixels using coordinates - avoids bigint precision issues with pixel_id
+// Fetch pixels using direct query with pixel_id array - avoids RPC JSONB serialization issues
 // deno-lint-ignore no-explicit-any
 async function fetchPixelsByCoords(
   supabase: any,
@@ -229,18 +229,32 @@ async function fetchPixelsByCoords(
 }>> {
   if (pixels.length === 0) return [];
   
-  // Use database function for reliable coordinate-based lookup
-  const coords = pixels.map(p => ({ x: p.x, y: p.y }));
+  const startTime = Date.now();
+  console.log(`[game-validate] fetchPixelsByCoords: starting query for ${pixels.length} pixels`);
   
+  // Calculate pixel_id for each coordinate: (x << 32) | y
+  // Use BigInt to avoid precision issues with large coordinates
+  const pixelIds = pixels.map(p => {
+    const x = BigInt(p.x);
+    // Mask y to handle negative coordinates properly (unsigned 32-bit)
+    const y = BigInt(p.y >>> 0);
+    return ((x << 32n) | y).toString();
+  });
+  
+  console.log(`[game-validate] fetchPixelsByCoords: computed ${pixelIds.length} pixel_ids, first few: ${pixelIds.slice(0, 3).join(', ')}`);
+  
+  // Direct query with .in() - more reliable than RPC with JSONB
   const { data, error } = await supabase
-    .rpc("fetch_pixels_by_coords", { coords });
+    .from("pixels")
+    .select("id, x, y, pixel_id, owner_user_id, owner_stake_pe, color, def_total, atk_total")
+    .in("pixel_id", pixelIds);
   
   if (error) {
     console.error('[game-validate] fetchPixelsByCoords error:', error);
     throw error;
   }
   
-  console.log(`[game-validate] fetchPixelsByCoords: requested=${pixels.length}, found=${(data || []).length}`);
+  console.log(`[game-validate] fetchPixelsByCoords: requested=${pixels.length}, found=${(data || []).length} in ${Date.now() - startTime}ms`);
   return data || [];
 }
 
