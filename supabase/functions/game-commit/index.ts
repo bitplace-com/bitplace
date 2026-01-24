@@ -397,10 +397,9 @@ async function executeCommit(
       await supabase.from("notifications").insert(ownersToNotify);
     }
   } else if (mode === "PAINT") {
-    // PROMPT 54: Batch UPSERT for all PAINT pixels in a single operation
+    // PROMPT 54+56: Batch UPSERT for all PAINT pixels with chunking for large operations
     
     // Build upsert data with calculated thresholds
-    // Note: tile_x and tile_y are GENERATED columns, do not include them
     // Note: pixel_id, tile_x and tile_y are GENERATED columns, do not include them
     const upsertData: Array<{
       x: number;
@@ -455,33 +454,57 @@ async function executeCommit(
 
     onProgress?.(Math.floor(total * 0.5), total);
 
-    // PROMPT 54: Single UPSERT for all pixels (onConflict: x,y)
-    const { data: upserted, error: upsertError } = await supabase
-      .from("pixels")
-      .upsert(upsertData, { 
-        onConflict: 'x,y',
-        ignoreDuplicates: false 
-      })
-      .select("id, x, y, color, owner_user_id, owner_stake_pe, def_total, atk_total");
+    // PROMPT 56: Batch upsert with chunking to prevent timeouts for large operations
+    const UPSERT_BATCH_SIZE = 100;
+    const allUpsertedPixels: Array<{ x: number; y: number; color: string; owner_user_id: string; owner_stake_pe: number; def_total: number; atk_total: number }> = [];
+    
+    console.log(`[game-commit] PAINT: upserting ${upsertData.length} pixels in batches of ${UPSERT_BATCH_SIZE}`);
+    const upsertStart = Date.now();
+    
+    for (let i = 0; i < upsertData.length; i += UPSERT_BATCH_SIZE) {
+      const batch = upsertData.slice(i, i + UPSERT_BATCH_SIZE);
+      const batchNum = Math.floor(i / UPSERT_BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(upsertData.length / UPSERT_BATCH_SIZE);
+      
+      const { data: batchUpserted, error: batchError } = await supabase
+        .from("pixels")
+        .upsert(batch, { 
+          onConflict: 'x,y',
+          ignoreDuplicates: false 
+        })
+        .select("id, x, y, color, owner_user_id, owner_stake_pe, def_total, atk_total");
 
-    if (upsertError) {
-      console.error("[game-commit] PAINT upsert error:", upsertError);
-      throw upsertError;
+      if (batchError) {
+        console.error(`[game-commit] PAINT batch ${batchNum}/${totalBatches} error:`, batchError);
+        throw batchError;
+      }
+      
+      if (batchUpserted) {
+        allUpsertedPixels.push(...batchUpserted.map((p: { x: number; y: number; color: string; owner_user_id: string; owner_stake_pe: number; def_total: number; atk_total: number }) => ({
+          x: Number(p.x),
+          y: Number(p.y),
+          color: p.color,
+          owner_user_id: p.owner_user_id,
+          owner_stake_pe: Number(p.owner_stake_pe) || 0,
+          def_total: Number(p.def_total) || 0,
+          atk_total: Number(p.atk_total) || 0,
+        })));
+      }
+      
+      // Report progress for each batch
+      const progressRatio = 0.5 + 0.3 * ((i + batch.length) / upsertData.length);
+      onProgress?.(Math.floor(total * progressRatio), total);
+      
+      console.log(`[game-commit] PAINT batch ${batchNum}/${totalBatches} completed: ${batch.length} pixels`);
     }
+    
+    console.log(`[game-commit] PAINT: all batches completed in ${Date.now() - upsertStart}ms`);
 
-    affectedPixels = upserted?.length || 0;
+    affectedPixels = allUpsertedPixels.length;
     
     // PROMPT 55: Store upserted pixels for changedPixels response
-    if (upserted && upserted.length > 0) {
-      upsertedPixels = upserted.map((p: { x: number; y: number; color: string; owner_user_id: string; owner_stake_pe: number; def_total: number; atk_total: number }) => ({
-        x: Number(p.x),
-        y: Number(p.y),
-        color: p.color,
-        owner_user_id: p.owner_user_id,
-        owner_stake_pe: Number(p.owner_stake_pe) || 0,
-        def_total: Number(p.def_total) || 0,
-        atk_total: Number(p.atk_total) || 0,
-      }));
+    if (allUpsertedPixels.length > 0) {
+      upsertedPixels = allUpsertedPixels;
     }
 
     onProgress?.(Math.floor(total * 0.7), total);
