@@ -211,7 +211,7 @@ function generateSnapshotHash(pixelStates: PixelData[]): string {
   return hash.toString(36);
 }
 
-// Fetch pixels using direct query with pixel_id array - avoids RPC JSONB serialization issues
+// Fetch pixels using simple coordinate-based OR query - avoids BigInt issues in Deno
 // deno-lint-ignore no-explicit-any
 async function fetchPixelsByCoords(
   supabase: any,
@@ -230,31 +230,28 @@ async function fetchPixelsByCoords(
   if (pixels.length === 0) return [];
   
   const startTime = Date.now();
-  console.log(`[game-validate] fetchPixelsByCoords: starting query for ${pixels.length} pixels`);
+  console.log(`[game-validate] fetchPixelsByCoords: starting for ${pixels.length} pixels`);
   
-  // Calculate pixel_id for each coordinate: (x << 32) | y
-  // Use BigInt to avoid precision issues with large coordinates
-  const pixelIds = pixels.map(p => {
-    const x = BigInt(p.x);
-    // Mask y to handle negative coordinates properly (unsigned 32-bit)
-    const y = BigInt(p.y >>> 0);
-    return ((x << 32n) | y).toString();
-  });
+  // Build simple OR conditions with coordinates - no BigInt math needed
+  // Format: "and(x.eq.123,y.eq.456),and(x.eq.789,y.eq.012)"
+  const conditions = pixels.map(p => 
+    `and(x.eq.${Math.floor(p.x)},y.eq.${Math.floor(p.y)})`
+  ).join(',');
   
-  console.log(`[game-validate] fetchPixelsByCoords: computed ${pixelIds.length} pixel_ids, first few: ${pixelIds.slice(0, 3).join(', ')}`);
+  console.log(`[game-validate] fetchPixelsByCoords: built ${pixels.length} conditions`);
   
-  // Direct query with .in() - more reliable than RPC with JSONB
+  // Direct query with OR conditions on x,y - simple and reliable
   const { data, error } = await supabase
     .from("pixels")
     .select("id, x, y, pixel_id, owner_user_id, owner_stake_pe, color, def_total, atk_total")
-    .in("pixel_id", pixelIds);
+    .or(conditions);
   
   if (error) {
     console.error('[game-validate] fetchPixelsByCoords error:', error);
     throw error;
   }
   
-  console.log(`[game-validate] fetchPixelsByCoords: requested=${pixels.length}, found=${(data || []).length} in ${Date.now() - startTime}ms`);
+  console.log(`[game-validate] fetchPixelsByCoords: found ${(data || []).length} in ${Date.now() - startTime}ms`);
   return data || [];
 }
 
