@@ -102,9 +102,11 @@ const BASE_TIMEOUT_MS = 45000; // 45s base timeout
 
 // Calculate dynamic timeout based on pixel count
 function getTimeoutForPixelCount(count: number): number {
-  if (count > 400) return 120000; // 120s for 400+ pixels
-  if (count > 200) return 90000;  // 90s for 200+ pixels
-  return BASE_TIMEOUT_MS;         // 45s for smaller operations
+  if (count >= 500) return 180000; // 180s for 500 pixels (batch processing)
+  if (count >= 400) return 150000; // 150s for 400+ pixels
+  if (count >= 200) return 120000; // 120s for 200+ pixels
+  if (count >= 100) return 90000;  // 90s for 100+ pixels
+  return BASE_TIMEOUT_MS;          // 45s for smaller operations
 }
 
 // Check if error is a timeout error
