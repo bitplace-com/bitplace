@@ -264,25 +264,17 @@ Deno.serve(async (req) => {
       const waitTime = Math.ceil((RATE_LIMIT_MS - timeSinceLastRefresh) / 1000);
       console.log(`[energy-refresh] Rate limited for user ${userId}, wait ${waitTime}s`);
       
-      // Use pe_used_pe from trigger (avoids 1000 row limit) + COUNT/SUM for stats
-      const [pixelCountResult, stakeSumResult] = await Promise.all([
-        supabase
-          .from("pixels")
-          .select("*", { count: "exact", head: true })
-          .eq("owner_user_id", userId),
-        supabase
-          .from("pixels")
-          .select("owner_stake_pe.sum()")
-          .eq("owner_user_id", userId)
-          .single(),
-      ]);
-
-      const pixelsOwned = pixelCountResult.count || 0;
-      const pixelStakeTotal = Number(stakeSumResult.data?.sum) || 0;
+      // Use pe_used_pe from trigger as single source of truth + COUNT for pixelsOwned
+      const { count: pixelsOwned } = await supabase
+        .from("pixels")
+        .select("*", { count: "exact", head: true })
+        .eq("owner_user_id", userId);
 
       const peTotal = Number(userData.pe_total_pe) || 0;
       const peUsed = Number(userData.pe_used_pe) || 0;
       const peAvailable = Math.max(0, peTotal - peUsed);
+      // pixelStakeTotal = peUsed - contributions (for display purposes)
+      const pixelStakeTotal = peUsed; // Simplified: pe_used includes owner stake + contribs
 
       // Calculate paint cooldown remaining
       let paintCooldownUntil: string | null = null;
@@ -438,30 +430,24 @@ Deno.serve(async (req) => {
       throw new Error("Failed to update user energy");
     }
 
-    // Calculate final PE used/available using COUNT/SUM (bypasses 1000 row limit)
-    const [finalPixelCount, finalStakeSum, finalContribSum] = await Promise.all([
+    // Fetch fresh pe_used_pe from DB (triggers have updated it) + COUNT for pixelsOwned
+    const [freshUserResult, finalPixelCountResult] = await Promise.all([
+      supabase
+        .from("users")
+        .select("pe_used_pe")
+        .eq("id", userId)
+        .single(),
       supabase
         .from("pixels")
         .select("*", { count: "exact", head: true })
         .eq("owner_user_id", userId),
-      supabase
-        .from("pixels")
-        .select("owner_stake_pe.sum()")
-        .eq("owner_user_id", userId)
-        .single(),
-      supabase
-        .from("pixel_contributions")
-        .select("amount_pe.sum()")
-        .eq("user_id", userId)
-        .single(),
     ]);
 
-    const finalPixelsOwned = finalPixelCount.count || 0;
-    const finalPixelStakeTotal = Number(finalStakeSum.data?.sum) || 0;
-    const finalContribUsed = Number(finalContribSum.data?.sum) || 0;
-
-    const peUsed = finalPixelStakeTotal + finalContribUsed;
+    const finalPixelsOwned = finalPixelCountResult.count || 0;
+    const peUsed = Number(freshUserResult.data?.pe_used_pe) || 0;
     const peAvailable = Math.max(0, peTotal - peUsed);
+    // For pixelStakeTotal display, use ownerUsed calculated earlier (line 359)
+    const finalPixelStakeTotal = ownerUsed;
 
     console.log(`[energy-refresh] Final PE status: total=${peTotal}, used=${peUsed}, available=${peAvailable}, pixelsOwned=${finalPixelsOwned}`);
 
