@@ -1,6 +1,8 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { getAuthHeadersOrExpire } from '@/lib/authHelpers';
 
-const WARMUP_INTERVAL_MS = 4 * 60 * 1000; // 4 minutes
+// OPTIMIZATION: Reduced from 4 to 3 minutes to prevent DB cold start
+const WARMUP_INTERVAL_MS = 3 * 60 * 1000; // 3 minutes
 const CRITICAL_FUNCTIONS = ['game-validate', 'game-commit'];
 
 // Debug logger
@@ -54,8 +56,23 @@ export async function warmupAuthenticatedFunctions(token: string): Promise<void>
 }
 
 /**
+ * Warmup with current auth token from localStorage.
+ * This is used for periodic interval warmup when user is authenticated.
+ */
+async function warmupWithCurrentAuth(): Promise<void> {
+  const headers = getAuthHeadersOrExpire();
+  if (!headers) return; // Not authenticated
+  
+  const token = headers['Authorization']?.replace('Bearer ', '');
+  if (!token) return;
+  
+  await warmupAuthenticatedFunctions(token);
+}
+
+/**
  * Anonymous warmup - keeps function instances warm without auth.
  * Uses GET ?health=1 endpoint which doesn't require authentication.
+ * NOTE: This is less effective than authenticated warmup because it doesn't warm DB.
  */
 async function warmupAnonymous(): Promise<void> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -82,21 +99,36 @@ async function warmupAnonymous(): Promise<void> {
 }
 
 /**
- * Hook to keep critical edge functions warm by periodically pinging their health endpoints.
- * This reduces cold start latency for frequently used functions.
- * 
- * Also exports warmupAuthenticatedFunctions for use after wallet authentication.
+ * Hook to keep critical edge functions warm by periodically pinging.
+ * OPTIMIZATION: Now uses authenticated warmup when possible to also warm DB connection.
  */
 export function useEdgeFunctionWarmup() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Anonymous warmup on mount + interval
   useEffect(() => {
-    // Initial anonymous warmup on mount
-    warmupAnonymous();
+    // Initial warmup on mount - try authenticated first, fallback to anonymous
+    const initialWarmup = async () => {
+      const headers = getAuthHeadersOrExpire();
+      if (headers) {
+        await warmupWithCurrentAuth();
+      } else {
+        await warmupAnonymous();
+      }
+    };
+    
+    initialWarmup();
 
-    // Periodic warmup to keep instances alive
-    intervalRef.current = setInterval(warmupAnonymous, WARMUP_INTERVAL_MS);
+    // Periodic warmup every 3 minutes - prefer authenticated to warm DB
+    intervalRef.current = setInterval(async () => {
+      const headers = getAuthHeadersOrExpire();
+      if (headers) {
+        // User is authenticated - do full warmup including DB
+        await warmupWithCurrentAuth();
+      } else {
+        // No auth - just keep function instances warm
+        await warmupAnonymous();
+      }
+    }, WARMUP_INTERVAL_MS);
 
     return () => {
       if (intervalRef.current) {
@@ -118,4 +150,25 @@ export function useAuthenticatedWarmup() {
       }
     });
   }, []);
+}
+
+/**
+ * Trigger pre-warmup when user starts selecting pixels.
+ * This masks the cold start delay by warming up during pixel selection.
+ */
+export function triggerPredictiveWarmup(): void {
+  const headers = getAuthHeadersOrExpire();
+  if (!headers) return;
+  
+  const token = headers['Authorization']?.replace('Bearer ', '');
+  if (!token) return;
+  
+  // Fire and forget - don't await
+  warmupAuthenticatedFunctions(token).catch(() => {
+    // Silently ignore errors in predictive warmup
+  });
+  
+  if (isDebug()) {
+    console.debug('[warmup] predictive warmup triggered');
+  }
 }
