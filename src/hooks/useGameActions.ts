@@ -93,7 +93,7 @@ export interface ActionError {
 }
 
 // Retry configuration - PROMPT 44: reduced retries to avoid long waits
-const MAX_RETRIES = 0;           // No auto-retry for small ops - let user manually retry
+const MAX_RETRIES = 1;           // 1 auto-retry for cold start recovery
 const INITIAL_DELAY_MS = 2000;
 const MIN_PIXELS_FOR_STREAMING = 50;
 const MAX_STREAM_RETRIES = 1;    // At most 1 retry for cold start
@@ -189,7 +189,26 @@ async function invokeWithRetry<T>(
     
     if (attempt > 0) {
       const delay = INITIAL_DELAY_MS * Math.pow(2, attempt - 1);
-      console.log(`[invokeWithRetry] Retry attempt ${attempt} after ${delay}ms`);
+      console.log(`[invokeWithRetry] Retry attempt ${attempt} after ${delay}ms - warming up first...`);
+      
+      // PROMPT 58: On retry, send PING first to warm up cold database
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const apiKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
+          method: 'POST',
+          headers: {
+            ...options.headers,
+            'Content-Type': 'application/json',
+            'apikey': apiKey,
+          },
+          body: JSON.stringify({ mode: 'PING' }),
+        });
+        console.log(`[invokeWithRetry] PING warmup sent before retry`);
+      } catch {
+        // Ignore PING errors - it's just a warmup attempt
+      }
+      
       await new Promise(resolve => setTimeout(resolve, delay));
     }
     
@@ -210,6 +229,8 @@ async function invokeWithRetry<T>(
     if (!isTimeoutError(result.error) && !(result.error instanceof FunctionsFetchError)) {
       return result;
     }
+    
+    console.log(`[invokeWithRetry] Timeout detected, will retry (attempt ${attempt + 1}/${MAX_RETRIES + 1})`);
   }
   
   return { data: null, error: lastError };
@@ -389,6 +410,17 @@ export function useGameActions() {
         if (data.error === 'INSUFFICIENT_PE') {
           // Don't set error - let UI show insufficient PE state
         }
+      }
+
+      // PROMPT 58: Catch-all for unexpected response shapes (prevents silent failures)
+      if (!data || typeof (data as ValidateResult).ok === 'undefined') {
+        console.warn('[validate] Unexpected response shape:', data);
+        setLastError({
+          code: 'INVALID_RESPONSE',
+          message: 'Server returned unexpected response. Please retry.',
+          canRetry: true,
+        });
+        return null;
       }
 
       const result = data as ValidateResult;
