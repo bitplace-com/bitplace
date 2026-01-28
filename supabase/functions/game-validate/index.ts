@@ -211,7 +211,8 @@ function generateSnapshotHash(pixelStates: PixelData[]): string {
   return hash.toString(36);
 }
 
-// Fetch pixels using simple coordinate-based OR query - avoids BigInt issues in Deno
+// Fetch pixels using RPC with JSONB - much faster than .or() for 300+ pixels
+// The .or() approach was causing 47+ second delays due to client-side string parsing
 // deno-lint-ignore no-explicit-any
 async function fetchPixelsByCoords(
   supabase: any,
@@ -230,29 +231,39 @@ async function fetchPixelsByCoords(
   if (pixels.length === 0) return [];
   
   const startTime = Date.now();
-  console.log(`[game-validate] fetchPixelsByCoords: starting for ${pixels.length} pixels`);
+  console.log(`[game-validate] fetchPixelsByCoords: starting for ${pixels.length} pixels via RPC`);
   
-  // Build simple OR conditions with coordinates - no BigInt math needed
-  // Format: "and(x.eq.123,y.eq.456),and(x.eq.789,y.eq.012)"
-  const conditions = pixels.map(p => 
-    `and(x.eq.${Math.floor(p.x)},y.eq.${Math.floor(p.y)})`
-  ).join(',');
+  // Use the existing RPC function fetch_pixels_by_coords with JSONB
+  // This bypasses the client-side .or() string building which is O(n²) slow
+  const coords = pixels.map(p => ({ 
+    x: Math.floor(p.x), 
+    y: Math.floor(p.y) 
+  }));
   
-  console.log(`[game-validate] fetchPixelsByCoords: built ${pixels.length} conditions`);
-  
-  // Direct query with OR conditions on x,y - simple and reliable
-  const { data, error } = await supabase
-    .from("pixels")
-    .select("id, x, y, pixel_id, owner_user_id, owner_stake_pe, color, def_total, atk_total")
-    .or(conditions);
+  const { data, error } = await supabase.rpc("fetch_pixels_by_coords", { 
+    coords: coords 
+  });
   
   if (error) {
-    console.error('[game-validate] fetchPixelsByCoords error:', error);
+    console.error('[game-validate] fetchPixelsByCoords RPC error:', error);
     throw error;
   }
   
-  console.log(`[game-validate] fetchPixelsByCoords: found ${(data || []).length} in ${Date.now() - startTime}ms`);
-  return data || [];
+  // Convert RPC response to expected format (pixel_id is bigint in DB)
+  const result = (data || []).map((p: { id: number; x: number; y: number; pixel_id: bigint; owner_user_id: string | null; owner_stake_pe: number; color: string; def_total: number; atk_total: number }) => ({
+    id: p.id,
+    x: Number(p.x),
+    y: Number(p.y),
+    pixel_id: String(p.pixel_id),
+    owner_user_id: p.owner_user_id,
+    owner_stake_pe: p.owner_stake_pe,
+    color: p.color,
+    def_total: p.def_total,
+    atk_total: p.atk_total,
+  }));
+  
+  console.log(`[game-validate] fetchPixelsByCoords: found ${result.length} in ${Date.now() - startTime}ms`);
+  return result;
 }
 
 // Valid material IDs

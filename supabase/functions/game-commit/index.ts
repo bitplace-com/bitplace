@@ -454,32 +454,50 @@ async function executeCommit(
 
     onProgress?.(Math.floor(total * 0.5), total);
 
-    // PROMPT 56: Batch upsert with chunking to prevent timeouts for large operations
-    const UPSERT_BATCH_SIZE = 100;
+    // Batch upsert with parallel processing - 50 pixels per batch, 3 batches in parallel
+    const UPSERT_BATCH_SIZE = 50;
+    const MAX_PARALLEL_BATCHES = 3;
     const allUpsertedPixels: Array<{ x: number; y: number; color: string; owner_user_id: string; owner_stake_pe: number; def_total: number; atk_total: number }> = [];
     
-    console.log(`[game-commit] PAINT: upserting ${upsertData.length} pixels in batches of ${UPSERT_BATCH_SIZE}`);
+    console.log(`[game-commit] PAINT: upserting ${upsertData.length} pixels (batch=${UPSERT_BATCH_SIZE}, parallel=${MAX_PARALLEL_BATCHES})`);
     const upsertStart = Date.now();
     
+    // Split into batches
+    const batches: typeof upsertData[] = [];
     for (let i = 0; i < upsertData.length; i += UPSERT_BATCH_SIZE) {
-      const batch = upsertData.slice(i, i + UPSERT_BATCH_SIZE);
-      const batchNum = Math.floor(i / UPSERT_BATCH_SIZE) + 1;
-      const totalBatches = Math.ceil(upsertData.length / UPSERT_BATCH_SIZE);
+      batches.push(upsertData.slice(i, i + UPSERT_BATCH_SIZE));
+    }
+    const totalBatches = batches.length;
+    
+    // Process batches in parallel groups
+    for (let i = 0; i < batches.length; i += MAX_PARALLEL_BATCHES) {
+      const parallelBatches = batches.slice(i, i + MAX_PARALLEL_BATCHES);
+      const batchStartNum = i + 1;
       
-      const { data: batchUpserted, error: batchError } = await supabase
-        .from("pixels")
-        .upsert(batch, { 
-          onConflict: 'x,y',
-          ignoreDuplicates: false 
-        })
-        .select("id, x, y, color, owner_user_id, owner_stake_pe, def_total, atk_total");
+      // Execute parallel batches
+      const batchResults = await Promise.all(
+        parallelBatches.map(async (batch, idx) => {
+          const batchNum = batchStartNum + idx;
+          const { data: batchUpserted, error: batchError } = await supabase
+            .from("pixels")
+            .upsert(batch, { 
+              onConflict: 'x,y',
+              ignoreDuplicates: false 
+            })
+            .select("id, x, y, color, owner_user_id, owner_stake_pe, def_total, atk_total");
 
-      if (batchError) {
-        console.error(`[game-commit] PAINT batch ${batchNum}/${totalBatches} error:`, batchError);
-        throw batchError;
-      }
+          if (batchError) {
+            console.error(`[game-commit] PAINT batch ${batchNum}/${totalBatches} error:`, batchError);
+            throw batchError;
+          }
+          
+          console.log(`[game-commit] PAINT batch ${batchNum}/${totalBatches} completed: ${batch.length} pixels`);
+          return batchUpserted || [];
+        })
+      );
       
-      if (batchUpserted) {
+      // Collect results
+      for (const batchUpserted of batchResults) {
         allUpsertedPixels.push(...batchUpserted.map((p: { x: number; y: number; color: string; owner_user_id: string; owner_stake_pe: number; def_total: number; atk_total: number }) => ({
           x: Number(p.x),
           y: Number(p.y),
@@ -491,14 +509,13 @@ async function executeCommit(
         })));
       }
       
-      // Report progress for each batch
-      const progressRatio = 0.5 + 0.3 * ((i + batch.length) / upsertData.length);
+      // Report progress
+      const processedSoFar = Math.min(i + MAX_PARALLEL_BATCHES, batches.length);
+      const progressRatio = 0.5 + 0.3 * (processedSoFar / batches.length);
       onProgress?.(Math.floor(total * progressRatio), total);
-      
-      console.log(`[game-commit] PAINT batch ${batchNum}/${totalBatches} completed: ${batch.length} pixels`);
     }
     
-    console.log(`[game-commit] PAINT: all batches completed in ${Date.now() - upsertStart}ms`);
+    console.log(`[game-commit] PAINT: all ${totalBatches} batches completed in ${Date.now() - upsertStart}ms`);
 
     affectedPixels = allUpsertedPixels.length;
     
