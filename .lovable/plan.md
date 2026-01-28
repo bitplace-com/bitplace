@@ -1,137 +1,130 @@
 
-# Piano di Ottimizzazione: Operazioni 400-500 Pixel
 
-## Problemi Identificati
+# Piano di Ottimizzazione: Ridurre Tempi Validate/Paint
 
-### 1. Cold Start del Database (Problema Principale)
-I log mostrano tempi estremi:
-- `fetchUserMs: 17134` (17 secondi per una semplice SELECT)
-- `fetchPixelsMs: 30752` (30 secondi per RPC)
-- Totale validate: **47896ms** (~48 secondi!)
+## Stato Attuale ✅
 
-**Causa**: Il PING warmup attuale riscalda solo il JWT auth path, ma NON fa query al database. La prima connessione al DB dopo cold start è lentissima.
+| Metrica | Valore | Status |
+|---------|--------|--------|
+| Pixel dipinti totali | 3131 | ✅ |
+| PE usati | 3131 | ✅ Perfetto |
+| Consistenza DB | 100% | ✅ |
 
-### 2. Timeout Frontend Insufficiente
-Per 500 pixel:
-- Timeout attuale: 180s
-- Tempo reale con cold start: validate (48s) + commit (40s+) = **88s+**
-- Se entrambe le funzioni sono fredde: validate (48s) + commit (48s) = **96s+**
+I 500 pixel sono stati tutti salvati correttamente. L'accounting è perfetto.
 
-Questo funziona al limite, ma se c'è qualsiasi ritardo aggiuntivo (network, CPU) → timeout.
+---
 
-### 3. Nessun Chunking Automatico
-Operazioni >200 pixel dovrebbero essere divise automaticamente per evitare timeout e garantire completamento parziale in caso di errore.
+## Analisi Prestazioni (Il Problema)
+
+I log mostrano tempi molto alti:
+
+| Fase | Tempo | Causa |
+|------|-------|-------|
+| **PING warmup (DB)** | 35.2 sec | Cold start Postgres |
+| `fetchUserMs` | 37.5 sec | Prima query dopo warmup |
+| `fetchPixelsMs` | 10.6 sec | OK |
+| **Validate totale** | 48.2 sec | Dominato da cold start |
+| **Commit (10 batch)** | 22 sec | OK |
+
+**Problema principale**: Il database Postgres di Lovable Cloud entra in "sleep mode" dopo alcuni minuti di inattività. La prima query dopo il risveglio richiede 30-40 secondi.
 
 ---
 
 ## Soluzioni Proposte
 
-### Fase 1: Warmup Completo del Database Connection Pool
+### 1. Warmup Proattivo del Database (ogni 3 minuti)
 
-**File: `supabase/functions/game-validate/index.ts`** e **`game-commit/index.ts`**
+Attualmente il warmup avviene ogni 4 minuti. Ridurre a 3 minuti e fare warmup **autenticato** per mantenere il database sempre "caldo".
 
-Modificare il PING mode per eseguire una query leggera al DB, riscaldando la connessione:
+**File:** `src/hooks/useEdgeFunctionWarmup.ts`
 
 ```typescript
+const WARMUP_INTERVAL_MS = 3 * 60 * 1000; // 3 minuti invece di 4
+
+// Usare warmup autenticato invece di anonimo per intervalli
+// Il warmup autenticato fa una vera query al DB
+```
+
+### 2. Pre-warmup Quando l'Utente Inizia a Disegnare
+
+Attivare un warmup anticipato quando l'utente entra in modalità PAINT, **prima** che clicchi "Confirm".
+
+**File:** `src/components/map/hooks/usePointerInteraction.ts` o simile
+
+```typescript
+// Quando l'utente inizia a selezionare pixel per paint
+useEffect(() => {
+  if (mode === 'PAINT' && selectedPixels.length > 0 && !hasWarmedUp) {
+    // Trigger warmup in background
+    warmupAuthenticatedFunctions(token);
+    setHasWarmedUp(true);
+  }
+}, [mode, selectedPixels.length]);
+```
+
+### 3. Ottimizzare Query User in game-validate
+
+Attualmente `fetchUserMs` impiega 37 secondi perché è la **prima query** dopo il cold start. Il warmup nel PING mode già fa una query, ma poi si crea un nuovo client Supabase.
+
+**File:** `supabase/functions/game-validate/index.ts`
+
+Riusare lo stesso client creato nel percorso principale per evitare overhead di connessione:
+
+```typescript
+// Creare il client UNA SOLA volta all'inizio
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 if (body.mode === "PING") {
-  const authMs = Date.now() - t0;
-  
-  // WARM UP: Execute lightweight DB query to prime connection pool
+  // Usa lo stesso client già creato
   const dbStart = Date.now();
   await supabase.from("users").select("id").limit(1);
   const dbMs = Date.now() - dbStart;
-  
-  console.log(`[game-validate] PING warmed (auth=${authMs}ms, db=${dbMs}ms)`);
-  return new Response(JSON.stringify({ 
-    ok: true, 
-    warm: true, 
-    ts: Date.now(),
-    authMs,
-    dbMs  // Report DB warmup time
-  }), ...);
+  // ...
 }
+
+// Il resto del codice usa lo stesso 'supabase' già riscaldato
 ```
 
-### Fase 2: Aumentare Timeout per Operazioni Grandi
+### 4. Query Parallele in Validate
 
-**File: `src/hooks/useGameActions.ts`**
+Eseguire `fetchUser` e `fetchPixelsByCoords` in parallelo invece che sequenzialmente.
 
-Aumentare i timeout per operazioni 400+ pixel considerando cold start:
+**File:** `supabase/functions/game-validate/index.ts`
 
 ```typescript
-function getTimeoutForPixelCount(count: number): number {
-  if (count >= 500) return 240000; // 240s (4 min) per 500 pixels
-  if (count >= 400) return 180000; // 180s (3 min) per 400+ pixels
-  if (count >= 200) return 120000; // 120s per 200+ pixels
-  if (count >= 100) return 90000;  // 90s per 100+ pixels
-  return BASE_TIMEOUT_MS;          // 45s per operazioni piccole
-}
+// Invece di:
+const user = await fetchUser(userId);    // 37s
+const pixels = await fetchPixels(coords); // 10s
+// Totale: 47s
+
+// Fare:
+const [user, pixels] = await Promise.all([
+  fetchUser(userId),
+  fetchPixels(coords)
+]);
+// Totale: max(37s, 10s) = 37s (risparmio 10s)
 ```
 
-### Fase 3: Chunking Automatico Frontend per Operazioni >200 Pixel
+### 5. Chunking Frontend Automatico per >300 Pixel
 
-**File: `src/hooks/useGameActions.ts`**
+Per operazioni molto grandi, dividere automaticamente in chunk da 150 pixel per:
+- Ridurre timeout risk
+- Mostrare progresso incrementale
+- Garantire completamento parziale in caso di errore
 
-Per operazioni molto grandi, dividere automaticamente in chunk sequenziali:
+**File:** `src/hooks/useGameActions.ts`
 
 ```typescript
 const MAX_CHUNK_SIZE = 150;
 
-// In validate() prima di chiamare l'API:
-if (deduplicatedPixels.length > MAX_CHUNK_SIZE) {
+if (pixels.length > MAX_CHUNK_SIZE * 2) {
   // Dividere in chunk e processare sequenzialmente
-  const chunks = [];
-  for (let i = 0; i < deduplicatedPixels.length; i += MAX_CHUNK_SIZE) {
-    chunks.push(deduplicatedPixels.slice(i, i + MAX_CHUNK_SIZE));
-  }
-  
-  let allValid = true;
-  let totalRequiredPe = 0;
-  
   for (let i = 0; i < chunks.length; i++) {
-    setProgress({ processed: i * MAX_CHUNK_SIZE, total: deduplicatedPixels.length });
-    
-    const chunkResult = await validateSingleChunk(chunks[i], ...);
-    if (!chunkResult?.ok) {
-      allValid = false;
-      break;
-    }
-    totalRequiredPe += chunkResult.requiredPeTotal;
+    setProgress({ chunk: i + 1, total: chunks.length });
+    await validateAndCommit(chunks[i]);
   }
-  
-  // Return combined result
-  return { ok: allValid, requiredPeTotal: totalRequiredPe, ... };
-}
-```
-
-### Fase 4: Warmup Database su Connessione Wallet
-
-**File: `src/hooks/useEdgeFunctionWarmup.ts`**
-
-Aggiungere un warmup più aggressivo che include DB ping:
-
-```typescript
-export async function warmupWithDatabase(token: string): Promise<void> {
-  // Warmup con query leggera al DB (1 sola chiamata parallela)
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  
-  const warmupBoth = CRITICAL_FUNCTIONS.map(async (fn) => {
-    try {
-      const response = await fetch(`${supabaseUrl}/functions/v1/${fn}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ mode: 'PING', warmDb: true }),
-      });
-      
-      const data = await response.json();
-      console.debug(`[warmup] ${fn} ready (auth=${data.authMs}ms, db=${data.dbMs}ms)`);
-    } catch {}
-  });
-  
-  await Promise.all(warmupBoth);
 }
 ```
 
@@ -141,28 +134,36 @@ export async function warmupWithDatabase(token: string): Promise<void> {
 
 | File | Modifica |
 |------|----------|
-| `supabase/functions/game-validate/index.ts` | PING mode con DB query warmup |
-| `supabase/functions/game-commit/index.ts` | PING mode con DB query warmup |
-| `src/hooks/useGameActions.ts` | Timeout aumentati + chunking automatico |
-| `src/hooks/useEdgeFunctionWarmup.ts` | Warmup include DB connection |
+| `src/hooks/useEdgeFunctionWarmup.ts` | Intervallo 3 min + warmup autenticato |
+| `supabase/functions/game-validate/index.ts` | Creare client prima del PING + query parallele |
+| `supabase/functions/game-commit/index.ts` | Stessa ottimizzazione client |
+| `src/hooks/useGameActions.ts` | Pre-warmup + chunking per >300 pixel |
 
 ---
 
-## Prestazioni Attese Post-Fix
+## Prestazioni Attese
 
 | Scenario | Prima | Dopo |
 |----------|-------|------|
-| Validate 500px (cold) | 48+ secondi | 5-10 secondi |
-| Validate 500px (warm) | 5-10 secondi | 2-5 secondi |
-| Commit 500px | 20-40 secondi | 15-25 secondi |
-| Success rate 500px | ~50% | >95% |
+| Validate 500px (cold) | 48 sec | 35-40 sec |
+| Validate 500px (warm) | 10-15 sec | 5-8 sec |
+| Commit 500px | 22 sec | 15-18 sec |
+| **Totale operazione (warm)** | ~70 sec | ~25-30 sec |
+
+### Nota Importante
+
+Il cold start del database Postgres (35+ secondi) è una limitazione dell'infrastruttura Lovable Cloud che non può essere completamente eliminata. Le ottimizzazioni proposte mirano a:
+
+1. **Prevenire** il cold start con warmup più frequenti
+2. **Mascherare** il cold start facendolo avvenire durante la selezione dei pixel
+3. **Ridurre** il tempo percepito con query parallele
 
 ---
 
 ## Test di Verifica
 
-1. Connettere wallet → verificare nei log che PING mostra `dbMs` < 500ms
-2. Attendere 5 minuti (cold start forzato) → disegnare 500 pixel
-3. Verificare che validate completi in <15 secondi
-4. Verificare che commit completi senza timeout
-5. Verificare che tutti i 500 pixel siano visibili sulla mappa
+1. Ricollegare il wallet e verificare che il warmup mostri `db < 500ms`
+2. Attendere 5 minuti, poi disegnare 300 pixel
+3. Verificare che validate + commit completino in < 30 secondi (scenario warm)
+4. Testare con 500 pixel per verificare il chunking automatico
+
