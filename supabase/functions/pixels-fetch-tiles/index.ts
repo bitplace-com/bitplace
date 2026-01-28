@@ -63,21 +63,34 @@ Deno.serve(async (req) => {
     const tileXValues = [...new Set(tiles.map(t => t.tx))];
     const tileYValues = [...new Set(tiles.map(t => t.ty))];
 
-    // Use the RPC function to fetch pixels by tile coordinates
-    const { data, error } = await supabase.rpc('get_pixels_by_tiles', {
-      tile_x_list: tileXValues,
-      tile_y_list: tileYValues,
-    });
+    // Fetch all pixels using pagination (bypass 1000 row limit)
+    const FETCH_PAGE_SIZE = 1000;
+    let allPixels: PixelRow[] = [];
+    let offset = 0;
+    let hasMore = true;
 
-    if (error) {
-      console.error("RPC error:", error);
-      return new Response(
-        JSON.stringify({ error: error.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('pixels')
+        .select('id, x, y, color, tile_x, tile_y')
+        .in('tile_x', tileXValues)
+        .in('tile_y', tileYValues)
+        .range(offset, offset + FETCH_PAGE_SIZE - 1);
+
+      if (error) {
+        console.error("Query error at offset", offset, ":", error);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      allPixels = allPixels.concat((data || []) as PixelRow[]);
+      hasMore = (data?.length || 0) === FETCH_PAGE_SIZE;
+      offset += FETCH_PAGE_SIZE;
     }
 
-    const pixels = (data || []) as PixelRow[];
+    const pixels = allPixels;
 
     // Create set of requested tile keys for fast lookup
     const requestedTileKeys = new Set(tiles.map(t => `${t.tx}:${t.ty}`));
