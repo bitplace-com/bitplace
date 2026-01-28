@@ -1,158 +1,98 @@
 
-# Piano di Correzione: Operazioni Paint 300+ Pixel
 
-## Problemi Identificati
+# Piano di Correzione: Pixel Non Visibili sulla Mappa
 
-### 1. Query Validate Lentissima (47+ secondi per 320 pixel)
-I log mostrano:
-- `fetchPixelsByCoords: starting for 320 pixels`
-- `fetchPixelsByCoords: built 320 conditions` 
-- `fetchPixelsByCoords: found 0 in 47480ms` (47 secondi!)
+## Problema Identificato
 
-**Causa**: Il client Supabase costruisce una stringa `.or()` con 320 condizioni. Il parsing/interpolazione lato client diventa esponenzialmente lento. La query SQL effettiva sarebbe veloce (~1ms), ma non viene mai raggiunta.
+I pixel vengono salvati correttamente nel database (340 pixel, confermato) ma non vengono visualizzati sulla mappa dopo il refresh.
 
-### 2. Upsert Batch Lenti (15-27 secondi per 100 pixel)
-I log mostrano:
-- `PAINT batch 1/4 completed: 100 pixels` (dopo ~27s)
-- `PAINT batch 2/4 completed: 100 pixels` (dopo ~27s)
-- `PAINT: all batches completed in 134580ms` (2+ minuti!)
+### Causa Radice
 
-### 3. Connessione Chiusa Prima del Completamento
-```
-Http: connection closed before message completed
-```
-Il client HTTP (frontend) chiude la connessione prima che il commit finisca perché supera il timeout.
+**Il limite predefinito di 1000 righe del Supabase API sta troncando i risultati:**
 
-### 4. Inconsistenza Pixel Paintati
-L'utente vede 300 pixel validati ma solo ~50 effettivamente paintati. Questo accade quando la connessione si chiude a metà dei batch.
+| Verificato | Valore |
+|------------|--------|
+| Pixel nel database (tile 2201:1495) | 2099 |
+| Pixel restituiti dalla Edge Function | 1000 (troncati) |
+| Pixel mancanti | 1099 |
+
+La chiamata RPC `get_pixels_by_tiles` in `pixels-fetch-tiles` non specifica un limite, quindi PostgREST applica il limite predefinito di 1000 righe.
 
 ---
 
-## Soluzione Proposta
+## Soluzione: Fetch Paginato con Loop
 
-### Fase 1: Ottimizzare la Query di Validate
+Modificare `pixels-fetch-tiles` per richiedere tutti i pixel usando paginazione:
 
-**File: `supabase/functions/game-validate/index.ts`**
-
-Sostituire la query `.or(conditions)` con la funzione RPC `fetch_pixels_by_coords` che già esiste e funziona:
+### File: `supabase/functions/pixels-fetch-tiles/index.ts`
 
 ```typescript
-async function fetchPixelsByCoords(supabase, pixels) {
-  if (pixels.length === 0) return [];
-  
-  const startTime = Date.now();
-  console.log(`[game-validate] fetchPixelsByCoords: starting for ${pixels.length} pixels`);
-  
-  // Usare la funzione RPC esistente con JSONB
-  const coords = pixels.map(p => ({ 
-    x: Math.floor(p.x), 
-    y: Math.floor(p.y) 
-  }));
-  
-  const { data, error } = await supabase.rpc("fetch_pixels_by_coords", { 
-    coords: coords 
-  });
-  
+// Fetch all pixels using pagination (bypass 1000 row limit)
+const FETCH_PAGE_SIZE = 1000;
+let allPixels: PixelRow[] = [];
+let offset = 0;
+let hasMore = true;
+
+while (hasMore) {
+  const { data, error } = await supabase
+    .from('pixels')
+    .select('id, x, y, color, tile_x, tile_y')
+    .in('tile_x', tileXValues)
+    .in('tile_y', tileYValues)
+    .range(offset, offset + FETCH_PAGE_SIZE - 1);
+
   if (error) {
-    console.error('[game-validate] fetchPixelsByCoords error:', error);
+    console.error("Query error:", error);
     throw error;
   }
-  
-  console.log(`[game-validate] fetchPixelsByCoords: found ${(data || []).length} in ${Date.now() - startTime}ms`);
-  return data || [];
+
+  allPixels = allPixels.concat(data || []);
+  hasMore = (data?.length || 0) === FETCH_PAGE_SIZE;
+  offset += FETCH_PAGE_SIZE;
 }
+
+const pixels = allPixels as PixelRow[];
 ```
 
-### Fase 2: Batch Upsert in Parallelo con Limite
+### Vantaggi
 
-**File: `supabase/functions/game-commit/index.ts`**
-
-Eseguire i batch in parallelo (con limite di concorrenza) invece che sequenzialmente:
-
-```typescript
-const UPSERT_BATCH_SIZE = 50;  // Ridurre da 100 a 50
-const MAX_PARALLEL_BATCHES = 3; // Max 3 batch in parallelo
-
-// Dividere in batch
-const batches = [];
-for (let i = 0; i < upsertData.length; i += UPSERT_BATCH_SIZE) {
-  batches.push(upsertData.slice(i, i + UPSERT_BATCH_SIZE));
-}
-
-// Eseguire batch in parallelo con limite
-const results = [];
-for (let i = 0; i < batches.length; i += MAX_PARALLEL_BATCHES) {
-  const parallelBatches = batches.slice(i, i + MAX_PARALLEL_BATCHES);
-  const batchResults = await Promise.all(
-    parallelBatches.map(batch => 
-      supabase.from("pixels").upsert(batch, { onConflict: 'x,y' }).select(...)
-    )
-  );
-  results.push(...batchResults);
-}
-```
-
-### Fase 3: Verifica Consistenza PE e Pixel
-
-La verifica ha mostrato che l'accounting PE è corretto:
-- `pe_used_pe = 1891`
-- `pixels_painted_total = 1891`  
-- Count reale pixel: `1891`
-
-Il problema non è nell'accounting ma nell'interruzione a metà. Il database applica correttamente i trigger.
-
-### Fase 4: Chunking delle Operazioni
-
-Per operazioni >200 pixel, dividere lato frontend in chunk da 150 pixel ciascuno:
-
-**File: `src/hooks/useGameActions.ts`**
-
-```typescript
-const MAX_CHUNK_SIZE = 150;
-
-if (deduplicatedPixels.length > MAX_CHUNK_SIZE) {
-  // Dividere in chunk e processare sequenzialmente
-  const chunks = [];
-  for (let i = 0; i < deduplicatedPixels.length; i += MAX_CHUNK_SIZE) {
-    chunks.push(deduplicatedPixels.slice(i, i + MAX_CHUNK_SIZE));
-  }
-  
-  // Processare ogni chunk
-  for (const chunk of chunks) {
-    const validateResult = await validate({ ...params, pixels: chunk });
-    if (!validateResult?.ok) break;
-    const commitResult = await commit({ ...params, pixels: chunk, snapshotHash: validateResult.snapshotHash });
-    if (!commitResult?.ok) break;
-  }
-}
-```
+| Aspetto | Prima | Dopo |
+|---------|-------|------|
+| Pixel per tile | Max 1000 | Illimitati |
+| Query method | RPC call | Direct select con `.in()` |
+| Paginazione | Nessuna | Automatica |
 
 ---
 
-## Tabella Riepilogo Modifiche
+## Alternativa: Suddivisione Tile Più Piccoli
+
+Se le performance diventano un problema con tile molto densi (>5000 pixel), possiamo:
+
+1. Ridurre `DATA_TILE_SIZE` da 512 a 256 in `lib/pixelGrid.ts`
+2. Questo riduce i pixel per tile (~4x meno dati per tile)
+3. Ma aumenta il numero di richieste HTTP
+
+Questa è un'ottimizzazione futura da valutare in base all'uso effettivo.
+
+---
+
+## File da Modificare
 
 | File | Modifica |
 |------|----------|
-| `supabase/functions/game-validate/index.ts` | Sostituire `.or()` con RPC `fetch_pixels_by_coords` |
-| `supabase/functions/game-commit/index.ts` | Batch paralleli + dimensione ridotta (50) |
-| `src/hooks/useGameActions.ts` | Chunking frontend per operazioni >200 pixel |
+| `supabase/functions/pixels-fetch-tiles/index.ts` | Sostituire RPC con query paginata |
 
 ---
 
-## Prestazioni Attese
+## Impatto Prestazionale
 
-| Operazione | Prima | Dopo |
-|------------|-------|------|
-| Validate 320 pixel | 47+ secondi | < 3 secondi |
-| Commit 325 pixel | 134+ secondi | < 15 secondi |
-| Successo operazioni grandi | ~15% | ~95% |
-
----
+- **Prima**: 1 query RPC, max 1000 righe
+- **Dopo**: N query paginate (N = ceil(pixel_count / 1000))
+- Per 2099 pixel: 3 query invece di 1, ma nessun dato troncato
 
 ## Test di Verifica
 
-1. Disegnare esattamente 300 pixel e verificare che validate completi in meno di 5 secondi
-2. Confermare i 300 pixel e verificare che commit completi in meno di 20 secondi
-3. Verificare che tutti i 300 pixel siano stati effettivamente paintati
-4. Verificare che `pe_used_pe` corrisponda al numero di pixel paintati
-5. Testare con 400+ pixel per verificare il chunking automatico
+1. Ricaricare la mappa sulla stessa area dove sono stati disegnati i 340 pixel
+2. Verificare che tutti i pixel siano visibili (colore `#60f7f2`)
+3. Verificare nei log che `pixelCount` restituito sia 2099 (tutti i pixel del tile)
+
