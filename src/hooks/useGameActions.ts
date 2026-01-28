@@ -97,13 +97,16 @@ const MAX_RETRIES = 0;           // No auto-retry for small ops - let user manua
 const INITIAL_DELAY_MS = 2000;
 const MIN_PIXELS_FOR_STREAMING = 50;
 const MAX_STREAM_RETRIES = 1;    // At most 1 retry for cold start
-// PROMPT 53: Base timeout, increased dynamically for large operations
+// PROMPT 57: Increased timeouts for large operations (cold start can add 30-50s)
 const BASE_TIMEOUT_MS = 45000; // 45s base timeout
+
+// PROMPT 57: Chunking for very large operations to prevent timeout
+const MAX_CHUNK_SIZE = 200; // Max pixels per chunk for sequential processing
 
 // Calculate dynamic timeout based on pixel count
 function getTimeoutForPixelCount(count: number): number {
-  if (count >= 500) return 180000; // 180s for 500 pixels (batch processing)
-  if (count >= 400) return 150000; // 150s for 400+ pixels
+  if (count >= 500) return 240000; // 240s (4 min) for 500 pixels
+  if (count >= 400) return 180000; // 180s (3 min) for 400+ pixels
   if (count >= 200) return 120000; // 120s for 200+ pixels
   if (count >= 100) return 90000;  // 90s for 100+ pixels
   return BASE_TIMEOUT_MS;          // 45s for smaller operations

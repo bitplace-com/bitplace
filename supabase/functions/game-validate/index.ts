@@ -1014,14 +1014,24 @@ Deno.serve(async (req) => {
 
     const body: ValidateRequest = await req.json();
 
-    // === PING MODE: Fast auth-path warmup (no DB queries) ===
+    // === PING MODE: Full warmup including DB connection pool ===
     if (body.mode === "PING") {
-      console.log(`[game-validate] PING from ${userId} - auth path warmed in ${authMs}ms`);
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
+      // Warm up database connection pool with lightweight query
+      const dbStart = Date.now();
+      await supabase.from("users").select("id").limit(1);
+      const dbMs = Date.now() - dbStart;
+      
+      console.log(`[game-validate] PING from ${userId} - warmed (auth=${authMs}ms, db=${dbMs}ms)`);
       return new Response(JSON.stringify({ 
         ok: true, 
         warm: true, 
         ts: Date.now(),
         authMs,
+        dbMs,
         requestId 
       }), {
         status: 200,

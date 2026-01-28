@@ -13,7 +13,8 @@ const isDebug = () =>
 
 /**
  * Warm up edge functions with an authenticated PING request.
- * This primes the JWT verification code path for faster first requests.
+ * PROMPT 57: Now includes DB connection pool warmup to prevent cold start delays.
+ * This primes both JWT verification AND database connection for faster first requests.
  */
 export async function warmupAuthenticatedFunctions(token: string): Promise<void> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -28,13 +29,14 @@ export async function warmupAuthenticatedFunctions(token: string): Promise<void>
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
+        // PING mode now warms up DB connection pool too
         body: JSON.stringify({ mode: 'PING' }),
       });
       
       if (response.ok) {
         const data = await response.json();
         if (isDebug()) {
-          console.debug(`[warmup] ${fn} PING ready (authMs: ${data.authMs}ms)`);
+          console.debug(`[warmup] ${fn} PING ready (auth=${data.authMs}ms, db=${data.dbMs}ms)`);
         }
       } else {
         if (isDebug()) {
