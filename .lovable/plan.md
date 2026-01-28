@@ -1,122 +1,114 @@
 
-
-# Fix: Bilancio PE Mostra Solo 1000 Pixel (Limite Supabase)
+# Fix: PE Used Returns 0 Instead of 3631
 
 ## Problema Identificato
 
-L'edge function `energy-refresh` calcola manualmente `owner_used` con:
+I log mostrano chiaramente il bug:
 
-```typescript
-const { data: ownedPixels } = await supabase
-  .from("pixels")
-  .select("owner_stake_pe")
-  .eq("owner_user_id", userId);
-
-const ownerUsed = (ownedPixels || []).reduce(...);
+```
+[energy-refresh] User ...: pe_total=15089, owner_used=3631, contrib_used=0
+[energy-refresh] Final PE status: total=15089, used=0, available=15089
 ```
 
-**Ma Supabase ha un limite di 1000 righe per query!** Quindi con 3631 pixel, ritorna solo 1000.
+**Causa**: Il codice accede al campo sbagliato nel risultato dell'aggregate Supabase.
 
-| Campo | Database Reale | Edge Function Calcola |
-|-------|----------------|----------------------|
-| Pixels owned | 3631 | 1000 (limite!) |
-| PE used | 3631 | 1000 |
+```typescript
+// SBAGLIATO - Supabase restituisce il valore con il nome della colonna
+const finalPixelStakeTotal = Number(finalStakeSum.data?.sum) || 0;  // → 0
+
+// CORRETTO - Il campo si chiama come la colonna
+const finalPixelStakeTotal = Number(finalStakeSum.data?.owner_stake_pe) || 0;  // → 3631
+```
+
+## Database Verificato ✅
+
+| Campo | Valore |
+|-------|--------|
+| `users.pe_used_pe` | 3631 |
+| `SUM(pixels.owner_stake_pe)` | 3631 |
 
 ## Soluzione
 
-La tabella `users` ha già un campo `pe_used_pe` mantenuto automaticamente dai trigger del database. L'edge function deve usare questo valore invece di ricalcolare manualmente.
+Poiché `pe_used_pe` è già calcolato dai trigger del database ed è sempre accurato, la soluzione più semplice è usare quel valore direttamente invece di ricalcolare con aggregate.
 
 ### Modifiche a `supabase/functions/energy-refresh/index.ts`
 
-**1. Aggiungere `pe_used_pe` alla SELECT iniziale dell'utente (riga 238):**
+**1. Path rate-limited (righe 280-285):**
 
 ```typescript
-// PRIMA
-.select("id, wallet_address, native_balance, usd_price, wallet_usd, pe_total_pe, ...")
-
-// DOPO
-.select("id, wallet_address, native_balance, usd_price, wallet_usd, pe_total_pe, pe_used_pe, ...")
-```
-
-**2. Per il path rate-limited (stale), usare `pe_used_pe` + COUNT per pixelsOwned:**
-
-```typescript
-// PRIMA (riga 268-288): Query con limite 1000
-const { data: pixelStakes } = await supabase
-  .from("pixels")
-  .select("owner_stake_pe")
-  .eq("owner_user_id", userId);
-
-const pixelStakeTotal = (pixelStakes || []).reduce(...);
-const peUsed = pixelStakeTotal + contribTotal;
-
-// DOPO: Usare dati pre-calcolati dal trigger
+// PRIMA (sbagliato):
+const pixelStakeTotal = Number(stakeSumResult.data?.sum) || 0;
 const peUsed = Number(userData.pe_used_pe) || 0;
 
-// Per pixelsOwned, usare COUNT invece di length
-const { count: pixelCount } = await supabase
-  .from("pixels")
-  .select("*", { count: "exact", head: true })
-  .eq("owner_user_id", userId);
-
-const pixelsOwned = pixelCount || 0;
+// DOPO: Usare pe_used_pe come fonte unica di verità
+const peUsed = Number(userData.pe_used_pe) || 0;
+const pixelStakeTotal = peUsed; // pe_used_pe = owner_stake + contributions
 ```
 
-**3. Per il path principale (fresh), stessa correzione (riga 348-355):**
+**2. Path principale (righe 459-464):**
 
 ```typescript
-// PRIMA
-const { data: ownedPixels } = await supabase
-  .from("pixels")
-  .select("owner_stake_pe")
-  .eq("owner_user_id", userId);
+// PRIMA (sbagliato):
+const finalPixelStakeTotal = Number(finalStakeSum.data?.sum) || 0;
+const finalContribUsed = Number(finalContribSum.data?.sum) || 0;
+const peUsed = finalPixelStakeTotal + finalContribUsed;
 
-const ownerUsed = (ownedPixels || []).reduce(...);
-
-// DOPO: Usare pe_used_pe dal record utente + COUNT separato
-// (pe_used_pe include già owner stake + contributions da trigger)
-
-const { count: pixelCount } = await supabase
-  .from("pixels")
-  .select("*", { count: "exact", head: true })
-  .eq("owner_user_id", userId);
-
-// Per le contribuzioni, servono ancora perché NON sono in pe_used_pe
-const { data: userContribs } = await supabase
-  .from("pixel_contributions")
-  .select("amount_pe")
-  .eq("user_id", userId);
-
-const contribUsed = (userContribs || []).reduce(...);
-
-// Calcolare ownerUsed come differenza
-const peUsedFromDb = Number(userData.pe_used_pe) || 0;
-const ownerUsed = peUsedFromDb - contribUsed; // owner_stake = pe_used - contributions
-```
-
-**4. Aggiornare anche la response con pixelStakeTotal corretto:**
-
-```typescript
-// Usare SUM aggregato per pixelStakeTotal
-const { data: stakeSum } = await supabase
-  .from("pixels")
-  .select("owner_stake_pe.sum()")
-  .eq("owner_user_id", userId)
+// DOPO: Riutilizzare pe_used_pe già calcolato + fetched da DB
+// Nota: pe_used_pe viene aggiornato atomicamente dai trigger
+const { data: freshUserData } = await supabase
+  .from("users")
+  .select("pe_used_pe")
+  .eq("id", userId)
   .single();
 
-const pixelStakeTotal = Number(stakeSum?.sum) || 0;
+const peUsed = Number(freshUserData?.pe_used_pe) || 0;
+const peAvailable = Math.max(0, peTotal - peUsed);
+
+// Per pixelStakeTotal, usare owner_stake separato (pe_used - contrib)
+// Oppure più semplice: usare il valore già calcolato ownerUsed
+const finalPixelStakeTotal = ownerUsed; // già calcolato a riga 359
 ```
 
-## Riepilogo Cambiamenti
+**3. Alternativa più pulita - Correggere l'accesso ai campi aggregate:**
 
-| File | Modifica |
-|------|----------|
-| `supabase/functions/energy-refresh/index.ts` | Usare `pe_used_pe` da users + `COUNT(*)` per pixelsOwned + `SUM()` per pixelStakeTotal |
+Se vogliamo mantenere le query aggregate, correggere i nomi dei campi:
+
+```typescript
+// Riga 281:
+const pixelStakeTotal = Number(stakeSumResult.data?.owner_stake_pe) || 0;
+
+// Riga 460:
+const finalPixelStakeTotal = Number(finalStakeSum.data?.owner_stake_pe) || 0;
+
+// Riga 461:
+const finalContribUsed = Number(finalContribSum.data?.amount_pe) || 0;
+```
+
+## Approccio Raccomandato
+
+Usare `pe_used_pe` dalla tabella users come fonte unica di verità:
+- È sempre aggiornato atomicamente dai trigger
+- Bypassa completamente il problema dei nomi aggregate
+- Evita query duplicate al database
+- Più semplice da mantenere
+
+## Riepilogo Modifiche
+
+| File | Linee | Modifica |
+|------|-------|----------|
+| `supabase/functions/energy-refresh/index.ts` | 280-285 | Usare `pe_used_pe` invece di `stakeSumResult.data?.sum` |
+| `supabase/functions/energy-refresh/index.ts` | 459-464 | Usare `pe_used_pe` invece di aggregate queries |
+
+## Risultato Atteso
+
+Dopo il fix:
+- StatusStrip: `⚡ 11,458` (15,089 - 3,631)
+- UserMenuPanel: Total Staked = 3,631, Available = 11,458
+- Entrambi sincronizzati con lo stesso valore
 
 ## Test di Verifica
 
 1. Ricaricare la pagina dopo il deploy
-2. Verificare che StatusStrip mostri **3631** pixels owned
-3. Verificare che UserMenuPanel mostri gli stessi valori
-4. Verificare che PE Available = PE Total - 3631
-
+2. Verificare StatusStrip: PE Available ≈ 11,458 (non 15,089)
+3. Verificare UserMenuPanel: Total Staked = 3,631, Available ≈ 11,458
+4. Dipingere 10 pixel → verificare che entrambi si aggiornino
