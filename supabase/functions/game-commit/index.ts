@@ -454,9 +454,9 @@ async function executeCommit(
 
     onProgress?.(Math.floor(total * 0.5), total);
 
-    // Batch upsert with parallel processing - 50 pixels per batch, 3 batches in parallel
-    const UPSERT_BATCH_SIZE = 50;
-    const MAX_PARALLEL_BATCHES = 3;
+    // PROMPT 59: Optimized batch upsert - increased batch size and parallelism
+    const UPSERT_BATCH_SIZE = 100;  // Was 50
+    const MAX_PARALLEL_BATCHES = 5;  // Was 3
     const allUpsertedPixels: Array<{ x: number; y: number; color: string; owner_user_id: string; owner_stake_pe: number; def_total: number; atk_total: number }> = [];
     
     console.log(`[game-commit] PAINT: upserting ${upsertData.length} pixels (batch=${UPSERT_BATCH_SIZE}, parallel=${MAX_PARALLEL_BATCHES})`);
@@ -475,16 +475,17 @@ async function executeCommit(
       const batchStartNum = i + 1;
       
       // Execute parallel batches
+      // PROMPT 59: Skip .select() to save ~50% DB time per batch - reconstruct from input
       const batchResults = await Promise.all(
         parallelBatches.map(async (batch, idx) => {
           const batchNum = batchStartNum + idx;
-          const { data: batchUpserted, error: batchError } = await supabase
+          const { error: batchError } = await supabase
             .from("pixels")
             .upsert(batch, { 
               onConflict: 'x,y',
               ignoreDuplicates: false 
-            })
-            .select("id, x, y, color, owner_user_id, owner_stake_pe, def_total, atk_total");
+            });
+            // Removed .select() - reconstruct changedPixels from input data
 
           if (batchError) {
             console.error(`[game-commit] PAINT batch ${batchNum}/${totalBatches} error:`, batchError);
@@ -492,21 +493,23 @@ async function executeCommit(
           }
           
           console.log(`[game-commit] PAINT batch ${batchNum}/${totalBatches} completed: ${batch.length} pixels`);
-          return batchUpserted || [];
+          
+          // Reconstruct result from input data (we know exactly what was upserted)
+          return batch.map(p => ({
+            x: p.x,
+            y: p.y,
+            color: p.color,
+            owner_user_id: p.owner_user_id,
+            owner_stake_pe: p.owner_stake_pe,
+            def_total: 0,  // Reset to 0 for newly painted/taken pixels
+            atk_total: 0,
+          }));
         })
       );
       
       // Collect results
       for (const batchUpserted of batchResults) {
-        allUpsertedPixels.push(...batchUpserted.map((p: { x: number; y: number; color: string; owner_user_id: string; owner_stake_pe: number; def_total: number; atk_total: number }) => ({
-          x: Number(p.x),
-          y: Number(p.y),
-          color: p.color,
-          owner_user_id: p.owner_user_id,
-          owner_stake_pe: Number(p.owner_stake_pe) || 0,
-          def_total: Number(p.def_total) || 0,
-          atk_total: Number(p.atk_total) || 0,
-        })));
+        allUpsertedPixels.push(...batchUpserted);
       }
       
       // Report progress

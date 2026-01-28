@@ -192,11 +192,16 @@ async function invokeWithRetry<T>(
       console.log(`[invokeWithRetry] Retry attempt ${attempt} after ${delay}ms - warming up first...`);
       
       // PROMPT 58: On retry, send PING first to warm up cold database
+      // PROMPT 59: Add 10s timeout to prevent PING from hanging indefinitely
       try {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const apiKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const pingController = new AbortController();
+        const pingTimeout = setTimeout(() => pingController.abort(), 10000); // 10s max
+        
         await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
           method: 'POST',
+          signal: pingController.signal,
           headers: {
             ...options.headers,
             'Content-Type': 'application/json',
@@ -204,6 +209,7 @@ async function invokeWithRetry<T>(
           },
           body: JSON.stringify({ mode: 'PING' }),
         });
+        clearTimeout(pingTimeout);
         console.log(`[invokeWithRetry] PING warmup sent before retry`);
       } catch {
         // Ignore PING errors - it's just a warmup attempt
@@ -373,14 +379,20 @@ export function useGameActions() {
       }
 
       if (error) {
-        const isNetwork = error instanceof FunctionsFetchError;
+        // PROMPT 59: Improved network error detection for raw fetch errors
+        const errorMessage = error.message?.toLowerCase() || '';
+        const isNetworkError = 
+          error instanceof FunctionsFetchError ||
+          errorMessage.includes('failed to fetch') ||
+          errorMessage.includes('network') ||
+          errorMessage.includes('connection');
         const isTimeout = isTimeoutError(error);
         setLastError({
-          code: isTimeout ? 'TIMEOUT' : isNetwork ? 'NETWORK_ERROR' : 'REQUEST_FAILED',
+          code: isTimeout ? 'TIMEOUT' : isNetworkError ? 'NETWORK_ERROR' : 'REQUEST_FAILED',
           message: isTimeout 
             ? 'Request timed out. The server may be busy.'
-            : isNetwork 
-              ? 'Network error. Please check your connection.'
+            : isNetworkError 
+              ? 'Network error. Please check your connection and retry.'
               : error.message || 'Validation failed',
           canRetry: true,
         });
@@ -527,14 +539,20 @@ export function useGameActions() {
       }
 
       if (error) {
-        const isNetwork = error instanceof FunctionsFetchError;
+        // PROMPT 59: Improved network error detection for raw fetch errors
+        const errorMessage = error.message?.toLowerCase() || '';
+        const isNetworkError = 
+          error instanceof FunctionsFetchError ||
+          errorMessage.includes('failed to fetch') ||
+          errorMessage.includes('network') ||
+          errorMessage.includes('connection');
         const isTimeout = isTimeoutError(error);
         setLastError({
-          code: isTimeout ? 'TIMEOUT' : isNetwork ? 'NETWORK_ERROR' : 'COMMIT_FAILED',
+          code: isTimeout ? 'TIMEOUT' : isNetworkError ? 'NETWORK_ERROR' : 'COMMIT_FAILED',
           message: isTimeout 
             ? 'Request timed out. The server may be busy.'
-            : isNetwork 
-              ? 'Network error. Please check your connection.'
+            : isNetworkError 
+              ? 'Network error. Please check your connection and retry.'
               : (typeof error.message === 'string' ? error.message : JSON.stringify(error.message)) || 'Commit failed',
           canRetry: true,
         });
