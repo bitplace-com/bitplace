@@ -55,6 +55,9 @@ interface EnergyState {
   peTotal: number;
   peUsed: number;
   peAvailable: number;
+  // Pixel ownership stats (from server)
+  pixelsOwned: number;
+  pixelStakeTotal: number;
   cluster: 'mainnet' | 'devnet' | null;
   lastSyncAt: Date | null;
   isRefreshing: boolean;
@@ -150,6 +153,8 @@ const defaultEnergyState: EnergyState = {
   peTotal: 0,
   peUsed: 0,
   peAvailable: 0,
+  pixelsOwned: 0,
+  pixelStakeTotal: 0,
   cluster: null,
   lastSyncAt: null,
   isRefreshing: false,
@@ -279,6 +284,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       peTotal: Number(userData.pe_total_pe) || prev.peTotal,
       peUsed: prev.peUsed,
       peAvailable: prev.peAvailable,
+      pixelsOwned: prev.pixelsOwned,
+      pixelStakeTotal: prev.pixelStakeTotal,
       cluster: (userData.sol_cluster as 'mainnet' | 'devnet') || prev.cluster,
       lastSyncAt,
       isRefreshing: false,
@@ -371,6 +378,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         peTotal: data.peTotal || 0,
         peUsed,
         peAvailable,
+        pixelsOwned: data.pixelsOwned ?? 0,
+        pixelStakeTotal: data.pixelStakeTotal ?? 0,
         cluster: data.cluster || null,
         lastSyncAt,
         isRefreshing: false,
@@ -428,6 +437,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           peTotal: data.peTotal || 0,
           peUsed,
           peAvailable,
+          pixelsOwned: data.pixelsOwned ?? 0,
+          pixelStakeTotal: data.pixelStakeTotal ?? 0,
           cluster: data.cluster || null,
           lastSyncAt,
           isRefreshing: false,
