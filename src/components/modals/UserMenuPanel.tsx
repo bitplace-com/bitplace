@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useWallet } from "@/contexts/WalletContext";
-import { usePixelStats } from "@/hooks/usePixelStats";
 import { useSound } from "@/hooks/useSound";
 import { getCountryByCode } from "@/lib/countries";
 import { generateAvatarGradient, getAvatarInitial } from "@/lib/avatar";
@@ -41,7 +40,6 @@ function formatRelativeTime(date: Date | null): string {
 
 export function UserMenuPanel({ children }: UserMenuPanelProps) {
   const { user, walletAddress, disconnect, energy } = useWallet();
-  const pixelStats = usePixelStats(user?.id);
   const [copied, setCopied] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
@@ -51,10 +49,6 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
   const country = getCountryByCode(user?.country_code);
   const avatarGradient = generateAvatarGradient(walletAddress || "default");
   const avatarInitial = getAvatarInitial(user?.display_name, walletAddress);
-
-  // Calculate PE Available = PE Total - PE Used (staked + defending + attacking)
-  const peUsed = pixelStats.totalStaked + pixelStats.totalDefending + pixelStats.totalAttacking;
-  const peAvailable = Math.max(0, energy.peTotal - peUsed);
 
   const handleCopyAddress = async () => {
     if (walletAddress) {
@@ -155,7 +149,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               Pixels Owned
             </p>
             <p className="text-sm font-semibold text-foreground">
-              {pixelStats.pixelsOwned.toLocaleString()}
+              {energy.pixelsOwned.toLocaleString()}
             </p>
           </div>
           <div className="p-2.5 rounded-xl bg-accent border border-border">
@@ -163,7 +157,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               Total Staked
             </p>
             <p className="text-sm font-semibold text-foreground">
-              {pixelStats.totalStaked.toLocaleString()}
+              {energy.pixelStakeTotal.toLocaleString()}
             </p>
           </div>
           <div className="p-2.5 rounded-xl bg-accent border border-border">
@@ -179,7 +173,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               <PEIcon size="xs" /> Available
             </p>
             <p className="text-sm font-semibold text-foreground tabular-nums">
-              {peAvailable.toLocaleString()}
+              {energy.peAvailable.toLocaleString()}
             </p>
           </div>
         </div>

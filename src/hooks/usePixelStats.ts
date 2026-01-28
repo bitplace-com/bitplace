@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface PixelStats {
@@ -9,7 +9,11 @@ interface PixelStats {
   isLoading: boolean;
 }
 
-export function usePixelStats(userId: string | undefined): PixelStats {
+interface UsePixelStatsReturn extends PixelStats {
+  refetch: () => void;
+}
+
+export function usePixelStats(userId: string | undefined): UsePixelStatsReturn {
   const [stats, setStats] = useState<PixelStats>({
     pixelsOwned: 0,
     totalStaked: 0,
@@ -18,58 +22,60 @@ export function usePixelStats(userId: string | undefined): PixelStats {
     isLoading: true,
   });
 
-  useEffect(() => {
+  const fetchStats = useCallback(async () => {
     if (!userId) {
       setStats(prev => ({ ...prev, isLoading: false }));
       return;
     }
 
-    const fetchStats = async () => {
-      try {
-        // Query pixels owned
-        const { data: owned, error: ownedError } = await supabase
-          .from("pixels")
-          .select("id, owner_stake_pe")
-          .eq("owner_user_id", userId);
+    setStats(prev => ({ ...prev, isLoading: true }));
 
-        if (ownedError) {
-          console.error("Error fetching owned pixels:", ownedError);
-        }
+    try {
+      // Query pixels owned
+      const { data: owned, error: ownedError } = await supabase
+        .from("pixels")
+        .select("id, owner_stake_pe")
+        .eq("owner_user_id", userId);
 
-        // Query contributions
-        const { data: contribs, error: contribError } = await supabase
-          .from("pixel_contributions")
-          .select("side, amount_pe")
-          .eq("user_id", userId);
-
-        if (contribError) {
-          console.error("Error fetching contributions:", contribError);
-        }
-
-        const pixelsOwned = owned?.length || 0;
-        const totalStaked = owned?.reduce((s, p) => s + Number(p.owner_stake_pe || 0), 0) || 0;
-        const totalDefending = contribs
-          ?.filter(c => c.side === "DEF")
-          .reduce((s, c) => s + Number(c.amount_pe || 0), 0) || 0;
-        const totalAttacking = contribs
-          ?.filter(c => c.side === "ATK")
-          .reduce((s, c) => s + Number(c.amount_pe || 0), 0) || 0;
-
-        setStats({
-          pixelsOwned,
-          totalStaked,
-          totalDefending,
-          totalAttacking,
-          isLoading: false,
-        });
-      } catch (err) {
-        console.error("Error fetching pixel stats:", err);
-        setStats(prev => ({ ...prev, isLoading: false }));
+      if (ownedError) {
+        console.error("Error fetching owned pixels:", ownedError);
       }
-    };
 
-    fetchStats();
+      // Query contributions
+      const { data: contribs, error: contribError } = await supabase
+        .from("pixel_contributions")
+        .select("side, amount_pe")
+        .eq("user_id", userId);
+
+      if (contribError) {
+        console.error("Error fetching contributions:", contribError);
+      }
+
+      const pixelsOwned = owned?.length || 0;
+      const totalStaked = owned?.reduce((s, p) => s + Number(p.owner_stake_pe || 0), 0) || 0;
+      const totalDefending = contribs
+        ?.filter(c => c.side === "DEF")
+        .reduce((s, c) => s + Number(c.amount_pe || 0), 0) || 0;
+      const totalAttacking = contribs
+        ?.filter(c => c.side === "ATK")
+        .reduce((s, c) => s + Number(c.amount_pe || 0), 0) || 0;
+
+      setStats({
+        pixelsOwned,
+        totalStaked,
+        totalDefending,
+        totalAttacking,
+        isLoading: false,
+      });
+    } catch (err) {
+      console.error("Error fetching pixel stats:", err);
+      setStats(prev => ({ ...prev, isLoading: false }));
+    }
   }, [userId]);
 
-  return stats;
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  return { ...stats, refetch: fetchStats };
 }
