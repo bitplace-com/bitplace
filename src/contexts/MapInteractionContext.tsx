@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, type ReactNode } from 'react';
+import { triggerPredictiveWarmup } from '@/hooks/useEdgeFunctionWarmup';
 
 export type GameMode = 'PAINT' | 'ERASE' | 'DEFEND' | 'ATTACK' | 'REINFORCE';
 export type PaintTool = 'HAND' | 'PAINT_1X' | 'PAINT_2X2' | 'ERASER';
@@ -162,6 +163,14 @@ export function MapInteractionProvider({ children }: { children: ReactNode }) {
     }
     return getActionSelectionPixels();
   }, [currentMode, draftPaint.size, getDraftPixels, getActionSelectionPixels]);
+
+  // PROMPT 58: Trigger database warmup when entering PAINT mode
+  // This primes the DB connection pool BEFORE the user clicks validate
+  useEffect(() => {
+    if (currentMode === 'PAINT') {
+      triggerPredictiveWarmup();
+    }
+  }, [currentMode]);
 
   const value = useMemo<MapInteractionContextType>(() => ({
     // State
