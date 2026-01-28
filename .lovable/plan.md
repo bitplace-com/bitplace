@@ -1,114 +1,140 @@
 
-# Fix: PE Used Returns 0 Instead of 3631
+# Fix: Validate Silent Failure + Speed Optimization
 
-## Problema Identificato
+## Problems Identified
 
-I log mostrano chiaramente il bug:
+1. **Silent failure**: First validate for 500 pixels failed/timed out, returning to validate button without showing error
+2. **Slow validation**: 3-5 second delay due to database cold start, not actual processing
 
+## Root Cause Analysis
+
+From edge function logs:
 ```
-[energy-refresh] User ...: pe_total=15089, owner_used=3631, contrib_used=0
-[energy-refresh] Final PE status: total=15089, used=0, available=15089
+fetchUserMs: 3904ms  ← Database cold start (first query after idle)
+fetchPixelsMs: 3904ms ← Ran in parallel, same cold start
+computeMs: 1ms       ← Actual logic is instant
+totalMs: 3913ms
 ```
 
-**Causa**: Il codice accede al campo sbagliato nel risultato dell'aggregate Supabase.
+The database needs 3-5 seconds to "wake up" from idle state. Once warm, validation completes in ~1 second.
+
+---
+
+## Solution Overview
+
+### 1. Fix Silent Failure - Ensure Error Always Displays
+
+**File: `src/hooks/useGameActions.ts`**
+
+Add explicit error handling when validate returns unexpected null/undefined:
 
 ```typescript
-// SBAGLIATO - Supabase restituisce il valore con il nome della colonna
-const finalPixelStakeTotal = Number(finalStakeSum.data?.sum) || 0;  // → 0
-
-// CORRETTO - Il campo si chiama come la colonna
-const finalPixelStakeTotal = Number(finalStakeSum.data?.owner_stake_pe) || 0;  // → 3631
+// After line 393, add catch-all for unexpected response shapes:
+if (!data || (data as any).ok === undefined) {
+  setLastError({
+    code: 'INVALID_RESPONSE',
+    message: 'Server returned unexpected response. Please retry.',
+    canRetry: true,
+  });
+  return null;
+}
 ```
 
-## Database Verificato ✅
+### 2. Pre-Warm Database When Entering Paint Mode
 
-| Campo | Valore |
-|-------|--------|
-| `users.pe_used_pe` | 3631 |
-| `SUM(pixels.owner_stake_pe)` | 3631 |
+**File: `src/hooks/useEdgeFunctionWarmup.ts`**
 
-## Soluzione
-
-Poiché `pe_used_pe` è già calcolato dai trigger del database ed è sempre accurato, la soluzione più semplice è usare quel valore direttamente invece di ricalcolare con aggregate.
-
-### Modifiche a `supabase/functions/energy-refresh/index.ts`
-
-**1. Path rate-limited (righe 280-285):**
+Add a new trigger to warm up when user enters paint mode (before they click validate):
 
 ```typescript
-// PRIMA (sbagliato):
-const pixelStakeTotal = Number(stakeSumResult.data?.sum) || 0;
-const peUsed = Number(userData.pe_used_pe) || 0;
-
-// DOPO: Usare pe_used_pe come fonte unica di verità
-const peUsed = Number(userData.pe_used_pe) || 0;
-const pixelStakeTotal = peUsed; // pe_used_pe = owner_stake + contributions
+// Export a manual warmup function
+export function triggerWarmup() {
+  // Send PING to game-validate to warm database connection
+}
 ```
 
-**2. Path principale (righe 459-464):**
+**File: `src/contexts/MapInteractionContext.tsx`**
+
+Trigger warmup when entering PAINT mode:
 
 ```typescript
-// PRIMA (sbagliato):
-const finalPixelStakeTotal = Number(finalStakeSum.data?.sum) || 0;
-const finalContribUsed = Number(finalContribSum.data?.sum) || 0;
-const peUsed = finalPixelStakeTotal + finalContribUsed;
-
-// DOPO: Riutilizzare pe_used_pe già calcolato + fetched da DB
-// Nota: pe_used_pe viene aggiornato atomicamente dai trigger
-const { data: freshUserData } = await supabase
-  .from("users")
-  .select("pe_used_pe")
-  .eq("id", userId)
-  .single();
-
-const peUsed = Number(freshUserData?.pe_used_pe) || 0;
-const peAvailable = Math.max(0, peTotal - peUsed);
-
-// Per pixelStakeTotal, usare owner_stake separato (pe_used - contrib)
-// Oppure più semplice: usare il valore già calcolato ownerUsed
-const finalPixelStakeTotal = ownerUsed; // già calcolato a riga 359
+// When mode changes to PAINT, trigger database warmup
+useEffect(() => {
+  if (activeMode === 'PAINT') {
+    triggerWarmup();
+  }
+}, [activeMode]);
 ```
 
-**3. Alternativa più pulita - Correggere l'accesso ai campi aggregate:**
+### 3. Optimize Database Warm-up Query
 
-Se vogliamo mantenere le query aggregate, correggere i nomi dei campi:
+**File: `supabase/functions/game-validate/index.ts`**
+
+Current PING does a full user query. Optimize with simpler warm-up:
 
 ```typescript
-// Riga 281:
-const pixelStakeTotal = Number(stakeSumResult.data?.owner_stake_pe) || 0;
-
-// Riga 460:
-const finalPixelStakeTotal = Number(finalStakeSum.data?.owner_stake_pe) || 0;
-
-// Riga 461:
-const finalContribUsed = Number(finalContribSum.data?.amount_pe) || 0;
+// PING mode - simplify warm-up query
+if (mode === "PING") {
+  const t0Ping = Date.now();
+  // Simple query to warm connection pool
+  const { error } = await supabase.from("users").select("id").limit(1);
+  const dbWarmMs = Date.now() - t0Ping;
+  
+  return new Response(JSON.stringify({ 
+    ok: true, 
+    warmed: true,
+    dbWarmMs 
+  }), { ... });
+}
 ```
 
-## Approccio Raccomandato
+### 4. Add Retry with Warm-up for Cold Start Detection
 
-Usare `pe_used_pe` dalla tabella users come fonte unica di verità:
-- È sempre aggiornato atomicamente dai trigger
-- Bypassa completamente il problema dei nomi aggregate
-- Evita query duplicate al database
-- Più semplice da mantenere
+**File: `src/hooks/useGameActions.ts`**
 
-## Riepilogo Modifiche
+When validate times out, auto-send a PING and retry once:
 
-| File | Linee | Modifica |
-|------|-------|----------|
-| `supabase/functions/energy-refresh/index.ts` | 280-285 | Usare `pe_used_pe` invece di `stakeSumResult.data?.sum` |
-| `supabase/functions/energy-refresh/index.ts` | 459-464 | Usare `pe_used_pe` invece di aggregate queries |
+```typescript
+// If first attempt times out, the database was likely cold
+// Send PING to warm it up, then retry
+if (isTimeoutError(error) && attempt === 0) {
+  console.log('[validate] Cold start detected, warming up...');
+  await supabase.functions.invoke('game-validate', {
+    body: { mode: 'PING' },
+    headers,
+  });
+  // Retry will happen on next iteration
+}
+```
 
-## Risultato Atteso
+---
 
-Dopo il fix:
-- StatusStrip: `⚡ 11,458` (15,089 - 3,631)
-- UserMenuPanel: Total Staked = 3,631, Available = 11,458
-- Entrambi sincronizzati con lo stesso valore
+## Summary of Changes
 
-## Test di Verifica
+| File | Change |
+|------|--------|
+| `src/hooks/useGameActions.ts` | Add catch-all error handling for unexpected responses |
+| `src/hooks/useGameActions.ts` | Add auto-retry with warm-up on cold start timeout |
+| `src/hooks/useEdgeFunctionWarmup.ts` | Export manual warmup trigger function |
+| `src/contexts/MapInteractionContext.tsx` | Trigger warmup when entering PAINT mode |
+| `supabase/functions/game-validate/index.ts` | Optimize PING warm-up query |
 
-1. Ricaricare la pagina dopo il deploy
-2. Verificare StatusStrip: PE Available ≈ 11,458 (non 15,089)
-3. Verificare UserMenuPanel: Total Staked = 3,631, Available ≈ 11,458
-4. Dipingere 10 pixel → verificare che entrambi si aggiornino
+---
+
+## Expected Results
+
+After implementation:
+1. **No more silent failures** - Every failed validate shows clear error message
+2. **Faster validation** - Database pre-warmed when entering paint mode
+3. **Better retry logic** - Cold start auto-detected and warmed before retry
+4. **Target time**: First validate ~4s (warm-up), subsequent validates ~1-2s
+
+---
+
+## Test Plan
+
+1. Clear browser cache, disconnect/reconnect wallet
+2. Enter paint mode → verify PING sent in background
+3. Draw 500 pixels → validate should complete in ~4s first time
+4. Validate again → should complete in ~1-2s (already warm)
+5. Wait 10+ minutes, validate again → should auto-retry after cold start
