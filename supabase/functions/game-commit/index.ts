@@ -814,17 +814,18 @@ Deno.serve(async (req) => {
     const userId = payload.userId;
     const t0 = Date.now();
 
+    const authMs = Date.now() - t0;
+    
+    // OPTIMIZATION: Create Supabase client ONCE at the start (shared for PING and all operations)
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     const body: CommitRequest = await req.json();
 
     // === PING MODE: Full warmup including DB connection pool ===
     if (body.mode === "PING") {
-      const authMs = Date.now() - t0;
-      
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      
-      // Warm up database connection pool with lightweight query
+      // Warm up database connection pool with lightweight query (reuses client above)
       const dbStart = Date.now();
       await supabase.from("users").select("id").limit(1);
       const dbMs = Date.now() - dbStart;
@@ -841,10 +842,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
     const { mode, pixels: rawPixels, color, pePerPixel, snapshotHash, stream = false } = body;
 
     // Deduplicate pixels
