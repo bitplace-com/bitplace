@@ -17,7 +17,7 @@ import { ActionTray } from './ActionTray';
 import { MapMenuDrawer } from './MapMenuDrawer';
 import { QuickActions } from './QuickActions';
 import { PerfHud } from './PerfHud';
-import { DevDiagnostics } from './DevDiagnostics';
+
 import { useIsMobile } from '@/hooks/use-mobile';
 import { WalletButton } from '@/components/wallet/WalletButton';
 import { WalletSelectModal } from '@/components/modals/WalletSelectModal';
@@ -1528,15 +1528,6 @@ export function BitplaceMap() {
       {/* Performance HUD (visible only with ?debug=1) */}
       <PerfHud />
       
-      {/* Dev Diagnostics Panel (toggle with bug icon) */}
-      <DevDiagnostics 
-        map={mapRef.current}
-        zoom={zoom}
-        canPaint={canPaint}
-        isSelecting={!!selection || brushSelection.pixels.size > 0}
-        realtimeStatus={realtimeStatus}
-        reconnectAttempts={reconnectAttempts}
-      />
       {/* Wallet Connect Modal - triggered when trying to paint without connection */}
       <WalletSelectModal
         open={isWalletModalOpen}
