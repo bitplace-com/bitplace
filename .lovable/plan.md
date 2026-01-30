@@ -1,16 +1,18 @@
 
-# Fix: Pannello Disegno Rimane Sopra StatusStrip Multi-linea
+# Fix: Posizionamento Dinamico Pannello Disegno su Mobile
 
 ## Problema Identificato
-Dallo screenshot si vede che su mobile il pannello ActionTray (con "No color" e i controlli) si sovrappone alla StatusStrip quando questa mostra contenuti su più righe:
-- Draft counter (240/300)
-- Wallet balance (0.1200 SOL)
-- PE Total (13,983) + used/avail
+Dallo screenshot nel browser in-app di Phantom, il pannello ActionTray si sovrappone ancora alla StatusStrip. L'hook `useStatusStripHeight` non misura correttamente l'altezza perché:
+
+1. **`ResizeObserver.contentRect.height` non include padding** - la StatusStrip ha `py-2.5` (10px sopra + 10px sotto = 20px totale) che non viene contato
+2. **Timing issues nei browser in-app** - l'altezza iniziale potrebbe essere misurata prima che il contenuto sia renderizzato completamente
 
 ## Analisi Tecnica
-- **StatusStrip**: ha `min-h-12` (48px) ma usa `flex-wrap` su mobile, quindi può crescere fino a ~100-110px quando i contenuti vanno a capo
-- **ActionTray**: attualmente usa `bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))]` = 88px
-- **Gap risultante**: 88px - 100px = **overlap di 12-22px**
+
+| Problema | Causa |
+|----------|-------|
+| Altezza sottostimata | `contentRect.height` esclude padding (`py-2.5` = 20px) |
+| Overlap su Phantom | L'altezza misurata è ~20px inferiore a quella reale |
 
 ## Soluzione
 
@@ -18,51 +20,69 @@ Dallo screenshot si vede che su mobile il pannello ActionTray (con "No color" e 
 
 | File | Modifica |
 |------|----------|
-| `src/components/map/ActionTray.tsx` | Aumentare offset bottom mobile da `5.5rem` a `7rem` |
-| `src/components/map/MobileActionDock.tsx` | Aumentare offset bottom da `5.5rem` a `7rem` |
+| `src/hooks/useStatusStripHeight.ts` | Usare `borderBoxSize` o `getBoundingClientRect()` per includere padding |
 
-### 1. ActionTray.tsx (linea 157)
+### Modifica a useStatusStripHeight.ts
 
-**Da:**
+Il `ResizeObserver` ha accesso a `borderBoxSize` che include padding e border. Dobbiamo usare quello invece di `contentRect`:
+
+**Codice attuale (problematico):**
 ```typescript
-bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-[calc(4rem+env(safe-area-inset-bottom,0px))]
+observerRef.current = new ResizeObserver((entries) => {
+  for (const entry of entries) {
+    const newHeight = Math.ceil(entry.contentRect.height); // ❌ Non include padding
+    setHeight(prev => prev !== newHeight ? newHeight : prev);
+  }
+});
 ```
 
-**A:**
+**Codice corretto:**
 ```typescript
-bottom-[calc(7rem+env(safe-area-inset-bottom,0px))] sm:bottom-[calc(4rem+env(safe-area-inset-bottom,0px))]
+observerRef.current = new ResizeObserver((entries) => {
+  for (const entry of entries) {
+    // Usa borderBoxSize se disponibile (include padding e border)
+    // Fallback a getBoundingClientRect per massima compatibilità
+    let newHeight: number;
+    if (entry.borderBoxSize?.length > 0) {
+      newHeight = Math.ceil(entry.borderBoxSize[0].blockSize);
+    } else {
+      // Fallback per browser che non supportano borderBoxSize
+      newHeight = Math.ceil(entry.target.getBoundingClientRect().height);
+    }
+    setHeight(prev => prev !== newHeight ? newHeight : prev);
+  }
+});
 ```
 
-### 2. MobileActionDock.tsx (linea 227)
+### Anche la misurazione iniziale deve usare `getBoundingClientRect`:
 
-**Da:**
 ```typescript
-bottom: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))'
+if (element) {
+  // Initial measurement - usa getBoundingClientRect che include tutto
+  const rect = element.getBoundingClientRect();
+  setHeight(Math.ceil(rect.height));
+  // ...
+}
 ```
 
-**A:**
-```typescript
-bottom: 'calc(7rem + env(safe-area-inset-bottom, 0px))'
-```
+## Calcolo Risultante
 
-## Calcolo Offset
-
-| Elemento | Altezza Max |
-|----------|-------------|
-| StatusStrip (1 riga) | ~48px |
-| StatusStrip (2 righe wrap) | ~90px |
-| StatusStrip (3 righe worst case) | ~110px |
-| **Offset richiesto** | **7rem = 112px** |
-| **Gap visivo risultante** | ~2-20px (sempre positivo) |
+| Componente | Prima (contentRect) | Dopo (borderBox) |
+|------------|---------------------|------------------|
+| StatusStrip min-h-12 | ~38px (senza padding) | ~48px (corretto) |
+| StatusStrip con wrap | ~70px | ~90px (corretto) |
+| Gap visivo | overlap 10-20px | gap 8px (sempre positivo) |
 
 ## Risultato Atteso
 
-1. Il pannello ActionTray rimane sempre staccato dalla StatusStrip
-2. Anche quando la StatusStrip mostra draft counter + wallet + PE + rebalance status su più righe
-3. Il desktop non cambia (mantiene 4rem = 64px)
+1. L'altezza misurata include padding (`py-2.5`)
+2. Il pannello ActionTray rimane sempre staccato dalla StatusStrip
+3. Funziona correttamente anche su browser in-app (Phantom, MetaMask, etc.)
+4. La misura è reattiva quando la StatusStrip cambia dimensione (contenuti che vanno a capo)
 
 ## Test di Verifica
 
-1. Da mobile, inizia a disegnare → il pannello deve rimanere staccato dalla barra anche con draft counter visibile
-2. Quando la barra mostra wallet + PE + draft counter su più righe → il pannello rimane sopra
-3. Su desktop il comportamento non cambia
+1. Apri l'app nel browser in-app di Phantom
+2. Verifica che il pannello colori sia staccato dalla barra inferiore
+3. Connetti/disconnetti wallet - il pannello deve rimanere staccato
+4. Quando la barra mostra più contenuti su più righe, il pannello si sposta verso l'alto
