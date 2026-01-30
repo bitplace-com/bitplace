@@ -1,54 +1,45 @@
 
-# Riduzione Limite Massimo Pixel per Paint: 500 → 300
 
-## Obiettivo
-Ridurre il limite massimo di pixel per operazione PAINT da 500 a 300 per garantire performance veloci e affidabili.
+# Fix: Sincronizzare Limite UI con Edge Functions (500 → 300)
 
-## File da Modificare
+## Problema
+Il limite massimo di pixel nelle edge functions è stato aggiornato a 300, ma l'UI permette ancora di disegnare fino a 500 pixel prima di mostrare l'errore.
 
+## Causa
+Il file `src/components/map/hooks/useDraftPaint.ts` ha un limite locale:
+```typescript
+export const PAINT_MAX_PIXELS = 500;  // ← Ancora a 500!
+```
+
+## Soluzione
+
+### File da Modificare
 | File | Linea | Modifica |
 |------|-------|----------|
-| `supabase/functions/game-validate/index.ts` | 56 | `MAX_PAINT_PIXELS = 300` |
-| `supabase/functions/game-commit/index.ts` | 55 | `MAX_PAINT_PIXELS = 300` |
-| `src/pages/SpecPage.tsx` | 117 | `"300 pixels"` |
+| `src/components/map/hooks/useDraftPaint.ts` | 5 | `PAINT_MAX_PIXELS = 300` |
 
-## Dettagli Modifiche
+### Dettaglio Modifica
 
-### 1. Edge Function: game-validate
 ```typescript
-// Linea 56
-const MAX_PAINT_PIXELS = 300;  // Era 500
+// Linea 5 - src/components/map/hooks/useDraftPaint.ts
+export const PAINT_MAX_PIXELS = 300;  // Era 500
 ```
 
-### 2. Edge Function: game-commit
-```typescript
-// Linea 55
-const MAX_PAINT_PIXELS = 300;  // Era 500
-```
+## Nessuna Altra Modifica Richiesta
 
-### 3. Documentazione UI: SpecPage
-```typescript
-// Linea 117
-<TableRow label="Max Pixels per PAINT" value="300 pixels" />
-```
-
-## Nessuna Modifica Richiesta
-
-- `MAX_SELECTION_PIXELS = 10000` - Questo è il limite UI per la selezione generale, non per PAINT
-- `MAX_BATCH_SIZE = 200` in `usePaintQueue.ts` - Questo è per il batching interno, già sotto 300
-- Timeout dinamici in `useGameActions.ts` - Già gestiscono operazioni più piccole correttamente
+- Edge functions `game-validate` e `game-commit` già aggiornate a 300
+- `SpecPage.tsx` già aggiornata a "300 pixels"
+- Il limite in `useDraftPaint.ts` viene usato sia per bloccare nuovi pixel (`addToDraft`) che per il toast di avviso
 
 ## Risultato Atteso
 
-| Metrica | Prima | Dopo |
-|---------|-------|------|
-| Limite massimo | 500 pixel | 300 pixel |
-| Tempo validazione | ~4-5 secondi | ~2-3 secondi |
-| Tempo commit | ~30-40 secondi | ~15-20 secondi |
-| Affidabilità | Timeout frequenti | Stabile |
+1. L'utente non potrà più aggiungere pixel oltre i 300
+2. Il toast mostrerà "Max 300 pixels per paint" quando raggiunge il limite
+3. Il contatore si ferma a 300 durante il disegno
 
 ## Test di Verifica
 
-1. Prova a selezionare 301+ pixel in PAINT mode → deve mostrare errore "Maximum 300 pixels per paint"
-2. Dipingi 300 pixel → deve completare in pochi secondi
-3. Verifica che SpecPage mostri "300 pixels"
+1. Inizia a disegnare pixel → il contatore deve fermarsi a 300
+2. Al 300° pixel deve apparire toast "Max 300 pixels per paint"
+3. Non deve essere possibile aggiungere altri pixel dopo i 300
+
