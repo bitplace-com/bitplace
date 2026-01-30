@@ -1,76 +1,42 @@
 
-# Fix: Pannello Disegno Sopra la Barra Inferiore
+# Rimozione Dev Diagnostics
 
-## Problema
-Il pannello ActionTray (color picker) e MobileActionDock si sovrappongono alla StatusStrip in basso, specialmente su mobile quando la barra cambia altezza per mostrare più informazioni (draft count, cooldown, ecc.).
+## Obiettivo
+Rimuovere completamente il bottone e pannello DevDiagnostics dalla mappa.
 
-## Causa
-- **ActionTray**: usa `bottom-[calc(4rem+env(safe-area-inset-bottom,0px))]` fisso (64px)
-- **MobileActionDock**: usa `bottom: 'calc(3.5rem + env(safe-area-inset-bottom, 0px))'` fisso (56px)
-- **StatusStrip**: ha `min-h-12` (48px) ma può crescere fino a ~80-100px quando il contenuto va a capo su mobile
+## File da Modificare
 
-## Soluzione
+| File | Azione |
+|------|--------|
+| `src/components/map/BitplaceMap.tsx` | Rimuovere import e uso del componente |
+| `src/components/map/DevDiagnostics.tsx` | Eliminare il file |
 
-### File da Modificare
+## Dettagli Modifiche
 
-| File | Modifica |
-|------|----------|
-| `src/components/map/ActionTray.tsx` | Aumentare offset bottom e aggiungere margin |
-| `src/components/map/MobileActionDock.tsx` | Aumentare offset bottom e aggiungere margin |
+### 1. BitplaceMap.tsx
 
-### 1. ActionTray.tsx (linea 157)
-
-**Da:**
+**Rimuovere import (linea 20):**
 ```typescript
-className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] sm:bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] ..."
+import { DevDiagnostics } from './DevDiagnostics';
 ```
 
-**A:**
+**Rimuovere uso del componente (linee 1531-1539):**
 ```typescript
-className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] ..."
+{/* Dev Diagnostics Panel (toggle with bug icon) */}
+<DevDiagnostics 
+  map={mapRef.current}
+  zoom={zoom}
+  canPaint={canPaint}
+  isSelecting={!!selection || brushSelection.pixels.size > 0}
+  realtimeStatus={realtimeStatus}
+  reconnectAttempts={reconnectAttempts}
+/>
 ```
 
-Aumenta l'offset:
-- Mobile: da `4rem` (64px) a `5.5rem` (88px) - spazio extra per StatusStrip multi-linea
-- Desktop: da `3.5rem` (56px) a `4rem` (64px) - piccolo buffer extra
+### 2. DevDiagnostics.tsx
+Eliminare completamente il file `src/components/map/DevDiagnostics.tsx`
 
-### 2. MobileActionDock.tsx (linea 226-228)
-
-**Da:**
-```typescript
-style={{ 
-  bottom: 'calc(3.5rem + env(safe-area-inset-bottom, 0px))'
-}}
-```
-
-**A:**
-```typescript
-style={{ 
-  bottom: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))'
-}}
-```
-
-Aumenta l'offset da `3.5rem` (56px) a `5.5rem` (88px) per garantire spazio sufficiente su mobile.
-
-## Risultato Atteso
-
-| Elemento | Prima | Dopo |
-|----------|-------|------|
-| ActionTray (mobile) | 64px dal basso | 88px dal basso |
-| ActionTray (desktop) | 56px dal basso | 64px dal basso |
-| MobileActionDock | 56px dal basso | 88px dal basso |
-| Gap visivo | 0-8px (overlap) | 24-40px (sempre staccato) |
-
-## Comportamento
-
-1. Il pannello colori rimane sempre leggermente staccato dalla barra inferiore
-2. Quando la StatusStrip cresce (draft count, cooldown, ecc.), i pannelli rimangono sopra
-3. Il gap visivo è consistente sia su mobile che desktop
-4. Safe area insets per iOS sono preservati
-
-## Test di Verifica
-
-1. Inizia a disegnare pixel → il pannello colori deve rimanere staccato dalla barra
-2. Quando appare il draft counter nella barra → il pannello rimane sopra
-3. Su mobile quando la barra va a capo → il pannello rimane sempre staccato
-4. Verifica su diversi dispositivi/risoluzioni
+## Risultato
+- Nessun bottone bug icon visibile sulla mappa
+- Nessun pannello diagnostics accessibile
+- Il PerfHud (visibile solo con `?debug=1`) rimane disponibile per debug performance
