@@ -15,6 +15,7 @@ interface StatusStripProps {
   isSpacePainting?: boolean;
   isFlushing?: boolean;
   draftCount?: number;
+  onHeightChange?: (ref: HTMLElement | null) => void;
 }
 
 function formatTimeRemaining(endsAt: Date): string {
@@ -38,7 +39,7 @@ function formatLastSync(date: Date | null): string {
   return date.toLocaleTimeString();
 }
 
-export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = false, isFlushing = false, draftCount = 0 }: StatusStripProps) {
+export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = false, isFlushing = false, draftCount = 0, onHeightChange }: StatusStripProps) {
   // Use usePeBalance for rebalance status only
   const { isLoading, rebalanceActive, healthMultiplier, rebalanceEndsAt } = usePeBalance(userId);
   // Use WalletContext for PE totals (server truth)
@@ -48,7 +49,10 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
 
   if (!userId) {
     return (
-      <div className="min-h-12 sm:min-h-11 glass-hud flex items-center justify-center px-4 border-t-0 rounded-none safe-bottom-bar">
+      <div 
+        ref={onHeightChange}
+        className="min-h-12 sm:min-h-11 glass-hud flex items-center justify-center px-4 border-t-0 rounded-none safe-bottom-bar"
+      >
         <span className="text-sm text-[var(--hud-text-muted)]">Connect your wallet to paint</span>
       </div>
     );
@@ -61,7 +65,10 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
 
   return (
     <TooltipProvider>
-      <div className="min-h-12 sm:min-h-11 glass-hud flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 sm:gap-4 px-3 sm:px-4 py-2.5 sm:py-2 border-t-0 rounded-none safe-bottom-bar overflow-x-auto scrollbar-hide">
+      <div 
+        ref={onHeightChange}
+        className="min-h-12 sm:min-h-11 glass-hud flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 sm:gap-4 px-3 sm:px-4 py-2.5 sm:py-2 border-t-0 rounded-none safe-bottom-bar overflow-x-auto scrollbar-hide"
+      >
         {/* Left side - SOL Balance & Cluster */}
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap sm:flex-nowrap">
           {/* Sign-in required pill */}

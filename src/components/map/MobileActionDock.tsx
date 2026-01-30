@@ -53,6 +53,8 @@ interface MobileActionDockProps {
   // Inline error display (PROMPT 44)
   lastError?: ActionError | null;
   onRetryValidate?: () => void;
+  // Dynamic positioning based on StatusStrip height
+  statusStripHeight?: number;
 }
 
 export function MobileActionDock({
@@ -83,6 +85,7 @@ export function MobileActionDock({
   lastCommitFailed = false,
   lastError,
   onRetryValidate,
+  statusStripHeight = 48,
 }: MobileActionDockProps) {
   const [dockState, setDockState] = useState<DockState>('hidden');
   const [withdrawStats, setWithdrawStats] = useState<WithdrawStats | null>(null);
@@ -219,11 +222,14 @@ export function MobileActionDock({
     return null;
   }
 
+  // Calculate bottom offset: statusStripHeight + gap (8px)
+  const mobileBottomOffset = statusStripHeight + 8;
+
   return (
     <div 
       className="fixed inset-x-0 z-40 pointer-events-none"
       style={{ 
-        bottom: 'calc(7rem + env(safe-area-inset-bottom, 0px))'
+        bottom: `calc(${mobileBottomOffset}px + env(safe-area-inset-bottom, 0px))`
       }}
     >
       <div className="mx-auto max-w-lg px-2 pointer-events-auto">

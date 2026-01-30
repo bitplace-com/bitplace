@@ -36,6 +36,7 @@ import { useWalletGate } from '@/hooks/useWalletGate';
 import { useMapUrl } from '@/hooks/useMapUrl';
 import { useSound } from '@/hooks/useSound';
 import { usePeBalance } from '@/hooks/usePeBalance';
+import { useStatusStripHeight } from '@/hooks/useStatusStripHeight';
 import { getValidSessionToken } from '@/lib/authHelpers';
 import { computePixelHash } from '@/lib/pixelHash';
 import { lngLatToGridInt, getViewportGridBounds, Z_SHOW_PAINTS } from '@/lib/pixelGrid';
@@ -113,6 +114,7 @@ export function BitplaceMap() {
   const { play: playSound } = useSound();
   const peBalance = usePeBalance(user?.id);
   const isMobile = useIsMobile();
+  const { height: statusStripHeight, setRef: setStatusStripRef } = useStatusStripHeight();
 
   // Track if selection changed after validation (for auto-invalidation hint)
   const isSelectionChangedAfterValidation = useMemo(() => {
@@ -1414,6 +1416,7 @@ export function BitplaceMap() {
           currentLat={mapCenter.lat}
           currentLng={mapCenter.lng}
           canPaint={canPaint}
+          statusStripHeight={statusStripHeight}
           onZoomIn={() => {
             if (!mapRef.current) return;
             mapRef.current.flyTo({
@@ -1506,6 +1509,7 @@ export function BitplaceMap() {
             lastCommitFailed={lastCommitFailed}
             lastError={lastError}
             onRetryValidate={handleValidate}
+            statusStripHeight={statusStripHeight}
           />
         )}
 
@@ -1523,7 +1527,7 @@ export function BitplaceMap() {
           </div>
         )}
       </div>
-      <StatusStrip userId={user?.id} paintQueueSize={queueSize} isSpacePainting={isSpacePainting || isDrawingRef.current} isFlushing={isFlushing} draftCount={draftCount} />
+      <StatusStrip userId={user?.id} paintQueueSize={queueSize} isSpacePainting={isSpacePainting || isDrawingRef.current} isFlushing={isFlushing} draftCount={draftCount} onHeightChange={setStatusStripRef} />
       
       {/* Performance HUD (visible only with ?debug=1) */}
       <PerfHud />
