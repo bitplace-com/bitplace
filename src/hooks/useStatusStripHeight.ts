@@ -34,9 +34,17 @@ export function useStatusStripHeight() {
       setHeight(Math.ceil(rect.height));
 
       // Set up ResizeObserver for dynamic updates
+      // Use borderBoxSize which includes padding and border (not just content)
       observerRef.current = new ResizeObserver((entries) => {
         for (const entry of entries) {
-          const newHeight = Math.ceil(entry.contentRect.height);
+          let newHeight: number;
+          // borderBoxSize includes padding and border - preferred
+          if (entry.borderBoxSize?.length > 0) {
+            newHeight = Math.ceil(entry.borderBoxSize[0].blockSize);
+          } else {
+            // Fallback for browsers that don't support borderBoxSize
+            newHeight = Math.ceil((entry.target as HTMLElement).getBoundingClientRect().height);
+          }
           setHeight(prev => prev !== newHeight ? newHeight : prev);
         }
       });
