@@ -114,7 +114,7 @@ export default function SpecPage() {
           <div className="space-y-4 text-sm">
             <table className="w-full text-left">
               <tbody className="divide-y divide-border">
-                <TableRow label="Max Pixels per PAINT" value="500 pixels" />
+                <TableRow label="Max Pixels per PAINT" value="300 pixels" />
                 <TableRow label="PAINT Cooldown" value="30 seconds" />
                 <TableRow label="PE for Empty Pixel" value="1 PE minimum" />
               </tbody>
