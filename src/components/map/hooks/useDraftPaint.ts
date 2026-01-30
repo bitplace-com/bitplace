@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 
 // Max pixels per paint action - exported for UI display
-export const PAINT_MAX_PIXELS = 500;
+export const PAINT_MAX_PIXELS = 300;
 const MAX_DRAFT = PAINT_MAX_PIXELS;
 
 export interface DraftPixel {
