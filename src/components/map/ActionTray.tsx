@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { PixelIcon } from '@/components/icons';
 import { GlassIconButton } from '@/components/ui/glass-icon-button';
 import { BASE_PALETTE_GRID, ALL_COLORS } from '@/lib/palettes/basePaletteGrid';
@@ -38,6 +39,9 @@ interface ActionTrayProps {
   // Zoom helper
   canPaint: boolean;
   onZoomIn: () => void;
+  
+  // Dynamic positioning based on StatusStrip height
+  statusStripHeight?: number;
   
   // Callbacks
   onColorSelect: (color: string | null) => void;
@@ -87,6 +91,7 @@ export function ActionTray({
   currentLng = 0,
   canPaint: canPaintProp,
   onZoomIn,
+  statusStripHeight = 48,
   onColorSelect,
   onPaintToolChange,
   onBrushSizeChange,
@@ -97,6 +102,7 @@ export function ActionTray({
   const [paletteTab, setPaletteTab] = useState<'colors' | 'special'>('colors');
   const [placesOpen, setPlacesOpen] = useState(false);
   const { play } = useSound();
+  const isMobile = useIsMobile();
   
   const materialsByCategory = getMaterialsByCategory();
   
@@ -152,10 +158,19 @@ export function ActionTray({
   // Calculate pending PE for action modes
   const pendingPE = pePerPixel * selectionCount;
 
+  // Calculate bottom offset: statusStripHeight + gap (8px) for mobile only
+  // On desktop, use fixed 4rem offset
+  const bottomOffset = isMobile 
+    ? `calc(${statusStripHeight + 8}px + env(safe-area-inset-bottom, 0px))`
+    : `calc(4rem + env(safe-area-inset-bottom, 0px))`;
+
   return (
     <div 
-      className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none bottom-[calc(7rem+env(safe-area-inset-bottom,0px))] sm:bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] max-w-[calc(100vw-1rem)] sm:max-w-[540px] flex flex-col items-center"
-      style={{ width: isExpanded ? '100%' : 'auto' }}
+      className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none max-w-[calc(100vw-1rem)] sm:max-w-[540px] flex flex-col items-center"
+      style={{ 
+        width: isExpanded ? '100%' : 'auto',
+        bottom: bottomOffset,
+      }}
     >
       {/* Zoom helper button - positioned above the ActionTray */}
       {!canPaint && (
