@@ -154,7 +154,7 @@ export function ActionTray({
 
   return (
     <div 
-      className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] max-w-[calc(100vw-1rem)] sm:max-w-[540px] flex flex-col items-center"
+      className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none bottom-[calc(7rem+env(safe-area-inset-bottom,0px))] sm:bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] max-w-[calc(100vw-1rem)] sm:max-w-[540px] flex flex-col items-center"
       style={{ width: isExpanded ? '100%' : 'auto' }}
     >
       {/* Zoom helper button - positioned above the ActionTray */}

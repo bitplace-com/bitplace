@@ -223,7 +223,7 @@ export function MobileActionDock({
     <div 
       className="fixed inset-x-0 z-40 pointer-events-none"
       style={{ 
-        bottom: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))'
+        bottom: 'calc(7rem + env(safe-area-inset-bottom, 0px))'
       }}
     >
       <div className="mx-auto max-w-lg px-2 pointer-events-auto">
