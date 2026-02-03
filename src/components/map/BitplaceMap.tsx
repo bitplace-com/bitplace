@@ -17,6 +17,9 @@ import { ActionTray } from './ActionTray';
 import { MapMenuDrawer } from './MapMenuDrawer';
 import { QuickActions } from './QuickActions';
 import { PerfHud } from './PerfHud';
+import { TemplatesButton } from './TemplatesButton';
+import { TemplatesPanel } from './TemplatesPanel';
+import { TemplateOverlay } from './TemplateOverlay';
 
 import { useIsMobile } from '@/hooks/use-mobile';
 import { WalletButton } from '@/components/wallet/WalletButton';
@@ -37,6 +40,7 @@ import { useMapUrl } from '@/hooks/useMapUrl';
 import { useSound } from '@/hooks/useSound';
 import { usePeBalance } from '@/hooks/usePeBalance';
 import { useStatusStripHeight } from '@/hooks/useStatusStripHeight';
+import { useTemplates } from '@/hooks/useTemplates';
 import { getValidSessionToken } from '@/lib/authHelpers';
 import { computePixelHash } from '@/lib/pixelHash';
 import { lngLatToGridInt, getViewportGridBounds, Z_SHOW_PAINTS } from '@/lib/pixelGrid';
@@ -115,6 +119,8 @@ export function BitplaceMap() {
   const peBalance = usePeBalance(user?.id);
   const isMobile = useIsMobile();
   const { height: statusStripHeight, setRef: setStatusStripRef } = useStatusStripHeight();
+  const { templates, activeTemplateId, activeTemplate, addTemplate, removeTemplate, selectTemplate, updateTransform } = useTemplates();
+  const [templatesPanelOpen, setTemplatesPanelOpen] = useState(false);
 
   // Track if selection changed after validation (for auto-invalidation hint)
   const isSelectionChangedAfterValidation = useMemo(() => {
@@ -1380,11 +1386,33 @@ export function BitplaceMap() {
           />
         )}
 
+        {/* Template Overlay - between map and HUD */}
+        {mapReady && activeTemplate && (
+          <TemplateOverlay map={mapRef.current} template={activeTemplate} />
+        )}
+
+        {/* Templates Panel */}
+        <TemplatesPanel
+          open={templatesPanelOpen}
+          onOpenChange={setTemplatesPanelOpen}
+          templates={templates}
+          activeTemplateId={activeTemplateId}
+          onAddTemplate={addTemplate}
+          onRemoveTemplate={removeTemplate}
+          onSelectTemplate={selectTemplate}
+          onUpdateTransform={updateTransform}
+        />
+
         {/* HUD Overlay */}
         <HudOverlay>
           <HudSlot position="top-left">
             <div className="flex flex-col gap-2">
               <MapMenuDrawer />
+              <TemplatesButton
+                isOpen={templatesPanelOpen}
+                onToggle={() => setTemplatesPanelOpen(!templatesPanelOpen)}
+                hasActiveTemplate={!!activeTemplate}
+              />
               <QuickActions />
             </div>
           </HudSlot>
