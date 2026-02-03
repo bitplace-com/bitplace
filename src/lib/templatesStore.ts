@@ -4,16 +4,23 @@
  */
 
 const DB_NAME = 'bitplace';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Bumped for new settings fields
 const STORE_NAME = 'templates';
 
 export interface TemplateSettings {
   visible: boolean;
   x: number;
   y: number;
-  scale: number;    // 1-400 (percentage)
-  opacity: number;  // 0-100
-  rotation: number; // degrees (future)
+  scale: number;        // 1-400 (percentage)
+  opacity: number;      // 0-100
+  rotation: number;     // 0-360 degrees
+  mode: 'image' | 'pixelGuide';
+  
+  // Quick settings
+  highlightSelectedColor: boolean;
+  filterPaletteColors: boolean;
+  showAbovePixels: boolean;
+  excludeSpecial: boolean;
 }
 
 export interface TemplateRecord {
@@ -28,8 +35,33 @@ export interface TemplateRecord {
   settings: TemplateSettings;
 }
 
+// Default settings for new templates
+const DEFAULT_SETTINGS: TemplateSettings = {
+  visible: true,
+  x: 0,
+  y: 0,
+  scale: 100,
+  opacity: 70,
+  rotation: 0,
+  mode: 'image',
+  highlightSelectedColor: false,
+  filterPaletteColors: false,
+  showAbovePixels: false,
+  excludeSpecial: false,
+};
+
 let dbPromise: Promise<IDBDatabase> | null = null;
 let dbAvailable = true;
+
+/**
+ * Migrate old settings to new format
+ */
+function migrateSettings(settings: Partial<TemplateSettings>): TemplateSettings {
+  return {
+    ...DEFAULT_SETTINGS,
+    ...settings,
+  };
+}
 
 /**
  * Opens or creates the IndexedDB database
@@ -64,6 +96,7 @@ function openDB(): Promise<IDBDatabase> {
         const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
         store.createIndex('ownerKey', 'ownerKey', { unique: false });
       }
+      // Note: existing records will be migrated when read via migrateSettings
     };
   });
 
@@ -92,9 +125,14 @@ export async function listTemplates(ownerKey: string): Promise<TemplateRecord[]>
 
       request.onsuccess = () => {
         const records = request.result as TemplateRecord[];
+        // Migrate settings for backwards compatibility
+        const migratedRecords = records.map(record => ({
+          ...record,
+          settings: migrateSettings(record.settings),
+        }));
         // Sort by createdAt descending (newest first)
-        records.sort((a, b) => b.createdAt - a.createdAt);
-        resolve(records);
+        migratedRecords.sort((a, b) => b.createdAt - a.createdAt);
+        resolve(migratedRecords);
       };
 
       request.onerror = () => {
@@ -131,12 +169,9 @@ export async function addTemplate(
     createdAt: Date.now(),
     blob: file, // File is a Blob subclass
     settings: {
-      visible: true,
+      ...DEFAULT_SETTINGS,
       x: initialPosition.x,
       y: initialPosition.y,
-      scale: 100,
-      opacity: 70,
-      rotation: 0,
     },
   };
 
@@ -174,8 +209,8 @@ export async function updateTemplate(
         return;
       }
 
-      // Merge settings
-      record.settings = { ...record.settings, ...patch };
+      // Merge settings (ensure migration first)
+      record.settings = { ...migrateSettings(record.settings), ...patch };
 
       const putRequest = store.put(record);
       putRequest.onsuccess = () => resolve();
