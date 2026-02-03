@@ -1,206 +1,189 @@
 
-# Feature: Templates - Overlay Guida per Disegno
+
+# Templates: Persistenza Client-Side con IndexedDB
 
 ## Obiettivo
-Aggiungere la possibilità di caricare immagini come overlay visivo sulla mappa, per guidare l'utente nel ricalco pixel-per-pixel. L'overlay non interferisce con pan/zoom della mappa.
+Rendere i Templates persistenti usando IndexedDB, separati per wallet address (o "guest" se non connesso). Nessun upload su backend - tutto client-side.
 
 ## Architettura
 
 ```text
-+---------------------+
-|   BitplaceMap.tsx   |
-|   (orchestratore)   |
-+----------+----------+
-           |
-    +------+------+
-    |             |
-+---v---+   +-----v-----+
-| HUD   |   | Templates |
-| Slot  |   | Overlay   |
-| (btn) |   | (canvas)  |
-+---+---+   +-----------+
-    |
-+---v-------------+
-| TemplatesPanel  |
-| (lista + ctrl)  |
-+-----------------+
++-------------------+     +-----------------------+
+|   useTemplates    |<--->|   templatesStore.ts   |
+| (hook React)      |     | (IndexedDB wrapper)   |
++--------+----------+     +-----------+-----------+
+         |                            |
+         v                            v
++--------+----------+     +-----------+-----------+
+| TemplatesPanel    |     | IndexedDB "bitplace"  |
+| TemplateOverlay   |     | store: "templates"    |
++-------------------+     +-----------------------+
 ```
+
+## Flusso Dati
+
+1. **Add Template**: File → Blob → IndexedDB → objectUrl runtime
+2. **Load**: IndexedDB → Blob → objectUrl → render
+3. **Update settings**: debounce → IndexedDB patch
+4. **Delete**: IndexedDB delete → revoke objectUrl
+5. **Cambio wallet**: ricarica lista per nuovo ownerKey
 
 ## File da Creare
 
 | File | Descrizione |
 |------|-------------|
-| `src/components/map/TemplatesButton.tsx` | Bottone icona "image" per top-left |
-| `src/components/map/TemplatesPanel.tsx` | Pannello laterale (desktop) / drawer (mobile) con lista templates |
-| `src/components/map/TemplateOverlay.tsx` | Canvas overlay per renderizzare immagine sulla mappa |
-| `src/hooks/useTemplates.ts` | Hook per gestione stato templates (add/remove/select/transform) |
-| `src/components/icons/custom/PixelImage.tsx` | Icona pixel-art "immagine" |
+| `src/lib/templatesStore.ts` | API IndexedDB per CRUD templates con Blob storage |
 
 ## File da Modificare
 
 | File | Modifica |
 |------|----------|
-| `src/components/map/BitplaceMap.tsx` | Aggiungere TemplatesButton in HudSlot top-left + TemplateOverlay |
-| `src/components/icons/iconRegistry.ts` | Registrare nuova icona "image" |
+| `src/hooks/useTemplates.ts` | Integrazione IndexedDB + wallet awareness + objectUrl lifecycle |
+| `src/components/map/TemplatesPanel.tsx` | Usa `objectUrl` invece di `dataUrl` |
+| `src/components/map/TemplateOverlay.tsx` | Usa `objectUrl` invece di `dataUrl` |
 
 ## Dettagli Implementazione
 
-### 1. Icona PixelImage.tsx
-Nuova icona pixel-art che rappresenta un'immagine/picture (stile coerente con le altre icone).
+### 1. templatesStore.ts (IndexedDB API)
 
-### 2. Hook useTemplates.ts
-Gestisce lo stato locale dei templates (senza persistenza DB per ora):
+Schema database:
+- **Database**: `bitplace` (version 1)
+- **Object Store**: `templates` con keyPath `id`
+- **Index**: `ownerKey` per query per wallet
 
+Record Template:
 ```typescript
-interface Template {
+interface TemplateRecord {
+  id: string;
+  ownerKey: string;           // walletAddress || "guest"
+  name: string;
+  mime: string;
+  width: number;
+  height: number;
+  createdAt: number;
+  blob: Blob;                 // Immagine originale
+  settings: {
+    visible: boolean;
+    x: number;
+    y: number;                // Posizione grid
+    scale: number;            // 1-400%
+    opacity: number;          // 0-100
+    rotation: number;         // gradi (per futuro)
+  };
+}
+```
+
+API esposte:
+```typescript
+// Inizializza/apre DB
+async function openDB(): Promise<IDBDatabase>
+
+// Lista templates per owner
+async function listTemplates(ownerKey: string): Promise<TemplateRecord[]>
+
+// Aggiunge template da File
+async function addTemplate(ownerKey: string, file: File, initialPosition: {x: number, y: number}): Promise<TemplateRecord>
+
+// Aggiorna settings (debounce interno)
+async function updateTemplate(id: string, patch: Partial<TemplateRecord['settings']>): Promise<void>
+
+// Elimina template
+async function deleteTemplate(id: string): Promise<void>
+```
+
+### 2. Modifiche a useTemplates.ts
+
+Stato aggiornato:
+```typescript
+interface RuntimeTemplate {
   id: string;
   name: string;
-  dataUrl: string;  // Base64 dell'immagine
-  width: number;    // Dimensioni originali
+  objectUrl: string;         // URL.createObjectURL(blob) - solo runtime!
+  width: number;
   height: number;
-  // Transform settings
-  opacity: number;  // 0-100
-  scale: number;    // 1-400 (percentuale)
-  // Position (coordinate griglia mappa)
+  opacity: number;
+  scale: number;
   positionX: number;
   positionY: number;
 }
-
-interface TemplatesState {
-  templates: Template[];
-  activeTemplateId: string | null;
-}
 ```
 
-Funzioni esposte:
-- `addTemplate(file: File)` - carica immagine e crea template
-- `removeTemplate(id)` - elimina template
-- `selectTemplate(id)` - attiva template come overlay
-- `updateTransform(id, { opacity?, scale? })` - modifica trasformazione
-- `updatePosition(id, { x, y })` - modifica posizione
+Nuove responsabilità:
+1. **Riceve `walletAddress`** come prop/context
+2. **ownerKey** = walletAddress || "guest"
+3. **useEffect su ownerKey** → ricarica `listTemplates(ownerKey)`
+4. **addTemplate** → chiama `templatesStore.addTemplate()` → crea objectUrl → aggiunge a state
+5. **updateTransform/updatePosition** → chiama `templatesStore.updateTemplate()` con debounce 300ms
+6. **removeTemplate** → `URL.revokeObjectURL()` → `templatesStore.deleteTemplate()`
+7. **Cleanup su unmount** → revoke tutti gli objectUrl
+8. **activeTemplateId** → localStorage key: `active_template_id_${ownerKey}`
 
-### 3. TemplatesButton.tsx
-Bottone glassmorphism posizionato sotto QuickActions:
-- Icona "image" 
-- Toggle per aprire/chiudere TemplatesPanel
-- Indicatore visivo se un template è attivo
+### 3. Modifiche a TemplatesPanel.tsx
 
-### 4. TemplatesPanel.tsx
-Pannello che si apre a sinistra (desktop) o come drawer (mobile):
+- Usa `template.objectUrl` invece di `template.dataUrl` per thumbnail
+- Nessun'altra modifica logica (il tipo cambia ma l'uso è identico)
 
-**Header:**
-- Titolo "Templates"
-- Bottone "+ Add" che apre file picker (accept: png, jpg, webp)
+### 4. Modifiche a TemplateOverlay.tsx
 
-**Lista (quando vuota):**
-- Icona immagine stilizzata
-- Testo: "Add an overlay image to use as a guide to draw."
-- Nota: "You'll still have to place pixels manually!"
+- Usa `template.objectUrl` invece di `template.dataUrl` per rendering
+- Nessun'altra modifica logica
 
-**Lista (con templates):**
-- Thumbnail 48x48px
-- Nome file (troncato se lungo)
-- Dimensioni originali (es. "1024×1024")
-- Bottone cestino per eliminare
-- Click su item = seleziona come overlay attivo
+## Gestione Lifecycle ObjectURL
 
-**Controlli Transform (visibili quando template selezionato):**
-- Slider Opacity (0-100%, default 70%)
-- Slider Scale (1-400%, default 100%)
+| Evento | Azione |
+|--------|--------|
+| Template caricato da IndexedDB | `URL.createObjectURL(blob)` → salva in state |
+| Template eliminato | `URL.revokeObjectURL(url)` prima di rimuovere da state |
+| Cambio wallet (ownerKey) | Revoke tutti gli URL correnti → carica nuova lista |
+| Unmount hook | Revoke tutti gli URL |
 
-### 5. TemplateOverlay.tsx
-Canvas sovrapposto alla mappa che renderizza il template attivo:
-- Posizionato tra mappa e HUD (`z-index` appropriato)
-- `pointer-events: none` per permettere interazione con mappa
-- Sincronizzato con pan/zoom della mappa
-- Applica opacity e scale dal template
-- L'immagine segue le coordinate griglia (posizione iniziale = centro viewport)
+## Active Template Persistence
 
-### 6. Integrazione BitplaceMap.tsx
+```typescript
+// Salva active template id in localStorage
+const ACTIVE_TEMPLATE_KEY = (ownerKey: string) => `bitplace_active_template_${ownerKey}`;
 
-**HudSlot top-left:**
-```tsx
-<HudSlot position="top-left">
-  <div className="flex flex-col gap-2">
-    <MapMenuDrawer />
-    <TemplatesButton 
-      isOpen={templatesPanelOpen}
-      onToggle={() => setTemplatesPanelOpen(!templatesPanelOpen)}
-      hasActiveTemplate={!!activeTemplate}
-    />
-    <QuickActions />
-  </div>
-</HudSlot>
+// Quando cambia ownerKey:
+// 1. Carica active_template_id dal localStorage
+// 2. Se esiste nella lista caricata → seleziona
+// 3. Altrimenti → null
+
+// Quando cambia activeTemplateId:
+// Salva in localStorage[ACTIVE_TEMPLATE_KEY(ownerKey)]
 ```
 
-**Overlay (prima di HudOverlay):**
-```tsx
-{activeTemplate && (
-  <TemplateOverlay
-    map={mapRef.current}
-    template={activeTemplate}
-  />
-)}
+## Debounce Update Settings
+
+Per evitare troppi write su IndexedDB durante lo slider:
+```typescript
+const debouncedUpdate = useMemo(
+  () => debounce((id: string, patch: object) => {
+    templatesStore.updateTemplate(id, patch);
+  }, 300),
+  []
+);
 ```
 
-**Panel (accanto a CanvasOverlay):**
-```tsx
-<TemplatesPanel
-  open={templatesPanelOpen}
-  onOpenChange={setTemplatesPanelOpen}
-  templates={templates}
-  activeTemplateId={activeTemplateId}
-  onAddTemplate={addTemplate}
-  onRemoveTemplate={removeTemplate}
-  onSelectTemplate={selectTemplate}
-  onUpdateTransform={updateTransform}
-/>
-```
+## Test di Accettazione
 
-## UI/UX
-
-### Desktop
-- Pannello ancorato a sinistra, sotto il bottone
-- Larghezza fissa ~320px
-- Stile glassmorphism (GlassPanel variant="hud")
-- Non modale (mappa resta interattiva)
-
-### Mobile
-- Drawer dal basso (usa GlassSheet/Drawer esistente)
-- Altezza max 70vh
-- Stesso contenuto del pannello desktop
-
-### Stili
-- Usa componenti esistenti: GlassPanel, GlassIconButton, Slider, Button
-- Rispetta Day/Night theme
-- Thumbnail con bordo arrotondato e background subtle
-
-## Flusso Utente
-
-1. Click su bottone Templates (icona immagine)
-2. Si apre pannello Templates
-3. Click "+ Add" → file picker
-4. Selezione immagine → appare in lista
-5. Click su template → diventa attivo, overlay visibile sulla mappa
-6. Regola opacity/scale con slider
-7. Disegna pixel ricalcando l'overlay
-8. Click cestino → rimuove template e overlay
-
-## Checklist Deliverables
-
-- [ ] Icona PixelImage.tsx creata e registrata
-- [ ] Hook useTemplates.ts con gestione stato
-- [ ] TemplatesButton.tsx con toggle e indicatore attivo
-- [ ] TemplatesPanel.tsx con lista + add/remove + slider opacity/scale
-- [ ] TemplateOverlay.tsx con rendering sincronizzato mappa
-- [ ] Integrazione in BitplaceMap.tsx
-- [ ] Stile glassmorphism coerente Day/Night
-- [ ] Mobile: drawer bottom sheet
+| Test | Comportamento Atteso |
+|------|---------------------|
+| Add template | Appare in lista e resta dopo refresh |
+| Cambio opacity/scale | Valori persistono dopo refresh |
+| Cambio wallet | Lista cambia (namespace per wallet) |
+| Logout → Guest | Vede templates "guest" |
+| Delete | Sparisce e non torna dopo refresh |
+| Refresh pagina | Templates tornano, active ripristinato |
 
 ## Note Tecniche
 
-- Le immagini sono salvate come dataUrl (base64) in memoria
-- Nessuna persistenza DB in questo MVP
-- Position iniziale = centro viewport corrente al momento dell'add
-- Scale applicata al centro dell'immagine
-- L'overlay usa canvas separato per performance
+### IndexedDB senza libreria esterna
+Implementazione minimale vanilla JS (no `idb` o altre librerie) per mantenere bundle leggero. Pattern standard con Promise wrapper.
+
+### Gestione errori
+- Se IndexedDB non disponibile (es. private browsing) → fallback a memoria (templates non persistenti)
+- Console.warn per debug ma non blocca l'app
+
+### Migrazione
+Nessuna migrazione necessaria - è una nuova feature. I templates in-memory attuali andranno persi al primo refresh dopo deploy (comportamento accettato).
+
