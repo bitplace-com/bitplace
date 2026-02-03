@@ -15,7 +15,6 @@ export function TemplateOverlay({ map, template, selectedColor }: TemplateOverla
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [quantizedPixels, setQuantizedPixels] = useState<QuantizedPixel[]>([]);
 
   // Load image
   useEffect(() => {
@@ -32,17 +31,14 @@ export function TemplateOverlay({ map, template, selectedColor }: TemplateOverla
     };
   }, [template.objectUrl]);
 
-  // Quantize image when in Pixel Guide mode
-  useEffect(() => {
+  // Memoize quantized pixels - only recompute when relevant properties change
+  const quantizedPixels = useMemo<QuantizedPixel[]>(() => {
     if (!imageLoaded || !imageRef.current || template.mode !== 'pixelGuide') {
-      setQuantizedPixels([]);
-      return;
+      return [];
     }
-
-    const pixels = quantizeImage(imageRef.current, template.scale, {
+    return quantizeImage(imageRef.current, template.scale, {
       excludeSpecial: template.excludeSpecial,
     });
-    setQuantizedPixels(pixels);
   }, [imageLoaded, template.mode, template.scale, template.excludeSpecial]);
 
   // Render Image mode
@@ -239,7 +235,6 @@ export function TemplateOverlay({ map, template, selectedColor }: TemplateOverla
     selectedColor,
     renderOverlay, 
     imageLoaded,
-    quantizedPixels,
   ]);
 
   // Dynamic z-index based on showAbovePixels
