@@ -79,7 +79,7 @@ export function BitplaceMap() {
   const [previewHiddenPixels, setPreviewHiddenPixels] = useState<Set<string>>(new Set());
   const [validatedActionPixels, setValidatedActionPixels] = useState<Set<string> | null>(null);
   
-  const { user, refreshUser, connect, isConnecting, updatePeStatus } = useWallet();
+  const { user, walletAddress, refreshUser, connect, isConnecting, updatePeStatus } = useWallet();
   const { isWalletModalOpen, setWalletModalOpen, requireWallet } = useWalletGate();
   const { getUrlPosition, setUrlPosition } = useMapUrl();
   const { localPixels, paintPixel, mergePixels, confirmPixel } = usePixelStore();
@@ -119,7 +119,7 @@ export function BitplaceMap() {
   const peBalance = usePeBalance(user?.id);
   const isMobile = useIsMobile();
   const { height: statusStripHeight, setRef: setStatusStripRef } = useStatusStripHeight();
-  const { templates, activeTemplateId, activeTemplate, addTemplate, removeTemplate, selectTemplate, updateTransform } = useTemplates();
+  const { templates, activeTemplateId, activeTemplate, addTemplate, removeTemplate, selectTemplate, updateTransform } = useTemplates(walletAddress);
   const [templatesPanelOpen, setTemplatesPanelOpen] = useState(false);
 
   // Track if selection changed after validation (for auto-invalidation hint)

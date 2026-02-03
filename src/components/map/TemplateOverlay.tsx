@@ -20,13 +20,13 @@ export function TemplateOverlay({ map, template }: TemplateOverlayProps) {
       imageRef.current = img;
       setImageLoaded(true);
     };
-    img.src = template.dataUrl;
+    img.src = template.objectUrl;
     
     return () => {
       imageRef.current = null;
       setImageLoaded(false);
     };
-  }, [template.dataUrl]);
+  }, [template.objectUrl]);
 
   // Render overlay synced with map
   const renderOverlay = useCallback(() => {
