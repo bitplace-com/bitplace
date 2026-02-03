@@ -1,189 +1,331 @@
 
+# Templates Feature: Complete Implementation Plan
 
-# Templates: Persistenza Client-Side con IndexedDB
+## Overview
+Transform the Templates MVP into a full-featured tool with detail view, position/transform controls, tabs for Image vs Pixel Guide rendering, and Quick Settings. The Pixel Guide mode will quantize image pixels to the closest Bitplace palette colors.
 
-## Obiettivo
-Rendere i Templates persistenti usando IndexedDB, separati per wallet address (o "guest" se non connesso). Nessun upload su backend - tutto client-side.
-
-## Architettura
+## Architecture
 
 ```text
-+-------------------+     +-----------------------+
-|   useTemplates    |<--->|   templatesStore.ts   |
-| (hook React)      |     | (IndexedDB wrapper)   |
-+--------+----------+     +-----------+-----------+
-         |                            |
-         v                            v
-+--------+----------+     +-----------+-----------+
-| TemplatesPanel    |     | IndexedDB "bitplace"  |
-| TemplateOverlay   |     | store: "templates"    |
-+-------------------+     +-----------------------+
++----------------------------+
+|    TemplatesPanel.tsx      |
+|  (list OR detail view)     |
++-----------+----------------+
+            |
+    +-------+--------+
+    |                |
++---v----+     +-----v------+
+| List   |     | Detail     |
+| View   |     | View       |
++---------+    | - Position |
+               | - Move     |
+               | - Transform|
+               | - Tabs     |
+               | - Settings |
+               +------+-----+
+                      |
+            +---------+---------+
+            |                   |
+    +-------v-------+  +--------v-------+
+    | Image Mode    |  | Pixel Guide    |
+    | (raw overlay) |  | (quantized)    |
+    +---------------+  +----------------+
 ```
 
-## Flusso Dati
+## Database Schema Update
 
-1. **Add Template**: File → Blob → IndexedDB → objectUrl runtime
-2. **Load**: IndexedDB → Blob → objectUrl → render
-3. **Update settings**: debounce → IndexedDB patch
-4. **Delete**: IndexedDB delete → revoke objectUrl
-5. **Cambio wallet**: ricarica lista per nuovo ownerKey
+Extend `TemplateSettings` in IndexedDB to include new fields:
 
-## File da Creare
+| Field | Type | Description |
+|-------|------|-------------|
+| `rotation` | number | 0-360 degrees |
+| `mode` | 'image' \| 'pixelGuide' | Render mode |
+| `highlightSelectedColor` | boolean | Show only selected color at full opacity |
+| `filterPaletteColors` | boolean | Filter palette to guide colors |
+| `showAbovePixels` | boolean | Render overlay above committed pixels |
+| `excludeUnlocked` | boolean | Skip locked colors during quantization |
+| `excludeSpecial` | boolean | Skip material/special colors |
 
-| File | Descrizione |
+## Files to Create
+
+| File | Description |
 |------|-------------|
-| `src/lib/templatesStore.ts` | API IndexedDB per CRUD templates con Blob storage |
+| `src/lib/paletteQuantizer.ts` | Color quantization logic: finds nearest palette color |
+| `src/components/map/TemplateDetailView.tsx` | Detail panel UI with all controls |
 
-## File da Modificare
+## Files to Modify
 
-| File | Modifica |
-|------|----------|
-| `src/hooks/useTemplates.ts` | Integrazione IndexedDB + wallet awareness + objectUrl lifecycle |
-| `src/components/map/TemplatesPanel.tsx` | Usa `objectUrl` invece di `dataUrl` |
-| `src/components/map/TemplateOverlay.tsx` | Usa `objectUrl` invece di `dataUrl` |
+| File | Changes |
+|------|---------|
+| `src/lib/templatesStore.ts` | Add new settings fields + migration logic |
+| `src/hooks/useTemplates.ts` | Add `updateSettings()`, expose new fields, add rotation/mode/settings |
+| `src/components/map/TemplatesPanel.tsx` | Add detail view with back navigation, tabs, controls |
+| `src/components/map/TemplateOverlay.tsx` | Support rotation, two render modes (Image/Pixel Guide), z-order toggle |
+| `src/components/map/BitplaceMap.tsx` | Pass template settings to ActionTray for palette filtering, wire move mode |
+| `src/components/map/ActionTray.tsx` | Accept `templateGuideColors` prop to filter/highlight palette |
 
-## Dettagli Implementazione
+## Implementation Details
 
-### 1. templatesStore.ts (IndexedDB API)
+### 1. paletteQuantizer.ts (New File)
 
-Schema database:
-- **Database**: `bitplace` (version 1)
-- **Object Store**: `templates` con keyPath `id`
-- **Index**: `ownerKey` per query per wallet
+Color distance and nearest palette lookup:
 
-Record Template:
 ```typescript
-interface TemplateRecord {
-  id: string;
-  ownerKey: string;           // walletAddress || "guest"
-  name: string;
-  mime: string;
-  width: number;
-  height: number;
-  createdAt: number;
-  blob: Blob;                 // Immagine originale
-  settings: {
-    visible: boolean;
-    x: number;
-    y: number;                // Posizione grid
-    scale: number;            // 1-400%
-    opacity: number;          // 0-100
-    rotation: number;         // gradi (per futuro)
-  };
+interface QuantizedPixel {
+  dx: number;      // Offset from anchor (0 to guideW-1)
+  dy: number;      // Offset from anchor (0 to guideH-1)
+  hexColor: string;
+}
+
+interface QuantizeOptions {
+  excludeUnlocked?: boolean;
+  excludeSpecial?: boolean;
+  unlockedColors?: string[];  // Colors the user has unlocked
+}
+
+// Euclidean RGB distance
+function colorDistance(c1: RGB, c2: RGB): number;
+
+// Find nearest palette color
+function nearestPaletteColor(
+  rgb: RGB, 
+  palette: string[],
+  options?: QuantizeOptions
+): string;
+
+// Main quantization function
+function quantizeImage(
+  imageData: ImageData,
+  scale: number,     // 1-400% 
+  options?: QuantizeOptions
+): QuantizedPixel[];
+
+// Extract unique colors from guide
+function getGuideColors(pixels: QuantizedPixel[]): string[];
+```
+
+Performance target: quantize 500x500 image in <100ms using web worker if needed.
+
+### 2. TemplateSettings Schema Update
+
+```typescript
+interface TemplateSettings {
+  visible: boolean;
+  x: number;
+  y: number;
+  scale: number;        // 1-400
+  opacity: number;      // 0-100
+  rotation: number;     // 0-360 degrees
+  mode: 'image' | 'pixelGuide';
+  
+  // Quick settings
+  highlightSelectedColor: boolean;
+  filterPaletteColors: boolean;
+  showAbovePixels: boolean;
+  excludeUnlocked: boolean;
+  excludeSpecial: boolean;
 }
 ```
 
-API esposte:
+### 3. TemplatesPanel.tsx - Detail View
+
+When a template is selected, show detail view instead of list:
+
+**Header:**
+- Back arrow (returns to list)
+- Thumbnail + name + dimensions badge (e.g. "202 / 202" for guide dimensions)
+- Delete button
+
+**Tabs:** [Image] [Pixel Guide]
+- Switch between render modes
+
+**Position Section:**
+- Label: "Position"
+- Two number inputs: X and Y (grid coordinates)
+- "Recenter" button: centers viewport on template OR template on viewport center
+
+**Move Button:**
+- Toggle button: when active, dragging on map moves template (not map pan)
+- Visual indicator (active state)
+
+**Transform Section:**
+- Scale slider: 1-400% with live value display
+- Opacity slider: 0-100% with live value display
+- Rotation slider: 0-360 degrees (or -180 to 180)
+
+**Guide Dimensions (Pixel Guide mode only):**
+- Show computed size: `guideW x guideH` or "202 / 202"
+- Updates live when scale changes
+
+**Quick Settings (Collapsible or dropdown menu):**
+- Toggle: "Highlight selected color" - emphasize current palette color in guide
+- Toggle: "Filter colors when painting" - filter ActionTray palette to guide colors
+- Toggle: "Show template above pixels" - z-order control
+- Toggle: "Exclude not unlocked colors" - quantization filter
+- Toggle: "Exclude special colors" - skip materials in quantization
+
+### 4. TemplateOverlay.tsx - Dual Render Modes
+
+**Image Mode (existing, enhanced):**
+- Apply rotation transform around image center
+- Use anchor (x, y) as top-left grid coordinate
+- `ctx.rotate(rotation * Math.PI / 180)` after translating to center
+
+**Pixel Guide Mode (new):**
+- On image load or scale/settings change: run quantization
+- Cache quantized pixels in `useMemo` with dependency on scale, excludes, etc.
+- Render each pixel as a small square at grid position:
+  ```
+  for each {dx, dy, hexColor}:
+    gridX = anchorX + dx
+    gridY = anchorY + dy
+    screenPos = mapProject(gridIntToLngLat(gridX, gridY))
+    fillRect at screenPos with hexColor
+  ```
+- Apply opacity (e.g., 0.6-0.7) to differentiate from real paints
+- If `highlightSelectedColor` active:
+  - Full opacity for pixels matching `selectedColor`
+  - Very low opacity (0.15) for other pixels
+
+**z-order toggle (showAbovePixels):**
+- If true: z-index higher than CanvasOverlay (z-[6] instead of z-[4])
+- If false: z-index lower or same as CanvasOverlay
+
+**Rotation rendering:**
 ```typescript
-// Inizializza/apre DB
-async function openDB(): Promise<IDBDatabase>
-
-// Lista templates per owner
-async function listTemplates(ownerKey: string): Promise<TemplateRecord[]>
-
-// Aggiunge template da File
-async function addTemplate(ownerKey: string, file: File, initialPosition: {x: number, y: number}): Promise<TemplateRecord>
-
-// Aggiorna settings (debounce interno)
-async function updateTemplate(id: string, patch: Partial<TemplateRecord['settings']>): Promise<void>
-
-// Elimina template
-async function deleteTemplate(id: string): Promise<void>
+ctx.translate(centerX, centerY);
+ctx.rotate(rotation * Math.PI / 180);
+ctx.translate(-centerX, -centerY);
+// Draw image/pixels
 ```
 
-### 2. Modifiche a useTemplates.ts
+### 5. Move Mode Integration
 
-Stato aggiornato:
+Add new state to useTemplates: `isMoveMode: boolean`
+
+When Move mode active:
+1. Template overlay gets `pointer-events: auto` on a drag handle layer
+2. Or: BitplaceMap intercepts drag and updates template position
+3. Map dragPan disabled during move
+4. Mouse cursor: 'move'
+
+Implementation approach (in BitplaceMap):
 ```typescript
-interface RuntimeTemplate {
-  id: string;
-  name: string;
-  objectUrl: string;         // URL.createObjectURL(blob) - solo runtime!
-  width: number;
-  height: number;
-  opacity: number;
-  scale: number;
-  positionX: number;
-  positionY: number;
+// When isMoveMode and drag on map:
+const handleTemplateMove = (e: MouseEvent) => {
+  const gridPos = lngLatToGridInt(map.unproject([e.clientX, e.clientY]));
+  updatePosition(activeTemplateId, { x: gridPos.x, y: gridPos.y });
+};
+```
+
+### 6. ActionTray Palette Integration
+
+New props for ActionTray:
+```typescript
+interface ActionTrayProps {
+  // ... existing
+  templateGuideColors?: string[];  // Colors in active guide
+  highlightTemplateColor?: boolean; // Highlight active color in guide
+  filterToGuideColors?: boolean;    // Show only guide colors
 }
 ```
 
-Nuove responsabilità:
-1. **Riceve `walletAddress`** come prop/context
-2. **ownerKey** = walletAddress || "guest"
-3. **useEffect su ownerKey** → ricarica `listTemplates(ownerKey)`
-4. **addTemplate** → chiama `templatesStore.addTemplate()` → crea objectUrl → aggiunge a state
-5. **updateTransform/updatePosition** → chiama `templatesStore.updateTemplate()` con debounce 300ms
-6. **removeTemplate** → `URL.revokeObjectURL()` → `templatesStore.deleteTemplate()`
-7. **Cleanup su unmount** → revoke tutti gli objectUrl
-8. **activeTemplateId** → localStorage key: `active_template_id_${ownerKey}`
+When `filterToGuideColors` is active:
+- `ALL_COLORS.filter(c => templateGuideColors.includes(c))`
+- Show a toggle/chip to disable filter and see full palette
 
-### 3. Modifiche a TemplatesPanel.tsx
+When painting and `highlightTemplateColor` is active:
+- In TemplateOverlay, only the currently selected color is shown at full opacity
 
-- Usa `template.objectUrl` invece di `template.dataUrl` per thumbnail
-- Nessun'altra modifica logica (il tipo cambia ma l'uso è identico)
+### 7. Recenter Logic
 
-### 4. Modifiche a TemplateOverlay.tsx
+Two interpretations (implement both, let user choose or smart default):
+1. **Center viewport on template:** `map.flyTo({ center: gridIntToLngLat(template.x, template.y) })`
+2. **Move template to viewport center:** 
+   ```typescript
+   const center = map.getCenter();
+   const gridCenter = lngLatToGridInt(center.lng, center.lat);
+   updatePosition(id, { x: gridCenter.x, y: gridCenter.y });
+   ```
 
-- Usa `template.objectUrl` invece di `template.dataUrl` per rendering
-- Nessun'altra modifica logica
+Implement as: single "Recenter" button that moves template to current viewport center (more intuitive for placing).
 
-## Gestione Lifecycle ObjectURL
+## Data Flow
 
-| Evento | Azione |
-|--------|--------|
-| Template caricato da IndexedDB | `URL.createObjectURL(blob)` → salva in state |
-| Template eliminato | `URL.revokeObjectURL(url)` prima di rimuovere da state |
-| Cambio wallet (ownerKey) | Revoke tutti gli URL correnti → carica nuova lista |
-| Unmount hook | Revoke tutti gli URL |
-
-## Active Template Persistence
-
-```typescript
-// Salva active template id in localStorage
-const ACTIVE_TEMPLATE_KEY = (ownerKey: string) => `bitplace_active_template_${ownerKey}`;
-
-// Quando cambia ownerKey:
-// 1. Carica active_template_id dal localStorage
-// 2. Se esiste nella lista caricata → seleziona
-// 3. Altrimenti → null
-
-// Quando cambia activeTemplateId:
-// Salva in localStorage[ACTIVE_TEMPLATE_KEY(ownerKey)]
+```text
+User loads template
+     |
+     v
++----+-----+
+| IndexedDB|---> Blob + Settings
++----+-----+
+     |
+     v
+useTemplates hook
+     |
+     +---> objectUrl (for Image mode)
+     |
+     +---> quantizedPixels (for Pixel Guide, computed on scale/settings change)
+     |
+     v
+TemplateOverlay
+     |
+     +---> mode === 'image': draw image with transforms
+     |
+     +---> mode === 'pixelGuide': draw pixel grid with palette colors
 ```
 
-## Debounce Update Settings
+## Performance Considerations
 
-Per evitare troppi write su IndexedDB durante lo slider:
-```typescript
-const debouncedUpdate = useMemo(
-  () => debounce((id: string, patch: object) => {
-    templatesStore.updateTemplate(id, patch);
-  }, 300),
-  []
-);
-```
+1. **Quantization caching:** Memoize quantized pixel array, recompute only on:
+   - Scale change
+   - Exclude toggles change
+   - Image source change
 
-## Test di Accettazione
+2. **Efficient guide rendering:**
+   - Batch by color (like CanvasOverlay does)
+   - Skip pixels outside viewport
+   - Use single canvas draw call with fillRect batching
 
-| Test | Comportamento Atteso |
-|------|---------------------|
-| Add template | Appare in lista e resta dopo refresh |
-| Cambio opacity/scale | Valori persistono dopo refresh |
-| Cambio wallet | Lista cambia (namespace per wallet) |
-| Logout → Guest | Vede templates "guest" |
-| Delete | Sparisce e non torna dopo refresh |
-| Refresh pagina | Templates tornano, active ripristinato |
+3. **Debounce slider updates:**
+   - Scale/opacity/rotation: 100ms debounce for IndexedDB
+   - Immediate visual update (optimistic)
 
-## Note Tecniche
+4. **Worker for large images:**
+   - If image > 1024x1024, consider OffscreenCanvas or Web Worker for quantization
+   - For MVP: synchronous is acceptable for images up to 500x500
 
-### IndexedDB senza libreria esterna
-Implementazione minimale vanilla JS (no `idb` o altre librerie) per mantenere bundle leggero. Pattern standard con Promise wrapper.
+## Mobile Considerations
 
-### Gestione errori
-- Se IndexedDB non disponibile (es. private browsing) → fallback a memoria (templates non persistenti)
-- Console.warn per debug ma non blocca l'app
+- All controls fit in GlassSheet drawer
+- Sliders have touch-friendly size (already handled by existing Slider component)
+- Move mode works with touch drag
+- Tabs and toggles are touch-friendly
 
-### Migrazione
-Nessuna migrazione necessaria - è una nuova feature. I templates in-memory attuali andranno persi al primo refresh dopo deploy (comportamento accettato).
+## Checklist
 
+- [ ] Create `paletteQuantizer.ts` with color distance and quantization functions
+- [ ] Extend `TemplateSettings` interface with new fields
+- [ ] Update `templatesStore.ts` with migration for new fields
+- [ ] Create `TemplateDetailView.tsx` component
+- [ ] Update `TemplatesPanel.tsx` with list/detail view switching
+- [ ] Update `useTemplates.ts` with rotation, mode, quick settings
+- [ ] Update `TemplateOverlay.tsx` with Pixel Guide rendering and rotation
+- [ ] Implement Move mode in `BitplaceMap.tsx`
+- [ ] Add palette filtering to `ActionTray.tsx`
+- [ ] Test quantization performance
+- [ ] Verify Day/Night theme compatibility
+- [ ] Mobile drawer testing
+
+## File Summary
+
+| File | Action |
+|------|--------|
+| `src/lib/paletteQuantizer.ts` | Create |
+| `src/components/map/TemplateDetailView.tsx` | Create |
+| `src/lib/templatesStore.ts` | Modify |
+| `src/hooks/useTemplates.ts` | Modify |
+| `src/components/map/TemplatesPanel.tsx` | Modify (major) |
+| `src/components/map/TemplateOverlay.tsx` | Modify (major) |
+| `src/components/map/BitplaceMap.tsx` | Modify |
+| `src/components/map/ActionTray.tsx` | Modify |
