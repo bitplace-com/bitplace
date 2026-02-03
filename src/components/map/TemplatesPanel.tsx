@@ -91,7 +91,7 @@ function TemplatesPanelContent({
               {/* Thumbnail */}
               <div className="h-12 w-12 rounded-lg bg-muted/50 overflow-hidden shrink-0">
                 <img
-                  src={template.dataUrl}
+                  src={template.objectUrl}
                   alt={template.name}
                   className="h-full w-full object-cover"
                 />

@@ -1,14 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import * as templatesStore from '@/lib/templatesStore';
+import type { TemplateRecord } from '@/lib/templatesStore';
 
 export interface Template {
   id: string;
   name: string;
-  dataUrl: string;
+  objectUrl: string;  // Runtime URL for rendering
   width: number;
   height: number;
-  opacity: number;   // 0-100
-  scale: number;     // 1-400 (percentage)
-  positionX: number; // Grid coordinates
+  opacity: number;    // 0-100
+  scale: number;      // 1-400 (percentage)
+  positionX: number;  // Grid coordinates
   positionY: number;
 }
 
@@ -16,6 +18,7 @@ interface UseTemplatesReturn {
   templates: Template[];
   activeTemplateId: string | null;
   activeTemplate: Template | null;
+  isLoading: boolean;
   addTemplate: (file: File, initialPosition?: { x: number; y: number }) => Promise<void>;
   removeTemplate: (id: string) => void;
   selectTemplate: (id: string | null) => void;
@@ -23,51 +26,153 @@ interface UseTemplatesReturn {
   updatePosition: (id: string, position: { x: number; y: number }) => void;
 }
 
-export function useTemplates(): UseTemplatesReturn {
+const ACTIVE_TEMPLATE_KEY = (ownerKey: string) => `bitplace_active_template_${ownerKey}`;
+
+// Simple debounce utility
+function debounce<T extends (...args: unknown[]) => unknown>(fn: T, delay: number) {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  return (...args: Parameters<T>) => {
+    if (timeoutId) clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+}
+
+export function useTemplates(walletAddress: string | null): UseTemplatesReturn {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Track object URLs for cleanup
+  const objectUrlsRef = useRef<Map<string, string>>(new Map());
+
+  const ownerKey = walletAddress || 'guest';
 
   const activeTemplate = templates.find(t => t.id === activeTemplateId) || null;
 
-  const addTemplate = useCallback(async (file: File, initialPosition?: { x: number; y: number }) => {
-    return new Promise<void>((resolve, reject) => {
-      const reader = new FileReader();
-      
-      reader.onload = (e) => {
-        const dataUrl = e.target?.result as string;
-        
-        // Get image dimensions
-        const img = new Image();
-        img.onload = () => {
-          const newTemplate: Template = {
-            id: crypto.randomUUID(),
-            name: file.name.replace(/\.[^/.]+$/, ''), // Remove extension
-            dataUrl,
-            width: img.width,
-            height: img.height,
-            opacity: 70, // Default 70%
-            scale: 100,  // Default 100%
-            positionX: initialPosition?.x ?? 0,
-            positionY: initialPosition?.y ?? 0,
-          };
-          
-          setTemplates(prev => [...prev, newTemplate]);
-          setActiveTemplateId(newTemplate.id);
-          resolve();
-        };
-        
-        img.onerror = () => reject(new Error('Failed to load image'));
-        img.src = dataUrl;
-      };
-      
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsDataURL(file);
-    });
+  // Debounced update to IndexedDB
+  const debouncedUpdate = useMemo(
+    () => debounce((id: string, patch: { opacity?: number; scale?: number; x?: number; y?: number }) => {
+      templatesStore.updateTemplate(id, patch).catch(err => {
+        console.warn('[useTemplates] Failed to persist update:', err);
+      });
+    }, 300),
+    []
+  );
+
+  // Cleanup all object URLs
+  const revokeAllUrls = useCallback(() => {
+    objectUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+    objectUrlsRef.current.clear();
   }, []);
 
+  // Convert TemplateRecord to runtime Template with objectUrl
+  const recordToTemplate = useCallback((record: TemplateRecord): Template => {
+    // Check if we already have an objectUrl for this record
+    let objectUrl = objectUrlsRef.current.get(record.id);
+    if (!objectUrl) {
+      objectUrl = URL.createObjectURL(record.blob);
+      objectUrlsRef.current.set(record.id, objectUrl);
+    }
+
+    return {
+      id: record.id,
+      name: record.name,
+      objectUrl,
+      width: record.width,
+      height: record.height,
+      opacity: record.settings.opacity,
+      scale: record.settings.scale,
+      positionX: record.settings.x,
+      positionY: record.settings.y,
+    };
+  }, []);
+
+  // Load templates when ownerKey changes
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTemplates() {
+      setIsLoading(true);
+      
+      // Cleanup previous URLs before loading new ones
+      revokeAllUrls();
+      setTemplates([]);
+
+      try {
+        const records = await templatesStore.listTemplates(ownerKey);
+        if (cancelled) return;
+
+        const runtimeTemplates = records.map(recordToTemplate);
+        setTemplates(runtimeTemplates);
+
+        // Restore active template from localStorage
+        const savedActiveId = localStorage.getItem(ACTIVE_TEMPLATE_KEY(ownerKey));
+        if (savedActiveId && runtimeTemplates.some(t => t.id === savedActiveId)) {
+          setActiveTemplateId(savedActiveId);
+        } else {
+          setActiveTemplateId(null);
+        }
+      } catch (err) {
+        console.warn('[useTemplates] Failed to load templates:', err);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    loadTemplates();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ownerKey, recordToTemplate, revokeAllUrls]);
+
+  // Persist active template id to localStorage
+  useEffect(() => {
+    if (activeTemplateId) {
+      localStorage.setItem(ACTIVE_TEMPLATE_KEY(ownerKey), activeTemplateId);
+    } else {
+      localStorage.removeItem(ACTIVE_TEMPLATE_KEY(ownerKey));
+    }
+  }, [activeTemplateId, ownerKey]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      revokeAllUrls();
+    };
+  }, [revokeAllUrls]);
+
+  const addTemplate = useCallback(async (file: File, initialPosition?: { x: number; y: number }) => {
+    const position = initialPosition ?? { x: 0, y: 0 };
+
+    try {
+      const record = await templatesStore.addTemplate(ownerKey, file, position);
+      const template = recordToTemplate(record);
+      
+      setTemplates(prev => [template, ...prev]); // Add to beginning (newest first)
+      setActiveTemplateId(template.id);
+    } catch (err) {
+      console.error('[useTemplates] Failed to add template:', err);
+      throw err;
+    }
+  }, [ownerKey, recordToTemplate]);
+
   const removeTemplate = useCallback((id: string) => {
+    // Revoke object URL
+    const url = objectUrlsRef.current.get(id);
+    if (url) {
+      URL.revokeObjectURL(url);
+      objectUrlsRef.current.delete(id);
+    }
+
+    // Remove from state
     setTemplates(prev => prev.filter(t => t.id !== id));
     setActiveTemplateId(prev => prev === id ? null : prev);
+
+    // Delete from IndexedDB
+    templatesStore.deleteTemplate(id).catch(err => {
+      console.warn('[useTemplates] Failed to delete template from DB:', err);
+    });
   }, []);
 
   const selectTemplate = useCallback((id: string | null) => {
@@ -83,7 +188,10 @@ export function useTemplates(): UseTemplatesReturn {
         ...(transform.scale !== undefined && { scale: transform.scale }),
       };
     }));
-  }, []);
+
+    // Debounced persist to IndexedDB
+    debouncedUpdate(id, transform);
+  }, [debouncedUpdate]);
 
   const updatePosition = useCallback((id: string, position: { x: number; y: number }) => {
     setTemplates(prev => prev.map(t => {
@@ -94,12 +202,16 @@ export function useTemplates(): UseTemplatesReturn {
         positionY: position.y,
       };
     }));
-  }, []);
+
+    // Debounced persist to IndexedDB
+    debouncedUpdate(id, { x: position.x, y: position.y });
+  }, [debouncedUpdate]);
 
   return {
     templates,
     activeTemplateId,
     activeTemplate,
+    isLoading,
     addTemplate,
     removeTemplate,
     selectTemplate,
