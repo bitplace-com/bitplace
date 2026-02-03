@@ -75,6 +75,7 @@ import { PixelUserMinus } from './custom/PixelUserMinus';
 import { PixelGrid3x3 } from './custom/PixelGrid3x3';
 import { PixelCheckDouble } from './custom/PixelCheckDouble';
 import { PixelThumbtack } from './custom/PixelThumbtack';
+import { PixelImage } from './custom/PixelImage';
 
 export type IconName =
   | 'hand'
@@ -150,7 +151,8 @@ export type IconName =
   | 'userMinus'
   | 'grid3x3'
   | 'checkDouble'
-  | 'thumbtack';
+  | 'thumbtack'
+  | 'image';
 
 type PixelIconComponent = ComponentType<SVGProps<SVGSVGElement> & { className?: string }>;
 
@@ -229,4 +231,5 @@ export const icons: Record<IconName, PixelIconComponent> = {
   grid3x3: PixelGrid3x3,
   checkDouble: PixelCheckDouble,
   thumbtack: PixelThumbtack,
+  image: PixelImage,
 };
