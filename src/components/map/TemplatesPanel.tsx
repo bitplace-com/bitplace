@@ -4,31 +4,36 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { GlassSheet } from '@/components/ui/glass-sheet';
 import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
 import { PixelIcon } from '@/components/icons/PixelIcon';
-import type { Template } from '@/hooks/useTemplates';
+import { TemplateDetailView } from './TemplateDetailView';
+import type { Template, TemplateSettings } from '@/hooks/useTemplates';
 
 interface TemplatesPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   templates: Template[];
   activeTemplateId: string | null;
+  isMoveMode: boolean;
   onAddTemplate: (file: File) => Promise<void>;
   onRemoveTemplate: (id: string) => void;
   onSelectTemplate: (id: string | null) => void;
-  onUpdateTransform: (id: string, transform: { opacity?: number; scale?: number }) => void;
+  onUpdateSettings: (id: string, settings: Partial<TemplateSettings>) => void;
+  onRecenter: () => void;
+  onToggleMoveMode: () => void;
 }
 
-function TemplatesPanelContent({
+function TemplateListView({
   templates,
   activeTemplateId,
   onAddTemplate,
-  onRemoveTemplate,
   onSelectTemplate,
-  onUpdateTransform,
-}: Omit<TemplatesPanelProps, 'open' | 'onOpenChange'>) {
+}: {
+  templates: Template[];
+  activeTemplateId: string | null;
+  onAddTemplate: (file: File) => Promise<void>;
+  onSelectTemplate: (id: string | null) => void;
+}) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const activeTemplate = templates.find(t => t.id === activeTemplateId);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,7 +86,7 @@ function TemplatesPanelContent({
           {templates.map((template) => (
             <div
               key={template.id}
-              onClick={() => onSelectTemplate(template.id === activeTemplateId ? null : template.id)}
+              onClick={() => onSelectTemplate(template.id)}
               className={cn(
                 "flex items-center gap-3 p-2 rounded-xl cursor-pointer transition-colors",
                 "hover:bg-foreground/5",
@@ -105,57 +110,52 @@ function TemplatesPanelContent({
                 </p>
               </div>
 
-              {/* Delete button */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemoveTemplate(template.id);
-                }}
-                className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                aria-label="Delete template"
-              >
-                <PixelIcon name="trash" size="sm" />
-              </button>
+              {/* Arrow indicator */}
+              <PixelIcon name="chevronRight" size="sm" className="text-muted-foreground" />
             </div>
           ))}
         </div>
       )}
-
-      {/* Transform controls (when template selected) */}
-      {activeTemplate && (
-        <div className="border-t border-border pt-4 space-y-4">
-          {/* Opacity slider */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Opacity</label>
-              <span className="text-sm text-muted-foreground">{activeTemplate.opacity}%</span>
-            </div>
-            <Slider
-              value={[activeTemplate.opacity]}
-              onValueChange={([value]) => onUpdateTransform(activeTemplate.id, { opacity: value })}
-              min={0}
-              max={100}
-              step={1}
-            />
-          </div>
-
-          {/* Scale slider */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Scale</label>
-              <span className="text-sm text-muted-foreground">{activeTemplate.scale}%</span>
-            </div>
-            <Slider
-              value={[activeTemplate.scale]}
-              onValueChange={([value]) => onUpdateTransform(activeTemplate.id, { scale: value })}
-              min={1}
-              max={400}
-              step={1}
-            />
-          </div>
-        </div>
-      )}
     </div>
+  );
+}
+
+function TemplatesPanelContent({
+  templates,
+  activeTemplateId,
+  isMoveMode,
+  onAddTemplate,
+  onRemoveTemplate,
+  onSelectTemplate,
+  onUpdateSettings,
+  onRecenter,
+  onToggleMoveMode,
+}: Omit<TemplatesPanelProps, 'open' | 'onOpenChange'>) {
+  const activeTemplate = templates.find(t => t.id === activeTemplateId);
+
+  // Show detail view if template is selected
+  if (activeTemplate) {
+    return (
+      <TemplateDetailView
+        template={activeTemplate}
+        onBack={() => onSelectTemplate(null)}
+        onDelete={() => onRemoveTemplate(activeTemplate.id)}
+        onRecenter={onRecenter}
+        onUpdateSettings={(settings) => onUpdateSettings(activeTemplate.id, settings)}
+        isMoveMode={isMoveMode}
+        onToggleMoveMode={onToggleMoveMode}
+      />
+    );
+  }
+
+  // Show list view
+  return (
+    <TemplateListView
+      templates={templates}
+      activeTemplateId={activeTemplateId}
+      onAddTemplate={onAddTemplate}
+      onSelectTemplate={onSelectTemplate}
+    />
   );
 }
 
@@ -175,7 +175,7 @@ export function TemplatesPanel({
         title="Templates"
         description="Overlay images as drawing guides"
         icon={<PixelIcon name="image" size="md" />}
-        size="sm"
+        size="md"
       >
         <TemplatesPanelContent {...contentProps} />
       </GlassSheet>

@@ -119,7 +119,7 @@ export function BitplaceMap() {
   const peBalance = usePeBalance(user?.id);
   const isMobile = useIsMobile();
   const { height: statusStripHeight, setRef: setStatusStripRef } = useStatusStripHeight();
-  const { templates, activeTemplateId, activeTemplate, addTemplate, removeTemplate, selectTemplate, updateTransform } = useTemplates(walletAddress);
+  const { templates, activeTemplateId, activeTemplate, addTemplate, removeTemplate, selectTemplate, updateSettings, isMoveMode, toggleMoveMode, updatePosition } = useTemplates(walletAddress);
   const [templatesPanelOpen, setTemplatesPanelOpen] = useState(false);
 
   // Track if selection changed after validation (for auto-invalidation hint)
@@ -1388,7 +1388,11 @@ export function BitplaceMap() {
 
         {/* Template Overlay - between map and HUD */}
         {mapReady && activeTemplate && (
-          <TemplateOverlay map={mapRef.current} template={activeTemplate} />
+          <TemplateOverlay 
+            map={mapRef.current} 
+            template={activeTemplate} 
+            selectedColor={selectedColor}
+          />
         )}
 
         {/* Templates Panel */}
@@ -1397,10 +1401,20 @@ export function BitplaceMap() {
           onOpenChange={setTemplatesPanelOpen}
           templates={templates}
           activeTemplateId={activeTemplateId}
+          isMoveMode={isMoveMode}
           onAddTemplate={addTemplate}
           onRemoveTemplate={removeTemplate}
           onSelectTemplate={selectTemplate}
-          onUpdateTransform={updateTransform}
+          onUpdateSettings={updateSettings}
+          onRecenter={() => {
+            // Move template to current viewport center
+            if (mapRef.current && activeTemplateId) {
+              const center = mapRef.current.getCenter();
+              const gridPos = lngLatToGridInt(center.lng, center.lat);
+              updatePosition(activeTemplateId, { x: gridPos.x, y: gridPos.y });
+            }
+          }}
+          onToggleMoveMode={toggleMoveMode}
         />
 
         {/* HUD Overlay */}
