@@ -775,13 +775,31 @@ export function BitplaceMap() {
     setIsEyedropperActive(false);
   }, [pixels, setSelectedColor]);
 
+  // Template move mode: disable map pan and change cursor
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    
+    if (isMoveMode && activeTemplateId) {
+      map.dragPan.disable();
+      map.getCanvas().style.cursor = 'move';
+    } else {
+      // Only re-enable if not in other drag-blocking states
+      if (!isDraggingRef.current && !isShiftHeld) {
+        map.dragPan.enable();
+      }
+    }
+  }, [isMoveMode, activeTemplateId, mapReady, isShiftHeld]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
 
     // Update cursor based on eyedropper state or interaction mode
     const canvas = map.getCanvas();
-    if (isEyedropperActive) {
+    if (isMoveMode && activeTemplateId) {
+      canvas.style.cursor = 'move';
+    } else if (isEyedropperActive) {
       canvas.style.cursor = 'crosshair';
     } else if (interactionMode === 'draw' && canPaint) {
       canvas.style.cursor = 'crosshair';
@@ -792,6 +810,13 @@ export function BitplaceMap() {
     }
 
     const handleMapMouseMove = (e: maplibregl.MapMouseEvent) => {
+      // Template move mode: update template position while dragging
+      if (isMoveMode && activeTemplateId && isDraggingRef.current) {
+        const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
+        updatePosition(activeTemplateId, { x: pixel.x, y: pixel.y });
+        return;
+      }
+      
       if (canPaint) {
         // Use lngLatToGridInt for grid-snapped hover
         const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
@@ -868,6 +893,14 @@ export function BitplaceMap() {
     };
 
     const handleMapMouseDown = (e: maplibregl.MapMouseEvent) => {
+      // Template move mode: start template drag
+      if (isMoveMode && activeTemplateId) {
+        isDraggingRef.current = true;
+        const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
+        dragStartRef.current = { x: pixel.x, y: pixel.y, screenX: e.point.x, screenY: e.point.y };
+        return;
+      }
+      
       if (!canPaint) return;
       
       // Handle eyedropper mode or Alt+Click
@@ -935,6 +968,13 @@ export function BitplaceMap() {
     };
 
     const handleMapMouseUp = async (e: maplibregl.MapMouseEvent) => {
+      // Template move mode: end template drag
+      if (isMoveMode && activeTemplateId && isDraggingRef.current) {
+        isDraggingRef.current = false;
+        dragStartRef.current = null;
+        return;
+      }
+      
       // End brush selection (click+drag in action modes) - now single-click only
       if (isBrushSelectingRef.current) {
         isBrushSelectingRef.current = false;
@@ -1050,7 +1090,7 @@ export function BitplaceMap() {
       map.off('mouseup', handleMapMouseUp);
       canvas.removeEventListener('mouseleave', handleMapMouseLeave);
     };
-  }, [mapReady, mode, selectedColor, interactionMode, isSpaceHeld, isShiftHeld, updateSelection, startSelection, endSelection, clearSelection, isEyedropperActive, handleEyedropperPick, addToDraft, removeFromDraft, canPaint, user, playSound, requireWallet, brushSize, paintTool, selection.isSelecting, clearValidation, draftPixels]);
+  }, [mapReady, mode, selectedColor, interactionMode, isSpaceHeld, isShiftHeld, updateSelection, startSelection, endSelection, clearSelection, isEyedropperActive, handleEyedropperPick, addToDraft, removeFromDraft, canPaint, user, playSound, requireWallet, brushSize, paintTool, selection.isSelecting, clearValidation, draftPixels, isMoveMode, activeTemplateId, updatePosition]);
 
   const handleZoomIn = useCallback(() => mapRef.current?.zoomIn(), []);
   const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), []);
