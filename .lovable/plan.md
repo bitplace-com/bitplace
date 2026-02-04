@@ -1,82 +1,203 @@
 
+# Template Overlay Fixes: Mode Switching, Performance, and Pixel Visibility
 
-# Templates QA & Polish Plan
+## Problems Identified
 
-## Overview
-The Templates feature is already well-implemented. This plan covers minor refinements to ensure performance optimizations are robust, mobile UX is optimal, and all QA acceptance criteria pass.
+### 1. Mode Switching Bug
+When switching from "Pixel Guide" back to "Image" mode, the image disappears because:
+- The `quantizedPixels` useMemo returns `[]` when mode is not `pixelGuide`
+- But the render functions aren't being triggered properly on mode change
+- The imageRef might be stale after the mode switch
 
-## Status Assessment
+### 2. Performance Issue with Large Templates
+Current rendering is slow because:
+- Calls `gridIntToLngLat()` and `map.project()` for EVERY pixel (O(n) API calls)
+- For 200x200 = 40,000 pixels, this becomes extremely laggy
+- The Bplace reference remains smooth even with large templates
 
-### A) .bplace Removal ✅ COMPLETE
-- Zero occurrences of ".bplace" in the codebase
-- File picker already restricts to: `image/png,image/jpeg,image/webp`
-- No import/export .bplace functionality exists
+### 3. Pixels Too Small
+Current implementation:
+- Uses `pixelSize * 0.9` which becomes microscopic at low zoom
+- Renders squares, not circles
+- No minimum size enforcement
 
-### B) Performance ✅ COMPLETE
-- Quantization uses `useMemo` with stable dependencies (mode, scale, excludeSpecial)
-- Canvas overlay rendering (not DOM elements)
-- Debounce at 300ms for IndexedDB persistence
+The Bplace reference (from screenshots):
+- Renders large, visible **circles** filling ~70-80% of each grid cell
+- Maintains consistent visual appearance at any zoom level
+- Easy to identify which color to paint at each position
 
-### C) Mobile/Tablet ✅ COMPLETE
-- `GlassSheet` component handles mobile as bottom drawer
-- `GlassPanel` for desktop side panel
-- Sliders already full-width in panel content
+## Architecture Solution
 
-### D) UX Consistency ✅ COMPLETE
-- Uses glassmorphism components with `glass-hud` variants
-- Proper Day/Night theme tokens used throughout
-- All controls use design system components
+The key insight from Bplace is that they use **grid-relative rendering** rather than per-pixel projection:
 
-## Completed Changes
+```text
+Current (slow):                      Better (fast):
+┌─────────────────┐                  ┌─────────────────┐
+│ For each pixel: │                  │ Calculate once: │
+│  - gridIntToLngLat()              │  - Anchor screen position
+│  - map.project()  │               │  - Cell size from zoom
+│  = O(n) slow API calls            │
+└─────────────────┘                  │ Then for each pixel:
+                                     │  - Simple math offset
+                                     │  = O(n) fast arithmetic
+                                     └─────────────────┘
+```
+
+## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/components/map/TemplateOverlay.tsx` | Replaced `useState` + `useEffect` with `useMemo` for quantized pixels |
-| `src/components/map/BitplaceMap.tsx` | Wired move mode to pointer handlers for template dragging |
+| `src/components/map/TemplateOverlay.tsx` | Complete rewrite of Pixel Guide rendering |
 
 ## Implementation Details
 
-### 1. TemplateOverlay.tsx - Quantization Memoization ✅
+### 1. Fix Mode Switching
 
-Replaced `useState` + `useEffect` with `useMemo`:
+The issue is that when switching modes, we need to ensure the image is re-rendered. Add the mode to the image render dependencies and clear canvas before rendering:
 
 ```typescript
-const quantizedPixels = useMemo<QuantizedPixel[]>(() => {
-  if (!imageLoaded || !imageRef.current || template.mode !== 'pixelGuide') {
-    return [];
+// In renderOverlay, always render based on current mode
+const renderOverlay = useCallback(() => {
+  if (!imageLoaded || !map) return;
+  
+  const canvas = canvasRef.current;
+  const ctx = canvas?.getContext('2d');
+  if (canvas && ctx) {
+    // Always clear canvas first
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
-  return quantizeImage(imageRef.current, template.scale, {
-    excludeSpecial: template.excludeSpecial,
-  });
-}, [imageLoaded, template.mode, template.scale, template.excludeSpecial]);
+
+  if (template.mode === 'pixelGuide') {
+    renderPixelGuideMode();
+  } else {
+    renderImageMode();
+  }
+}, [imageLoaded, map, template.mode, renderImageMode, renderPixelGuideMode]);
 ```
 
-### 2. BitplaceMap.tsx - Move Mode Integration ✅
+### 2. Optimize Pixel Guide Rendering (Critical Performance Fix)
 
-Added template move mode handling:
-- Effect to disable map pan and set 'move' cursor when move mode active
-- Mouse down handler starts drag
-- Mouse move handler updates template position during drag
-- Mouse up handler ends drag
+Replace the current per-pixel projection with grid-relative math:
 
-## QA Checklist Support
+```typescript
+const renderPixelGuideMode = useCallback(() => {
+  const canvas = canvasRef.current;
+  const ctx = canvas?.getContext('2d');
+  if (!canvas || !ctx || !map || quantizedPixels.length === 0) return;
 
-All items are supported by the current implementation:
+  // Canvas setup (same as before)
+  const container = map.getContainer();
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
 
-| Test | Code Support |
-|------|--------------|
-| Guest: add template → refresh → present | ✅ IndexedDB with `ownerKey="guest"` |
-| Wallet A: add template → refresh → present | ✅ IndexedDB scoped by `walletAddress` |
-| Switch wallet B → different list | ✅ `useEffect` on `ownerKey` change |
-| Delete → gone after refresh | ✅ `templatesStore.deleteTemplate()` |
-| Pixel Guide: scale changes → guideW/guideH update | ✅ `getGuideDimensions()` called in `useMemo` |
-| Highlight selected color | ✅ `highlightSelectedColor` flag in overlay |
-| Filter colors in palette | ✅ `filterPaletteColors` flag (UI-only) |
+  // === OPTIMIZATION: Calculate anchor position ONCE ===
+  const zoom = map.getZoom();
+  const cellSize = getCellSize(zoom);  // Use same function as CanvasOverlay
+  
+  // Get viewport top-left in float grid coords (same as CanvasOverlay)
+  const tlLngLat = map.unproject([0, 0]);
+  const tlGrid = lngLatToGridFloat(tlLngLat.lng, tlLngLat.lat);
+  
+  // Calculate screen position from grid coords (like CanvasOverlay does)
+  // anchorScreenX = (template.positionX - tlGrid.x) * cellSize
+  
+  // Visible bounds for culling
+  const brLngLat = map.unproject([width, height]);
+  const brGrid = lngLatToGridInt(brLngLat.lng, brLngLat.lat);
+  const topLeft = lngLatToGridInt(tlLngLat.lng, tlLngLat.lat);
 
-## Not in Scope
+  // Group pixels by color (batch rendering)
+  const colorBatches = new Map<string, {dx: number, dy: number}[]>();
+  
+  for (const pixel of quantizedPixels) {
+    const gridX = template.positionX + pixel.dx;
+    const gridY = template.positionY + pixel.dy;
+    
+    // Quick bounds check (skip if off-screen)
+    if (gridX < topLeft.x - 1 || gridX > brGrid.x + 1) continue;
+    if (gridY < topLeft.y - 1 || gridY > brGrid.y + 1) continue;
+    
+    if (!colorBatches.has(pixel.hexColor)) {
+      colorBatches.set(pixel.hexColor, []);
+    }
+    colorBatches.get(pixel.hexColor)!.push({ dx: pixel.dx, dy: pixel.dy });
+  }
 
-- Palette filtering in ActionTray (flag exists, wiring deferred)
-- Web Worker for large images (current sync performance acceptable)
-- Additional QA automation
+  // Render as CIRCLES (like Bplace reference)
+  const baseOpacity = template.opacity / 100;
+  const radius = cellSize * 0.4;  // 80% of cell diameter (0.4 radius = 0.8 diameter)
+  
+  colorBatches.forEach((positions, color) => {
+    let alpha = baseOpacity * 0.85;
+    if (highlightMode) {
+      alpha = (color === highlightHex) ? baseOpacity : baseOpacity * 0.15;
+    }
+    
+    ctx.fillStyle = color;
+    ctx.globalAlpha = alpha;
+    
+    // Batch all circles of same color in one path for performance
+    ctx.beginPath();
+    for (const { dx, dy } of positions) {
+      const gridX = template.positionX + dx;
+      const gridY = template.positionY + dy;
+      
+      // Calculate screen position using GRID MATH (no map.project calls!)
+      const screenX = (gridX - tlGrid.x) * cellSize + cellSize / 2;  // Center of cell
+      const screenY = (gridY - tlGrid.y) * cellSize + cellSize / 2;
+      
+      ctx.moveTo(screenX + radius, screenY);
+      ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+    }
+    ctx.fill();
+  });
+  
+  ctx.globalAlpha = 1;
+}, [map, template, quantizedPixels, selectedColor]);
+```
 
+### 3. Pixel Size Like Bplace
+
+The Bplace reference shows circles that:
+- Fill approximately 70-80% of each cell
+- Are clearly visible at any zoom level
+- Use consistent proportions regardless of zoom
+
+Implementation:
+```typescript
+// Circle radius = 40% of cell size (means 80% diameter)
+const radius = cellSize * 0.4;
+
+// Use ctx.arc() for circles instead of fillRect()
+ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+```
+
+## Performance Comparison
+
+| Metric | Before | After |
+|--------|--------|-------|
+| API calls per frame | O(n) map.project() | O(1) unproject |
+| Position calculation | gridIntToLngLat + project | Simple arithmetic |
+| Rendering | fillRect per pixel | Batched path + fill |
+| Expected improvement | - | 10-50x faster |
+
+## Expected Behavior After Fix
+
+1. **Mode switching**: Image mode renders correctly after switching from Pixel Guide
+2. **Performance**: Smooth panning/zooming even with 200x200 pixel templates
+3. **Visibility**: Large, clear circles showing exactly where to paint each color
+4. **Consistency**: Same grid alignment as the actual pixel canvas (CanvasOverlay)
+
+## Visual Reference from Bplace
+
+Based on the screenshots provided:
+- Circles fill most of the grid cell
+- Colors are clearly distinguishable
+- Even at low zoom, the pattern is visible
+- At high zoom, each circle corresponds to one paintable pixel
 
