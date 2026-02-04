@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import type maplibregl from 'maplibre-gl';
 import type { Template } from '@/hooks/useTemplates';
-import { gridIntToLngLat } from '@/lib/pixelGrid';
+import { lngLatToGridFloat, lngLatToGridInt, getCellSize } from '@/lib/pixelGrid';
 import { quantizeImage, type QuantizedPixel } from '@/lib/paletteQuantizer';
 import { cn } from '@/lib/utils';
 
@@ -59,30 +59,31 @@ export function TemplateOverlay({ map, template, selectedColor }: TemplateOverla
     canvas.height = height * dpr;
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
-    ctx.scale(dpr, dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
 
-    // Calculate image position on screen
-    const { lng, lat } = gridIntToLngLat(template.positionX, template.positionY);
-    const screenPos = map.project([lng, lat]);
+    // Use grid-relative positioning (same as CanvasOverlay)
+    const zoom = map.getZoom();
+    const cellSize = getCellSize(zoom);
+    
+    // Get viewport top-left in float grid coords
+    const tlLngLat = map.unproject([0, 0]);
+    const tlGrid = lngLatToGridFloat(tlLngLat.lng, tlLngLat.lat);
+
+    // Calculate screen position from grid coords
+    const screenX = (template.positionX - tlGrid.x) * cellSize;
+    const screenY = (template.positionY - tlGrid.y) * cellSize;
 
     // Calculate scaled dimensions
     const scale = template.scale / 100;
-    const scaledWidth = img.width * scale;
-    const scaledHeight = img.height * scale;
-
-    // Get pixel size based on zoom
-    const zoom = map.getZoom();
-    const pixelSize = Math.pow(2, zoom - 22);
-    
-    const displayWidth = scaledWidth * pixelSize;
-    const displayHeight = scaledHeight * pixelSize;
+    const displayWidth = img.width * scale * cellSize;
+    const displayHeight = img.height * scale * cellSize;
 
     // Center of the image for rotation
-    const centerX = screenPos.x;
-    const centerY = screenPos.y;
+    const centerX = screenX + displayWidth / 2;
+    const centerY = screenY + displayHeight / 2;
 
     ctx.save();
     ctx.globalAlpha = template.opacity / 100;
@@ -95,19 +96,13 @@ export function TemplateOverlay({ map, template, selectedColor }: TemplateOverla
       ctx.translate(-centerX, -centerY);
     }
 
-    // Draw centered at the position
-    ctx.drawImage(
-      img,
-      screenPos.x - displayWidth / 2,
-      screenPos.y - displayHeight / 2,
-      displayWidth,
-      displayHeight
-    );
+    // Draw at grid-aligned position
+    ctx.drawImage(img, screenX, screenY, displayWidth, displayHeight);
 
     ctx.restore();
-  }, [map, template]);
+  }, [map, template.positionX, template.positionY, template.scale, template.opacity, template.rotation]);
 
-  // Render Pixel Guide mode
+  // Render Pixel Guide mode - OPTIMIZED with grid-relative math
   const renderPixelGuideMode = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
@@ -124,49 +119,56 @@ export function TemplateOverlay({ map, template, selectedColor }: TemplateOverla
     canvas.height = height * dpr;
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
-    ctx.scale(dpr, dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
 
+    // === OPTIMIZATION: Calculate anchor position ONCE ===
     const zoom = map.getZoom();
-    const pixelSize = Math.pow(2, zoom - 22);
+    const cellSize = getCellSize(zoom);
+    
+    // Get viewport top-left in float grid coords (same as CanvasOverlay)
+    const tlLngLat = map.unproject([0, 0]);
+    const tlGrid = lngLatToGridFloat(tlLngLat.lng, tlLngLat.lat);
+    
+    // Visible bounds for culling
+    const brLngLat = map.unproject([width, height]);
+    const brGrid = lngLatToGridInt(brLngLat.lng, brLngLat.lat);
+    const topLeft = lngLatToGridInt(tlLngLat.lng, tlLngLat.lat);
 
-    // Group pixels by color for batching
-    const colorBatches = new Map<string, { screenX: number; screenY: number }[]>();
-
+    // Highlight mode settings
     const highlightMode = template.highlightSelectedColor && selectedColor;
     const highlightHex = selectedColor?.toUpperCase();
 
+    // Group pixels by color (batch rendering)
+    const colorBatches = new Map<string, { dx: number; dy: number }[]>();
+
     for (const pixel of quantizedPixels) {
-      // Calculate grid position
       const gridX = template.positionX + pixel.dx;
       const gridY = template.positionY + pixel.dy;
 
-      // Convert to screen position
-      const { lng, lat } = gridIntToLngLat(gridX, gridY);
-      const screenPos = map.project([lng, lat]);
-
-      // Skip if outside viewport (with some padding)
-      if (screenPos.x < -pixelSize || screenPos.x > width + pixelSize ||
-          screenPos.y < -pixelSize || screenPos.y > height + pixelSize) {
-        continue;
-      }
+      // Quick bounds check (skip if off-screen)
+      if (gridX < topLeft.x - 1 || gridX > brGrid.x + 1) continue;
+      if (gridY < topLeft.y - 1 || gridY > brGrid.y + 1) continue;
 
       const hexColor = pixel.hexColor;
       if (!colorBatches.has(hexColor)) {
         colorBatches.set(hexColor, []);
       }
-      colorBatches.get(hexColor)!.push({ screenX: screenPos.x, screenY: screenPos.y });
+      colorBatches.get(hexColor)!.push({ dx: pixel.dx, dy: pixel.dy });
     }
 
     // Base opacity for guide
     const baseOpacity = template.opacity / 100;
+    
+    // Circle radius = 40% of cell size (means 80% diameter, like Bplace)
+    const radius = cellSize * 0.4;
 
-    // Draw batched by color
+    // Draw batched by color - using circles for visibility
     colorBatches.forEach((positions, color) => {
       // Determine opacity based on highlight mode
-      let alpha = baseOpacity * 0.7; // Slightly dimmer than full to distinguish from real pixels
+      let alpha = baseOpacity * 0.85;
       if (highlightMode) {
         if (color === highlightHex) {
           alpha = baseOpacity; // Full opacity for selected color
@@ -178,16 +180,24 @@ export function TemplateOverlay({ map, template, selectedColor }: TemplateOverla
       ctx.fillStyle = color;
       ctx.globalAlpha = alpha;
 
-      for (const pos of positions) {
-        // Draw slightly smaller than full pixel for visual distinction
-        const size = Math.max(1, pixelSize * 0.9);
-        const offset = (pixelSize - size) / 2;
-        ctx.fillRect(pos.screenX + offset, pos.screenY + offset, size, size);
+      // Batch all circles of same color in one path for performance
+      ctx.beginPath();
+      for (const { dx, dy } of positions) {
+        const gridX = template.positionX + dx;
+        const gridY = template.positionY + dy;
+        
+        // Calculate screen position using GRID MATH (no map.project calls!)
+        const screenX = (gridX - tlGrid.x) * cellSize + cellSize / 2; // Center of cell
+        const screenY = (gridY - tlGrid.y) * cellSize + cellSize / 2;
+
+        ctx.moveTo(screenX + radius, screenY);
+        ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
       }
+      ctx.fill();
     });
 
     ctx.globalAlpha = 1;
-  }, [map, template, quantizedPixels, selectedColor]);
+  }, [map, template.positionX, template.positionY, template.opacity, template.highlightSelectedColor, quantizedPixels, selectedColor]);
 
   // Main render function
   const renderOverlay = useCallback(() => {
