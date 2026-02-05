@@ -20,7 +20,6 @@ export interface TemplateSettings {
   highlightSelectedColor: boolean;
   filterPaletteColors: boolean;
   showAbovePixels: boolean;
-  excludeSpecial: boolean;
 }
 
 export interface TemplateRecord {
@@ -47,7 +46,6 @@ const DEFAULT_SETTINGS: TemplateSettings = {
   highlightSelectedColor: false,
   filterPaletteColors: false,
   showAbovePixels: false,
-  excludeSpecial: false,
 };
 
 let dbPromise: Promise<IDBDatabase> | null = null;

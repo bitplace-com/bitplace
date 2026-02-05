@@ -6,6 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { PixelIcon } from '@/components/icons/PixelIcon';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { getGuideDimensions } from '@/lib/paletteQuantizer';
 import type { Template, TemplateSettings } from '@/hooks/useTemplates';
 
@@ -208,41 +209,79 @@ export function TemplateDetailView({
           />
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-3 pt-2">
-          {/* Highlight selected color */}
-          <div className="flex items-center justify-between">
-            <label className="text-sm text-muted-foreground">Highlight selected color</label>
-            <Switch
-              checked={template.highlightSelectedColor}
-              onCheckedChange={(checked) => onUpdateSettings({ highlightSelectedColor: checked })}
-            />
-          </div>
-          
-          {/* Filter colors when painting */}
-          <div className="flex items-center justify-between">
-            <label className="text-sm text-muted-foreground">Filter palette colors</label>
-            <Switch
-              checked={template.filterPaletteColors}
-              onCheckedChange={(checked) => onUpdateSettings({ filterPaletteColors: checked })}
-            />
-          </div>
-          
-          {/* Show template above pixels */}
-          <div className="flex items-center justify-between">
-            <label className="text-sm text-muted-foreground">Show above pixels</label>
-            <Switch
-              checked={template.showAbovePixels}
-              onCheckedChange={(checked) => onUpdateSettings({ showAbovePixels: checked })}
-            />
-          </div>
-          
-          {/* Exclude special colors */}
-          <div className="flex items-center justify-between">
-            <label className="text-sm text-muted-foreground">Exclude special colors</label>
-            <Switch
-              checked={template.excludeSpecial}
-              onCheckedChange={(checked) => onUpdateSettings({ excludeSpecial: checked })}
-            />
-          </div>
+          <TooltipProvider delayDuration={300}>
+            {/* Highlight selected color */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <label className="text-sm text-muted-foreground">Highlight selected color</label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      type="button"
+                      className="text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                    >
+                      <PixelIcon name="info" size="xs" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[200px]">
+                    Shows only the selected palette color at full opacity, dimming others to help you focus on painting one color at a time
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Switch
+                checked={template.highlightSelectedColor}
+                onCheckedChange={(checked) => onUpdateSettings({ highlightSelectedColor: checked })}
+              />
+            </div>
+            
+            {/* Filter colors when painting */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <label className="text-sm text-muted-foreground">Filter palette colors</label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      type="button"
+                      className="text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                    >
+                      <PixelIcon name="info" size="xs" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[200px]">
+                    Shows only the colors used in the template in the color palette, making it faster to pick the right color
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Switch
+                checked={template.filterPaletteColors}
+                onCheckedChange={(checked) => onUpdateSettings({ filterPaletteColors: checked })}
+              />
+            </div>
+            
+            {/* Show template above pixels */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <label className="text-sm text-muted-foreground">Show above pixels</label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      type="button"
+                      className="text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                    >
+                      <PixelIcon name="info" size="xs" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[200px]">
+                    Displays the template overlay above painted pixels instead of behind them
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Switch
+                checked={template.showAbovePixels}
+                onCheckedChange={(checked) => onUpdateSettings({ showAbovePixels: checked })}
+              />
+            </div>
+          </TooltipProvider>
         </CollapsibleContent>
       </Collapsible>
     </div>

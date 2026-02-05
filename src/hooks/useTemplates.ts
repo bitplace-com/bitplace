@@ -22,7 +22,6 @@ export interface Template {
   highlightSelectedColor: boolean;
   filterPaletteColors: boolean;
   showAbovePixels: boolean;
-  excludeSpecial: boolean;
 }
 
 interface UseTemplatesReturn {
@@ -105,7 +104,6 @@ export function useTemplates(walletAddress: string | null): UseTemplatesReturn {
       highlightSelectedColor: record.settings.highlightSelectedColor,
       filterPaletteColors: record.settings.filterPaletteColors,
       showAbovePixels: record.settings.showAbovePixels,
-      excludeSpecial: record.settings.excludeSpecial,
     };
   }, []);
 
@@ -251,7 +249,6 @@ export function useTemplates(walletAddress: string | null): UseTemplatesReturn {
         ...(settings.highlightSelectedColor !== undefined && { highlightSelectedColor: settings.highlightSelectedColor }),
         ...(settings.filterPaletteColors !== undefined && { filterPaletteColors: settings.filterPaletteColors }),
         ...(settings.showAbovePixels !== undefined && { showAbovePixels: settings.showAbovePixels }),
-        ...(settings.excludeSpecial !== undefined && { excludeSpecial: settings.excludeSpecial }),
       };
     }));
 

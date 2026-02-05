@@ -2,16 +2,17 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import type maplibregl from 'maplibre-gl';
 import type { Template } from '@/hooks/useTemplates';
 import { lngLatToGridFloat, lngLatToGridInt, getCellSize } from '@/lib/pixelGrid';
-import { quantizeImage, type QuantizedPixel } from '@/lib/paletteQuantizer';
+import { quantizeImage, getGuideColors, type QuantizedPixel } from '@/lib/paletteQuantizer';
 import { cn } from '@/lib/utils';
 
 interface TemplateOverlayProps {
   map: maplibregl.Map | null;
   template: Template;
   selectedColor?: string | null;  // Current palette color for highlighting
+  onGuideColorsChange?: (colors: string[]) => void;  // Callback for guide colors
 }
 
-export function TemplateOverlay({ map, template, selectedColor }: TemplateOverlayProps) {
+export function TemplateOverlay({ map, template, selectedColor, onGuideColorsChange }: TemplateOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -36,10 +37,15 @@ export function TemplateOverlay({ map, template, selectedColor }: TemplateOverla
     if (!imageLoaded || !imageRef.current || template.mode !== 'pixelGuide') {
       return [];
     }
-    return quantizeImage(imageRef.current, template.scale, {
-      excludeSpecial: template.excludeSpecial,
-    });
-  }, [imageLoaded, template.mode, template.scale, template.excludeSpecial]);
+    return quantizeImage(imageRef.current, template.scale);
+  }, [imageLoaded, template.mode, template.scale]);
+
+  // Extract unique colors from quantized pixels and notify parent
+  const guideColors = useMemo(() => getGuideColors(quantizedPixels), [quantizedPixels]);
+  
+  useEffect(() => {
+    onGuideColorsChange?.(guideColors);
+  }, [guideColors, onGuideColorsChange]);
 
   // Render Image mode
   const renderImageMode = useCallback(() => {

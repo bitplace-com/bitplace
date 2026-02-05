@@ -19,7 +19,6 @@ export interface QuantizedPixel {
 }
 
 export interface QuantizeOptions {
-  excludeSpecial?: boolean;   // Skip materials/special colors
   alphaThreshold?: number;    // Alpha below this = transparent (0-255, default 25)
 }
 
@@ -39,31 +38,16 @@ function hexToRGB(hex: string): RGB {
 }
 
 /**
- * Get available palette colors as RGB map
+ * Get available palette colors as RGB map (cached)
  */
-function getPaletteRGB(excludeSpecial: boolean): Map<string, RGB> {
-  // Build cache if needed
+function getPaletteRGB(): Map<string, RGB> {
   if (!paletteRGBCache) {
     paletteRGBCache = new Map();
     ALL_COLORS.forEach(hex => {
       paletteRGBCache!.set(hex.toUpperCase(), hexToRGB(hex));
     });
   }
-
-  // If not excluding special, just return the cache
-  if (!excludeSpecial) {
-    return paletteRGBCache;
-  }
-
-  // Filter out special/material colors
-  const filtered = new Map<string, RGB>();
-  paletteRGBCache.forEach((rgb, hex) => {
-    // Material IDs start with MAT_ prefix, regular colors don't
-    if (!hex.startsWith('MAT_')) {
-      filtered.set(hex, rgb);
-    }
-  });
-  return filtered;
+  return paletteRGBCache;
 }
 
 /**
@@ -79,11 +63,8 @@ function colorDistanceSq(c1: RGB, c2: RGB): number {
 /**
  * Find nearest palette color for a given RGB value
  */
-export function nearestPaletteColor(
-  rgb: RGB,
-  options?: QuantizeOptions
-): string {
-  const palette = getPaletteRGB(options?.excludeSpecial ?? false);
+export function nearestPaletteColor(rgb: RGB): string {
+  const palette = getPaletteRGB();
   
   let nearestHex = '#000000';
   let minDist = Infinity;
@@ -130,7 +111,7 @@ export function quantizeImage(
   const data = imageData.data;
 
   const pixels: QuantizedPixel[] = [];
-  const palette = getPaletteRGB(options?.excludeSpecial ?? false);
+  const palette = getPaletteRGB();
 
   for (let dy = 0; dy < guideH; dy++) {
     for (let dx = 0; dx < guideW; dx++) {
