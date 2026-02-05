@@ -121,6 +121,7 @@ export function BitplaceMap() {
   const { height: statusStripHeight, setRef: setStatusStripRef } = useStatusStripHeight();
   const { templates, activeTemplateId, activeTemplate, addTemplate, removeTemplate, selectTemplate, updateSettings, isMoveMode, toggleMoveMode, updatePosition } = useTemplates(walletAddress);
   const [templatesPanelOpen, setTemplatesPanelOpen] = useState(false);
+  const [templateGuideColors, setTemplateGuideColors] = useState<string[]>([]);
 
   // Track if selection changed after validation (for auto-invalidation hint)
   const isSelectionChangedAfterValidation = useMemo(() => {
@@ -1432,6 +1433,7 @@ export function BitplaceMap() {
             map={mapRef.current} 
             template={activeTemplate} 
             selectedColor={selectedColor}
+            onGuideColorsChange={setTemplateGuideColors}
           />
         )}
 
@@ -1515,6 +1517,8 @@ export function BitplaceMap() {
           onBrushSizeChange={setBrushSize}
           onInteractionModeChange={setInteractionMode}
           onPePerPixelChange={setPePerPixel}
+          templateGuideColors={templateGuideColors}
+          filterToGuideColors={activeTemplate?.mode === 'pixelGuide' && activeTemplate?.filterPaletteColors}
         />
 
         {/* Pixel Info Panel (read-only) */}

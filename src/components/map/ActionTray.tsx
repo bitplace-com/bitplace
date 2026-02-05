@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PixelIcon } from '@/components/icons';
 import { GlassIconButton } from '@/components/ui/glass-icon-button';
@@ -42,6 +42,10 @@ interface ActionTrayProps {
   
   // Dynamic positioning based on StatusStrip height
   statusStripHeight?: number;
+  
+  // Template palette filtering
+  templateGuideColors?: string[];  // Colors used in active template
+  filterToGuideColors?: boolean;   // Whether to filter palette
   
   // Callbacks
   onColorSelect: (color: string | null) => void;
@@ -92,6 +96,8 @@ export function ActionTray({
   canPaint: canPaintProp,
   onZoomIn,
   statusStripHeight = 48,
+  templateGuideColors = [],
+  filterToGuideColors = false,
   onColorSelect,
   onPaintToolChange,
   onBrushSizeChange,
@@ -110,6 +116,16 @@ export function ActionTray({
   const canPaint = canPaintProp;
   const isPaintMode = mode === 'paint';
   const isEraser = paintTool === 'ERASER';
+
+  // Filter palette colors when template guide is active
+  const displayColors = useMemo(() => {
+    if (filterToGuideColors && templateGuideColors.length > 0) {
+      // Create uppercase set for efficient lookup
+      const guideSet = new Set(templateGuideColors.map(c => c.toUpperCase()));
+      return ALL_COLORS.filter(c => guideSet.has(c.toUpperCase()));
+    }
+    return ALL_COLORS;
+  }, [filterToGuideColors, templateGuideColors]);
   
   // Hint text based on mode
   const hintText = isPaintMode 
@@ -402,7 +418,7 @@ export function ActionTray({
                   {paletteTab === 'colors' ? (
                     /* Standard color palette - larger on mobile, with proper spacing */
                     <div className="grid grid-cols-8 sm:grid-cols-12 gap-1.5 w-full pr-0.5">
-                      {ALL_COLORS.map((color, index) => {
+                      {displayColors.map((color, index) => {
                         const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
                         return (
                           <button
