@@ -17,6 +17,7 @@ import { ShopModal } from "@/components/modals/ShopModal";
 import { AllianceModal } from "@/components/modals/AllianceModal";
 import { SettingsModal } from "@/components/modals/SettingsModal";
 import { LeaderboardModal } from "@/components/modals/LeaderboardModal";
+import { WhitePaperModal } from "@/components/modals/WhitePaperModal";
 
 function ThemeToggleButton() {
   const { theme, setTheme } = useTheme();
@@ -41,6 +42,7 @@ export function MapMenuDrawer() {
   const [allianceOpen, setAllianceOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+  const [whitePaperOpen, setWhitePaperOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -136,6 +138,16 @@ export function MapMenuDrawer() {
                   <PixelIcon name="book" size="md" />
                   Rules
                 </Button>
+
+                {/* White Paper */}
+                <Button
+                  variant="ghost"
+                  onClick={() => setWhitePaperOpen(true)}
+                  className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
+                >
+                  <PixelIcon name="book" size="md" />
+                  White Paper
+                </Button>
               </div>
             </div>
           </nav>
@@ -160,6 +172,7 @@ export function MapMenuDrawer() {
       <AllianceModal open={allianceOpen} onOpenChange={setAllianceOpen} />
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
       <LeaderboardModal open={leaderboardOpen} onOpenChange={setLeaderboardOpen} />
+      <WhitePaperModal open={whitePaperOpen} onOpenChange={setWhitePaperOpen} />
     </>
   );
 }
