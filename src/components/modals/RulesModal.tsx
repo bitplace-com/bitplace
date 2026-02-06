@@ -1,4 +1,4 @@
-import { Book, Paintbrush, Shield, Swords, Plus, Zap, TrendingDown } from "lucide-react";
+import { PixelIcon } from "@/components/icons";
 import { GamePanel } from "./GamePanel";
 
 interface RulesModalProps {
@@ -12,7 +12,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
       open={open}
       onOpenChange={onOpenChange}
       title="Rules"
-      icon={<Book className="h-5 w-5" />}
+      icon={<PixelIcon name="book" size="md" />}
       size="md"
     >
       <div className="space-y-5 text-sm">
@@ -20,73 +20,129 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
         <section className="space-y-2">
           <div className="flex items-center gap-2">
             <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Zap className="h-4 w-4" />
+              <PixelIcon name="bolt" size="sm" />
             </div>
             <h3 className="font-semibold">Pixel Energy (PE)</h3>
           </div>
           <p className="text-muted-foreground pl-9">
-            Your PE is derived from your wallet's SOL holdings. Use PE to claim and protect pixels on the map.
+            Your in-game energy. The more $BIT you hold in your wallet, the more PE you can use.
+            Every action on the map—painting, defending, attacking, reinforcing—requires PE.
           </p>
+          <p className="text-xs text-muted-foreground pl-9 italic">
+            During the test phase, PE is calculated from your wallet's $SOL value.
+          </p>
+        </section>
+
+        {/* The 4 Actions */}
+        <section className="space-y-3">
+          <h3 className="font-semibold">The 4 Actions</h3>
+          
+          <div className="grid gap-3 pl-1">
+            <div className="flex items-start gap-3">
+              <div className="h-6 w-6 rounded-md bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                <PixelIcon name="brush" size="xs" />
+              </div>
+              <div>
+                <p className="font-medium">Paint</p>
+                <p className="text-xs text-muted-foreground">
+                  Claim empty pixels. Costs 1 PE per pixel. Your initial stake determines how hard it is for others to take it from you.
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-3">
+              <div className="h-6 w-6 rounded-md bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                <PixelIcon name="shield" size="xs" />
+              </div>
+              <div>
+                <p className="font-medium">Defend</p>
+                <p className="text-xs text-muted-foreground">
+                  Add PE to other players' pixels to help protect them. Your PE makes the pixel harder to attack.
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-3">
+              <div className="h-6 w-6 rounded-md bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                <PixelIcon name="swords" size="xs" />
+              </div>
+              <div>
+                <p className="font-medium">Attack</p>
+                <p className="text-xs text-muted-foreground">
+                  Weaken other players' pixels with your PE. Once a pixel is weak enough, you can paint over it.
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-3">
+              <div className="h-6 w-6 rounded-md bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                <PixelIcon name="plus" size="xs" />
+              </div>
+              <div>
+                <p className="font-medium">Reinforce</p>
+                <p className="text-xs text-muted-foreground">
+                  Add PE to your own pixels. The more PE a pixel has, the more resistant it is to attacks.
+                </p>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Pixel Value */}
         <section className="space-y-2">
           <div className="flex items-center gap-2">
             <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
-              <TrendingDown className="h-4 w-4" />
+              <PixelIcon name="trendingDown" size="sm" />
             </div>
             <h3 className="font-semibold">Pixel Value</h3>
           </div>
           <p className="text-muted-foreground pl-9">
-            Each pixel has a <span className="font-mono text-foreground">Value = Owner stake + Defense − Attacks</span>. When value reaches zero, the pixel can be claimed.
+            Every pixel has a value determined by: how much PE the owner staked, plus any PE added by defenders, minus PE spent attacking it.
+          </p>
+          <p className="text-muted-foreground pl-9">
+            When this value drops to zero (or below), anyone can claim the pixel by painting over it.
           </p>
         </section>
 
-        {/* Game Modes */}
-        <section className="space-y-3">
-          <h3 className="font-semibold">Game Modes</h3>
-          
-          <div className="grid gap-3 pl-1">
-            <div className="flex items-start gap-3">
-              <div className="h-6 w-6 rounded-md bg-muted flex items-center justify-center shrink-0 mt-0.5">
-                <Paintbrush className="h-3.5 w-3.5" />
-              </div>
-              <div>
-                <p className="font-medium">Paint</p>
-                <p className="text-xs text-muted-foreground">Claim unclaimed pixels. Costs 1 PE each.</p>
-              </div>
+        {/* Takeover */}
+        <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+              <PixelIcon name="flag" size="sm" />
             </div>
-            
-            <div className="flex items-start gap-3">
-              <div className="h-6 w-6 rounded-md bg-muted flex items-center justify-center shrink-0 mt-0.5">
-                <Shield className="h-3.5 w-3.5" />
-              </div>
-              <div>
-                <p className="font-medium">Defend</p>
-                <p className="text-xs text-muted-foreground">Add PE to your pixels to increase their value.</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start gap-3">
-              <div className="h-6 w-6 rounded-md bg-muted flex items-center justify-center shrink-0 mt-0.5">
-                <Swords className="h-3.5 w-3.5" />
-              </div>
-              <div>
-                <p className="font-medium">Attack</p>
-                <p className="text-xs text-muted-foreground">Spend PE to reduce a pixel's value and claim it.</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start gap-3">
-              <div className="h-6 w-6 rounded-md bg-muted flex items-center justify-center shrink-0 mt-0.5">
-                <Plus className="h-3.5 w-3.5" />
-              </div>
-              <div>
-                <p className="font-medium">Reinforce</p>
-                <p className="text-xs text-muted-foreground">Help allies by adding PE to their pixels.</p>
-              </div>
-            </div>
+            <h3 className="font-semibold">Takeover</h3>
           </div>
+          <p className="text-muted-foreground pl-9">
+            To take over another player's pixel, you must stake more PE than the pixel's current value.
+          </p>
+          <div className="pl-9 text-xs text-muted-foreground space-y-1">
+            <p>When you take over a pixel:</p>
+            <ul className="list-disc list-inside pl-2 space-y-0.5">
+              <li>You become the new owner</li>
+              <li>The previous owner gets their PE back</li>
+              <li>Defenders get their PE back</li>
+              <li>Attackers automatically become your defenders</li>
+            </ul>
+          </div>
+        </section>
+
+        {/* Decay */}
+        <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+              <PixelIcon name="clock" size="sm" />
+            </div>
+            <h3 className="font-semibold">Decay</h3>
+          </div>
+          <p className="text-muted-foreground pl-9">
+            If your wallet value drops, you might have less PE than what you've staked on pixels.
+          </p>
+          <p className="text-muted-foreground pl-9">
+            When this happens, your stake gradually decreases over 3 days.
+          </p>
+          <p className="text-muted-foreground pl-9">
+            You can stop the decay immediately by restoring your wallet to the required value.
+          </p>
         </section>
 
         {/* Glossary */}
@@ -95,23 +151,23 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
           <div className="grid gap-2 text-xs">
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">PE</span>
-              <span className="text-muted-foreground">Pixel Energy - your power derived from wallet value</span>
+              <span className="text-muted-foreground text-right">Pixel Energy – your power to act on the map</span>
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">Stake</span>
-              <span className="text-muted-foreground">PE locked on pixels you own</span>
+              <span className="text-muted-foreground text-right">PE you've locked in a pixel</span>
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">DEF</span>
-              <span className="text-muted-foreground">Defense value staked on pixels</span>
+              <span className="text-muted-foreground text-right">Defense – PE added by others to protect a pixel</span>
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">ATK</span>
-              <span className="text-muted-foreground">Attack power to reduce pixel value</span>
+              <span className="text-muted-foreground text-right">Attack – PE spent by others to weaken a pixel</span>
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">Takeover</span>
-              <span className="text-muted-foreground">When ATK reduces value to 0 and pixel is claimed</span>
+              <span className="text-muted-foreground text-right">Claiming a pixel after weakening it enough</span>
             </div>
           </div>
         </section>
