@@ -1,130 +1,123 @@
 
-# Quick Settings Polish: Tooltips, Palette Filtering, and Cleanup
+# Fix Pixel Limit: 500→300 Message and Multi-Pixel Brush Overflow
 
-## Overview
-Complete the Quick Settings toggles with full functionality, add info tooltips for each toggle, wire palette filtering to ActionTray, and remove the unnecessary "Exclude special colors" toggle.
+## Problems Identified
 
-## Changes Summary
+### 1. Wrong Error Message (Screenshot)
+In `src/hooks/useGameActions.ts` line 416, the error message is hardcoded as "Maximum 500 pixels per paint" instead of the correct 300 limit.
 
-### 1. Remove "Exclude special colors" toggle
-As you noted, images use standard RGB colors and the Bitplace palette quantizer already maps them to the closest available palette colors. The `excludeSpecial` option was designed to filter out material/special colors, but since:
-- ALL_COLORS already contains only the standard palette
-- Materials are stored separately in the MATERIALS registry
-- The current implementation checks for `MAT_` prefix which doesn't apply to hex colors
-
-This toggle serves no purpose and should be removed.
-
-### 2. Add Info Tooltips to Quick Settings
-Each toggle will have an info icon that shows a tooltip explaining its function:
-- Desktop: hover to see tooltip
-- Mobile: tap to see tooltip (using Radix Tooltip's built-in touch support)
-
-| Toggle | Tooltip Text |
-|--------|-------------|
-| Highlight selected color | Shows only the selected palette color at full opacity, dimming others to help you focus on painting one color at a time |
-| Filter palette colors | Shows only the colors used in the template in the color palette, making it faster to pick the right color |
-| Show above pixels | Displays the template overlay above painted pixels instead of behind them |
-
-### 3. Wire Palette Filtering to ActionTray
-When `filterPaletteColors` is active, the ActionTray will receive the list of colors used in the template and filter its palette accordingly.
-
-**Data flow:**
-```
-TemplateOverlay → quantizedPixels → getGuideColors() → BitplaceMap → ActionTray.templateGuideColors
+### 2. Multi-Pixel Brush Exceeds Limit
+When using the 2x2 brush (4 pixels per click), the current implementation calls `addToDraft` in a loop:
+```typescript
+block.forEach(p => addToDraft(p.x, p.y, selectedColor));
 ```
 
-### 4. Performance (already optimized)
-The current implementation is already lightweight:
-- Image mode: single drawImage call with grid-relative math
-- Pixel Guide: O(1) projection + batched canvas drawing
-- No DOM elements for pixels
-- 300ms debounce for IndexedDB
+The problem is that React state updates are asynchronous. All 4 calls see the same `draft.size` value, so if you're at 298 pixels, all 4 get added (reaching 302) before the limit check rejects them.
+
+## Solution Architecture
+
+### Option A: Pre-check remaining capacity in BitplaceMap (Chosen)
+Before calling `addToDraft` for a 2x2 block, check if there's enough room:
+```typescript
+const remainingCapacity = PAINT_MAX_PIXELS - draftCount;
+if (remainingCapacity <= 0) return;
+
+const block = getSnapped2x2Block(x, y);
+// Only add pixels that fit
+const pixelsToAdd = block.slice(0, remainingCapacity);
+pixelsToAdd.forEach(p => addToDraft(p.x, p.y, selectedColor));
+```
+
+### Option B: Add batch function to useDraftPaint
+Create `addBatchToDraft(pixels: {x,y}[], color)` that atomically checks and adds all pixels up to the limit.
+
+**I recommend Option A** because it's simpler and doesn't require changing the draft hook API.
 
 ## Files to Modify
 
-| File | Changes |
-|------|---------|
-| `src/lib/templatesStore.ts` | Remove `excludeSpecial` from TemplateSettings |
-| `src/hooks/useTemplates.ts` | Remove `excludeSpecial` from Template interface |
-| `src/components/map/TemplateDetailView.tsx` | Remove "Exclude special colors" toggle, add Tooltip info icons |
-| `src/lib/paletteQuantizer.ts` | Remove `excludeSpecial` option (simplify) |
-| `src/components/map/TemplateOverlay.tsx` | Remove `excludeSpecial` usage, export guide colors |
-| `src/components/map/BitplaceMap.tsx` | Pass template guide colors to ActionTray |
-| `src/components/map/ActionTray.tsx` | Add `templateGuideColors` prop, filter palette when active |
+| File | Change |
+|------|--------|
+| `src/hooks/useGameActions.ts` | Fix hardcoded "500" to use correct limit |
+| `src/components/map/BitplaceMap.tsx` | Add remaining capacity check before 2x2 brush operations |
+| `src/components/map/hooks/useDraftPaint.ts` | Export remaining capacity for use in checks |
 
 ## Implementation Details
 
-### TemplateDetailView.tsx - Info Tooltips
-Add info icon buttons next to each toggle label:
+### 1. Fix Error Message in useGameActions.ts
 
-```tsx
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+```typescript
+// Line 413-420 - Import and use PAINT_MAX_PIXELS constant
+import { PAINT_MAX_PIXELS } from '@/components/map/hooks/useDraftPaint';
 
-// In Quick Settings content:
-<div className="flex items-center justify-between">
-  <div className="flex items-center gap-1.5">
-    <label className="text-sm text-muted-foreground">Highlight selected color</label>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button className="text-muted-foreground/60 hover:text-muted-foreground">
-          <PixelIcon name="info" size="xs" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-[200px]">
-        Shows only the selected palette color at full opacity, dimming others to help you focus on painting one color at a time
-      </TooltipContent>
-    </Tooltip>
-  </div>
-  <Switch ... />
-</div>
+// Change message:
+if (data.error === 'MAX_PIXELS_EXCEEDED') {
+  setLastError({
+    code: 'MAX_PIXELS_EXCEEDED',
+    message: `Maximum ${PAINT_MAX_PIXELS} pixels per paint`,
+    requestId: data.requestId,
+    canRetry: false,
+  });
 ```
 
-### ActionTray Palette Filtering
-Add new props and filter logic:
+### 2. Add Remaining Capacity to useDraftPaint
 
-```tsx
-interface ActionTrayProps {
+Add a new return value:
+```typescript
+const remainingCapacity = MAX_DRAFT - draft.size;
+
+return {
   // ... existing
-  templateGuideColors?: string[];  // Colors used in active template
-  filterToGuideColors?: boolean;   // Whether to filter palette
+  remainingCapacity,
+};
+```
+
+### 3. Fix 2x2 Brush in BitplaceMap.tsx
+
+In all places where 2x2 brush is used, add capacity check:
+
+**handleTouchPaintStart (line ~172):**
+```typescript
+if (brushSize === '2x2') {
+  const block = getSnapped2x2Block(x, y)
+    .filter(p => !draftPixels.has(`${p.x}:${p.y}`));  // Skip duplicates
+  const toAdd = block.slice(0, remainingCapacity);
+  if (toAdd.length === 0) return;
+  toAdd.forEach(p => addToDraft(p.x, p.y, selectedColor));
+  lastDraftedPixelRef.current = block[0];
 }
-
-// In palette rendering:
-const displayColors = filterToGuideColors && templateGuideColors?.length 
-  ? ALL_COLORS.filter(c => templateGuideColors.includes(c.toUpperCase()))
-  : ALL_COLORS;
 ```
 
-### BitplaceMap - Pass Guide Colors
-Compute guide colors from TemplateOverlay and pass to ActionTray:
-
-```tsx
-// Compute guide colors when template is in pixelGuide mode
-const templateGuideColors = useMemo(() => {
-  if (!activeTemplate || activeTemplate.mode !== 'pixelGuide') return [];
-  // Will need to expose quantized data or compute here
-  return []; // Implementation detail
-}, [activeTemplate]);
-
-<ActionTray
-  // ... existing props
-  templateGuideColors={templateGuideColors}
-  filterToGuideColors={activeTemplate?.filterPaletteColors ?? false}
-/>
+**handleTouchPaintMove (line ~210):**
+```typescript
+if (brushSize === '2x2') {
+  const block = getSnapped2x2Block(x, y);
+  const topLeft = block[0];
+  if (!last || last.x !== topLeft.x || last.y !== topLeft.y) {
+    const toAdd = block
+      .filter(p => !draftPixels.has(`${p.x}:${p.y}`))
+      .slice(0, remainingCapacity);
+    if (toAdd.length > 0) {
+      toAdd.forEach(p => addToDraft(p.x, p.y, selectedColor));
+      lastDraftedPixelRef.current = topLeft;
+    }
+  }
+}
 ```
 
-## Toggle Behavior Summary
+**Space key handler (line ~493, ~870, ~1055):**
+Same pattern - filter existing, slice to remaining capacity, then add.
 
-| Toggle | Effect |
-|--------|--------|
-| **Highlight selected color** | In Pixel Guide mode, selected color = full opacity, others = 15% opacity |
-| **Filter palette colors** | ActionTray shows only colors used in the Pixel Guide (e.g., 8 colors instead of 64) |
-| **Show above pixels** | Template z-index switches from z-[4] to z-[6], appearing above painted pixels |
+## Expected Behavior After Fix
 
-## Schema Change
-The `excludeSpecial` field will be removed from:
-- `TemplateSettings` interface in templatesStore.ts
-- `Template` interface in useTemplates.ts
-- `DEFAULT_SETTINGS` in templatesStore.ts
+| Scenario | Before | After |
+|----------|--------|-------|
+| Error message from server | "Maximum 500 pixels per paint" | "Maximum 300 pixels per paint" |
+| 2x2 brush at 298 pixels | Adds 4 → reaches 302 | Adds 2 → reaches 300 |
+| 2x2 brush at 300 pixels | Toast shown but cursor shows as if adding | No action, limit toast shown |
+| 1x1 brush behavior | Works correctly | Unchanged |
 
-Existing records in IndexedDB will simply ignore the now-unused field (backward compatible).
+## Technical Notes
+
+- The `remainingCapacity` value is derived from `draftCount` which updates on every render
+- Slicing the block array ensures we never exceed the limit, even by 1 pixel
+- The filter for existing drafts prevents duplicate counting
