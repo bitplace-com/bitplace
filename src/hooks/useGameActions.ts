@@ -413,7 +413,7 @@ export function useGameActions() {
         if (data.error === 'MAX_PIXELS_EXCEEDED') {
           setLastError({
             code: 'MAX_PIXELS_EXCEEDED',
-            message: 'Maximum 500 pixels per paint',
+            message: 'Maximum 300 pixels per paint',
             requestId: data.requestId,
             canRetry: false,
           });
