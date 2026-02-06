@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { Input } from '@/components/ui/input';
 import { PlacesModal } from '@/components/modals/PlacesModal';
+import { Eraser } from 'lucide-react';
 import type { MapMode, InteractionMode, PaintTool, BrushSize } from './hooks/useMapState';
 
 interface ActionTrayProps {
@@ -194,7 +195,7 @@ export function ActionTray({
           onClick={onZoomIn}
           className="mb-2 px-3 py-1.5 text-xs font-medium rounded-full bg-muted/60 backdrop-blur-sm text-foreground hover:bg-muted border border-border/50 transition-all pointer-events-auto hover:scale-105 active:scale-95"
         >
-          Zoom in to see paints
+          Zoom in to paint
         </button>
       )}
       <div 
@@ -234,7 +235,7 @@ export function ActionTray({
                   )}
                   title="Hand mode: Pan map"
                 >
-                  <PixelIcon name="hand" className="h-5 w-5 sm:h-4 sm:w-4" />
+                  <PixelIcon name="faceThinking" className="h-5 w-5 sm:h-4 sm:w-4" />
                 </button>
                 <button
                   onClick={() => onInteractionModeChange('draw')}
@@ -377,7 +378,7 @@ export function ActionTray({
                         )}
                         title="Eraser"
                       >
-                        <PixelIcon name="eraser" className="h-5 w-5 sm:h-4 sm:w-4" />
+                        <Eraser className="h-5 w-5 sm:h-4 sm:w-4" />
                       </button>
                     </div>
                     
@@ -415,10 +416,10 @@ export function ActionTray({
                   isEraser && "opacity-40 pointer-events-none"
                 )}>
 
-                <div className="max-h-48 overflow-y-auto overflow-x-hidden py-1.5 px-1">
+                <div className="max-h-48 overflow-y-auto overflow-x-hidden py-1.5 px-2">
                   {paletteTab === 'colors' ? (
                     /* Standard color palette - larger on mobile, with proper spacing */
-                    <div className="grid grid-cols-8 sm:grid-cols-12 gap-1.5 w-full pr-0.5">
+                    <div className="grid grid-cols-8 sm:grid-cols-12 gap-2 w-full">
                       {displayColors.map((color, index) => {
                         const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
                         return (
@@ -446,7 +447,7 @@ export function ActionTray({
                           <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
                             {CATEGORY_LABELS[category] || category}
                           </div>
-                          <div className="grid grid-cols-5 sm:grid-cols-8 gap-2 sm:gap-1.5 w-full">
+                          <div className="grid grid-cols-5 sm:grid-cols-8 gap-2.5 sm:gap-2 w-full">
                             {materials.map((material) => {
                               const isSelected = selectedColor === material.id;
                               return (
@@ -457,6 +458,7 @@ export function ActionTray({
                                   className={cn(
                                     "w-10 h-10 sm:w-7 sm:h-7 rounded-lg sm:rounded-md transition-all duration-100 focus:outline-none relative overflow-hidden touch-target",
                                     "hover:scale-110 hover:z-10",
+                                    "animate-shine",
                                     canPaint && "hover:ring-1 hover:ring-foreground/30",
                                     isSelected && "ring-2 ring-foreground scale-110 z-10",
                                     !canPaint && "opacity-40 cursor-not-allowed"
