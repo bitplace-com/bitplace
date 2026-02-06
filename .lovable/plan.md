@@ -1,186 +1,93 @@
 
 
-# White Paper Update: Actions, Mechanics, and Value Dynamics
+# Update Phantom Icon & Add $SOL/$BIT Test Phase Notice
 
 ## Summary
 
-Update the White Paper to align with the 4 core game actions (Paint, Defend, Attack, Reinforce) and add the economic feedback loop explaining how activity increases $BIT value.
+1. **Update Phantom logo** to the latest official icon (simpler ghost design)
+2. **Add notice** explaining that $SOL is temporarily used for testing and $BIT token is coming soon
 
 ---
 
-## Content Changes
+## Changes
 
-### 1. Four Action Cards Update
+### 1. New Phantom Icon
 
-| Current | New |
-|---------|-----|
-| **Protect** | **Defend** |
-| **Take Over** | **Reinforce** |
+The current SVG in `WalletSelectModal.tsx` (lines 117-133) uses an older Phantom logo with a circular background and the detailed ghost shape. The new official Phantom branding uses a simpler ghost icon.
 
-**New Descriptions:**
+**Current (old):**
+- Circular background with full ghost body design
+- More complex SVG path
 
-| Action | Icon | New Description |
-|--------|------|-----------------|
-| **Paint** | `brush` | Color any pixel on the map. Stake energy to paint it. Your mark stays until someone paints over it. |
-| **Defend** | `shield` | Add energy to protect any pixel. The more energy staked, the harder it is to Attack. |
-| **Attack** | `swords` | Drain energy from pixels you want to repaint. Each Attack weakens the pixel. When it's weak enough, you can paint over it. |
-| **Reinforce** | `plus` | Add more energy to pixels you already painted. Strengthens your stake and makes your artwork harder to take. |
+**New (official 2024):**
+- Rounded square/squircle container with `#AB9FF2` background
+- Simplified ghost shape - just the top curve with two eye holes
+- Cleaner, more modern look
 
----
-
-### 2. Section Title Change
-
-| Current | New |
-|---------|-----|
-| "Why it matters" | "Mechanics" |
-
----
-
-### 3. Flow Diagram Update
-
-| Current | New |
-|---------|-----|
-| `Defend or Fade` | `Defend or Attack` |
-
-New flow:
-```
-Hold $BIT → Get Energy → Paint Pixels → Defend or Attack
+**New SVG icon:**
+```tsx
+<div className="h-10 w-10 rounded-xl bg-[#AB9FF2] flex items-center justify-center flex-shrink-0">
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 128 128"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M108.7 54.3H100.1C100.1 36.9 85.9 22.7 68.5 22.7C51.3 22.7 37.3 36.5 36.9 53.7C36.5 71.3 52.6 85.7 70.3 85.7H73.3C89.3 85.7 108.7 72.1 108.7 54.3ZM49.1 57.5C49.1 60.2 46.9 62.4 44.2 62.4C41.5 62.4 39.3 60.2 39.3 57.5V51.3C39.3 48.6 41.5 46.4 44.2 46.4C46.9 46.4 49.1 48.6 49.1 51.3V57.5ZM63.1 57.5C63.1 60.2 60.9 62.4 58.2 62.4C55.5 62.4 53.3 60.2 53.3 57.5V51.3C53.3 48.6 55.5 46.4 58.2 46.4C60.9 46.4 63.1 48.6 63.1 51.3V57.5Z"
+      fill="white"
+    />
+  </svg>
+</div>
 ```
 
----
+### 2. Add $SOL/$BIT Notice
 
-### 4. Add Value Creation Section
+Add a notice below the Phantom button explaining the test phase.
 
-Add a new section called **"Value creation"** after "How value works" to explain:
+**Placement:** After the Phantom button (line 162), before the install guidance text.
 
-- Every action (Paint, Defend, Attack, Reinforce) consumes energy
-- Energy comes from $BIT holdings
-- More activity = more $BIT locked = higher demand = higher $BIT price
-- When someone paints over your pixel, it stings - but they had to stake more energy than you did, increasing $BIT utility
-- There's no unlimited griefing: every attack, every takeover costs real value and creates real demand
-
-**Draft content:**
-
-> **Value creation**
->
-> Every action on the map requires energy. Energy comes from holding $BIT. 
->
-> When someone paints, defends, attacks, or reinforces, they lock $BIT into the system. More locked $BIT means less circulating supply. Less supply, same demand: price rises.
->
-> Here's the twist: when someone paints over your pixel, it hurts. But to do it, they had to stake more energy than was already there. That means more $BIT locked, more utility, more value for everyone who holds.
->
-> There's no free griefing. Every disruption costs. Every attack funds the economy. The more contested the map, the more valuable $BIT becomes.
+**Content:**
+```tsx
+{/* Test phase notice */}
+<div className="px-4 py-3 rounded-lg bg-muted/50 border border-border/50">
+  <p className="text-xs text-muted-foreground text-center">
+    <span className="font-medium text-foreground">Test phase:</span> We're currently using{" "}
+    <span className="font-medium text-foreground">$SOL</span> to power Pixel Energy.
+    The official <span className="font-medium text-foreground">$BIT</span> token is coming soon.
+  </p>
+</div>
+```
 
 ---
 
-## Files to Modify
+## File to Modify
 
 | File | Changes |
 |------|---------|
-| `src/components/modals/WhitePaperModal.tsx` | Update action cards, section titles, flow diagram, add value creation section |
-| `src/pages/WhitePaperPage.tsx` | Mirror all changes |
+| `src/components/modals/WalletSelectModal.tsx` | Update SVG icon (lines 117-133), add $SOL/$BIT notice (after line 162) |
 
 ---
 
-## Technical Details
+## Visual Result
 
-### WhitePaperModal.tsx Changes
-
-**Action Cards (lines 41-61):**
-```tsx
-<ActionCard
-  icon={<PixelIcon name="brush" size="md" />}
-  title="Paint"
-  description="Color any pixel on the map. Stake energy to paint it. Your mark stays until someone paints over it."
-/>
-<ActionCard
-  icon={<PixelIcon name="shield" size="md" />}
-  title="Defend"
-  description="Add energy to protect any pixel. The more energy staked, the harder it is to Attack."
-/>
-<ActionCard
-  icon={<PixelIcon name="swords" size="md" />}
-  title="Attack"
-  description="Drain energy from pixels you want to repaint. Each Attack weakens the pixel. When it's weak enough, you can paint over it."
-/>
-<ActionCard
-  icon={<PixelIcon name="plus" size="md" />}
-  title="Reinforce"
-  description="Add more energy to pixels you already painted. Strengthens your stake and makes your artwork harder to take."
-/>
-```
-
-**Section title (line 66):**
-```tsx
-<h2 className="text-lg font-semibold text-foreground">Mechanics</h2>
-```
-
-**Flow diagram (line 100):**
-```tsx
-<span className="px-3 py-1.5 rounded-lg bg-muted">Defend or Attack</span>
-```
-
-**New "Value creation" section (after "How value works"):**
-```tsx
-<section className="space-y-4">
-  <h2 className="text-lg font-semibold text-foreground">Value creation</h2>
-  <div className="space-y-3 text-sm text-muted-foreground">
-    <p>
-      Every action on the map requires energy. Energy comes from holding{" "}
-      <span className="text-foreground font-medium">$BIT</span>.
-    </p>
-    <p>
-      When someone paints, defends, attacks, or reinforces, they lock $BIT into the system. 
-      More locked $BIT means less circulating supply. Less supply, same demand: price rises.
-    </p>
-    <p>
-      Here's the twist: when someone paints over your pixel, it stings. But to do it, they had to 
-      stake more energy than was already there. That means more $BIT locked, more utility, more 
-      value for everyone who holds.
-    </p>
-    <p>
-      There's no free griefing. Every disruption costs. Every Attack funds the economy. 
-      The more contested the map, the more valuable $BIT becomes.
-    </p>
-  </div>
-</section>
-```
-
-### WhitePaperPage.tsx Changes
-
-Mirror all the same changes from the modal version.
-
----
-
-## Visual Structure After Changes
-
-```
-┌─────────────────────────────────────────────┐
-│                                             │
-│     Paint the world bit by bit.             │
-│                                             │
-│  ┌─────────────┐  ┌─────────────┐          │
-│  │   PAINT     │  │   DEFEND    │          │
-│  └─────────────┘  └─────────────┘          │
-│  ┌─────────────┐  ┌─────────────┐          │
-│  │   ATTACK    │  │  REINFORCE  │          │
-│  └─────────────┘  └─────────────┘          │
-│                                             │
-│  MECHANICS                                  │
-│  • Real places                              │
-│  • Visible commitment                       │
-│  • Real stakes                              │
-│  • Emergent behavior                        │
-│                                             │
-│  HOW VALUE WORKS                            │
-│  Hold $BIT → Energy → Paint → Defend/Attack │
-│                                             │
-│  VALUE CREATION                             │
-│  Every action locks $BIT...                 │
-│  No free griefing...                        │
-│                                             │
-│          [ Paint your first pixel ]         │
-│                                             │
-└─────────────────────────────────────────────┘
+```text
+┌─────────────────────────────────────────┐
+│  🔓 Connect Wallet                      │
+│  Connect your Phantom wallet to use...  │
+│                                         │
+│  ┌───────────────────────────────────┐  │
+│  │  [👻]  Phantom                    │  │
+│  │        Solana wallet           →  │  │
+│  └───────────────────────────────────┘  │
+│                                         │
+│  ┌───────────────────────────────────┐  │
+│  │  Test phase: We're using $SOL    │  │
+│  │  to power PE. $BIT coming soon.  │  │
+│  └───────────────────────────────────┘  │
+│                                         │
+│                            [Cancel]     │
+└─────────────────────────────────────────┘
 ```
 
