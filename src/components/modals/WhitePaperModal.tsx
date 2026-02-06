@@ -1,5 +1,8 @@
-import { Scroll, Globe, Coins, Users, Heart, Zap } from "lucide-react";
-import { GamePanel } from "./GamePanel";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { PixelIcon } from "@/components/icons/PixelIcon";
+import { soundEngine } from "@/lib/soundEngine";
+import * as React from "react";
 
 interface WhitePaperModalProps {
   open: boolean;
@@ -7,122 +10,138 @@ interface WhitePaperModalProps {
 }
 
 export function WhitePaperModal({ open, onOpenChange }: WhitePaperModalProps) {
+  const prevOpenRef = React.useRef(open);
+  
+  React.useEffect(() => {
+    if (open && !prevOpenRef.current) {
+      soundEngine.play('modal_open');
+    } else if (!open && prevOpenRef.current) {
+      soundEngine.play('modal_close');
+    }
+    prevOpenRef.current = open;
+  }, [open]);
+
   return (
-    <GamePanel
-      open={open}
-      onOpenChange={onOpenChange}
-      title="White Paper"
-      icon={<Scroll className="h-5 w-5" />}
-      size="lg"
-    >
-      <div className="space-y-5 text-sm">
-        {/* Hero Quote */}
-        <blockquote className="text-base font-medium text-foreground italic text-center px-4">
-          "The world map becomes a living canvas where every pixel tells a story."
-        </blockquote>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0 border-border/50">
+        <div className="p-6 md:p-8 space-y-8">
+          {/* Hero */}
+          <header className="text-center space-y-3 pt-2">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+              Own a piece of the world.
+            </h1>
+            <p className="text-muted-foreground text-sm md:text-base max-w-md mx-auto">
+              Bitplace is a world map where every pixel can be claimed, contested, and defended with real value.
+            </p>
+          </header>
 
-        {/* The Vision */}
-        <Section icon={Globe} title="The Vision">
-          <p className="text-muted-foreground">
-            Bitplace transforms our shared world into a living canvas where territory is claimed 
-            by commitment. Every pixel represents identity, community, and value.
-          </p>
-        </Section>
+          {/* Action Cards */}
+          <section className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <ActionCard
+                icon={<PixelIcon name="brush" size="md" />}
+                title="Paint"
+                description="Claim any unclaimed pixel. Stake energy to own it. The pixel becomes yours until someone takes it."
+              />
+              <ActionCard
+                icon={<PixelIcon name="shield" size="md" />}
+                title="Protect"
+                description="Add energy to any pixel you believe in. More protection makes it harder to take."
+              />
+              <ActionCard
+                icon={<PixelIcon name="swords" size="md" />}
+                title="Attack"
+                description="Drain energy from pixels you want. Each attack weakens the pixel. When it's weak enough, you can take it."
+              />
+              <ActionCard
+                icon={<PixelIcon name="crown" size="md" />}
+                title="Take Over"
+                description="Stake enough energy to flip ownership. The pixel is now yours. Previous owner gets their stake back."
+              />
+            </div>
+          </section>
 
-        {/* The Pixel Economy */}
-        <Section icon={Coins} title="The Pixel Economy">
-          <p className="text-muted-foreground">
-            When you paint a pixel, you stake your energy into that piece of the world. 
-            Your PE comes from your <strong className="text-foreground">$BIT</strong> holdings—the more you care, the more you stake.
-          </p>
-        </Section>
+          {/* Why It Matters */}
+          <section className="space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">Why it matters</h2>
+            <div className="space-y-3 text-sm">
+              <ReasonRow
+                title="Real territory"
+                description="The map is Earth. Your pixels mark real places."
+              />
+              <ReasonRow
+                title="Visible commitment"
+                description="Every action costs energy. You can see who cares about what."
+              />
+              <ReasonRow
+                title="Real stakes"
+                description="When someone takes your pixel, you feel it. When you defend one, it means something."
+              />
+              <ReasonRow
+                title="Emergent behavior"
+                description="No rules about how to play. People coordinate, compete, disrupt, and create."
+              />
+            </div>
+          </section>
 
-        {/* Human Dynamics */}
-        <Section icon={Users} title="Human Dynamics">
-          <div className="grid gap-2">
-            <PlayerRow emoji="🎨" title="Artist" desc="Creates for beauty" />
-            <PlayerRow emoji="🛡️" title="Guardian" desc="Defends community works" />
-            <PlayerRow emoji="⚔️" title="Raider" desc="Challenges ownership" />
-            <PlayerRow emoji="🤝" title="Diplomat" desc="Builds alliances" />
-            <PlayerRow emoji="😈" title="Griefier" desc="Keeps everyone vigilant" />
-          </div>
-        </Section>
+          {/* How Value Works */}
+          <section className="space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">How value works</h2>
+            <p className="text-sm text-muted-foreground">
+              Your <span className="text-foreground font-medium">$BIT</span> holdings determine your energy. More $BIT means more energy to spend on pixels.
+            </p>
+            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-3">
+              <span className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-medium">Hold $BIT</span>
+              <span className="text-muted-foreground/50">→</span>
+              <span className="px-3 py-1.5 rounded-lg bg-muted">Get Energy</span>
+              <span className="text-muted-foreground/50">→</span>
+              <span className="px-3 py-1.5 rounded-lg bg-muted">Claim Territory</span>
+              <span className="text-muted-foreground/50">→</span>
+              <span className="px-3 py-1.5 rounded-lg bg-muted">Defend or Lose</span>
+            </div>
+            <p className="text-sm text-muted-foreground text-center">
+              When the map is active—pixels contested, defended, attacked—$BIT has utility. Utility creates demand.
+            </p>
+          </section>
 
-        {/* Emotional Gameplay */}
-        <Section icon={Heart} title="Emotional Gameplay">
-          <p className="text-muted-foreground mb-2">
-            The best games create feelings. Bitplace evokes real emotions:
-          </p>
-          <ul className="space-y-1 text-muted-foreground text-xs">
-            <li>🎯 The thrill of claiming new territory</li>
-            <li>😰 The anxiety of seeing attacks on your pixels</li>
-            <li>😊 The satisfaction of defending community art</li>
-            <li>🔥 The drama of territorial wars</li>
-          </ul>
-        </Section>
-
-        {/* Value Creation */}
-        <Section icon={Zap} title="Value Creation">
-          <p className="text-muted-foreground mb-2">
-            Value emerges from human behavior:
-          </p>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-            <span className="px-2 py-1 rounded bg-muted">Claim</span>
-            <span>→</span>
-            <span className="px-2 py-1 rounded bg-muted">Defend</span>
-            <span>→</span>
-            <span className="px-2 py-1 rounded bg-muted">Attack</span>
-            <span>→</span>
-            <span className="px-2 py-1 rounded bg-muted">Conquest</span>
-          </div>
-          <p className="text-xs text-muted-foreground mt-2 italic">
-            The map becomes more valuable as more people care about it.
-          </p>
-        </Section>
-
-        {/* The Token */}
-        <Section icon={Coins} title="The Token: $BIT">
-          <p className="text-muted-foreground">
-            $BIT isn't just a currency—it's your stake in the world. Every pixel you own 
-            represents locked $BIT. The token's value grows as the map becomes more contested, 
-            more defended, more alive.
-          </p>
-        </Section>
-
-        {/* CTA */}
-        <div className="text-center pt-2 border-t border-border/30">
-          <p className="text-foreground font-medium">
-            Claim your piece of the world.
-          </p>
+          {/* CTA */}
+          <footer className="text-center pt-4 border-t border-border/30">
+            <p className="text-foreground font-medium mb-4">Claim your first pixel.</p>
+            <Button 
+              onClick={() => onOpenChange(false)}
+              className="px-8"
+            >
+              Open Map
+            </Button>
+          </footer>
         </div>
-      </div>
-    </GamePanel>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-// Helper Components
-function Section({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
+function ActionCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
   return (
-    <section className="space-y-2">
-      <div className="flex items-center gap-2">
-        <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Icon className="h-4 w-4" />
+    <div className="p-4 rounded-xl bg-card border border-border/50 space-y-2">
+      <div className="flex items-center gap-2.5">
+        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+          {icon}
         </div>
-        <h3 className="font-semibold">{title}</h3>
+        <h3 className="font-semibold text-foreground">{title}</h3>
       </div>
-      <div className="pl-9">
-        {children}
-      </div>
-    </section>
+      <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
+    </div>
   );
 }
 
-function PlayerRow({ emoji, title, desc }: { emoji: string; title: string; desc: string }) {
+function ReasonRow({ title, description }: { title: string; description: string }) {
   return (
-    <div className="flex items-center gap-2 text-xs">
-      <span>{emoji}</span>
-      <span className="font-medium text-foreground w-16">{title}</span>
-      <span className="text-muted-foreground">{desc}</span>
+    <div className="flex gap-3">
+      <span className="text-primary mt-0.5">•</span>
+      <div>
+        <span className="font-medium text-foreground">{title}.</span>{" "}
+        <span className="text-muted-foreground">{description}</span>
+      </div>
     </div>
   );
 }
