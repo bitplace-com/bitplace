@@ -16,7 +16,7 @@ import { RulesModal } from "@/components/modals/RulesModal";
 import { ShopModal } from "@/components/modals/ShopModal";
 import { AllianceModal } from "@/components/modals/AllianceModal";
 import { SettingsModal } from "@/components/modals/SettingsModal";
-import { PlacesModal } from "@/components/modals/PlacesModal";
+import { LeaderboardModal } from "@/components/modals/LeaderboardModal";
 
 function ThemeToggleButton() {
   const { theme, setTheme } = useTheme();
@@ -40,7 +40,7 @@ export function MapMenuDrawer() {
   const [shopOpen, setShopOpen] = useState(false);
   const [allianceOpen, setAllianceOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [placesOpen, setPlacesOpen] = useState(false);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -69,59 +69,75 @@ export function MapMenuDrawer() {
               Bitplace
             </SheetTitle>
           </SheetHeader>
-          <nav className="mt-6 space-y-1 flex-1">
-            {/* Map */}
-            <Button
-              variant="ghost"
-              onClick={handleNavigateToMap}
-              className={cn(
-                "w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8",
-                location.pathname === "/" && "bg-foreground/10 text-foreground font-medium hover:bg-foreground/15"
-              )}
-            >
-              <PixelIcon name="map" size="md" />
-              Map
-            </Button>
+          <nav className="mt-6 space-y-4 flex-1">
+            {/* HOME section */}
+            <div>
+              <p className="px-3 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                Home
+              </p>
+              <div className="space-y-1">
+                {/* Map */}
+                <Button
+                  variant="ghost"
+                  onClick={handleNavigateToMap}
+                  className={cn(
+                    "w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8",
+                    location.pathname === "/" && "bg-foreground/10 text-foreground font-medium hover:bg-foreground/15"
+                  )}
+                >
+                  <PixelIcon name="map" size="md" />
+                  Map
+                </Button>
 
-            {/* Places */}
-            <Button
-              variant="ghost"
-              onClick={() => setPlacesOpen(true)}
-              className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
-            >
-              <PixelIcon name="pin" size="md" />
-              Places
-            </Button>
+                {/* Buy $BIT (was Shop) */}
+                <Button
+                  variant="ghost"
+                  onClick={() => setShopOpen(true)}
+                  className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
+                >
+                  <PixelIcon name="cart" size="md" />
+                  Buy $BIT
+                </Button>
+              </div>
+            </div>
 
-            {/* Alliance - opens panel (sidebar stays open) */}
-            <Button
-              variant="ghost"
-              onClick={() => setAllianceOpen(true)}
-              className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
-            >
-              <PixelIcon name="users" size="md" />
-              Alliance
-            </Button>
+            {/* BASICS section */}
+            <div>
+              <p className="px-3 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                Basics
+              </p>
+              <div className="space-y-1">
+                {/* Leaderboard */}
+                <Button
+                  variant="ghost"
+                  onClick={() => setLeaderboardOpen(true)}
+                  className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
+                >
+                  <PixelIcon name="trophy" size="md" />
+                  Leaderboard
+                </Button>
 
-            {/* Rules - opens panel (sidebar stays open) */}
-            <Button
-              variant="ghost"
-              onClick={() => setRulesOpen(true)}
-              className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
-            >
-              <PixelIcon name="book" size="md" />
-              Rules
-            </Button>
+                {/* Alliance */}
+                <Button
+                  variant="ghost"
+                  onClick={() => setAllianceOpen(true)}
+                  className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
+                >
+                  <PixelIcon name="users" size="md" />
+                  Alliance
+                </Button>
 
-            {/* Shop - opens panel (sidebar stays open) */}
-            <Button
-              variant="ghost"
-              onClick={() => setShopOpen(true)}
-              className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
-            >
-              <PixelIcon name="cart" size="md" />
-              Shop
-            </Button>
+                {/* Rules */}
+                <Button
+                  variant="ghost"
+                  onClick={() => setRulesOpen(true)}
+                  className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
+                >
+                  <PixelIcon name="book" size="md" />
+                  Rules
+                </Button>
+              </div>
+            </div>
           </nav>
 
           {/* Footer with Settings and Theme */}
@@ -143,7 +159,7 @@ export function MapMenuDrawer() {
       <ShopModal open={shopOpen} onOpenChange={setShopOpen} />
       <AllianceModal open={allianceOpen} onOpenChange={setAllianceOpen} />
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
-      <PlacesModal open={placesOpen} onOpenChange={setPlacesOpen} />
+      <LeaderboardModal open={leaderboardOpen} onOpenChange={setLeaderboardOpen} />
     </>
   );
 }
