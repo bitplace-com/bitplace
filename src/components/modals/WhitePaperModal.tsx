@@ -45,25 +45,25 @@ export function WhitePaperModal({ open, onOpenChange }: WhitePaperModalProps) {
               />
               <ActionCard
                 icon={<PixelIcon name="shield" size="md" />}
-                title="Protect"
-                description="Add energy to any pixel. More energy makes it harder to paint over."
+                title="Defend"
+                description="Add energy to protect any pixel. The more energy staked, the harder it is to Attack."
               />
               <ActionCard
                 icon={<PixelIcon name="swords" size="md" />}
                 title="Attack"
-                description="Drain energy from pixels you want to repaint. Each attack weakens it. When it's weak enough, you can paint over it."
+                description="Drain energy from pixels you want to repaint. Each Attack weakens the pixel. When it's weak enough, you can paint over it."
               />
               <ActionCard
-                icon={<PixelIcon name="crown" size="md" />}
-                title="Take Over"
-                description="Stake enough energy to repaint. The pixel is now your color. Previous painter gets their stake back."
+                icon={<PixelIcon name="plus" size="md" />}
+                title="Reinforce"
+                description="Add more energy to pixels you already painted. Strengthens your stake and makes your artwork harder to take."
               />
             </div>
           </section>
 
           {/* Why It Matters */}
           <section className="space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">Why it matters</h2>
+            <h2 className="text-lg font-semibold text-foreground">Mechanics</h2>
             <div className="space-y-3 text-sm">
               <ReasonRow
                 title="Real places"
@@ -97,11 +97,35 @@ export function WhitePaperModal({ open, onOpenChange }: WhitePaperModalProps) {
               <span className="text-muted-foreground/50">→</span>
               <span className="px-3 py-1.5 rounded-lg bg-muted">Paint Pixels</span>
               <span className="text-muted-foreground/50">→</span>
-              <span className="px-3 py-1.5 rounded-lg bg-muted">Defend or Fade</span>
+              <span className="px-3 py-1.5 rounded-lg bg-muted">Defend or Attack</span>
             </div>
             <p className="text-sm text-muted-foreground text-center">
               When the map is active—pixels contested, defended, attacked—$BIT has utility. Utility creates demand.
             </p>
+          </section>
+
+          {/* Value Creation */}
+          <section className="space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">Value creation</h2>
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p>
+                Every action on the map requires energy. Energy comes from holding{" "}
+                <span className="text-foreground font-medium">$BIT</span>.
+              </p>
+              <p>
+                When someone paints, defends, attacks, or reinforces, they lock $BIT into the system. 
+                More locked $BIT means less circulating supply. Less supply, same demand: price rises.
+              </p>
+              <p>
+                Here's the twist: when someone paints over your pixel, it stings. But to do it, they had to 
+                stake more energy than was already there. That means more $BIT locked, more utility, more 
+                value for everyone who holds.
+              </p>
+              <p>
+                There's no free griefing. Every disruption costs. Every Attack funds the economy. 
+                The more contested the map, the more valuable $BIT becomes.
+              </p>
+            </div>
           </section>
 
           {/* CTA */}
