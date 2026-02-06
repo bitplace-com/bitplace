@@ -28,10 +28,10 @@ export function WhitePaperModal({ open, onOpenChange }: WhitePaperModalProps) {
           {/* Hero */}
           <header className="text-center space-y-3 pt-2">
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-              Own a piece of the world.
+              Paint the world bit by bit.
             </h1>
             <p className="text-muted-foreground text-sm md:text-base max-w-md mx-auto">
-              Bitplace is a world map where every pixel can be claimed, contested, and defended with real value.
+              Bitplace is a world map where every pixel can be painted, defended, and contested.
             </p>
           </header>
 
@@ -41,22 +41,22 @@ export function WhitePaperModal({ open, onOpenChange }: WhitePaperModalProps) {
               <ActionCard
                 icon={<PixelIcon name="brush" size="md" />}
                 title="Paint"
-                description="Claim any unclaimed pixel. Stake energy to own it. The pixel becomes yours until someone takes it."
+                description="Color any pixel on the map. Stake energy to paint it. Your mark stays until someone paints over it."
               />
               <ActionCard
                 icon={<PixelIcon name="shield" size="md" />}
                 title="Protect"
-                description="Add energy to any pixel you believe in. More protection makes it harder to take."
+                description="Add energy to any pixel. More energy makes it harder to paint over."
               />
               <ActionCard
                 icon={<PixelIcon name="swords" size="md" />}
                 title="Attack"
-                description="Drain energy from pixels you want. Each attack weakens the pixel. When it's weak enough, you can take it."
+                description="Drain energy from pixels you want to repaint. Each attack weakens it. When it's weak enough, you can paint over it."
               />
               <ActionCard
                 icon={<PixelIcon name="crown" size="md" />}
                 title="Take Over"
-                description="Stake enough energy to flip ownership. The pixel is now yours. Previous owner gets their stake back."
+                description="Stake enough energy to repaint. The pixel is now your color. Previous painter gets their stake back."
               />
             </div>
           </section>
@@ -66,8 +66,8 @@ export function WhitePaperModal({ open, onOpenChange }: WhitePaperModalProps) {
             <h2 className="text-lg font-semibold text-foreground">Why it matters</h2>
             <div className="space-y-3 text-sm">
               <ReasonRow
-                title="Real territory"
-                description="The map is Earth. Your pixels mark real places."
+                title="Real places"
+                description="The map is Earth. Your paintings mark real locations."
               />
               <ReasonRow
                 title="Visible commitment"
@@ -75,7 +75,7 @@ export function WhitePaperModal({ open, onOpenChange }: WhitePaperModalProps) {
               />
               <ReasonRow
                 title="Real stakes"
-                description="When someone takes your pixel, you feel it. When you defend one, it means something."
+                description="When someone paints over your pixel, you feel it. When you defend one, it means something."
               />
               <ReasonRow
                 title="Emergent behavior"
@@ -90,14 +90,14 @@ export function WhitePaperModal({ open, onOpenChange }: WhitePaperModalProps) {
             <p className="text-sm text-muted-foreground">
               Your <span className="text-foreground font-medium">$BIT</span> holdings determine your energy. More $BIT means more energy to spend on pixels.
             </p>
-            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-3">
+            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-3 flex-wrap">
               <span className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-medium">Hold $BIT</span>
               <span className="text-muted-foreground/50">→</span>
               <span className="px-3 py-1.5 rounded-lg bg-muted">Get Energy</span>
               <span className="text-muted-foreground/50">→</span>
-              <span className="px-3 py-1.5 rounded-lg bg-muted">Claim Territory</span>
+              <span className="px-3 py-1.5 rounded-lg bg-muted">Paint Pixels</span>
               <span className="text-muted-foreground/50">→</span>
-              <span className="px-3 py-1.5 rounded-lg bg-muted">Defend or Lose</span>
+              <span className="px-3 py-1.5 rounded-lg bg-muted">Defend or Fade</span>
             </div>
             <p className="text-sm text-muted-foreground text-center">
               When the map is active—pixels contested, defended, attacked—$BIT has utility. Utility creates demand.
@@ -106,7 +106,7 @@ export function WhitePaperModal({ open, onOpenChange }: WhitePaperModalProps) {
 
           {/* CTA */}
           <footer className="text-center pt-4 border-t border-border/30">
-            <p className="text-foreground font-medium mb-4">Claim your first pixel.</p>
+            <p className="text-foreground font-medium mb-4">Paint your first pixel.</p>
             <Button 
               onClick={() => onOpenChange(false)}
               className="px-8"
