@@ -1,201 +1,176 @@
 
-# ActionTray UI Improvements: Icons, Text, Spacing, and Shine Effect
+
+# White Paper Page: The Soul of Bitplace
 
 ## Overview
 
-This plan addresses 5 changes to the ActionTray component:
+Create a new **White Paper** page that explains Bitplace conceptually - its philosophy, social dynamics, game mechanics, and token value creation. This page will be accessible from the menu under the "Basics" section and will serve as the definitive guide for visitors to understand the game's essence.
 
-1. Replace hand icon with "face-thinking" icon
-2. Replace pixel eraser icon with Lucide Eraser
-3. Change zoom helper text
-4. Add spacing between color buttons
-5. Add shine animation to special materials
+## Page Philosophy
 
-## Changes Summary
+The White Paper will be structured to take visitors on a journey from **concept** to **understanding**:
 
-| Change | File(s) | Description |
-|--------|---------|-------------|
-| Face-Thinking Icon | `PixelFaceThinking.tsx`, `iconRegistry.ts`, `ActionTray.tsx` | New icon for drag mode |
-| Lucide Eraser | `ActionTray.tsx` | Import Eraser from lucide-react |
-| Zoom Text | `ActionTray.tsx` | "Zoom in to see paints" -> "Zoom in to paint" |
-| Color Spacing | `ActionTray.tsx` | Increase gap, add padding to avoid clipping |
-| Shine Animation | `index.css`, `ActionTray.tsx` | CSS keyframes + apply to special materials |
+1. **What is Bitplace?** - The vision and core idea
+2. **The Canvas** - How the world map becomes a battleground
+3. **Social Dynamics** - How humans interact through pixels
+4. **Value Creation** - How $BIT accrues value through gameplay
+5. **Alliances & Community** - Social structures and cooperation
+6. **The Economy** - How energy flows through the system
 
----
+## Content Structure
 
-## 1. Create Face-Thinking Icon
+### Section 1: Vision - "The World's Canvas"
+- Bitplace transforms the entire world map into a shared digital canvas
+- Every pixel represents a piece of territory that can be claimed, defended, or conquered
+- It's not just about painting—it's about expression, territory, and community
 
-Create new icon component from HackerNoon's `face-thinking-solid.svg`:
+### Section 2: The Pixel - "Your Stake in the World"
+- Each pixel is a contestable unit of value
+- Ownership requires commitment (staking energy)
+- Pixels form the atomic unit of all social interactions
 
-**File: `src/components/icons/custom/PixelFaceThinking.tsx`**
-```tsx
-import { PixelSVG, PixelSVGProps } from './base';
+### Section 3: Social Dynamics
+**Creators** - Those who paint to express, build art, mark territory
+**Defenders** - Community members who protect what matters
+**Raiders** - Agents of chaos who challenge the status quo
+**Griefiers** - Players who disrupt for fun or profit
+**Alliances** - Groups that coordinate for common goals
 
-export function PixelFaceThinking(props: PixelSVGProps) {
-  return (
-    <PixelSVG {...props}>
-      <polygon points="11 20 10 20 10 22 9 22 9 23 5 23 5 22 4 22 4 16 5 16 5 15 6 15 6 18 8 18 8 17 10 17 10 16 12 16 12 15 14 15 14 17 13 17 13 18 11 18 11 20"/>
-      <path d="m22,9v-2h-1v-2h-1v-1h-1v-1h-2v-1h-2v-1h-6v1h-2v1h-2v1h-1v1h-1v2h-1v2h-1v6h1v1h1v-1h1v-1h3v2h2v-1h2v-1h-1v-1h-2v-1h3v1h2v1h2v4h-1v1h-2v2h-1v2h4v-1h2v-1h2v-1h1v-1h1v-2h1v-2h1v-6h-1Zm-7-2h3v1h1v2h-1v-1h-1v-1h-2v-1Zm-1,2h2v2h-2v-2Zm-4,1h-2v-2h2v2Zm1-2v-1h-1v-1h-2v1h-2v-1h1v-1h4v1h1v1h1v1h-2Z"/>
-    </PixelSVG>
-  );
-}
-```
+### Section 4: Emotional Gameplay
+- The thrill of claiming new territory
+- The anxiety of seeing attacks on your pixels
+- The satisfaction of defending community art
+- The drama of territorial wars
+- The bonds formed through alliance coordination
 
-**File: `src/components/icons/iconRegistry.ts`** - Add to registry:
-```tsx
-import { PixelFaceThinking } from './custom/PixelFaceThinking';
+### Section 5: Value Mechanics
+- $BIT is locked when you claim pixels (skin in the game)
+- Defenders add value to pixels (community trust)
+- Attackers challenge value (market dynamics)
+- Value flows: Claim → Defend → Attack → Conquest
+- "The map becomes more valuable as more people care about it"
 
-// Add to IconName type:
-| 'faceThinking'
-
-// Add to icons object:
-faceThinking: PixelFaceThinking,
-```
-
----
-
-## 2. Use Lucide Eraser + Face-Thinking in ActionTray
-
-**File: `src/components/map/ActionTray.tsx`**
-
-```tsx
-// Add import at top:
-import { Eraser } from 'lucide-react';
-
-// Line 237: Replace hand icon with faceThinking
-<PixelIcon name="faceThinking" className="h-5 w-5 sm:h-4 sm:w-4" />
-
-// Line 380: Replace PixelIcon eraser with Lucide Eraser
-<Eraser className="h-5 w-5 sm:h-4 sm:w-4" />
-```
-
----
-
-## 3. Change Zoom Helper Text
-
-**File: `src/components/map/ActionTray.tsx`** (line 197)
-
-```tsx
-// Before:
-Zoom in to see paints
-
-// After:
-Zoom in to paint
-```
-
----
-
-## 4. Add Spacing Between Colors
-
-**File: `src/components/map/ActionTray.tsx`**
-
-The color grid container (lines 418-421) needs:
-- Increase gap from `gap-1.5` to `gap-2`
-- Add horizontal padding to prevent edge clipping
-
-```tsx
-// Line 418-421 - update the scrollable container
-<div className="max-h-48 overflow-y-auto overflow-x-hidden py-1.5 px-2">
-
-// Line 421 - update the grid gap
-<div className="grid grid-cols-8 sm:grid-cols-12 gap-2 w-full">
-```
-
-Also update special materials grid (line 449):
-```tsx
-<div className="grid grid-cols-5 sm:grid-cols-8 gap-2.5 sm:gap-2 w-full">
-```
-
----
-
-## 5. Add Shine Animation for Special Materials
-
-### 5a. Add CSS Animation
-
-**File: `src/index.css`** - Add at the end:
-
-```css
-/* Premium Shine Animation for Special Materials */
-@keyframes premium-shine {
-  0% {
-    background-position: -200% center;
-  }
-  100% {
-    background-position: 200% center;
-  }
-}
-
-.animate-shine {
-  position: relative;
-  overflow: hidden;
-}
-
-.animate-shine::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    120deg,
-    transparent 0%,
-    transparent 35%,
-    rgba(255, 255, 255, 0.5) 50%,
-    transparent 65%,
-    transparent 100%
-  );
-  background-size: 200% 100%;
-  animation: premium-shine 3s ease-in-out infinite;
-  pointer-events: none;
-  border-radius: inherit;
-}
-```
-
-### 5b. Apply to Special Material Buttons
-
-**File: `src/components/map/ActionTray.tsx`** (line 453-466)
-
-Add the `animate-shine` class to special material buttons:
-
-```tsx
-<button
-  key={material.id}
-  onClick={() => handleColorClick(material.id)}
-  disabled={!canPaint}
-  className={cn(
-    "w-10 h-10 sm:w-7 sm:h-7 rounded-lg sm:rounded-md transition-all duration-100 focus:outline-none relative overflow-hidden touch-target",
-    "hover:scale-110 hover:z-10",
-    "animate-shine",  // ADD THIS
-    canPaint && "hover:ring-1 hover:ring-foreground/30",
-    isSelected && "ring-2 ring-foreground scale-110 z-10",
-    !canPaint && "opacity-40 cursor-not-allowed"
-  )}
-  style={{ background: material.cssGradient }}
-  title={material.label}
-/>
-```
+### Section 6: The Game Within the Game
+- Strategic positioning for territory control
+- Reputation through pixel ownership
+- Community art projects requiring coordination
+- Economic warfare through strategic attacks
+- Diplomacy between alliances
 
 ---
 
 ## Files to Create/Modify
 
-| File | Action |
-|------|--------|
-| `src/components/icons/custom/PixelFaceThinking.tsx` | Create new icon |
-| `src/components/icons/iconRegistry.ts` | Add faceThinking to registry |
-| `src/components/map/ActionTray.tsx` | Multiple changes (icons, text, spacing, shine class) |
-| `src/index.css` | Add shine animation CSS |
+| File | Action | Purpose |
+|------|--------|---------|
+| `src/pages/WhitePaperPage.tsx` | Create | New page component |
+| `src/components/modals/WhitePaperModal.tsx` | Create | Modal version for menu access |
+| `src/components/map/MapMenuDrawer.tsx` | Modify | Add White Paper to Basics section |
+| `src/App.tsx` | Modify | Add route for /whitepaper |
 
-## Visual Result
+---
 
-**Before:**
-- Hand icon for drag mode
-- Pixel-style eraser icon
-- "Zoom in to see paints" text
-- Colors tightly packed, possibly clipped at edges
-- Special materials have no shine effect
+## Implementation Details
 
-**After:**
-- Thinking face icon (more expressive/fun) for drag mode
-- Clean Lucide eraser icon
-- "Zoom in to paint" text (clearer call to action)
-- Colors have breathing room with proper spacing
-- Special materials have animated shimmer/shine effect like Bplace
+### 1. WhitePaperPage.tsx
+
+A beautifully formatted page following the RulesPage pattern with:
+- Hero section with dramatic intro
+- Themed section cards with icons
+- Narrative flow that tells a story
+- Visual metaphors and conceptual explanations
+
+```tsx
+// Structure
+<PageHeader
+  icon={Scroll}  // or similar "document" icon
+  title="White Paper"
+  subtitle="Understanding the soul of Bitplace"
+/>
+
+<SectionCard title="The Vision" icon={...}>
+  // Narrative content
+</SectionCard>
+
+<SectionCard title="Social Dynamics" icon={...}>
+  // Human behavior explanation
+</SectionCard>
+
+// ... more sections
+```
+
+### 2. WhitePaperModal.tsx
+
+Following the GamePanel pattern like RulesModal:
+- Scrollable content within the modal
+- Condensed but complete version
+- Uses the same GamePanel component
+
+### 3. MapMenuDrawer.tsx Updates
+
+Add White Paper button after Rules in the Basics section:
+
+```tsx
+{/* White Paper */}
+<Button
+  variant="ghost"
+  onClick={() => setWhitePaperOpen(true)}
+  className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
+>
+  <PixelIcon name="book" size="md" />  // or create new scroll/paper icon
+  White Paper
+</Button>
+```
+
+### 4. App.tsx Route
+
+```tsx
+import WhitePaperPage from "./pages/WhitePaperPage";
+
+// Add route
+<Route element={<MainLayout><WhitePaperPage /></MainLayout>} path="/whitepaper" />
+```
+
+---
+
+## Content Outline (Actual Text)
+
+### The Vision
+> "Bitplace transforms our shared world into a living canvas where territory is claimed not by force, but by commitment. Every pixel on the map represents not just a location, but a statement—of identity, community, and value."
+
+### The Pixel Economy
+> "When you paint a pixel, you're not just changing a color. You're staking your energy into that piece of the world. That energy—your PE—comes from real value: your holdings in $BIT. This creates a fundamental truth: the more you care, the more you stake."
+
+### Human Dynamics: The Players
+- **The Artist**: Creates for beauty, marks territory with expression
+- **The Guardian**: Defends community works, builds reputation through protection  
+- **The Raider**: Challenges ownership, tests defenses, creates chaos
+- **The Diplomat**: Negotiates between factions, builds alliances
+- **The Griefier**: Disrupts for entertainment, keeps everyone on their toes
+
+### Why It Works
+> "Value in Bitplace isn't artificial—it emerges from human behavior. When players defend a pixel, they signal its importance. When raiders attack, they test that importance. This constant push-and-pull creates a living economy where value is determined by collective human action."
+
+### The Token: $BIT
+> "$BIT isn't just a currency—it's your stake in the world. Every pixel you own represents locked $BIT. Every defense you add represents trust. Every attack you launch represents a challenge. The token's value grows as the map becomes more contested, more defended, more alive."
+
+---
+
+## Visual Design
+
+- Clean, readable typography matching existing pages
+- Section cards with subtle backgrounds
+- Icon-led sections for scannability
+- Pull quotes for key concepts
+- Consistent with RulesPage and SpecPage styling
+
+## Menu Order (Updated Basics Section)
+
+```
+BASICS
+├─ Leaderboard
+├─ Alliance  
+├─ Rules
+└─ White Paper  ← NEW (at the end of Basics)
+```
+
