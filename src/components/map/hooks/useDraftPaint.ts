@@ -18,6 +18,7 @@ interface UseDraftPaintResult {
   draftColor: string | null;
   isAtLimit: boolean;
   draftDirty: boolean;
+  remainingCapacity: number;
   
   addToDraft: (x: number, y: number, color: string) => boolean;
   removeFromDraft: (x: number, y: number) => void;
@@ -39,6 +40,7 @@ export function useDraftPaint(): UseDraftPaintResult {
 
   const draftCount = draft.size;
   const isAtLimit = draftCount >= MAX_DRAFT;
+  const remainingCapacity = MAX_DRAFT - draftCount;
   
   // Get the color from the first draft pixel (all should be same color in a session)
   const draftColor = draft.size > 0 ? Array.from(draft.values())[0]?.color ?? null : null;
@@ -143,6 +145,7 @@ export function useDraftPaint(): UseDraftPaintResult {
     draftColor,
     isAtLimit,
     draftDirty,
+    remainingCapacity,
     addToDraft,
     removeFromDraft,
     removeInvalidFromDraft,

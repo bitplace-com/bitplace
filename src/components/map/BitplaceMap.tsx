@@ -104,7 +104,7 @@ export function BitplaceMap() {
     checkSelectionChanged,
   } = usePaintStateMachine();
   const { queue: paintQueue, queueSize, isSpacePainting, isFlushing, startSpacePaint, stopSpacePaint, addToQueue, flushQueue } = usePaintQueue(paintPixel, confirmPixel);
-  const { draft: draftPixels, draftCount, draftColor, isAtLimit: isDraftAtLimit, draftDirty, addToDraft, removeFromDraft, removeInvalidFromDraft, undoLast: undoDraft, clearDraft, getDraftPixels, setDraftDirty } = useDraftPaint();
+  const { draft: draftPixels, draftCount, draftColor, isAtLimit: isDraftAtLimit, draftDirty, remainingCapacity: draftRemainingCapacity, addToDraft, removeFromDraft, removeInvalidFromDraft, undoLast: undoDraft, clearDraft, getDraftPixels, setDraftDirty } = useDraftPaint();
   const { brushSelection, selectionCount, isSelectionAtLimit, hasShownLimitToast, startBrushSelection, addToBrushSelection, endBrushSelection, clearBrushSelection, getSelectedPixels: getBrushSelectedPixels, setFromRectSelection } = useBrushSelection();
   const { 
     brushSelection: inspectBrushSelection, 
@@ -170,9 +170,13 @@ export function BitplaceMap() {
         return;
       }
       if (brushSize === '2x2') {
-        const block = getSnapped2x2Block(x, y);
+        if (draftRemainingCapacity <= 0) return;
+        const block = getSnapped2x2Block(x, y)
+          .filter(p => !draftPixels.has(`${p.x}:${p.y}`))
+          .slice(0, draftRemainingCapacity);
+        if (block.length === 0) return;
         block.forEach(p => addToDraft(p.x, p.y, selectedColor));
-        lastDraftedPixelRef.current = block[0];
+        lastDraftedPixelRef.current = getSnapped2x2Block(x, y)[0];
       } else {
         addToDraft(x, y, selectedColor);
         lastDraftedPixelRef.current = { x, y };
@@ -201,7 +205,7 @@ export function BitplaceMap() {
       isTouchPaintingRef.current = true;
       haptic('medium'); // Haptic feedback for action selection
     }
-  }, [mode, paintTool, selectedColor, brushSize, addToDraft, removeFromDraft, startBrushSelection, draftPixels, requireWallet, playSound]);
+  }, [mode, paintTool, selectedColor, brushSize, addToDraft, removeFromDraft, startBrushSelection, draftPixels, draftRemainingCapacity, requireWallet, playSound]);
 
   const handleTouchPaintMove = useCallback((x: number, y: number) => {
     // Paint with brush (continuous) - only if color selected
@@ -211,9 +215,15 @@ export function BitplaceMap() {
         const block = getSnapped2x2Block(x, y);
         const topLeft = block[0];
         if (!last || last.x !== topLeft.x || last.y !== topLeft.y) {
-          block.forEach(p => addToDraft(p.x, p.y, selectedColor));
-          lastDraftedPixelRef.current = topLeft;
-          haptic('light'); // Light haptic for each new pixel
+          if (draftRemainingCapacity <= 0) return;
+          const toAdd = block
+            .filter(p => !draftPixels.has(`${p.x}:${p.y}`))
+            .slice(0, draftRemainingCapacity);
+          if (toAdd.length > 0) {
+            toAdd.forEach(p => addToDraft(p.x, p.y, selectedColor));
+            lastDraftedPixelRef.current = topLeft;
+            haptic('light'); // Light haptic for each new pixel
+          }
         }
       } else {
         if (!last || last.x !== x || last.y !== y) {
@@ -237,7 +247,7 @@ export function BitplaceMap() {
     else if (['defend', 'attack', 'reinforce'].includes(mode)) {
       addToBrushSelection(x, y);
     }
-  }, [mode, paintTool, selectedColor, brushSize, addToDraft, removeFromDraft, addToBrushSelection, draftPixels]);
+  }, [mode, paintTool, selectedColor, brushSize, addToDraft, removeFromDraft, addToBrushSelection, draftPixels, draftRemainingCapacity]);
 
   const handleTouchPaintEnd = useCallback((x: number, y: number, wasTap: boolean) => {
     isTouchPaintingRef.current = false;
@@ -491,9 +501,14 @@ export function BitplaceMap() {
           // Add first pixel(s) to draft if hovering
           if (hoverPixel && selectedColor !== null) {
             if (brushSize === '2x2') {
-              const block = getSnapped2x2Block(hoverPixel.x, hoverPixel.y);
-              block.forEach(p => addToDraft(p.x, p.y, selectedColor));
-              lastDraftedPixelRef.current = block[0];
+              if (draftRemainingCapacity <= 0) return;
+              const block = getSnapped2x2Block(hoverPixel.x, hoverPixel.y)
+                .filter(p => !draftPixels.has(`${p.x}:${p.y}`))
+                .slice(0, draftRemainingCapacity);
+              if (block.length > 0) {
+                block.forEach(p => addToDraft(p.x, p.y, selectedColor));
+                lastDraftedPixelRef.current = getSnapped2x2Block(hoverPixel.x, hoverPixel.y)[0];
+              }
             } else {
               addToDraft(hoverPixel.x, hoverPixel.y, selectedColor);
               lastDraftedPixelRef.current = hoverPixel;
@@ -621,7 +636,7 @@ export function BitplaceMap() {
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [mapReady, mode, canPaint, user, isSpaceHeld, isShiftHeld, interactionMode, selection.isSelecting, endSelection, hoverPixel, selectedColor, addToDraft, requireWallet, pendingPixels.length, clearSelection, clearValidation, playSound, paintTool, brushSize, brushSelection.pixels.size, startBrushSelection, endBrushSelection, getBrushSelectedPixels, clearBrushSelection, draftPixels, removeFromDraft]);
+  }, [mapReady, mode, canPaint, user, isSpaceHeld, isShiftHeld, interactionMode, selection.isSelecting, endSelection, hoverPixel, selectedColor, addToDraft, requireWallet, pendingPixels.length, clearSelection, clearValidation, playSound, paintTool, brushSize, brushSelection.pixels.size, startBrushSelection, endBrushSelection, getBrushSelectedPixels, clearBrushSelection, draftPixels, draftRemainingCapacity, removeFromDraft]);
 
   // Auto-clear actionSelection when tool or mode changes (but keep paintDraft)
   const prevModeRef = useRef(mode);
@@ -870,8 +885,14 @@ export function BitplaceMap() {
             const block = getSnapped2x2Block(pixel.x, pixel.y);
             const topLeft = block[0];
             if (!last || last.x !== topLeft.x || last.y !== topLeft.y) {
-              block.forEach(p => addToDraft(p.x, p.y, selectedColor));
-              lastDraftedPixelRef.current = topLeft;
+              if (draftRemainingCapacity <= 0) return;
+              const toAdd = block
+                .filter(p => !draftPixels.has(`${p.x}:${p.y}`))
+                .slice(0, draftRemainingCapacity);
+              if (toAdd.length > 0) {
+                toAdd.forEach(p => addToDraft(p.x, p.y, selectedColor));
+                lastDraftedPixelRef.current = topLeft;
+              }
             }
           } else {
             if (!last || last.x !== pixel.x || last.y !== pixel.y) {
@@ -1053,8 +1074,13 @@ export function BitplaceMap() {
               return;
             }
             if (brushSize === '2x2') {
-              const block = getSnapped2x2Block(x, y);
-              block.forEach(p => addToDraft(p.x, p.y, selectedColor));
+              if (draftRemainingCapacity <= 0) return;
+              const block = getSnapped2x2Block(x, y)
+                .filter(p => !draftPixels.has(`${p.x}:${p.y}`))
+                .slice(0, draftRemainingCapacity);
+              if (block.length > 0) {
+                block.forEach(p => addToDraft(p.x, p.y, selectedColor));
+              }
             } else {
               addToDraft(x, y, selectedColor);
             }
@@ -1091,7 +1117,7 @@ export function BitplaceMap() {
       map.off('mouseup', handleMapMouseUp);
       canvas.removeEventListener('mouseleave', handleMapMouseLeave);
     };
-  }, [mapReady, mode, selectedColor, interactionMode, isSpaceHeld, isShiftHeld, updateSelection, startSelection, endSelection, clearSelection, isEyedropperActive, handleEyedropperPick, addToDraft, removeFromDraft, canPaint, user, playSound, requireWallet, brushSize, paintTool, selection.isSelecting, clearValidation, draftPixels, isMoveMode, activeTemplateId, updatePosition]);
+  }, [mapReady, mode, selectedColor, interactionMode, isSpaceHeld, isShiftHeld, updateSelection, startSelection, endSelection, clearSelection, isEyedropperActive, handleEyedropperPick, addToDraft, removeFromDraft, canPaint, user, playSound, requireWallet, brushSize, paintTool, selection.isSelecting, clearValidation, draftPixels, draftRemainingCapacity, isMoveMode, activeTemplateId, updatePosition]);
 
   const handleZoomIn = useCallback(() => mapRef.current?.zoomIn(), []);
   const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), []);
