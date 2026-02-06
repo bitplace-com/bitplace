@@ -1,110 +1,75 @@
 
-# White Paper: "Paint the World Bit by Bit" + Theme-Aware Colors
 
-## Summary of Changes
+# White Paper Update: Actions, Mechanics, and Value Dynamics
 
-1. **Title Update**: "Own a piece of the world" → "Paint the world bit by bit"
-2. **Content Reframe**: Shift language from ownership to painting/creating
-3. **Color Fix**: Make modal theme-aware (currently hardcoded dark background)
+## Summary
 
----
-
-## Problem: Color Issues
-
-The `DialogContent` component has a hardcoded dark background:
-```tsx
-bg-[hsl(0_0%_7%)]  // Near-black, always
-```
-
-This creates:
-- **Day Mode**: Dark modal on light interface (jarring, as shown in screenshot)
-- **Night Mode**: Works correctly (dark on dark)
-
-The action cards use `bg-card` which adapts to theme, but against the forced-dark dialog they look washed out in day mode.
+Update the White Paper to align with the 4 core game actions (Paint, Defend, Attack, Reinforce) and add the economic feedback loop explaining how activity increases $BIT value.
 
 ---
 
-## Solution
+## Content Changes
 
-### 1. Update DialogContent to be Theme-Aware
+### 1. Four Action Cards Update
 
-Modify `src/components/ui/dialog.tsx` to use theme tokens instead of hardcoded color:
+| Current | New |
+|---------|-----|
+| **Protect** | **Defend** |
+| **Take Over** | **Reinforce** |
 
-```tsx
-// Before:
-bg-[hsl(0_0%_7%)]
+**New Descriptions:**
 
-// After:
-bg-background
+| Action | Icon | New Description |
+|--------|------|-----------------|
+| **Paint** | `brush` | Color any pixel on the map. Stake energy to paint it. Your mark stays until someone paints over it. |
+| **Defend** | `shield` | Add energy to protect any pixel. The more energy staked, the harder it is to Attack. |
+| **Attack** | `swords` | Drain energy from pixels you want to repaint. Each Attack weakens the pixel. When it's weak enough, you can paint over it. |
+| **Reinforce** | `plus` | Add more energy to pixels you already painted. Strengthens your stake and makes your artwork harder to take. |
+
+---
+
+### 2. Section Title Change
+
+| Current | New |
+|---------|-----|
+| "Why it matters" | "Mechanics" |
+
+---
+
+### 3. Flow Diagram Update
+
+| Current | New |
+|---------|-----|
+| `Defend or Fade` | `Defend or Attack` |
+
+New flow:
+```
+Hold $BIT → Get Energy → Paint Pixels → Defend or Attack
 ```
 
-Also update border from `border-white/14` to `border-border`:
-```tsx
-// Before:
-border border-white/14
+---
 
-// After:
-border border-border
-```
+### 4. Add Value Creation Section
 
-### 2. Update WhitePaperModal Content
+Add a new section called **"Value creation"** after "How value works" to explain:
 
-**Title Change:**
-```tsx
-// Before:
-"Own a piece of the world."
+- Every action (Paint, Defend, Attack, Reinforce) consumes energy
+- Energy comes from $BIT holdings
+- More activity = more $BIT locked = higher demand = higher $BIT price
+- When someone paints over your pixel, it stings - but they had to stake more energy than you did, increasing $BIT utility
+- There's no unlimited griefing: every attack, every takeover costs real value and creates real demand
 
-// After:
-"Paint the world bit by bit."
-```
+**Draft content:**
 
-**Subline Update:**
-```tsx
-// Before:
-"Bitplace is a world map where every pixel can be claimed, contested, and defended with real value."
-
-// After:
-"Bitplace is a world map where every pixel can be painted, defended, and contested."
-```
-
-**Action Card Descriptions (reframe from ownership to painting):**
-
-| Action | Before | After |
-|--------|--------|-------|
-| Paint | "Claim any unclaimed pixel. Stake energy to own it. The pixel becomes yours until someone takes it." | "Color any pixel on the map. Stake energy to paint it. Your mark stays until someone paints over it." |
-| Protect | "Add energy to any pixel you believe in. More protection makes it harder to take." | "Add energy to any pixel. More energy makes it harder to paint over." |
-| Attack | "Drain energy from pixels you want. Each attack weakens the pixel. When it's weak enough, you can take it." | "Drain energy from pixels you want to repaint. Each attack weakens it. When it's weak enough, you can paint over it." |
-| Take Over | "Stake enough energy to flip ownership. The pixel is now yours. Previous owner gets their stake back." | "Stake enough energy to repaint. The pixel is now your color. Previous painter gets their stake back." |
-
-**Why It Matters section (reframe):**
-
-| Before | After |
-|--------|-------|
-| "Real territory" | "Real places" |
-| "The map is Earth. Your pixels mark real places." | "The map is Earth. Your paintings mark real locations." |
-| "When someone takes your pixel, you feel it. When you defend one, it means something." | "When someone paints over your pixel, you feel it. When you defend one, it means something." |
-
-**Flow diagram update:**
-```tsx
-// Before:
-"Claim Territory" → "Defend or Lose"
-
-// After:
-"Paint Pixels" → "Defend or Fade"
-```
-
-**CTA update:**
-```tsx
-// Before:
-"Claim your first pixel."
-
-// After:
-"Paint your first pixel."
-```
-
-### 3. Update WhitePaperPage.tsx
-
-Mirror all the same content changes as the modal.
+> **Value creation**
+>
+> Every action on the map requires energy. Energy comes from holding $BIT. 
+>
+> When someone paints, defends, attacks, or reinforces, they lock $BIT into the system. More locked $BIT means less circulating supply. Less supply, same demand: price rises.
+>
+> Here's the twist: when someone paints over your pixel, it hurts. But to do it, they had to stake more energy than was already there. That means more $BIT locked, more utility, more value for everyone who holds.
+>
+> There's no free griefing. Every disruption costs. Every attack funds the economy. The more contested the map, the more valuable $BIT becomes.
 
 ---
 
@@ -112,25 +77,110 @@ Mirror all the same content changes as the modal.
 
 | File | Changes |
 |------|---------|
-| `src/components/ui/dialog.tsx` | Replace hardcoded dark bg with theme-aware `bg-background`, update border |
-| `src/components/modals/WhitePaperModal.tsx` | Update all text content |
-| `src/pages/WhitePaperPage.tsx` | Mirror text updates |
+| `src/components/modals/WhitePaperModal.tsx` | Update action cards, section titles, flow diagram, add value creation section |
+| `src/pages/WhitePaperPage.tsx` | Mirror all changes |
 
 ---
 
-## Visual Result
+## Technical Details
 
-**Day Mode:**
-- Modal with light background matching app theme
-- Cards with proper contrast
-- All text readable
+### WhitePaperModal.tsx Changes
 
-**Night Mode:**
-- Modal with dark background (as before)
-- Cards with proper contrast
-- No change from current working state
+**Action Cards (lines 41-61):**
+```tsx
+<ActionCard
+  icon={<PixelIcon name="brush" size="md" />}
+  title="Paint"
+  description="Color any pixel on the map. Stake energy to paint it. Your mark stays until someone paints over it."
+/>
+<ActionCard
+  icon={<PixelIcon name="shield" size="md" />}
+  title="Defend"
+  description="Add energy to protect any pixel. The more energy staked, the harder it is to Attack."
+/>
+<ActionCard
+  icon={<PixelIcon name="swords" size="md" />}
+  title="Attack"
+  description="Drain energy from pixels you want to repaint. Each Attack weakens the pixel. When it's weak enough, you can paint over it."
+/>
+<ActionCard
+  icon={<PixelIcon name="plus" size="md" />}
+  title="Reinforce"
+  description="Add more energy to pixels you already painted. Strengthens your stake and makes your artwork harder to take."
+/>
+```
 
-**Messaging:**
-- Title: "Paint the world bit by bit." (the actual tagline)
-- Language focused on painting/creating rather than owning
-- More inviting, creative framing
+**Section title (line 66):**
+```tsx
+<h2 className="text-lg font-semibold text-foreground">Mechanics</h2>
+```
+
+**Flow diagram (line 100):**
+```tsx
+<span className="px-3 py-1.5 rounded-lg bg-muted">Defend or Attack</span>
+```
+
+**New "Value creation" section (after "How value works"):**
+```tsx
+<section className="space-y-4">
+  <h2 className="text-lg font-semibold text-foreground">Value creation</h2>
+  <div className="space-y-3 text-sm text-muted-foreground">
+    <p>
+      Every action on the map requires energy. Energy comes from holding{" "}
+      <span className="text-foreground font-medium">$BIT</span>.
+    </p>
+    <p>
+      When someone paints, defends, attacks, or reinforces, they lock $BIT into the system. 
+      More locked $BIT means less circulating supply. Less supply, same demand: price rises.
+    </p>
+    <p>
+      Here's the twist: when someone paints over your pixel, it stings. But to do it, they had to 
+      stake more energy than was already there. That means more $BIT locked, more utility, more 
+      value for everyone who holds.
+    </p>
+    <p>
+      There's no free griefing. Every disruption costs. Every Attack funds the economy. 
+      The more contested the map, the more valuable $BIT becomes.
+    </p>
+  </div>
+</section>
+```
+
+### WhitePaperPage.tsx Changes
+
+Mirror all the same changes from the modal version.
+
+---
+
+## Visual Structure After Changes
+
+```
+┌─────────────────────────────────────────────┐
+│                                             │
+│     Paint the world bit by bit.             │
+│                                             │
+│  ┌─────────────┐  ┌─────────────┐          │
+│  │   PAINT     │  │   DEFEND    │          │
+│  └─────────────┘  └─────────────┘          │
+│  ┌─────────────┐  ┌─────────────┐          │
+│  │   ATTACK    │  │  REINFORCE  │          │
+│  └─────────────┘  └─────────────┘          │
+│                                             │
+│  MECHANICS                                  │
+│  • Real places                              │
+│  • Visible commitment                       │
+│  • Real stakes                              │
+│  • Emergent behavior                        │
+│                                             │
+│  HOW VALUE WORKS                            │
+│  Hold $BIT → Energy → Paint → Defend/Attack │
+│                                             │
+│  VALUE CREATION                             │
+│  Every action locks $BIT...                 │
+│  No free griefing...                        │
+│                                             │
+│          [ Paint your first pixel ]         │
+│                                             │
+└─────────────────────────────────────────────┘
+```
+
