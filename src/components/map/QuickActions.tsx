@@ -28,7 +28,7 @@ export function QuickActions() {
               onClick={() => setSearchOpen(true)}
               aria-label="Search location"
             >
-              <PixelIcon name="globe" size="sm" />
+              <PixelIcon name="search" size="sm" />
             </GlassIconButton>
           </TooltipTrigger>
           <TooltipContent side="right">Search location</TooltipContent>

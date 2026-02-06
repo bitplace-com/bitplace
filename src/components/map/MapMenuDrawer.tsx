@@ -85,7 +85,7 @@ export function MapMenuDrawer() {
                     location.pathname === "/" && "bg-foreground/10 text-foreground font-medium hover:bg-foreground/15"
                   )}
                 >
-                  <PixelIcon name="map" size="md" />
+                  <PixelIcon name="globe" size="md" />
                   Map
                 </Button>
 
