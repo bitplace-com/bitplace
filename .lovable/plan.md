@@ -1,176 +1,252 @@
 
 
-# White Paper Page: The Soul of Bitplace
+# White Paper Redesign: Landing-Style Centered Modal
 
 ## Overview
 
-Create a new **White Paper** page that explains Bitplace conceptually - its philosophy, social dynamics, game mechanics, and token value creation. This page will be accessible from the menu under the "Basics" section and will serve as the definitive guide for visitors to understand the game's essence.
+Completely redesign the White Paper as a polished, centered popup landing page that presents Bitplace with concrete language, focusing on **actions** rather than character archetypes. The design will feel premium and intentional, using your existing glass UI system.
 
-## Page Philosophy
+## Key Changes
 
-The White Paper will be structured to take visitors on a journey from **concept** to **understanding**:
-
-1. **What is Bitplace?** - The vision and core idea
-2. **The Canvas** - How the world map becomes a battleground
-3. **Social Dynamics** - How humans interact through pixels
-4. **Value Creation** - How $BIT accrues value through gameplay
-5. **Alliances & Community** - Social structures and cooperation
-6. **The Economy** - How energy flows through the system
-
-## Content Structure
-
-### Section 1: Vision - "The World's Canvas"
-- Bitplace transforms the entire world map into a shared digital canvas
-- Every pixel represents a piece of territory that can be claimed, defended, or conquered
-- It's not just about painting—it's about expression, territory, and community
-
-### Section 2: The Pixel - "Your Stake in the World"
-- Each pixel is a contestable unit of value
-- Ownership requires commitment (staking energy)
-- Pixels form the atomic unit of all social interactions
-
-### Section 3: Social Dynamics
-**Creators** - Those who paint to express, build art, mark territory
-**Defenders** - Community members who protect what matters
-**Raiders** - Agents of chaos who challenge the status quo
-**Griefiers** - Players who disrupt for fun or profit
-**Alliances** - Groups that coordinate for common goals
-
-### Section 4: Emotional Gameplay
-- The thrill of claiming new territory
-- The anxiety of seeing attacks on your pixels
-- The satisfaction of defending community art
-- The drama of territorial wars
-- The bonds formed through alliance coordination
-
-### Section 5: Value Mechanics
-- $BIT is locked when you claim pixels (skin in the game)
-- Defenders add value to pixels (community trust)
-- Attackers challenge value (market dynamics)
-- Value flows: Claim → Defend → Attack → Conquest
-- "The map becomes more valuable as more people care about it"
-
-### Section 6: The Game Within the Game
-- Strategic positioning for territory control
-- Reputation through pixel ownership
-- Community art projects requiring coordination
-- Economic warfare through strategic attacks
-- Diplomacy between alliances
+| Before | After |
+|--------|-------|
+| Side-sheet modal (GlassSheet) | Centered landing-style dialog |
+| Fuzzy character roles (Artist, Guardian, etc.) | Concrete actions anyone can take |
+| Story-told narrative | Clear, direct statements with emotional depth |
+| Standard page layout | Landing page sections with visual hierarchy |
 
 ---
 
-## Files to Create/Modify
+## New Content Structure
 
-| File | Action | Purpose |
-|------|--------|---------|
-| `src/pages/WhitePaperPage.tsx` | Create | New page component |
-| `src/components/modals/WhitePaperModal.tsx` | Create | Modal version for menu access |
-| `src/components/map/MapMenuDrawer.tsx` | Modify | Add White Paper to Basics section |
-| `src/App.tsx` | Modify | Add route for /whitepaper |
+### Hero Section
+**Headline:** "Own a piece of the world."
+**Subline:** A single, direct sentence about what Bitplace is.
 
----
+### Section 1: What You Can Do
+Actions presented as clear cards:
+- **Paint** — Claim any unclaimed pixel. Stake energy to own it.
+- **Protect** — Add energy to pixels you believe in. Make them harder to take.
+- **Attack** — Drain energy from pixels you want. Weaken before you conquer.
+- **Take Over** — Stake enough energy to flip ownership. The pixel is now yours.
 
-## Implementation Details
+### Section 2: Why It Matters
+- Territory on a real map. Your mark on the world.
+- Every action costs energy. Commitment is visible.
+- When someone takes your pixel, you feel it. When you defend one, it means something.
 
-### 1. WhitePaperPage.tsx
+### Section 3: How Value Works
+- Energy comes from $BIT holdings
+- More $BIT = more energy = more territory you can hold
+- Contested pixels = active economy = $BIT utility
+- Simple flow: Hold $BIT → Get Energy → Claim Territory → Defend or Lose
 
-A beautifully formatted page following the RulesPage pattern with:
-- Hero section with dramatic intro
-- Themed section cards with icons
-- Narrative flow that tells a story
-- Visual metaphors and conceptual explanations
+### Section 4: Social Reality
+No roles. Everyone does everything. What emerges:
+- Coordination to build large-scale art
+- Rivalry over contested areas
+- Alliances to protect shared interests
+- Drama when someone disrupts the balance
 
-```tsx
-// Structure
-<PageHeader
-  icon={Scroll}  // or similar "document" icon
-  title="White Paper"
-  subtitle="Understanding the soul of Bitplace"
-/>
-
-<SectionCard title="The Vision" icon={...}>
-  // Narrative content
-</SectionCard>
-
-<SectionCard title="Social Dynamics" icon={...}>
-  // Human behavior explanation
-</SectionCard>
-
-// ... more sections
-```
-
-### 2. WhitePaperModal.tsx
-
-Following the GamePanel pattern like RulesModal:
-- Scrollable content within the modal
-- Condensed but complete version
-- Uses the same GamePanel component
-
-### 3. MapMenuDrawer.tsx Updates
-
-Add White Paper button after Rules in the Basics section:
-
-```tsx
-{/* White Paper */}
-<Button
-  variant="ghost"
-  onClick={() => setWhitePaperOpen(true)}
-  className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
->
-  <PixelIcon name="book" size="md" />  // or create new scroll/paper icon
-  White Paper
-</Button>
-```
-
-### 4. App.tsx Route
-
-```tsx
-import WhitePaperPage from "./pages/WhitePaperPage";
-
-// Add route
-<Route element={<MainLayout><WhitePaperPage /></MainLayout>} path="/whitepaper" />
-```
-
----
-
-## Content Outline (Actual Text)
-
-### The Vision
-> "Bitplace transforms our shared world into a living canvas where territory is claimed not by force, but by commitment. Every pixel on the map represents not just a location, but a statement—of identity, community, and value."
-
-### The Pixel Economy
-> "When you paint a pixel, you're not just changing a color. You're staking your energy into that piece of the world. That energy—your PE—comes from real value: your holdings in $BIT. This creates a fundamental truth: the more you care, the more you stake."
-
-### Human Dynamics: The Players
-- **The Artist**: Creates for beauty, marks territory with expression
-- **The Guardian**: Defends community works, builds reputation through protection  
-- **The Raider**: Challenges ownership, tests defenses, creates chaos
-- **The Diplomat**: Negotiates between factions, builds alliances
-- **The Griefier**: Disrupts for entertainment, keeps everyone on their toes
-
-### Why It Works
-> "Value in Bitplace isn't artificial—it emerges from human behavior. When players defend a pixel, they signal its importance. When raiders attack, they test that importance. This constant push-and-pull creates a living economy where value is determined by collective human action."
-
-### The Token: $BIT
-> "$BIT isn't just a currency—it's your stake in the world. Every pixel you own represents locked $BIT. Every defense you add represents trust. Every attack you launch represents a challenge. The token's value grows as the map becomes more contested, more defended, more alive."
+### Closing
+Direct CTA without fluff.
 
 ---
 
 ## Visual Design
 
-- Clean, readable typography matching existing pages
-- Section cards with subtle backgrounds
-- Icon-led sections for scannability
-- Pull quotes for key concepts
-- Consistent with RulesPage and SpecPage styling
+### Centered Landing Modal
+- Full-width centered dialog with max-width constraint
+- Dark overlay with subtle blur (existing dialog pattern)
+- Scroll-contained content
+- Glass styling for sections
+- No side-sheet behavior
 
-## Menu Order (Updated Basics Section)
+### Component Structure
 
+```text
+┌──────────────────────────────────────────────────────┐
+│  ╳                                                   │
+│                                                      │
+│              ┌────────────────────┐                  │
+│              │   BITPLACE LOGO    │                  │
+│              └────────────────────┘                  │
+│                                                      │
+│           Own a piece of the world.                  │
+│                                                      │
+│    ┌──────────────────────────────────────┐         │
+│    │ Paint · Protect · Attack · Take Over │         │
+│    └──────────────────────────────────────┘         │
+│                                                      │
+│    ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐      │
+│    │ PAINT  │ │PROTECT │ │ ATTACK │ │TAKEOVER│      │
+│    │  ...   │ │  ...   │ │  ...   │ │  ...   │      │
+│    └────────┘ └────────┘ └────────┘ └────────┘      │
+│                                                      │
+│    ─────────────────────────────────────────        │
+│                                                      │
+│    WHY IT MATTERS                                    │
+│    • Territory on a real map                         │
+│    • Every action costs energy                       │
+│    • Commitment is visible                           │
+│                                                      │
+│    ─────────────────────────────────────────        │
+│                                                      │
+│    HOW VALUE WORKS                                   │
+│    $BIT → Energy → Territory                         │
+│                                                      │
+│    ─────────────────────────────────────────        │
+│                                                      │
+│            [ Start Playing ]                         │
+│                                                      │
+└──────────────────────────────────────────────────────┘
 ```
-BASICS
-├─ Leaderboard
-├─ Alliance  
-├─ Rules
-└─ White Paper  ← NEW (at the end of Basics)
+
+---
+
+## Files to Modify
+
+| File | Action | Purpose |
+|------|--------|---------|
+| `src/components/modals/WhitePaperModal.tsx` | Rewrite | New landing-style centered dialog |
+| `src/pages/WhitePaperPage.tsx` | Rewrite | Mirror modal content for direct page access |
+| `src/index.css` | Add | New utility classes for landing sections |
+
+---
+
+## Technical Implementation
+
+### WhitePaperModal.tsx
+
+Replace GlassSheet/GamePanel with Radix Dialog for centered behavior:
+
+```tsx
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+
+export function WhitePaperModal({ open, onOpenChange }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+        <div className="p-8 space-y-10">
+          {/* Hero */}
+          <header className="text-center space-y-3">
+            <h1 className="text-3xl font-bold tracking-tight">
+              Own a piece of the world.
+            </h1>
+            <p className="text-muted-foreground">
+              Bitplace is a world map where every pixel can be claimed, 
+              contested, and defended with real value.
+            </p>
+          </header>
+
+          {/* Action Cards */}
+          <section>
+            <div className="grid grid-cols-2 gap-4">
+              <ActionCard title="Paint" ... />
+              <ActionCard title="Protect" ... />
+              <ActionCard title="Attack" ... />
+              <ActionCard title="Take Over" ... />
+            </div>
+          </section>
+
+          {/* Value Flow */}
+          <section>
+            <h2>How Value Works</h2>
+            <FlowDiagram />
+          </section>
+
+          {/* CTA */}
+          <footer className="text-center">
+            <Button onClick={onOpenChange(false)}>
+              Start Playing
+            </Button>
+          </footer>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 ```
+
+### New Helper Components
+
+**ActionCard** — Compact card showing action + description:
+```tsx
+function ActionCard({ icon, title, description }) {
+  return (
+    <div className="p-4 rounded-xl bg-card border border-border/50">
+      <div className="flex items-center gap-3 mb-2">
+        {icon}
+        <h3 className="font-semibold">{title}</h3>
+      </div>
+      <p className="text-sm text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+```
+
+**ValueFlow** — Visual representation of $BIT → Energy → Territory
+
+---
+
+## Content Draft (Final Copy)
+
+### Hero
+**"Own a piece of the world."**
+Bitplace is a world map where every pixel can be claimed, contested, and defended with real value.
+
+### What You Can Do
+
+**Paint**
+Claim any unclaimed pixel. You stake energy to own it. The pixel becomes yours until someone takes it.
+
+**Protect**
+Add energy to any pixel you believe in. More protection makes it harder to take. You can protect anyone's work.
+
+**Attack**
+Drain energy from pixels you want. Each attack weakens the pixel. When it's weak enough, you can take it.
+
+**Take Over**
+Stake enough energy to flip ownership. The pixel is now yours. Previous owner gets their stake back.
+
+### Why It Matters
+
+- **Real territory.** The map is Earth. Your pixels mark real places.
+- **Visible commitment.** Every action costs energy. You can see who cares about what.
+- **Real stakes.** When someone takes your pixel, you feel it. When you defend one, it means something.
+- **Emergent behavior.** No rules about how to play. People coordinate, compete, disrupt, and create.
+
+### How Value Works
+
+Your $BIT holdings determine your energy. More $BIT means more energy to spend on pixels.
+
+```text
+Hold $BIT → Get Energy → Claim Territory → Defend or Lose
+```
+
+When the map is active—pixels contested, defended, attacked—$BIT has utility. Utility creates demand.
+
+### Closing
+**"Claim your first pixel."**
+Button: [Open Map]
+
+---
+
+## Tone Examples
+
+| Before (Fuzzy) | After (Concrete) |
+|----------------|------------------|
+| "The world map becomes a living canvas where every pixel tells a story" | "The map is Earth. Every pixel is a real place you can own." |
+| "The Guardian defends community works" | "You can protect any pixel. Add energy to make it harder to take." |
+| "Value emerges from human behavior" | "$BIT has utility because people contest the map. Activity creates demand." |
+| "The thrill of claiming new territory" | "Claim a pixel. It's yours until someone takes it." |
+
+---
+
+## Mobile Considerations
+
+- On mobile: Full-screen modal with scrollable content
+- Action cards stack vertically (1 column)
+- Larger touch targets on CTA buttons
+- Same content, responsive layout
 
