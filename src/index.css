@@ -264,3 +264,36 @@
   background-color: hsl(var(--foreground)) !important;
   color: hsl(var(--background)) !important;
 }
+
+/* Premium Shine Animation for Special Materials */
+@keyframes premium-shine {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.animate-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-shine::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    transparent 35%,
+    rgba(255, 255, 255, 0.5) 50%,
+    transparent 65%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: premium-shine 3s ease-in-out infinite;
+  pointer-events: none;
+  border-radius: inherit;
+}
