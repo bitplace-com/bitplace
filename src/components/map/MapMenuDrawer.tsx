@@ -129,16 +129,6 @@ export function MapMenuDrawer() {
                   Alliance
                 </Button>
 
-                {/* Rules */}
-                <Button
-                  variant="ghost"
-                  onClick={() => setRulesOpen(true)}
-                  className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
-                >
-                  <PixelIcon name="book" size="md" />
-                  Rules
-                </Button>
-
                 {/* White Paper */}
                 <Button
                   variant="ghost"
@@ -147,6 +137,16 @@ export function MapMenuDrawer() {
                 >
                   <PixelIcon name="book" size="md" />
                   White Paper
+                </Button>
+
+                {/* Rules */}
+                <Button
+                  variant="ghost"
+                  onClick={() => setRulesOpen(true)}
+                  className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
+                >
+                  <PixelIcon name="book" size="md" />
+                  Rules
                 </Button>
               </div>
             </div>
