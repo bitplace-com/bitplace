@@ -1,123 +1,182 @@
 
-# Fix Pixel Limit: 500→300 Message and Multi-Pixel Brush Overflow
 
-## Problems Identified
+# Menu Reorganization: Sections and Leaderboard Move
 
-### 1. Wrong Error Message (Screenshot)
-In `src/hooks/useGameActions.ts` line 416, the error message is hardcoded as "Maximum 500 pixels per paint" instead of the correct 300 limit.
+## Overview
 
-### 2. Multi-Pixel Brush Exceeds Limit
-When using the 2x2 brush (4 pixels per click), the current implementation calls `addToDraft` in a loop:
-```typescript
-block.forEach(p => addToDraft(p.x, p.y, selectedColor));
+Reorganize the navigation menu into two clear sections and move Leaderboard from the map quick actions into the menu. Keep Places only as a standalone icon near the drawing bar.
+
+## Current Structure vs New Structure
+
+```text
+CURRENT                              NEW
+─────────────────────────────────    ─────────────────────────────────
+MapMenuDrawer:                       MapMenuDrawer:
+├─ Map                               ├─ HOME
+├─ Places                            │   ├─ Map
+├─ Alliance                          │   └─ Buy $BIT (was Shop)
+├─ Rules                             │
+├─ Shop                              └─ BASICS
+└─ [footer: Settings, Theme]             ├─ Leaderboard (NEW)
+                                         ├─ Alliance
+QuickActions (map buttons):              └─ Rules
+├─ Search (globe)                    
+├─ Leaderboard (trophy)              [footer: Settings, Theme]
+└─ Notifications (bell)              
+                                     QuickActions (map buttons):
+ActionTray header:                   ├─ Search (globe)
+├─ [Thumbtack - Places]              └─ Notifications (bell)
+├─ [separator]                       
+└─ [Hand/Draw toggle + tools]        ActionTray header:
+                                     ├─ [Thumbtack - Places] ← visually standalone
+                                     ├─ [larger visual gap]
+                                     └─ [Hand/Draw toggle + tools]
 ```
-
-The problem is that React state updates are asynchronous. All 4 calls see the same `draft.size` value, so if you're at 298 pixels, all 4 get added (reaching 302) before the limit check rejects them.
-
-## Solution Architecture
-
-### Option A: Pre-check remaining capacity in BitplaceMap (Chosen)
-Before calling `addToDraft` for a 2x2 block, check if there's enough room:
-```typescript
-const remainingCapacity = PAINT_MAX_PIXELS - draftCount;
-if (remainingCapacity <= 0) return;
-
-const block = getSnapped2x2Block(x, y);
-// Only add pixels that fit
-const pixelsToAdd = block.slice(0, remainingCapacity);
-pixelsToAdd.forEach(p => addToDraft(p.x, p.y, selectedColor));
-```
-
-### Option B: Add batch function to useDraftPaint
-Create `addBatchToDraft(pixels: {x,y}[], color)` that atomically checks and adds all pixels up to the limit.
-
-**I recommend Option A** because it's simpler and doesn't require changing the draft hook API.
 
 ## Files to Modify
 
-| File | Change |
-|------|--------|
-| `src/hooks/useGameActions.ts` | Fix hardcoded "500" to use correct limit |
-| `src/components/map/BitplaceMap.tsx` | Add remaining capacity check before 2x2 brush operations |
-| `src/components/map/hooks/useDraftPaint.ts` | Export remaining capacity for use in checks |
+| File | Changes |
+|------|---------|
+| `src/components/map/MapMenuDrawer.tsx` | Add sections, move Leaderboard, rename Shop, remove Places |
+| `src/components/map/QuickActions.tsx` | Remove Leaderboard button |
+| `src/components/map/ActionTray.tsx` | Make Places button more visually separated |
 
 ## Implementation Details
 
-### 1. Fix Error Message in useGameActions.ts
+### 1. MapMenuDrawer.tsx
 
-```typescript
-// Line 413-420 - Import and use PAINT_MAX_PIXELS constant
-import { PAINT_MAX_PIXELS } from '@/components/map/hooks/useDraftPaint';
+Add section labels and reorganize items:
 
-// Change message:
-if (data.error === 'MAX_PIXELS_EXCEEDED') {
-  setLastError({
-    code: 'MAX_PIXELS_EXCEEDED',
-    message: `Maximum ${PAINT_MAX_PIXELS} pixels per paint`,
-    requestId: data.requestId,
-    canRetry: false,
-  });
+```tsx
+// Add LeaderboardModal import
+import { LeaderboardModal } from "@/components/modals/LeaderboardModal";
+
+// Add state for leaderboard
+const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+
+// In the nav, structure with sections:
+<nav className="mt-6 space-y-4 flex-1">
+  {/* HOME section */}
+  <div>
+    <p className="px-3 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+      Home
+    </p>
+    <div className="space-y-1">
+      {/* Map button */}
+      {/* Buy $BIT button (was Shop) */}
+    </div>
+  </div>
+  
+  {/* BASICS section */}
+  <div>
+    <p className="px-3 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+      Basics
+    </p>
+    <div className="space-y-1">
+      {/* Leaderboard button - NEW */}
+      {/* Alliance button */}
+      {/* Rules button */}
+    </div>
+  </div>
+</nav>
+
+// Add LeaderboardModal at the end
+<LeaderboardModal open={leaderboardOpen} onOpenChange={setLeaderboardOpen} />
 ```
 
-### 2. Add Remaining Capacity to useDraftPaint
+**Button order:**
+- HOME: Map, Buy $BIT
+- BASICS: Leaderboard, Alliance, Rules
 
-Add a new return value:
-```typescript
-const remainingCapacity = MAX_DRAFT - draft.size;
+**Remove:** Places button and state (no longer in menu)
 
-return {
-  // ... existing
-  remainingCapacity,
-};
+### 2. QuickActions.tsx
+
+Remove the Leaderboard button and its state:
+
+```tsx
+// Remove:
+// - leaderboardOpen state
+// - LeaderboardModal import
+// - Leaderboard button JSX
+// - LeaderboardModal component
+
+// Keep only: Search (globe) and Notifications (bell)
 ```
 
-### 3. Fix 2x2 Brush in BitplaceMap.tsx
+### 3. ActionTray.tsx
 
-In all places where 2x2 brush is used, add capacity check:
+Make the Places button more visually standalone by increasing the gap:
 
-**handleTouchPaintStart (line ~172):**
-```typescript
-if (brushSize === '2x2') {
-  const block = getSnapped2x2Block(x, y)
-    .filter(p => !draftPixels.has(`${p.x}:${p.y}`));  // Skip duplicates
-  const toAdd = block.slice(0, remainingCapacity);
-  if (toAdd.length === 0) return;
-  toAdd.forEach(p => addToDraft(p.x, p.y, selectedColor));
-  lastDraftedPixelRef.current = block[0];
-}
+```tsx
+// Current: w-px separator between thumbtack and toggle
+// Change to: larger gap with subtle visual break
+
+<div className="flex items-center gap-1 shrink-0">
+  {/* Pin button for Places - standalone with extra spacing */}
+  <GlassIconButton
+    variant="ghost"
+    size="sm"
+    onClick={() => setPlacesOpen(true)}
+    title="Pinned Locations"
+    className="mr-1.5"  // Extra margin to separate
+  >
+    <PixelIcon name="thumbtack" className="h-4 w-4" />
+  </GlassIconButton>
+  
+  {/* More prominent visual separator */}
+  <div className="w-px h-6 bg-border/70 mx-1" />
+  
+  {/* Hand/Draw toggle */}
+  {canPaint && (
+    <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5">
+      ...
+    </div>
+  )}
+</div>
 ```
 
-**handleTouchPaintMove (line ~210):**
-```typescript
-if (brushSize === '2x2') {
-  const block = getSnapped2x2Block(x, y);
-  const topLeft = block[0];
-  if (!last || last.x !== topLeft.x || last.y !== topLeft.y) {
-    const toAdd = block
-      .filter(p => !draftPixels.has(`${p.x}:${p.y}`))
-      .slice(0, remainingCapacity);
-    if (toAdd.length > 0) {
-      toAdd.forEach(p => addToDraft(p.x, p.y, selectedColor));
-      lastDraftedPixelRef.current = topLeft;
-    }
-  }
-}
+This creates more visual breathing room so the Places button feels "standalone" rather than part of the toolbar.
+
+## Visual Result
+
+**Menu (when opened):**
+```
+┌─────────────────────────┐
+│ Bitplace                │
+├─────────────────────────┤
+│ HOME                    │
+│   🗺️  Map               │
+│   🛒  Buy $BIT          │
+│                         │
+│ BASICS                  │
+│   🏆  Leaderboard       │
+│   👥  Alliance          │
+│   📖  Rules             │
+├─────────────────────────┤
+│ ⚙️  Settings            │
+│ 🌙  Night Mode          │
+└─────────────────────────┘
 ```
 
-**Space key handler (line ~493, ~870, ~1055):**
-Same pattern - filter existing, slice to remaining capacity, then add.
+**Quick Actions (map buttons):**
+```
+┌─────┐
+│ 🌍  │  Search
+├─────┤
+│ 🔔  │  Notifications (with badge)
+└─────┘
+```
 
-## Expected Behavior After Fix
+**ActionTray header:**
+```
+┌──────────────────────────────────────────┐
+│ 📍 │ │ ✋ 🖌️ │  ... color/tools ...  │ ⬆️ │
+│    │ │       │                        │    │
+│pin │ │ mode  │                        │    │
+└──────────────────────────────────────────┘
+ ↑    ↑
+ |    larger gap/separator
+ standalone
+```
 
-| Scenario | Before | After |
-|----------|--------|-------|
-| Error message from server | "Maximum 500 pixels per paint" | "Maximum 300 pixels per paint" |
-| 2x2 brush at 298 pixels | Adds 4 → reaches 302 | Adds 2 → reaches 300 |
-| 2x2 brush at 300 pixels | Toast shown but cursor shows as if adding | No action, limit toast shown |
-| 1x1 brush behavior | Works correctly | Unchanged |
-
-## Technical Notes
-
-- The `remainingCapacity` value is derived from `draftCount` which updates on every render
-- Slicing the block array ensures we never exceed the limit, even by 1 pixel
-- The filter for existing drafts prevents duplicate counting
