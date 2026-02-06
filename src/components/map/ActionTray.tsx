@@ -206,20 +206,21 @@ export function ActionTray({
       >
         {/* Header - always visible */}
         <div className="flex items-center justify-between gap-2 px-3 py-2">
-          {/* Left: Pin button (separated) + Interaction mode toggle */}
+          {/* Left: Pin button (standalone) + Interaction mode toggle */}
           <div className="flex items-center gap-1 shrink-0">
-            {/* Pin button for Places - visually separated */}
+            {/* Pin button for Places - visually standalone with extra spacing */}
             <GlassIconButton
               variant="ghost"
               size="sm"
               onClick={() => setPlacesOpen(true)}
               title="Pinned Locations"
+              className="mr-1"
             >
               <PixelIcon name="thumbtack" className="h-4 w-4" />
             </GlassIconButton>
             
-            {/* Visual separator */}
-            <div className="w-px h-5 bg-border/50 mx-0.5" />
+            {/* More prominent visual separator */}
+            <div className="w-px h-6 bg-border/70 mx-1" />
             
             {canPaint && (
               <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5">

@@ -3,7 +3,6 @@ import { PixelIcon } from '@/components/icons';
 import { GlassIconButton } from '@/components/ui/glass-icon-button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { SearchModal } from '@/components/modals/SearchModal';
-import { LeaderboardModal } from '@/components/modals/LeaderboardModal';
 import { NotificationsPanel } from '@/components/modals/NotificationsPanel';
 import { useWallet } from '@/contexts/WalletContext';
 import { useAllianceInvites } from '@/hooks/useAllianceInvites';
@@ -11,7 +10,6 @@ import { useNotifications } from '@/hooks/useNotifications';
 
 export function QuickActions() {
   const [searchOpen, setSearchOpen] = useState(false);
-  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const { user } = useWallet();
@@ -38,18 +36,6 @@ export function QuickActions() {
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <GlassIconButton
-              onClick={() => setLeaderboardOpen(true)}
-              aria-label="Leaderboard"
-            >
-              <PixelIcon name="trophy" size="sm" />
-            </GlassIconButton>
-          </TooltipTrigger>
-          <TooltipContent side="right">Leaderboard</TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
             <div className="relative">
               <GlassIconButton
                 onClick={() => setNotificationsOpen(true)}
@@ -69,7 +55,6 @@ export function QuickActions() {
       </div>
 
       <SearchModal open={searchOpen} onOpenChange={setSearchOpen} />
-      <LeaderboardModal open={leaderboardOpen} onOpenChange={setLeaderboardOpen} />
       <NotificationsPanel open={notificationsOpen} onOpenChange={setNotificationsOpen} />
     </>
   );
