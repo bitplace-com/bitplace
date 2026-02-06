@@ -113,7 +113,7 @@ export function WalletSelectModal({
             className="w-full flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
           >
             {/* Phantom Logo */}
-            <div className="h-10 w-10 rounded-lg bg-[#AB9FF2] flex items-center justify-center flex-shrink-0">
+            <div className="h-10 w-10 rounded-xl bg-[#AB9FF2] flex items-center justify-center flex-shrink-0">
               <svg
                 width="24"
                 height="24"
@@ -122,11 +122,7 @@ export function WalletSelectModal({
                 xmlns="http://www.w3.org/2000/svg"
               >
                 <path
-                  d="M64 128C99.3462 128 128 99.3462 128 64C128 28.6538 99.3462 0 64 0C28.6538 0 0 28.6538 0 64C0 99.3462 28.6538 128 64 128Z"
-                  fill="#AB9FF2"
-                />
-                <path
-                  d="M110.584 64.9142H99.142C99.142 41.7651 80.173 23 56.7724 23C33.6612 23 14.8716 41.3057 14.4118 64.0599C13.9361 87.576 35.5765 107 59.4867 107H63.4989C85.0042 107 110.584 88.7583 110.584 64.9142ZM40.2729 67.9011C40.2729 71.5233 37.3407 74.4614 33.7261 74.4614C30.1114 74.4614 27.1792 71.5233 27.1792 67.9011V59.6289C27.1792 56.0067 30.1114 53.0686 33.7261 53.0686C37.3407 53.0686 40.2729 56.0067 40.2729 59.6289V67.9011ZM58.9SEE 67.9011C58.9369 71.5233 56.0047 74.4614 52.3901 74.4614C48.7754 74.4614 45.8432 71.5233 45.8432 67.9011V59.6289C45.8432 56.0067 48.7754 53.0686 52.3901 53.0686C56.0047 53.0686 58.9369 56.0067 58.9369 59.6289V67.9011Z"
+                  d="M108.7 54.3H100.1C100.1 36.9 85.9 22.7 68.5 22.7C51.3 22.7 37.3 36.5 36.9 53.7C36.5 71.3 52.6 85.7 70.3 85.7H73.3C89.3 85.7 108.7 72.1 108.7 54.3ZM49.1 57.5C49.1 60.2 46.9 62.4 44.2 62.4C41.5 62.4 39.3 60.2 39.3 57.5V51.3C39.3 48.6 41.5 46.4 44.2 46.4C46.9 46.4 49.1 48.6 49.1 51.3V57.5ZM63.1 57.5C63.1 60.2 60.9 62.4 58.2 62.4C55.5 62.4 53.3 60.2 53.3 57.5V51.3C53.3 48.6 55.5 46.4 58.2 46.4C60.9 46.4 63.1 48.6 63.1 51.3V57.5Z"
                   fill="white"
                 />
               </svg>
@@ -160,6 +156,15 @@ export function WalletSelectModal({
               )}
             </div>
           </button>
+
+          {/* Test phase notice */}
+          <div className="px-4 py-3 rounded-lg bg-muted/50 border border-border/50">
+            <p className="text-xs text-muted-foreground text-center">
+              <span className="font-medium text-foreground">Test phase:</span> We're currently using{" "}
+              <span className="font-medium text-foreground">$SOL</span> to power Pixel Energy.
+              The official <span className="font-medium text-foreground">$BIT</span> token is coming soon.
+            </p>
+          </div>
 
           {/* Install guidance for desktop */}
           {phantomInstalled === false && !isMobile && (
