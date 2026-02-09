@@ -1,20 +1,30 @@
 
+# Fix: Tooltip del Decay nascosto sotto la mappa
 
-# Tooltip sul badge Decay nella StatusStrip
+## Problema
 
-## Cosa cambia
+Il tooltip viene renderizzato all'interno del DOM della StatusStrip, che si trova sotto il contenitore della mappa. Anche con `z-index: 9999`, il tooltip non riesce a uscire dal contesto di stacking del suo contenitore padre.
 
-Aggiunta di un tooltip informativo sul badge del decay (cuore + percentuale + timer) nella barra di stato in basso. Il tooltip spiega all'utente cosa significa quel badge: il valore dei suoi pixel sta decadendo perche' il valore in dollari del suo wallet (in $BIT) e' inferiore al totale di PE richiesto dai pixel posseduti.
+## Soluzione
+
+Aggiungere `TooltipPrimitive.Portal` nel componente `TooltipContent` (`src/components/ui/tooltip.tsx`) in modo che il tooltip venga renderizzato direttamente nel `<body>` del documento, fuori da qualsiasi contenitore che potrebbe tagliarlo o nasconderlo.
 
 ## Dettagli tecnici
 
-**File da modificare:** `src/components/map/StatusStrip.tsx`
+**File: `src/components/ui/tooltip.tsx`**
 
-Il componente usa gia' `TooltipProvider` e i componenti `Tooltip`/`TooltipTrigger`/`TooltipContent` (vedi il bottone Refresh). Basta wrappare il `<div>` del rebalance badge (righe ~166-173) con gli stessi componenti Tooltip.
+Wrappare `TooltipPrimitive.Content` con `TooltipPrimitive.Portal`. Questo e' il pattern standard di Radix UI per evitare problemi di stacking context. La modifica e' globale, quindi tutti i tooltip dell'app ne beneficeranno.
 
-Il contenuto del tooltip sara':
-- Titolo: "Pixel Decay Active"
-- Spiegazione: il valore in $ del wallet e' sotto il minimo richiesto per sostenere i pixel posseduti, quindi lo stake sui pixel sta decadendo gradualmente. Ricaricare il wallet ferma il decay.
+Da:
+```tsx
+<TooltipPrimitive.Content ... />
+```
 
-Su mobile il tooltip funzionera' al tap grazie al comportamento nativo di Radix Tooltip.
+A:
+```tsx
+<TooltipPrimitive.Portal>
+  <TooltipPrimitive.Content ... />
+</TooltipPrimitive.Portal>
+```
 
+Nessun altro file da modificare. I `z-[9999]` e le classi `bg-popover` gia' aggiunti al tooltip del Decay in `StatusStrip.tsx` rimangono validi.
