@@ -196,16 +196,30 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
                   )}
                 </div>
               </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-64 text-xs space-y-1 z-[9999] bg-popover border border-border shadow-lg">
-                <p className="font-semibold">Pixel Decay Active</p>
-                <p className="text-muted-foreground tabular-nums">
-                  Wallet: {energy.peTotal.toLocaleString()} PE · Staked: {energy.pixelStakeTotal.toLocaleString()} PE
+              <TooltipContent side="top" className="max-w-72 text-xs z-[9999] bg-popover border border-border shadow-lg p-3">
+                <p className="font-semibold mb-2">Pixel Decay Active — {healthPercent}%</p>
+                <p className="text-muted-foreground mb-2">
+                  Stake is decaying because your wallet value is below what your pixels require.
                 </p>
-                {energy.pixelStakeTotal > energy.peTotal && (
-                  <p className="text-destructive tabular-nums">
-                    Deficit: {(energy.pixelStakeTotal - energy.peTotal).toLocaleString()} PE — top up to stop
-                  </p>
-                )}
+                <div className="space-y-1 tabular-nums text-muted-foreground">
+                  <div className="flex justify-between gap-4">
+                    <span>Wallet</span>
+                    <span className="text-foreground">{energy.peTotal.toLocaleString()} PE <span className="text-muted-foreground">(${(energy.peTotal * 0.01).toFixed(2)})</span></span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span>Staked in {energy.pixelsOwned} px</span>
+                    <span className="text-foreground">{energy.pixelStakeTotal.toLocaleString()} PE <span className="text-muted-foreground">(${(energy.pixelStakeTotal * 0.01).toFixed(2)})</span></span>
+                  </div>
+                  {energy.pixelStakeTotal > energy.peTotal && (
+                    <>
+                      <div className="border-t border-border my-1" />
+                      <div className="flex justify-between gap-4">
+                        <span className="text-destructive font-medium">Deficit</span>
+                        <span className="text-destructive font-medium">{(energy.pixelStakeTotal - energy.peTotal).toLocaleString()} PE <span className="font-normal">(${((energy.pixelStakeTotal - energy.peTotal) * 0.01).toFixed(2)})</span></span>
+                      </div>
+                    </>
+                  )}
+                </div>
               </TooltipContent>
             </Tooltip>
           )}
