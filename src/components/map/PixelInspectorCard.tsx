@@ -148,7 +148,7 @@ export function PixelInspectorCard({
             </div>
             <span className="text-sm font-medium text-foreground">Unclaimed Pixel</span>
             <span className="text-xs text-muted-foreground flex items-center gap-1">
-              Cost: 1 <PEIcon size="xs" /> (~$0.001)
+              Cost: 1 <PEIcon size="xs" /> (~$0.01)
             </span>
           </div>
         ) : (
@@ -270,7 +270,7 @@ export function PixelInspectorCard({
                 )}
                 {!pixel.isFloorBased && !isOwnPixel && (
                   <div className="text-[10px] text-muted-foreground">
-                    ~${(pixel.thresholdWithFloor * 0.001).toFixed(3)}
+                    ~${(pixel.thresholdWithFloor * 0.01).toFixed(2)}
                   </div>
                 )}
               </div>

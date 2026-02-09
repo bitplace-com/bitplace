@@ -22,7 +22,7 @@ const RulesPage = () => {
             </div>
             <div className="flex items-center gap-3">
               <InfoChip variant="primary">PE</InfoChip>
-              <span className="text-sm text-foreground">Pixel Energy — 1 PE = $0.001</span>
+              <span className="text-sm text-foreground">Pixel Energy — 1 PE = $0.01</span>
             </div>
             <p className="text-sm text-muted-foreground">
               PE is derived from your wallet's BTP balance and used for all map actions.

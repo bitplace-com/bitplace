@@ -13,8 +13,8 @@ const RPC_DEVNET = "https://api.devnet.solana.com";
 let priceCache: { price: number; fetchedAt: number } | null = null;
 const PRICE_CACHE_TTL_MS = 30 * 1000; // 30 seconds
 
-// PE rate: 1 PE = $0.001
-const PE_PER_USD = 1000;
+// PE rate: 1 PE = $0.01
+const PE_PER_USD = 100;
 
 // Fetch SOL balance from a specific RPC
 async function fetchSolBalanceFromRpc(walletAddress: string, rpcUrl: string, cluster: string): Promise<{ balance: number; cluster: string }> {
