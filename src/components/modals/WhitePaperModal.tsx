@@ -104,30 +104,6 @@ export function WhitePaperModal({ open, onOpenChange }: WhitePaperModalProps) {
             </p>
           </section>
 
-          {/* Value Creation */}
-          <section className="space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">Value creation</h2>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <p>
-                Every action on the map requires energy. Energy comes from holding{" "}
-                <span className="text-foreground font-medium">$BIT</span>.
-              </p>
-              <p>
-                When someone paints, defends, attacks, or reinforces, they lock $BIT into the system. 
-                More locked $BIT means less circulating supply. Less supply, same demand: price rises.
-              </p>
-              <p>
-                Here's the twist: when someone paints over your pixel, it stings. But to do it, they had to 
-                stake more energy than was already there. That means more $BIT locked, more utility, more 
-                value for everyone who holds.
-              </p>
-              <p>
-                There's no free griefing. Every disruption costs. Every Attack funds the economy. 
-                The more contested the map, the more valuable $BIT becomes.
-              </p>
-          </div>
-        </section>
-
         {/* Your money, your choice */}
         <section className="space-y-4">
           <h2 className="text-lg font-semibold text-foreground">Your money, your choice</h2>
@@ -143,6 +119,30 @@ export function WhitePaperModal({ open, onOpenChange }: WhitePaperModalProps) {
             </p>
             <p>
               Think of it this way: you're not spending money on a game. You're putting value into a system you can always take it back from.
+            </p>
+          </div>
+        </section>
+
+        {/* Value Creation */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-foreground">Value creation</h2>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p>
+              Every action on the map requires energy. Energy comes from holding{" "}
+              <span className="text-foreground font-medium">$BIT</span>.
+            </p>
+            <p>
+              When someone paints, defends, attacks, or reinforces, they lock $BIT into the system. 
+              More locked $BIT means less circulating supply. Less supply, same demand: price rises.
+            </p>
+            <p>
+              Here's the twist: when someone paints over your pixel, it stings. But to do it, they had to 
+              stake more energy than was already there. That means more $BIT locked, more utility, more 
+              value for everyone who holds.
+            </p>
+            <p>
+              There's no free griefing. Every disruption costs. Every Attack funds the economy. 
+              The more contested the map, the more valuable $BIT becomes.
             </p>
           </div>
         </section>

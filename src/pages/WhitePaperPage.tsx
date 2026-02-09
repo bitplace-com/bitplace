@@ -87,6 +87,25 @@ const WhitePaperPage = () => {
           </p>
         </section>
 
+        {/* Your money, your choice */}
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-foreground">Your money, your choice</h2>
+          <div className="space-y-3 text-muted-foreground">
+            <p>
+              To play, you buy <span className="text-foreground font-medium">$BIT</span>. That's real money going in. But unlike traditional games, that money doesn't disappear into a company's pocket.
+            </p>
+            <p>
+              Your $BIT stays yours. You can sell it anytime—if you lose interest, need the funds, or simply want out. There's no sunk cost. No subscription draining your wallet. No pay-to-win model enriching only the creators.
+            </p>
+            <p>
+              All the value circulates within the community. Every $BIT holder shares in the ecosystem's worth. When the game grows, everyone who holds benefits—not a corporation sitting on top.
+            </p>
+            <p>
+              Think of it this way: you're not spending money on a game. You're putting value into a system you can always take it back from.
+            </p>
+          </div>
+        </section>
+
         {/* Value Creation */}
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">Value creation</h2>
@@ -107,25 +126,6 @@ const WhitePaperPage = () => {
             <p>
               There's no free griefing. Every disruption costs. Every Attack funds the economy. 
               The more contested the map, the more valuable $BIT becomes.
-            </p>
-          </div>
-        </section>
-
-        {/* Your money, your choice */}
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-foreground">Your money, your choice</h2>
-          <div className="space-y-3 text-muted-foreground">
-            <p>
-              To play, you buy <span className="text-foreground font-medium">$BIT</span>. That's real money going in. But unlike traditional games, that money doesn't disappear into a company's pocket.
-            </p>
-            <p>
-              Your $BIT stays yours. You can sell it anytime—if you lose interest, need the funds, or simply want out. There's no sunk cost. No subscription draining your wallet. No pay-to-win model enriching only the creators.
-            </p>
-            <p>
-              All the value circulates within the community. Every $BIT holder shares in the ecosystem's worth. When the game grows, everyone who holds benefits—not a corporation sitting on top.
-            </p>
-            <p>
-              Think of it this way: you're not spending money on a game. You're putting value into a system you can always take it back from.
             </p>
           </div>
         </section>
