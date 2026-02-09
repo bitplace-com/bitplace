@@ -25,8 +25,9 @@ function getCorsHeaders(req: Request): Record<string, string> {
 // Verify and decode token
 async function verifyToken(token: string, secret: string): Promise<{ wallet: string; userId: string; exp: number } | null> {
   try {
-    const [payloadB64, signatureB64] = token.split('.');
-    if (!payloadB64 || !signatureB64) return null;
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const [headerB64, payloadB64, signatureB64] = parts;
 
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
@@ -37,19 +38,20 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
       ['verify']
     );
 
-    const signatureBytes = Uint8Array.from(atob(signatureB64), c => c.charCodeAt(0));
+    const sigStr = signatureB64.replace(/-/g, '+').replace(/_/g, '/');
+    const sigBytes = Uint8Array.from(atob(sigStr), c => c.charCodeAt(0));
     const isValid = await crypto.subtle.verify(
       'HMAC',
       key,
-      signatureBytes,
-      encoder.encode(payloadB64)
+      sigBytes,
+      encoder.encode(`${headerB64}.${payloadB64}`)
     );
 
     if (!isValid) return null;
 
-    const payload = JSON.parse(atob(payloadB64));
+    const decoded = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(decoded));
     
-    // Check expiration
     if (payload.exp < Date.now()) return null;
 
     return payload;
