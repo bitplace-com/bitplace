@@ -91,14 +91,14 @@ export function MapMenuDrawer() {
                   Map
                 </Button>
 
-                {/* Buy $BIT (was Shop) */}
+                {/* Alliance */}
                 <Button
                   variant="ghost"
-                  onClick={() => setShopOpen(true)}
+                  onClick={() => setAllianceOpen(true)}
                   className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
                 >
-                  <PixelIcon name="cart" size="md" />
-                  Buy $BIT
+                  <PixelIcon name="users" size="md" />
+                  Alliance
                 </Button>
 
                 {/* Leaderboard */}
@@ -139,14 +139,14 @@ export function MapMenuDrawer() {
                   Glossary
                 </Button>
 
-                {/* Alliance */}
+                {/* Buy $BIT */}
                 <Button
                   variant="ghost"
-                  onClick={() => setAllianceOpen(true)}
+                  onClick={() => setShopOpen(true)}
                   className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
                 >
-                  <PixelIcon name="users" size="md" />
-                  Alliance
+                  <PixelIcon name="cart" size="md" />
+                  Buy $BIT
                 </Button>
               </div>
             </div>
