@@ -100,15 +100,7 @@ export function MapMenuDrawer() {
                   <PixelIcon name="cart" size="md" />
                   Buy $BIT
                 </Button>
-              </div>
-            </div>
 
-            {/* BASICS section */}
-            <div>
-              <p className="px-3 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-                Basics
-              </p>
-              <div className="space-y-1">
                 {/* Leaderboard */}
                 <Button
                   variant="ghost"
@@ -118,17 +110,15 @@ export function MapMenuDrawer() {
                   <PixelIcon name="trophy" size="md" />
                   Leaderboard
                 </Button>
+              </div>
+            </div>
 
-                {/* Alliance */}
-                <Button
-                  variant="ghost"
-                  onClick={() => setAllianceOpen(true)}
-                  className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
-                >
-                  <PixelIcon name="users" size="md" />
-                  Alliance
-                </Button>
-
+            {/* BASICS section */}
+            <div>
+              <p className="px-3 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                Basics
+              </p>
+              <div className="space-y-1">
                 {/* White Paper */}
                 <Button
                   variant="ghost"
@@ -147,6 +137,16 @@ export function MapMenuDrawer() {
                 >
                   <PixelIcon name="info" size="md" />
                   Glossary
+                </Button>
+
+                {/* Alliance */}
+                <Button
+                  variant="ghost"
+                  onClick={() => setAllianceOpen(true)}
+                  className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
+                >
+                  <PixelIcon name="users" size="md" />
+                  Alliance
                 </Button>
               </div>
             </div>
