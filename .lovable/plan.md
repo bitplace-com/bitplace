@@ -1,195 +1,80 @@
 
 
-# Rules Section Rewrite: Glossario Tecnico Umanamente Comprensibile
+# Rename Rules to Glossary and Remove Redundancies
 
-## Riepilogo
+## What Changes
 
-1. **Riscrivere i contenuti di Rules** con linguaggio chiaro e diretto, senza formule astratte
-2. **Spostare Rules** come ultima voce nel menu (dopo White Paper)
-3. **Aggiornare le icone** al sistema PixelIcon (Hackernoon) dove disponibili
+1. **Rename "Rules" to "Glossary"** everywhere (menu button, modal title)
+2. **Remove duplicated content** that White Paper already covers (the 4 actions section, general PE intro)
+3. **Reorganize into coherent topic-based sections** as a pure technical reference
 
----
+## Content Analysis: What Gets Removed vs Kept
 
-## Filosofia del Nuovo Copy
+### Already in White Paper (REMOVE from Glossary):
+- "The 4 Actions" section (Paint, Defend, Attack, Reinforce descriptions) -- White Paper has full action cards for these
+- General PE intro ("Your in-game energy... every action requires PE") -- White Paper explains the energy flow
 
-| Prima | Dopo |
-|-------|------|
-| `V = owner_stake + DEF − ATK` | Spiegazione del concetto senza formula |
-| `max(0, V_floor_next6h) + 1` | Cosa succede in pratica, non come si calcola |
-| Termini tecnici non spiegati | Ogni termine contestualizzato con causa ed effetto |
+### Unique to Glossary (KEEP and refine):
+- Pixel Value mechanics
+- Takeover process and consequences
+- Decay system
+- Quick-reference terms (PE, Stake, DEF, ATK, Takeover)
 
----
+## New Glossary Structure
 
-## Nuova Struttura Rules Modal
+Organized into 3 coherent sections by topic:
 
-### 1. Pixel Energy (PE)
-**Icona**: `bolt` (PixelIcon)
+### Section 1: ENERGY
+Terms and mechanics related to the energy system.
 
-> La tua energia di gioco. Più $BIT hai nel wallet, più PE puoi usare. 
-> Ogni azione sulla mappa (dipingere, difendere, attaccare, rinforzare) richiede PE.
-> In fase test, il PE viene calcolato dal valore in $SOL del tuo wallet.
+**Pixel Energy (PE)** -- icon: `bolt`
+> The unit of energy in Bitplace. Your PE capacity depends on how much $BIT is in your wallet. Every action on the map costs PE. You can see your current PE balance in the top bar.
+> *Test phase: PE is calculated from your wallet's $SOL value.*
 
-### 2. Le 4 Azioni
-**Icona**: `brush`, `shield`, `swords`, `plus` (tutte PixelIcon)
+**Stake** -- icon: `coins`
+> The amount of PE you lock into a pixel when you paint or reinforce it. A higher stake makes the pixel harder for others to take. Your stake stays locked until someone takes over the pixel or you withdraw it.
 
-| Azione | Descrizione |
-|--------|-------------|
-| **Paint** | Dipingi pixel vuoti. Costa 1 PE per pixel. Il tuo stake iniziale determina quanto sarà difficile rubarti il pixel. |
-| **Defend** | Aggiungi PE a pixel di altri giocatori per aiutarli a proteggersi. Il tuo PE rende più difficile l'attacco. |
-| **Attack** | Indebolisci pixel altrui con il tuo PE. Quando un pixel è abbastanza debole, puoi dipingerci sopra. |
-| **Reinforce** | Aggiungi PE ai tuoi pixel. Più PE hai in un pixel, più è resistente agli attacchi. |
+### Section 2: PIXEL MECHANICS
+How pixels behave and change hands.
 
-### 3. Valore di un Pixel
-**Icona**: `trendingDown` (PixelIcon)
+**Pixel Value** -- icon: `trendingDown`
+> The total strength of a pixel. It's the sum of the owner's stake plus any defense, minus any attacks received. When a pixel's value reaches zero, it becomes claimable by anyone.
 
-> Ogni pixel ha un valore determinato da: quanto PE ha messo il proprietario, quanto PE è stato aggiunto in difesa, meno il PE usato per attaccarlo.
-> 
-> Quando questo valore scende a zero (o sotto), chiunque può rivendicare il pixel dipingendoci sopra.
+**Takeover** -- icon: `flag`
+> When you paint over a pixel owned by someone else. To do it, you must stake more PE than the pixel's current value. When a takeover happens:
+> - You become the new owner
+> - The previous owner gets their PE back
+> - Defenders get their PE back
+> - Attackers automatically become your defenders
 
-### 4. Conquista (Takeover)
-**Icona**: `flag` (PixelIcon)
+**Decay** -- icon: `clock`
+> If your wallet value drops below what you've staked across all your pixels, your stakes start shrinking. The decay happens gradually over 3 days. You can stop it instantly by restoring your wallet balance.
 
-> Per conquistare un pixel di un altro giocatore, devi fare stake di più PE di quanto vale attualmente il pixel.
-> 
-> Quando conquisti un pixel:
-> - Diventi il nuovo proprietario
-> - Il vecchio proprietario riottiene il suo PE
-> - I difensori riottengono il loro PE
-> - Gli attaccanti diventano automaticamente i tuoi difensori
+### Section 3: QUICK REFERENCE
+Compact term definitions (the glossary grid).
 
-### 5. Decay (Decadimento)
-**Icona**: `clock` (PixelIcon)
-
-> Se il valore del tuo wallet scende, potresti avere meno PE di quello che hai staccato sui pixel.
-> 
-> In questo caso, il tuo stake diminuisce gradualmente nell'arco di 3 giorni.
-> 
-> Puoi fermare il decadimento immediatamente riportando il tuo wallet al valore necessario.
-
-### 6. Glossario
-**Formato**: Lista compatta di definizioni
-
-| Termine | Significato |
-|---------|-------------|
-| **PE** | Pixel Energy - la tua capacità di agire sulla mappa |
-| **Stake** | PE che hai bloccato in un pixel |
-| **DEF** | Difesa - PE aggiunto da altri per proteggerti |
-| **ATK** | Attacco - PE usato da altri per indebolire il pixel |
-| **Takeover** | Conquista di un pixel dopo averlo indebolito abbastanza |
-
-### 7. Nota finale
-> Zooma al livello 16+ per iniziare a dipingere.
-
----
-
-## Modifica Menu (MapMenuDrawer.tsx)
-
-**Ordine attuale in BASICS:**
-1. Leaderboard
-2. Alliance
-3. Rules
-4. White Paper
-
-**Nuovo ordine:**
-1. Leaderboard
-2. Alliance
-3. White Paper
-4. Rules
-
----
-
-## Icone da Aggiornare
-
-| Elemento | Da (Lucide) | A (PixelIcon) |
-|----------|-------------|---------------|
-| Title icon | `Book` | `book` |
-| PE section | `Zap` | `bolt` |
-| Pixel Value | `TrendingDown` | `trendingDown` |
-| Paint | `Paintbrush` | `brush` |
-| Defend | `Shield` | `shield` |
-| Attack | `Swords` | `swords` |
-| Reinforce | `Plus` | `plus` |
-| Conquest | - (nuovo) | `flag` |
-| Decay | - (nuovo) | `clock` |
-
----
-
-## File da Modificare
-
-| File | Modifiche |
+| Term | Definition |
 |------|-----------|
-| `src/components/modals/RulesModal.tsx` | Riscrittura completa dei contenuti, nuove icone PixelIcon |
-| `src/components/map/MapMenuDrawer.tsx` | Spostare Rules dopo White Paper nel menu |
+| PE | Pixel Energy -- your capacity to act on the map |
+| Stake | PE locked into a pixel to claim or strengthen it |
+| DEF | Defense -- PE added by other players to protect a pixel |
+| ATK | Attack -- PE spent by others to weaken a pixel |
+| Takeover | Claiming a pixel by staking more PE than its current value |
+| Decay | Gradual stake reduction when wallet balance drops |
 
----
+### Tip footer
+> Zoom in to paint level (z16+) to start placing pixels.
 
-## Struttura Visiva Finale
+## Menu Changes
 
-```text
-┌─────────────────────────────────────────┐
-│  📖 Rules                               │
-├─────────────────────────────────────────┤
-│                                         │
-│  ⚡ PIXEL ENERGY (PE)                   │
-│  La tua energia di gioco...             │
-│                                         │
-│  LE 4 AZIONI                            │
-│  🖌 Paint - Dipingi pixel vuoti...      │
-│  🛡 Defend - Aiuta altri a proteggersi  │
-│  ⚔ Attack - Indebolisci pixel altrui   │
-│  ➕ Reinforce - Rafforza i tuoi pixel   │
-│                                         │
-│  📉 VALORE DI UN PIXEL                  │
-│  Ogni pixel ha un valore...             │
-│                                         │
-│  🚩 CONQUISTA (TAKEOVER)                │
-│  Per conquistare un pixel...            │
-│                                         │
-│  🕐 DECAY (DECADIMENTO)                 │
-│  Se il valore del tuo wallet scende...  │
-│                                         │
-│  GLOSSARIO                              │
-│  PE · Stake · DEF · ATK · Takeover      │
-│                                         │
-│  💡 Zooma al livello 16+ per dipingere  │
-│                                         │
-└─────────────────────────────────────────┘
-```
+- Rename button label from "Rules" to "Glossary"
+- Keep position (last in BASICS section)
+- Change icon from `book` to `info` for differentiation from White Paper
 
----
+## Files to Modify
 
-## Dettagli Tecnici
-
-### RulesModal.tsx - Import aggiornati
-
-```tsx
-import { PixelIcon } from "@/components/icons";
-import { GamePanel } from "./GamePanel";
-```
-
-Rimuovere tutti gli import Lucide: `Book`, `Paintbrush`, `Shield`, `Swords`, `Plus`, `Zap`, `TrendingDown`.
-
-### MapMenuDrawer.tsx - Nuovo ordine menu (linee 132-150)
-
-```tsx
-{/* White Paper - ora prima */}
-<Button
-  variant="ghost"
-  onClick={() => setWhitePaperOpen(true)}
-  ...
->
-  <PixelIcon name="book" size="md" />
-  White Paper
-</Button>
-
-{/* Rules - ora ultimo */}
-<Button
-  variant="ghost"
-  onClick={() => setRulesOpen(true)}
-  ...
->
-  <PixelIcon name="book" size="md" />
-  Rules
-</Button>
-```
+| File | Changes |
+|------|---------|
+| `src/components/modals/RulesModal.tsx` | Rename title to "Glossary", restructure content into 3 sections, remove duplicated actions |
+| `src/components/map/MapMenuDrawer.tsx` | Rename menu button from "Rules" to "Glossary", change icon to `info` |
 
