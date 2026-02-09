@@ -1,59 +1,66 @@
 
 
-# PixelInfoPanel: Header Status + Settings Fix
+# Fix Settings: Form Reset Bug + Stabilizzazione
 
-## Part 1: Rimuovere "Your Involvement" e spostarlo nell'header
+## Bug identificato
 
-### Cosa cambia
-- Il box "Your Involvement" (righe 322-350 di PixelInfoPanel.tsx) viene eliminato completamente
-- Accanto al dot del colore nell'header, appare una frase contestuale con icona:
-  - Corona + "You own this pixel" (se owner)
-  - Scudo verde + "You're defending" (se contribuzione DEF)
-  - Spade rosse + "You're attacking" (se contribuzione ATK)
-  - Nessuna frase se il pixel non ha coinvolgimento dell'utente
+Il problema principale e' nel `useEffect` di `SettingsModal.tsx` (riga 57-69):
 
-### Dettaglio tecnico (PixelInfoPanel.tsx)
+```
+useEffect(() => {
+  if (open) {
+    setDisplayName(settings.display_name);
+    setCountryCode(settings.country_code);
+    // ... reset all fields
+  }
+}, [open, settings]);  // <-- BUG: settings come dipendenza
+```
 
-1. **Header (righe 70-82)**: tra il dot colore e il bottone X, aggiungere un `<span>` con la frase e l'icona appropriata. La logica usa `isOwnPixel` e `pixel?.myContribution?.side` per decidere quale mostrare. Priorita': ownership > contribution.
+L'oggetto `settings` in `useSettings.ts` (righe 164-173) viene **ricreato ad ogni render** perche' e' un object literal nel return. Ogni volta che l'utente digita una lettera nel campo username, il componente ri-renderizza, `useSettings()` ritorna un nuovo oggetto `settings` (stesso contenuto, nuova reference), il `useEffect` scatta, e **resetta tutti i campi al valore originale**. Per questo sembra che non si possa scrivere: ogni tasto premuto resetta il campo.
 
-2. **Rimuovere righe 322-350** (il blocco "Your Involvement")
+Stesso problema per il paese: l'utente lo seleziona, il componente ri-renderizza, l'effect resetta `countryCode` al valore precedente.
 
----
+## Fix
 
-## Part 2: Fix salvataggio Settings
+### File 1: `src/hooks/useSettings.ts`
 
-### Bug trovato
+Memoizzare l'oggetto `settings` con `useMemo` cosi' che la reference rimanga stabile finche' i dati dell'utente non cambiano davvero.
 
-`updateUser()` nel WalletContext (riga 911-938) cattura gli errori internamente e mostra un toast, ma NON rilancia l'errore. Quindi `saveProfile()` in useSettings non sa mai se il salvataggio e' fallito. Risultato:
-- Su errore: doppio toast (errore da updateUser + successo da saveProfile)
-- Su successo: doppio toast ("Profile updated" + "Settings saved")
+```ts
+import { useState, useCallback, useMemo } from 'react';
+```
 
-### Fix
+Sostituire l'oggetto literal nel return con:
 
-**File: `src/contexts/WalletContext.tsx` (righe 918-937)**
-- Rimuovere il try/catch interno da `updateUser` oppure ri-lanciare l'errore dopo il toast, in modo che il chiamante (`saveProfile`) possa gestire successo/fallimento
-- Rimuovere il `toast.success('Profile updated')` da `updateUser` per evitare duplicazione -- lasciare solo quello in `saveProfile`
+```ts
+const settings = useMemo(() => ({
+  display_name: user?.display_name || '',
+  country_code: user?.country_code || null,
+  avatar_url: user?.avatar_url || null,
+  bio: user?.bio || null,
+  social_x: user?.social_x || null,
+  social_instagram: user?.social_instagram || null,
+  social_website: user?.social_website || null,
+}), [
+  user?.display_name,
+  user?.country_code,
+  user?.avatar_url,
+  user?.bio,
+  user?.social_x,
+  user?.social_instagram,
+  user?.social_website,
+]);
+```
 
-**File: `src/hooks/useSettings.ts`**
-- Nessuna modifica necessaria, funziona gia' correttamente se `updateUser` rilancia l'errore
+E nel return rimuovere le cast `(user as any)` dato che il tipo `User` include gia' `bio`, `social_x`, ecc.
 
----
+### File 2: nessuna modifica necessaria
 
-## Part 3: UI Settings Modal migliorata
+`SettingsModal.tsx` e `WalletContext.tsx` vanno bene cosi'. Una volta che `settings` ha una reference stabile, il `useEffect` non scattera' piu' ad ogni keystroke.
 
-### Problemi attuali
-- Sezioni troppo compresse, poco spazio tra elementi
-- Label e input troppo vicini tra loro
-- Separatori non danno abbastanza respiro
+## Risultato atteso
 
-### Modifiche (SettingsModal.tsx)
-
-1. **Spaziatura generale**: aumentare `space-y-6` a `space-y-8` nel container principale
-2. **Sezioni interne**: aumentare `space-y-4` a `space-y-5` dentro ogni section
-3. **Separatori**: aggiungere `my-2` extra ai Separator per dare piu' aria
-4. **Input fields**: aggiungere `space-y-2.5` (invece di `space-y-2`) tra label e input
-5. **Avatar section**: dare piu' padding e migliorare allineamento verticale
-6. **Footer Save**: aumentare padding top a `pt-6` e rendere i bottoni piu' spaziati
-
-Nessun nuovo file, nessuna nuova dipendenza.
+- L'utente puo' digitare liberamente nel campo username
+- La selezione del paese resta visibile e viene salvata
+- Il form si resetta solo quando il modal si apre o quando i dati utente cambiano davvero (es. dopo un salvataggio)
 
