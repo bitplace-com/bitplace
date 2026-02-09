@@ -1,82 +1,59 @@
 
 
-# Redesign del Pixel Info Panel
+# PixelInfoPanel: Header Status + Settings Fix
 
-## Obiettivo
+## Part 1: Rimuovere "Your Involvement" e spostarlo nell'header
 
-Ridisegnare il pannello info pixel per renderlo pulito, minimale, leggibile e senza elementi inutili. L'ordine dei contenuti cambia: prima l'utente, poi i dati economici del pixel, infine il box artwork.
+### Cosa cambia
+- Il box "Your Involvement" (righe 322-350 di PixelInfoPanel.tsx) viene eliminato completamente
+- Accanto al dot del colore nell'header, appare una frase contestuale con icona:
+  - Corona + "You own this pixel" (se owner)
+  - Scudo verde + "You're defending" (se contribuzione DEF)
+  - Spade rosse + "You're attacking" (se contribuzione ATK)
+  - Nessuna frase se il pixel non ha coinvolgimento dell'utente
 
-## Cosa viene rimosso
+### Dettaglio tecnico (PixelInfoPanel.tsx)
 
-- Titolo "Custom pixel" / "Unclaimed pixel" nell'header
-- Riga coordinate (X: ... Y: ...)
-- Bottoni Share, Report, Copy coords dall'header (manteniamo solo il Close)
-- Etichette tecniche come "V_now", "V_floor (6h)"
-- Chip "less than a minute ago" con calendario
+1. **Header (righe 70-82)**: tra il dot colore e il bottone X, aggiungere un `<span>` con la frase e l'icona appropriata. La logica usa `isOwnPixel` e `pixel?.myContribution?.side` per decidere quale mostrare. Priorita': ownership > contribution.
 
-## Nuovo layout (dall'alto verso il basso)
+2. **Rimuovere righe 322-350** (il blocco "Your Involvement")
 
-### 1. Header minimale
-Solo il colore del pixel (dot) e il bottone Close (X). Nessun titolo, nessuna scritta.
+---
 
-### 2. Sezione Owner (in alto, subito visibile)
-- Avatar (immagine o gradiente generato)
-- Nome utente (con "(You)" se proprio) + Level pill + Alliance tag
-- Wallet troncato (font mono, piccolo)
-- Country flag inline
-- Bio (se presente, max 2 righe)
-- Social links (X, Instagram, Website) come icone cliccabili
-- Spaziatura generosa tra gli elementi (`space-y-4` invece di `space-y-3`)
+## Part 2: Fix salvataggio Settings
 
-### 3. Sezione Pixel Economy
-Box con sfondo `bg-muted/50` e buon padding, griglia a 2 colonne:
+### Bug trovato
 
-| Owner Stake | Total Stake |
-|---|---|
-| X PE | Y PE |
-| ~$0.XX | ~$0.YY |
+`updateUser()` nel WalletContext (riga 911-938) cattura gli errori internamente e mostra un toast, ma NON rilancia l'errore. Quindi `saveProfile()` in useSettings non sa mai se il salvataggio e' fallito. Risultato:
+- Su errore: doppio toast (errore da updateUser + successo da saveProfile)
+- Su successo: doppio toast ("Profile updated" + "Settings saved")
 
-Sotto, riga DEF / ATK con icone colorate (verde/rosso) e valori.
+### Fix
 
-Valori in $ calcolati con PE * 0.01.
+**File: `src/contexts/WalletContext.tsx` (righe 918-937)**
+- Rimuovere il try/catch interno da `updateUser` oppure ri-lanciare l'errore dopo il toast, in modo che il chiamante (`saveProfile`) possa gestire successo/fallimento
+- Rimuovere il `toast.success('Profile updated')` da `updateUser` per evitare duplicazione -- lasciare solo quello in `saveProfile`
 
-### 4. Sezione Takeover / Claim
-Box con sfondo `bg-muted/70`:
-- "Claim Cost" (se pixel vuoto) oppure "Takeover Cost" (se pixel altrui)
-- Valore in PE + equivalente in $
-- Se floor-based, indicatore ambra
+**File: `src/hooks/useSettings.ts`**
+- Nessuna modifica necessaria, funziona gia' correttamente se `updateUser` rilancia l'errore
 
-### 5. Sezione Rebalancing (se attiva)
-Rimane come gia' migliorata nella modifica precedente (titolo "Stake Decaying", barra, testo descrittivo, next tick + value after tick).
+---
 
-### 6. Sezione My Involvement (se presente)
-Rimane come gia' implementata (contribuzione DEF/ATK + "You own this pixel").
+## Part 3: UI Settings Modal migliorata
 
-### 7. Sezione Artwork (in fondo)
-- Label "Artwork" + contatore pixel posseduti + bottone "Expand"
-- UserMinimap con `height="5rem"`
-- Click su Expand apre OwnerArtworkModal (invariato)
+### Problemi attuali
+- Sezioni troppo compresse, poco spazio tra elementi
+- Label e input troppo vicini tra loro
+- Separatori non danno abbastanza respiro
 
-## Pixel non reclamato
+### Modifiche (SettingsModal.tsx)
 
-Vista centrata senza titolo: icona dashed + "Available to claim" + costo 1 PE (~$0.01).
+1. **Spaziatura generale**: aumentare `space-y-6` a `space-y-8` nel container principale
+2. **Sezioni interne**: aumentare `space-y-4` a `space-y-5` dentro ogni section
+3. **Separatori**: aggiungere `my-2` extra ai Separator per dare piu' aria
+4. **Input fields**: aggiungere `space-y-2.5` (invece di `space-y-2`) tra label e input
+5. **Avatar section**: dare piu' padding e migliorare allineamento verticale
+6. **Footer Save**: aumentare padding top a `pt-6` e rendere i bottoni piu' spaziati
 
-## Dettagli tecnici
+Nessun nuovo file, nessuna nuova dipendenza.
 
-**File: `src/components/map/PixelInfoPanel.tsx`**
-
-Riscrittura della sezione contenuto (righe 80-442):
-
-1. **Header** (righe 88-143): semplificare rimuovendo coordinate, chips row, e bottoni extra. Mantenere solo dot colore + X close.
-
-2. **Owner section** (righe 214-293): spostare in cima, aggiungere `space-y-4` per respiro, mantenere avatar/nome/level/alliance/wallet/bio/socials.
-
-3. **Economy section** (righe 296-348): rinominare "V_now" in "Total Stake", usare PEIcon, aggiungere riga $ sotto ogni valore PE. Rimuovere "V_floor (6h)" dal grid principale (resta solo nella sezione rebalancing).
-
-4. **Takeover section**: nuovo box dedicato sotto economy, con label chiara e valore PE + $.
-
-5. **Artwork section** (righe 371-393): aggiungere contatore pixel (`{pixels_count} pixels`) accanto al label. Il componente UserMinimap e OwnerArtworkModal restano invariati.
-
-6. **Spaziatura**: usare `space-y-4` per il container principale e `gap-3` nei sub-box per dare respiro.
-
-Nessun nuovo file, nessuna nuova dipendenza. Solo refactor del layout dentro `PixelInfoPanel.tsx`.
