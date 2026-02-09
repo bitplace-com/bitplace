@@ -169,9 +169,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       icon={<PixelIcon name="settings" className="h-5 w-5" />}
       size="md"
     >
-      <div className="space-y-6">
+      <div className="space-y-8">
         {/* Identity Section */}
-        <section className="space-y-4">
+        <section className="space-y-5">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
             <PixelIcon name="user" className="h-4 w-4" />
             Identity
@@ -226,7 +226,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           </div>
 
           {/* Username */}
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <Label htmlFor="username">Username</Label>
             <Input
               id="username"
@@ -244,7 +244,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           </div>
 
           {/* Country */}
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <Label>Country</Label>
             <CountryPicker
               value={countryCode || undefined}
@@ -254,10 +254,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           </div>
         </section>
 
-        <Separator />
+        <Separator className="my-2" />
 
         {/* About Section */}
-        <section className="space-y-4">
+        <section className="space-y-5">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
             <PixelIcon name="book" className="h-4 w-4" />
             About
@@ -285,17 +285,17 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           </div>
         </section>
 
-        <Separator />
+        <Separator className="my-2" />
 
         {/* Links Section */}
-        <section className="space-y-4">
+        <section className="space-y-5">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
             <PixelIcon name="link" className="h-4 w-4" />
             Links
           </h3>
           
           {/* X/Twitter */}
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <Label htmlFor="social-x" className="flex items-center gap-2">
               <PixelIcon name="twitter" className="h-4 w-4" />
               X / Twitter
@@ -310,7 +310,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           </div>
 
           {/* Instagram */}
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <Label htmlFor="social-instagram" className="flex items-center gap-2">
               <PixelIcon name="instagram" className="h-4 w-4" />
               Instagram
@@ -325,7 +325,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           </div>
 
           {/* Website */}
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <Label htmlFor="social-website" className="flex items-center gap-2">
               <PixelIcon name="globe" className="h-4 w-4" />
               Website
@@ -340,10 +340,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           </div>
         </section>
 
-        <Separator />
+        <Separator className="my-2" />
 
         {/* Preferences Section */}
-        <section className="space-y-4">
+        <section className="space-y-5">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
             Preferences
           </h3>
@@ -375,7 +375,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           )}
         </section>
 
-        <Separator />
+        <Separator className="my-2" />
 
         {/* Legal Section */}
         <section className="space-y-4">
@@ -412,7 +412,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
         {/* Save Button */}
         {isAuthenticated && (
-          <div className="flex justify-end gap-2 pt-4 border-t border-border">
+          <div className="flex justify-end gap-3 pt-6 border-t border-border">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>

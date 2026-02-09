@@ -915,26 +915,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    try {
-      const { data, error } = await supabase.functions.invoke('user-update', {
-        body: updates,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    const { data, error } = await supabase.functions.invoke('user-update', {
+      body: updates,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-      if (error || !data?.user) {
-        throw new Error('Failed to update profile');
-      }
-
-      setUser(data.user as User);
-      toast.success('Profile updated');
-    } catch (error) {
-      console.error('Update user error:', error);
-      toast.error('Failed to update profile', {
-        description: error instanceof Error ? error.message : 'Unknown error occurred',
-      });
+    if (error || !data?.user) {
+      throw new Error(data?.error || 'Failed to update profile');
     }
+
+    setUser(data.user as User);
   };
 
   return (
