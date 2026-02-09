@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { User, Flag, Users, Shield, Swords, Coins, RefreshCw, AlertTriangle, ArrowUpFromLine, Loader2 } from 'lucide-react';
+import { User, Flag, Users, Shield, Swords, RefreshCw, AlertTriangle, ArrowUpFromLine, Loader2 } from 'lucide-react';
+import { PEIcon } from '@/components/ui/pe-icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { usePixelDetails } from '@/hooks/usePixelDetails';
@@ -158,7 +159,7 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-muted/50 rounded-lg p-3">
               <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
-                <Coins className="h-3 w-3" />
+                <PEIcon size="xs" />
                 <span>Owner Stake</span>
               </div>
               <div className="text-lg font-semibold">
@@ -168,8 +169,9 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
             </div>
             
             <div className="bg-muted/50 rounded-lg p-3">
-              <div className="text-xs text-muted-foreground mb-1">
-                Pixel Value
+              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                <PEIcon size="xs" />
+                <span>Total Stake</span>
               </div>
               <div className={cn(
                 "text-lg font-semibold",
@@ -237,14 +239,14 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
 
       {/* Health Status (if owner is in rebalance) */}
       {!isEmpty && pixel.ownerRebalanceActive && (
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-2">
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-xs text-amber-400">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-amber-400">
               <AlertTriangle className="h-3 w-3" />
-              <span>Owner Rebalancing</span>
+              <span>Stake Decaying</span>
             </div>
             <div className="text-sm font-semibold text-amber-400">
-              {Math.round(pixel.ownerHealthMultiplier * 100)}% Health
+              {Math.round(pixel.ownerHealthMultiplier * 100)}%
             </div>
           </div>
           
@@ -255,17 +257,22 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
               style={{ width: `${pixel.ownerHealthMultiplier * 100}%` }}
             />
           </div>
+
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Owner's stake is losing value every tick until wallet is topped up.
+          </p>
           
-          {/* Next tick info */}
           {pixel.nextTickTime && (
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">
-                Next tick in: {formatTimeUntil(pixel.nextTickTime)}
-              </span>
+            <div className="text-xs space-y-0.5">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>Next tick</span>
+                <span className="font-mono tabular-nums">{formatTimeUntil(pixel.nextTickTime)}</span>
+              </div>
               {pixel.vFloorNext6h !== null && (
-                <span className="text-muted-foreground">
-                  V → {Math.floor(pixel.vFloorNext6h).toLocaleString()} PE
-                </span>
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Value after tick</span>
+                  <span className="font-mono tabular-nums">{Math.floor(pixel.vFloorNext6h).toLocaleString()} PE</span>
+                </div>
               )}
             </div>
           )}
