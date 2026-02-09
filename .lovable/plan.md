@@ -1,68 +1,29 @@
 
+# Aggiunta sezione "Your money, your choice" al White Paper
 
-# Aggiornamento Rate PE: da $0.001 a $0.01
+## Cosa cambia
 
-## Impatto
+Aggiunta di una nuova sezione tra "Value creation" e il CTA finale, in entrambi i file (modale e pagina). Il posizionamento dopo "Value creation" e' naturale: prima si spiega come il valore viene creato, poi si chiarisce che quel valore resta sempre dell'utente.
 
-Questa modifica cambia il tasso di conversione fondamentale del gioco:
-- **Prima**: 1 PE = $0.001, quindi $1 = 1,000 PE
-- **Dopo**: 1 PE = $0.01, quindi $1 = 100 PE
+## Titolo sezione
 
-Ogni pixel vuoto costa sempre 1 PE, ma ora 1 PE vale 10x di prima ($0.01 invece di $0.001).
+**"Your money, your choice"**
 
----
+## Contenuto
 
-## File da Modificare
+Il concetto chiave da comunicare:
+- Per giocare devi comprare $BIT, quindi metti valore reale nel gioco
+- Ma quei soldi non sono "spesi" come in un gioco tradizionale dove il denaro va ai creatori
+- In qualsiasi momento puoi vendere i tuoi $BIT e riavere indietro i tuoi soldi
+- Tutto il valore circola nella community: chi detiene $BIT detiene il valore
+- Non esiste un modello pay-to-win che arricchisce solo i creatori del gioco
+- Il giocatore e' libero di uscire quando vuole senza aver "perso" i propri soldi
 
-### 1. Configurazione centrale (fonte di verita frontend)
-**`src/config/energy.ts`**
-- `PE_PER_USD` da `1000` a `100`
-- Commento da "1 PE = $0.001, so 1 USD = 1000 PE" a "1 PE = $0.01, so 1 USD = 100 PE"
+## File da modificare
 
-### 2. Backend Edge Functions (fonti di verita backend)
-**`supabase/functions/energy-refresh/index.ts`**
-- `PE_PER_USD` da `1000` a `100`
-- Commento da "1 PE = $0.001" a "1 PE = $0.01"
+1. **`src/components/modals/WhitePaperModal.tsx`** - Nuova sezione tra "Value creation" (riga 128) e il footer CTA (riga 131)
+2. **`src/pages/WhitePaperPage.tsx`** - Stessa sezione tra "Value creation" (riga 111) e il footer CTA (riga 114)
 
-**`supabase/functions/sol-balance/index.ts`**
-- `PE_PER_USD` da `1000` a `100`
-- Commento da "1 PE = $0.001" a "1 PE = $0.01"
+## Dettagli tecnici
 
-### 3. UI - Testi e display
-**`src/components/modals/RulesModal.tsx`** (linea 34)
-- "1 PE = $0.001" diventa "1 PE = $0.01"
-
-**`src/components/map/PixelInspectorCard.tsx`**
-- Linea 151: `(~$0.001)` diventa `(~$0.01)`
-- Linea 273: `pixel.thresholdWithFloor * 0.001` diventa `pixel.thresholdWithFloor * 0.01`
-
-**`src/pages/RulesPage.tsx`** (linea 25)
-- "1 PE = $0.001" diventa "1 PE = $0.01"
-
-**`src/pages/ProfilePage.tsx`** (linea 268)
-- "1 PE = $0.001" diventa "1 PE = $0.01"
-
-**`src/pages/SpecPage.tsx`** (linee 33-34)
-- "1 PE = $0.001 USD" diventa "1 PE = $0.01 USD"
-- "1 USD = 1,000 PE" diventa "1 USD = 100 PE"
-
-### 4. Documentazione
-**`docs/bitplace_rules.md`** (linea 7)
-- "1 PE = $0.001" diventa "1 PE = $0.01"
-
----
-
-## Cosa NON cambia
-
-- **ShopModal**: usa gia `PE_PER_USD` dinamicamente, si aggiorna automaticamente
-- **soundEngine.ts**: i valori `0.001` li dentro sono parametri audio, non hanno relazione con PE
-- **rebalance-tick**: il `0.001` e una soglia di confronto per multiplier, non correlato
-- **Costo pixel vuoto**: resta 1 PE (ma ora vale $0.01 invece di $0.001)
-- **Logica takeover/decay**: non cambia, opera tutto in PE
-
----
-
-## Rischio e Attenzione
-
-Questa modifica e puramente di configurazione. I calcoli interni del gioco lavorano tutti in PE. L'unico punto critico e che i 3 punti dove si definisce `PE_PER_USD` (config frontend + 2 edge functions) devono essere allineati. Il piano li aggiorna tutti e tre simultaneamente.
-
+Entrambi i file riceveranno lo stesso blocco di testo, con le differenze di stile gia presenti (il modale usa `text-sm`, la pagina usa dimensioni standard). La struttura sara un `<section>` con titolo h2 e paragrafi descrittivi, coerente con le sezioni esistenti.
