@@ -1,66 +1,54 @@
 
 
-# Fix Settings: Form Reset Bug + Stabilizzazione
+# Fix Settings Save: Token Verification Mismatch
 
-## Bug identificato
+## Root Cause
 
-Il problema principale e' nel `useEffect` di `SettingsModal.tsx` (riga 57-69):
+The `user-update` edge function's `verifyToken()` is broken. It uses a 2-part token format (`payload.signature`), but `auth-verify` creates standard 3-part JWTs (`header.payload.signature`).
 
-```
-useEffect(() => {
-  if (open) {
-    setDisplayName(settings.display_name);
-    setCountryCode(settings.country_code);
-    // ... reset all fields
-  }
-}, [open, settings]);  // <-- BUG: settings come dipendenza
+Specifically in `user-update/index.ts` line 28:
+```ts
+const [payloadB64, signatureB64] = token.split('.');
 ```
 
-L'oggetto `settings` in `useSettings.ts` (righe 164-173) viene **ricreato ad ogni render** perche' e' un object literal nel return. Ogni volta che l'utente digita una lettera nel campo username, il componente ri-renderizza, `useSettings()` ritorna un nuovo oggetto `settings` (stesso contenuto, nuova reference), il `useEffect` scatta, e **resetta tutti i campi al valore originale**. Per questo sembra che non si possa scrivere: ogni tasto premuto resetta il campo.
-
-Stesso problema per il paese: l'utente lo seleziona, il componente ri-renderizza, l'effect resetta `countryCode` al valore precedente.
+This destructures as `[header, payload]`, completely ignoring the actual signature. Then it tries to verify the header content as if it were the payload, and use the payload as the signature bytes. This always fails, returning "Invalid or expired token".
 
 ## Fix
 
-### File 1: `src/hooks/useSettings.ts`
+**File: `supabase/functions/user-update/index.ts`** (lines 26-56)
 
-Memoizzare l'oggetto `settings` con `useMemo` cosi' che la reference rimanga stabile finche' i dati dell'utente non cambiano davvero.
+Update `verifyToken` to handle the 3-part JWT format:
+
+1. Split by `.` and extract `[headerB64, payloadB64, signatureB64]`
+2. Verify HMAC signature against `headerB64.payloadB64` (the standard JWT signing input)
+3. Decode `signatureB64` using URL-safe base64 (replace `-` with `+`, `_` with `/`)
+4. Parse the payload from `payloadB64` (also URL-safe base64)
 
 ```ts
-import { useState, useCallback, useMemo } from 'react';
+async function verifyToken(token: string, secret: string) {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [headerB64, payloadB64, signatureB64] = parts;
+
+  const key = await crypto.subtle.importKey(
+    'raw', encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
+  );
+
+  const sigStr = signatureB64.replace(/-/g,'+').replace(/_/g,'/');
+  const sigBytes = Uint8Array.from(atob(sigStr), c => c.charCodeAt(0));
+  const isValid = await crypto.subtle.verify(
+    'HMAC', key, sigBytes,
+    encoder.encode(`${headerB64}.${payloadB64}`)
+  );
+  if (!isValid) return null;
+
+  const decoded = payloadB64.replace(/-/g,'+').replace(/_/g,'/');
+  const payload = JSON.parse(atob(decoded));
+  if (payload.exp < Date.now()) return null;
+  return payload;
+}
 ```
 
-Sostituire l'oggetto literal nel return con:
-
-```ts
-const settings = useMemo(() => ({
-  display_name: user?.display_name || '',
-  country_code: user?.country_code || null,
-  avatar_url: user?.avatar_url || null,
-  bio: user?.bio || null,
-  social_x: user?.social_x || null,
-  social_instagram: user?.social_instagram || null,
-  social_website: user?.social_website || null,
-}), [
-  user?.display_name,
-  user?.country_code,
-  user?.avatar_url,
-  user?.bio,
-  user?.social_x,
-  user?.social_instagram,
-  user?.social_website,
-]);
-```
-
-E nel return rimuovere le cast `(user as any)` dato che il tipo `User` include gia' `bio`, `social_x`, ecc.
-
-### File 2: nessuna modifica necessaria
-
-`SettingsModal.tsx` e `WalletContext.tsx` vanno bene cosi'. Una volta che `settings` ha una reference stabile, il `useEffect` non scattera' piu' ad ogni keystroke.
-
-## Risultato atteso
-
-- L'utente puo' digitare liberamente nel campo username
-- La selezione del paese resta visibile e viene salvata
-- Il form si resetta solo quando il modal si apre o quando i dati utente cambiano davvero (es. dopo un salvataggio)
+No other files need changes. The SettingsModal UI and `useSettings` hook are working correctly after the previous `useMemo` fix. The only issue was the edge function rejecting every token.
 
