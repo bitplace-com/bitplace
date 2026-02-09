@@ -67,15 +67,37 @@ export function PixelInfoPanel({
         className="w-80 max-w-[calc(100vw-1.5rem)] max-h-[70vh] overflow-hidden flex flex-col"
         padding="none"
       >
-        {/* Header — color dot + close */}
-        <div className="px-3 py-2.5 border-b border-border/50 shrink-0 flex items-center justify-between">
+        {/* Header — color dot + status + close */}
+        <div className="px-3 py-2.5 border-b border-border/50 shrink-0 flex items-center gap-2">
           <div
-            className="w-4 h-4 rounded-sm border border-border/50"
+            className="w-4 h-4 rounded-sm border border-border/50 shrink-0"
             style={{ backgroundColor: pixel?.color || '#888888' }}
           />
+          {/* Contextual status */}
+          {pixel && isOwned && (
+            <span className="flex items-center gap-1 text-xs font-medium truncate flex-1">
+              {isOwnPixel ? (
+                <>
+                  <PixelIcon name="crown" className="w-3.5 h-3.5 text-primary shrink-0" />
+                  <span className="text-primary truncate">You own this pixel</span>
+                </>
+              ) : pixel.myContribution?.side === 'DEF' ? (
+                <>
+                  <PixelIcon name="shield" className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span className="text-emerald-500 truncate">You're defending</span>
+                </>
+              ) : pixel.myContribution?.side === 'ATK' ? (
+                <>
+                  <PixelIcon name="swords" className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                  <span className="text-rose-500 truncate">You're attacking</span>
+                </>
+              ) : null}
+            </span>
+          )}
+          {!(pixel && isOwned) && <span className="flex-1" />}
           <button
             onClick={onClose}
-            className="p-1.5 rounded hover:bg-accent/80 transition-colors"
+            className="p-1.5 rounded hover:bg-accent/80 transition-colors shrink-0"
           >
             <X className="w-4 h-4 text-muted-foreground" />
           </button>
@@ -319,35 +341,6 @@ export function PixelInfoPanel({
                 </div>
               )}
 
-              {/* ── My Involvement ── */}
-              {(pixel.myContribution || isOwnPixel) && (
-                <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-1.5">
-                  <span className="text-xs font-medium text-foreground">Your Involvement</span>
-                  <div className="flex flex-col gap-1 text-xs">
-                    {pixel.myContribution && (
-                      <div className="flex items-center gap-1.5">
-                        {pixel.myContribution.side === 'DEF' ? (
-                          <PixelIcon name="shield" className="w-3.5 h-3.5 text-emerald-500" />
-                        ) : (
-                          <PixelIcon name="swords" className="w-3.5 h-3.5 text-rose-500" />
-                        )}
-                        <span>
-                          {pixel.myContribution.side}:
-                          <span className="font-semibold ml-1">
-                            {pixel.myContribution.amount_pe.toLocaleString()} PE
-                          </span>
-                        </span>
-                      </div>
-                    )}
-                    {isOwnPixel && (
-                      <div className="flex items-center gap-1.5">
-                        <PixelIcon name="crown" className="w-3.5 h-3.5 text-primary" />
-                        <span className="text-primary font-medium">You own this pixel</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* ── Artwork ── */}
               {pixel.owner?.id && (
