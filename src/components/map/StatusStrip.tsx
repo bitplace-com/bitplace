@@ -186,13 +186,21 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
 
           {/* Rebalance status */}
           {rebalanceActive && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-destructive/10 border border-destructive/20 rounded-lg">
-              <PixelIcon name="heart" className="h-3.5 w-3.5 text-destructive animate-pulse-soft" />
-              <span className="text-xs font-semibold text-destructive tabular-nums">{healthPercent}%</span>
-              {rebalanceEndsAt && (
-                <span className="text-xs text-muted-foreground">· {formatTimeRemaining(rebalanceEndsAt)}</span>
-              )}
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-destructive/10 border border-destructive/20 rounded-lg cursor-help">
+                  <PixelIcon name="heart" className="h-3.5 w-3.5 text-destructive animate-pulse-soft" />
+                  <span className="text-xs font-semibold text-destructive tabular-nums">{healthPercent}%</span>
+                  {rebalanceEndsAt && (
+                    <span className="text-xs text-muted-foreground">· {formatTimeRemaining(rebalanceEndsAt)}</span>
+                  )}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-64 text-xs space-y-1">
+                <p className="font-semibold">Pixel Decay Active</p>
+                <p className="text-muted-foreground">Your wallet's $BIT value is below the PE required by your pixels. Stake is decaying at {healthPercent}%. Top up your wallet to stop the decay.</p>
+              </TooltipContent>
+            </Tooltip>
           )}
 
           {/* Refresh Button with tooltip */}
