@@ -4,7 +4,7 @@
 
 - **Token**: BTP
 - **Energy unit**: PE (Pixel Energy)
-- **1 PE = $0.001** (derived from wallet value in BTP)
+- **1 PE = $0.01** (derived from wallet value in BTP)
 
 ## Pixel Properties
 

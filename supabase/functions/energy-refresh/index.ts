@@ -33,8 +33,8 @@ const RATE_LIMIT_MS = 10 * 1000; // 10 seconds
 let priceCache: { price: number; fetchedAt: number } | null = null;
 const PRICE_CACHE_TTL_MS = 30 * 1000; // 30 seconds
 
-// PE rate: 1 PE = $0.001
-const PE_PER_USD = 1000;
+// PE rate: 1 PE = $0.01
+const PE_PER_USD = 100;
 
 // Auth token verification using HMAC-SHA256 (3-part JWT format: header.payload.signature)
 async function verifyToken(token: string, secret: string): Promise<{ userId: string; wallet: string; exp: number } | null> {
