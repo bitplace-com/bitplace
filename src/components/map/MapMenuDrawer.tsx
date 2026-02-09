@@ -119,14 +119,14 @@ export function MapMenuDrawer() {
                 Basics
               </p>
               <div className="space-y-1">
-                {/* White Paper */}
+                {/* How It Works */}
                 <Button
                   variant="ghost"
                   onClick={() => setWhitePaperOpen(true)}
                   className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
                 >
                   <PixelIcon name="book" size="md" />
-                  White Paper
+                  How It Works
                 </Button>
 
                 {/* Glossary */}
