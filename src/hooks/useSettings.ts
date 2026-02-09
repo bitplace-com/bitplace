@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTheme } from 'next-themes';
 import { useSound } from '@/hooks/useSound';
@@ -160,17 +160,26 @@ export function useSettings() {
     }
   }, [refreshUser]);
 
+  const settings = useMemo(() => ({
+    display_name: user?.display_name || '',
+    country_code: user?.country_code || null,
+    avatar_url: user?.avatar_url || null,
+    bio: user?.bio || null,
+    social_x: user?.social_x || null,
+    social_instagram: user?.social_instagram || null,
+    social_website: user?.social_website || null,
+  }), [
+    user?.display_name,
+    user?.country_code,
+    user?.avatar_url,
+    user?.bio,
+    user?.social_x,
+    user?.social_instagram,
+    user?.social_website,
+  ]);
+
   return {
-    // User settings from context
-    settings: {
-      display_name: user?.display_name || '',
-      country_code: user?.country_code || null,
-      avatar_url: user?.avatar_url || null,
-      bio: (user as any)?.bio || null,
-      social_x: (user as any)?.social_x || null,
-      social_instagram: (user as any)?.social_instagram || null,
-      social_website: (user as any)?.social_website || null,
-    },
+    settings,
     // Preferences (local)
     theme: theme as 'light' | 'dark' | 'system',
     setTheme,
