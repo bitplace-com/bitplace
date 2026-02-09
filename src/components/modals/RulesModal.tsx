@@ -31,10 +31,10 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
                 <h3 className="font-semibold">Pixel Energy (PE)</h3>
               </div>
               <p className="text-muted-foreground pl-9">
-                The unit of energy in Bitplace. Your PE capacity depends on how much $BIT is in your wallet. Every action on the map costs PE. You can see your current PE balance in the top bar.
+                The unit of energy in Bitplace. Your PE capacity depends on the $ value of $BIT in your wallet. Every action on the map costs PE. You can see your current PE balance in the top bar. 1 PE = $0.001.
               </p>
               <p className="text-xs text-muted-foreground pl-9 italic">
-                Test phase: PE is calculated from your wallet's $SOL value.
+                Test phase: PE is calculated from the $ value of $SOL in your wallet.
               </p>
             </section>
 
@@ -68,7 +68,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
                 <h3 className="font-semibold">Pixel Value</h3>
               </div>
               <p className="text-muted-foreground pl-9">
-                The total strength of a pixel. It's the sum of the owner's stake plus any defense, minus any attacks received. When a pixel's value reaches zero, it becomes claimable by anyone.
+                The total $ strength of a pixel. It equals the owner's stake plus any defense, minus any attacks received. An empty pixel has a value of $0.01 (1 PE). Any pixel can be taken over at any time — you just need to stake more PE than its current value. The lower the value, the cheaper it is to conquer.
               </p>
             </section>
 
@@ -103,7 +103,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
                 <h3 className="font-semibold">Decay</h3>
               </div>
               <p className="text-muted-foreground pl-9">
-                If your wallet value drops below what you've staked across all your pixels, your stakes start shrinking. The decay happens gradually over 3 days. You can stop it instantly by restoring your wallet balance.
+                If the $ value of your wallet drops below what you've staked across all your pixels, your stakes start shrinking. The decay happens gradually over 3 days. You can stop it instantly by restoring your wallet's $ balance.
               </p>
             </section>
           </div>
@@ -142,12 +142,6 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
           </div>
         </div>
 
-        {/* Tip */}
-        <div className="p-3 rounded-lg bg-muted/50 border border-border">
-          <p className="text-xs text-muted-foreground">
-            Zoom in to paint level (z16+) to start placing pixels.
-          </p>
-        </div>
       </div>
     </GamePanel>
   );
