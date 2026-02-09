@@ -196,7 +196,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
                   )}
                 </div>
               </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-64 text-xs space-y-1">
+              <TooltipContent side="top" className="max-w-64 text-xs space-y-1 z-[9999] bg-popover border border-border shadow-lg">
                 <p className="font-semibold">Pixel Decay Active</p>
                 <p className="text-muted-foreground">Your wallet's $BIT value is below the PE required by your pixels. Stake is decaying at {healthPercent}%. Top up your wallet to stop the decay.</p>
               </TooltipContent>
