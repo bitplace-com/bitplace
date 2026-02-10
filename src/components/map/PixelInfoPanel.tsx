@@ -222,7 +222,7 @@ export function PixelInfoPanel({
                 )}
 
                 {/* Social Links */}
-                {(pixel.owner?.social_x || pixel.owner?.social_instagram || pixel.owner?.social_website) && (
+                {(pixel.owner?.social_x || pixel.owner?.social_instagram || pixel.owner?.social_discord || pixel.owner?.social_website) && (
                   <div className="flex items-center gap-1.5">
                     {pixel.owner.social_x && (
                       <a href={pixel.owner.social_x} target="_blank" rel="noopener noreferrer"
@@ -234,6 +234,12 @@ export function PixelInfoPanel({
                       <a href={pixel.owner.social_instagram} target="_blank" rel="noopener noreferrer"
                         className="p-1 rounded hover:bg-accent transition-colors">
                         <PixelIcon name="instagram" className="w-3.5 h-3.5 text-muted-foreground" />
+                      </a>
+                    )}
+                    {pixel.owner.social_discord && (
+                      <a href={pixel.owner.social_discord.startsWith('http') ? pixel.owner.social_discord : `https://discord.gg/${pixel.owner.social_discord}`} target="_blank" rel="noopener noreferrer"
+                        className="p-1 rounded hover:bg-accent transition-colors">
+                        <PixelIcon name="globe" className="w-3.5 h-3.5 text-muted-foreground" />
                       </a>
                     )}
                     {pixel.owner.social_website && (

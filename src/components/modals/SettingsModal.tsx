@@ -46,6 +46,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [bio, setBio] = useState(settings.bio || '');
   const [socialX, setSocialX] = useState(settings.social_x || '');
   const [socialInstagram, setSocialInstagram] = useState(settings.social_instagram || '');
+  const [socialDiscord, setSocialDiscord] = useState(settings.social_discord || '');
   const [socialWebsite, setSocialWebsite] = useState(settings.social_website || '');
   
   const [usernameError, setUsernameError] = useState<string | null>(null);
@@ -62,6 +63,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       setBio(settings.bio || '');
       setSocialX(settings.social_x || '');
       setSocialInstagram(settings.social_instagram || '');
+      setSocialDiscord(settings.social_discord || '');
       setSocialWebsite(settings.social_website || '');
       setAvatarPreview(null);
       setUsernameError(null);
@@ -134,6 +136,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       bio !== (settings.bio || '') ||
       socialX !== (settings.social_x || '') ||
       socialInstagram !== (settings.social_instagram || '') ||
+      socialDiscord !== (settings.social_discord || '') ||
       socialWebsite !== (settings.social_website || '')
     );
   };
@@ -148,6 +151,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       bio: bio || null,
       social_x: socialX || null,
       social_instagram: socialInstagram || null,
+      social_discord: socialDiscord || null,
       social_website: socialWebsite || null,
     });
 
@@ -320,6 +324,21 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               value={socialInstagram}
               onChange={(e) => setSocialInstagram(e.target.value)}
               placeholder="@username or https://instagram.com/username"
+              disabled={!isAuthenticated}
+            />
+          </div>
+
+          {/* Discord */}
+          <div className="space-y-2.5">
+            <Label htmlFor="social-discord" className="flex items-center gap-2">
+              <PixelIcon name="globe" className="h-4 w-4" />
+              Discord
+            </Label>
+            <Input
+              id="social-discord"
+              value={socialDiscord}
+              onChange={(e) => setSocialDiscord(e.target.value)}
+              placeholder="discord.gg/invite or username"
               disabled={!isAuthenticated}
             />
           </div>

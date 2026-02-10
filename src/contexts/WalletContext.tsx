@@ -43,6 +43,7 @@ interface User {
   bio?: string | null;
   social_x?: string | null;
   social_instagram?: string | null;
+  social_discord?: string | null;
   social_website?: string | null;
 }
 

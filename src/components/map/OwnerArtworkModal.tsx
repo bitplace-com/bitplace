@@ -1,14 +1,25 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { PixelIcon } from '@/components/icons/PixelIcon';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface PixelData {
   x: number;
   y: number;
   color: string;
+}
+
+interface Cluster {
+  pixels: PixelData[];
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+  centerX: number;
+  centerY: number;
 }
 
 interface OwnerArtworkModalProps {
@@ -19,6 +30,121 @@ interface OwnerArtworkModalProps {
   onJumpToPixel: (x: number, y: number) => void;
 }
 
+/** Union-Find for clustering nearby pixels */
+function clusterPixels(pixels: PixelData[], gap = 3): Cluster[] {
+  if (pixels.length === 0) return [];
+
+  const keyMap = new Map<string, number>();
+  pixels.forEach((p, i) => keyMap.set(`${p.x}:${p.y}`, i));
+
+  const parent = pixels.map((_, i) => i);
+  const rank = new Array(pixels.length).fill(0);
+
+  function find(a: number): number {
+    while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; }
+    return a;
+  }
+  function union(a: number, b: number) {
+    const ra = find(a), rb = find(b);
+    if (ra === rb) return;
+    if (rank[ra] < rank[rb]) parent[ra] = rb;
+    else if (rank[ra] > rank[rb]) parent[rb] = ra;
+    else { parent[rb] = ra; rank[ra]++; }
+  }
+
+  // Connect pixels within gap distance
+  for (let i = 0; i < pixels.length; i++) {
+    const p = pixels[i];
+    for (let dx = -gap; dx <= gap; dx++) {
+      for (let dy = -gap; dy <= gap; dy++) {
+        if (dx === 0 && dy === 0) continue;
+        const neighbor = keyMap.get(`${p.x + dx}:${p.y + dy}`);
+        if (neighbor !== undefined) union(i, neighbor);
+      }
+    }
+  }
+
+  const groups = new Map<number, PixelData[]>();
+  pixels.forEach((p, i) => {
+    const root = find(i);
+    if (!groups.has(root)) groups.set(root, []);
+    groups.get(root)!.push(p);
+  });
+
+  return Array.from(groups.values())
+    .map(pxs => {
+      const xs = pxs.map(p => p.x);
+      const ys = pxs.map(p => p.y);
+      const minX = Math.min(...xs), maxX = Math.max(...xs);
+      const minY = Math.min(...ys), maxY = Math.max(...ys);
+      return {
+        pixels: pxs,
+        minX, maxX, minY, maxY,
+        centerX: Math.round((minX + maxX) / 2),
+        centerY: Math.round((minY + maxY) / 2),
+      };
+    })
+    .sort((a, b) => b.pixels.length - a.pixels.length);
+}
+
+/** Mini canvas that renders a cluster */
+function ClusterCanvas({
+  cluster,
+  onClick,
+  size = 120,
+}: {
+  cluster: Cluster;
+  onClick: () => void;
+  size?: number;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    ctx.scale(dpr, dpr);
+
+    ctx.fillStyle = 'hsl(var(--muted))';
+    ctx.fillRect(0, 0, size, size);
+
+    const { minX, maxX, minY, maxY, pixels } = cluster;
+    const rangeX = maxX - minX + 1;
+    const rangeY = maxY - minY + 1;
+    const padding = 4;
+    const available = size - padding * 2;
+    const pixelSize = Math.max(1, Math.min(available / rangeX, available / rangeY, 10));
+    const drawW = rangeX * pixelSize;
+    const drawH = rangeY * pixelSize;
+    const offX = (size - drawW) / 2;
+    const offY = (size - drawH) / 2;
+
+    pixels.forEach(p => {
+      ctx.fillStyle = p.color || '#888888';
+      ctx.fillRect(
+        offX + (p.x - minX) * pixelSize,
+        offY + (p.y - minY) * pixelSize,
+        pixelSize - 0.3,
+        pixelSize - 0.3,
+      );
+    });
+  }, [cluster, size]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="rounded-lg cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+      style={{ width: size, height: size, imageRendering: 'pixelated' }}
+      onClick={onClick}
+    />
+  );
+}
+
 export function OwnerArtworkModal({
   open,
   onOpenChange,
@@ -26,159 +152,38 @@ export function OwnerArtworkModal({
   ownerName,
   onJumpToPixel,
 }: OwnerArtworkModalProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [pixels, setPixels] = useState<PixelData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [hoveredPixel, setHoveredPixel] = useState<PixelData | null>(null);
-  const [canvasParams, setCanvasParams] = useState<{
-    minX: number;
-    minY: number;
-    pixelSize: number;
-    offsetX: number;
-    offsetY: number;
-  } | null>(null);
 
-  // Fetch pixels when modal opens
   useEffect(() => {
-    if (!open || !userId) {
-      setPixels([]);
-      return;
-    }
-
-    let isMounted = true;
+    if (!open || !userId) { setPixels([]); return; }
+    let mounted = true;
     setIsLoading(true);
 
-    const fetchPixels = async () => {
+    (async () => {
       try {
         const { data, error } = await supabase
           .from('pixels')
           .select('x, y, color')
           .eq('owner_user_id', userId)
           .limit(5000);
-
-        if (error) {
-          console.error('[OwnerArtworkModal] Error:', error);
-          return;
-        }
-
-        if (isMounted && data) {
-          setPixels(data as PixelData[]);
-        }
+        if (mounted && data) setPixels(data as PixelData[]);
+        if (error) console.error('[OwnerArtworkModal]', error);
       } catch (err) {
-        console.error('[OwnerArtworkModal] Error:', err);
+        console.error('[OwnerArtworkModal]', err);
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (mounted) setIsLoading(false);
       }
-    };
-
-    fetchPixels();
-    return () => { isMounted = false; };
+    })();
+    return () => { mounted = false; };
   }, [open, userId]);
 
-  // Draw pixels on canvas
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || pixels.length === 0) return;
+  const clusters = useMemo(() => clusterPixels(pixels), [pixels]);
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const displayWidth = canvas.clientWidth;
-    const displayHeight = canvas.clientHeight;
-
-    canvas.width = displayWidth * dpr;
-    canvas.height = displayHeight * dpr;
-    ctx.scale(dpr, dpr);
-
-    // Clear with background
-    ctx.fillStyle = 'hsl(var(--muted))';
-    ctx.fillRect(0, 0, displayWidth, displayHeight);
-
-    // Calculate bounds
-    const xs = pixels.map(p => p.x);
-    const ys = pixels.map(p => p.y);
-    const minX = Math.min(...xs);
-    const maxX = Math.max(...xs);
-    const minY = Math.min(...ys);
-    const maxY = Math.max(...ys);
-
-    const rangeX = maxX - minX + 1;
-    const rangeY = maxY - minY + 1;
-
-    const padding = 16;
-    const availableWidth = displayWidth - padding * 2;
-    const availableHeight = displayHeight - padding * 2;
-
-    const pixelSize = Math.max(2, Math.min(
-      availableWidth / rangeX,
-      availableHeight / rangeY,
-      12
-    ));
-
-    const drawWidth = rangeX * pixelSize;
-    const drawHeight = rangeY * pixelSize;
-    const offsetX = (displayWidth - drawWidth) / 2;
-    const offsetY = (displayHeight - drawHeight) / 2;
-
-    // Store params for click detection
-    setCanvasParams({ minX, minY, pixelSize, offsetX, offsetY });
-
-    // Draw pixels
-    pixels.forEach(pixel => {
-      const x = offsetX + (pixel.x - minX) * pixelSize;
-      const y = offsetY + (pixel.y - minY) * pixelSize;
-
-      ctx.fillStyle = pixel.color || '#888888';
-      ctx.fillRect(x, y, pixelSize - 0.5, pixelSize - 0.5);
-    });
-  }, [pixels]);
-
-  // Handle canvas click
-  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasParams || pixels.length === 0) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-
-    const { minX, minY, pixelSize, offsetX, offsetY } = canvasParams;
-
-    // Convert click to pixel coordinates
-    const gridX = Math.floor((clickX - offsetX) / pixelSize) + minX;
-    const gridY = Math.floor((clickY - offsetY) / pixelSize) + minY;
-
-    // Find if there's a pixel at this location
-    const clickedPixel = pixels.find(p => p.x === gridX && p.y === gridY);
-
-    if (clickedPixel) {
-      onJumpToPixel(clickedPixel.x, clickedPixel.y);
-      onOpenChange(false);
-    }
-  }, [canvasParams, pixels, onJumpToPixel, onOpenChange]);
-
-  // Handle canvas hover
-  const handleCanvasHover = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasParams || pixels.length === 0) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const hoverX = e.clientX - rect.left;
-    const hoverY = e.clientY - rect.top;
-
-    const { minX, minY, pixelSize, offsetX, offsetY } = canvasParams;
-
-    const gridX = Math.floor((hoverX - offsetX) / pixelSize) + minX;
-    const gridY = Math.floor((hoverY - offsetY) / pixelSize) + minY;
-
-    const pixel = pixels.find(p => p.x === gridX && p.y === gridY);
-    setHoveredPixel(pixel || null);
-  }, [canvasParams, pixels]);
+  const handleClusterClick = useCallback((cluster: Cluster) => {
+    onJumpToPixel(cluster.centerX, cluster.centerY);
+    onOpenChange(false);
+  }, [onJumpToPixel, onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -197,28 +202,43 @@ export function OwnerArtworkModal({
             <div className="w-full h-64 rounded-lg bg-muted flex items-center justify-center">
               <p className="text-sm text-muted-foreground">No pixels owned</p>
             </div>
-          ) : (
+          ) : clusters.length === 1 ? (
+            /* Single cluster — show full-size */
             <>
-              <div className="relative">
-                <canvas
-                  ref={canvasRef}
-                  className="w-full h-64 rounded-lg cursor-pointer"
-                  style={{ imageRendering: 'pixelated' }}
-                  onClick={handleCanvasClick}
-                  onMouseMove={handleCanvasHover}
-                  onMouseLeave={() => setHoveredPixel(null)}
+              <div className="flex justify-center">
+                <ClusterCanvas
+                  cluster={clusters[0]}
+                  onClick={() => handleClusterClick(clusters[0])}
+                  size={280}
                 />
-                {hoveredPixel && (
-                  <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-popover/90 border border-border text-xs font-mono">
-                    ({hoveredPixel.x.toLocaleString()}, {hoveredPixel.y.toLocaleString()})
-                  </div>
-                )}
               </div>
-
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{pixels.length.toLocaleString()} pixels owned</span>
+                <span>{pixels.length.toLocaleString()} pixels</span>
                 <span>Click to jump to location</span>
               </div>
+            </>
+          ) : (
+            /* Multiple clusters — grid */
+            <>
+              <p className="text-xs text-muted-foreground">
+                {pixels.length.toLocaleString()} pixels in {clusters.length} areas — click any to jump there
+              </p>
+              <ScrollArea className="h-72">
+                <div className="grid grid-cols-2 gap-2 pr-2">
+                  {clusters.map((cluster, i) => (
+                    <div key={i} className="flex flex-col items-center gap-1">
+                      <ClusterCanvas
+                        cluster={cluster}
+                        onClick={() => handleClusterClick(cluster)}
+                        size={160}
+                      />
+                      <span className="text-[10px] text-muted-foreground">
+                        {cluster.pixels.length.toLocaleString()} px
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
             </>
           )}
 
