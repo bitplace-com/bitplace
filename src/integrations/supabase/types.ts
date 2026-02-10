@@ -654,6 +654,7 @@ export type Database = {
           rebalance_ends_at: string | null
           rebalance_started_at: string | null
           rebalance_target_multiplier: number | null
+          social_discord: string | null
           social_instagram: string | null
           social_website: string | null
           social_x: string | null
@@ -685,6 +686,7 @@ export type Database = {
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
           rebalance_target_multiplier?: number | null
+          social_discord?: string | null
           social_instagram?: string | null
           social_website?: string | null
           social_x?: string | null
@@ -716,6 +718,7 @@ export type Database = {
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
           rebalance_target_multiplier?: number | null
+          social_discord?: string | null
           social_instagram?: string | null
           social_website?: string | null
           social_x?: string | null
@@ -790,6 +793,7 @@ export type Database = {
           rebalance_ends_at: string | null
           rebalance_started_at: string | null
           rebalance_target_multiplier: number | null
+          social_discord: string | null
           social_instagram: string | null
           social_website: string | null
           social_x: string | null
@@ -809,6 +813,7 @@ export type Database = {
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
           rebalance_target_multiplier?: number | null
+          social_discord?: string | null
           social_instagram?: string | null
           social_website?: string | null
           social_x?: string | null
@@ -828,6 +833,7 @@ export type Database = {
           rebalance_ends_at?: string | null
           rebalance_started_at?: string | null
           rebalance_target_multiplier?: number | null
+          social_discord?: string | null
           social_instagram?: string | null
           social_website?: string | null
           social_x?: string | null

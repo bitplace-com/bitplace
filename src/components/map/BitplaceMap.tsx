@@ -43,7 +43,7 @@ import { useStatusStripHeight } from '@/hooks/useStatusStripHeight';
 import { useTemplates } from '@/hooks/useTemplates';
 import { getValidSessionToken } from '@/lib/authHelpers';
 import { computePixelHash } from '@/lib/pixelHash';
-import { lngLatToGridInt, getViewportGridBounds, Z_SHOW_PAINTS } from '@/lib/pixelGrid';
+import { lngLatToGridInt, gridIntToLngLat, getViewportGridBounds, Z_SHOW_PAINTS } from '@/lib/pixelGrid';
 import { haptic } from '@/lib/haptics';
 import { markMapMountStart } from '@/lib/perfMetrics';
 
@@ -1553,6 +1553,14 @@ export function BitplaceMap() {
           onClose={handleCloseInspector}
           currentUserId={user?.id}
           actionSelectionCount={pendingPixels.length + draftCount}
+          onJumpToPixel={(targetX, targetY) => {
+            const { lng, lat } = gridIntToLngLat(targetX, targetY);
+            mapRef.current?.flyTo({ center: [lng, lat], zoom: 18, duration: 2000 });
+            setUrlPosition(lat, lng, 18);
+            setTimeout(() => {
+              setInspectedPixel({ x: targetX, y: targetY });
+            }, 2100);
+          }}
         />
 
         {/* Inspector Panel for draft or pending pixels - Desktop only, NEVER show in HAND mode */}

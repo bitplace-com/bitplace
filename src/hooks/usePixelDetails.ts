@@ -18,6 +18,7 @@ interface OwnerProfile {
   bio: string | null;
   social_x: string | null;
   social_instagram: string | null;
+  social_discord: string | null;
   social_website: string | null;
 }
 
@@ -190,6 +191,7 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
             bio: data.bio ?? null,
             social_x: data.social_x ?? null,
             social_instagram: data.social_instagram ?? null,
+            social_discord: data.social_discord ?? null,
             social_website: data.social_website ?? null,
           };
         } else {

@@ -13,6 +13,7 @@ interface ProfileUpdates {
   bio?: string | null;
   social_x?: string | null;
   social_instagram?: string | null;
+  social_discord?: string | null;
   social_website?: string | null;
 }
 
@@ -95,6 +96,10 @@ export function useSettings() {
         normalizedUpdates.social_instagram = normalizeSocialHandle(updates.social_instagram, 'instagram.com');
       }
       
+      if ('social_discord' in updates) {
+        normalizedUpdates.social_discord = updates.social_discord?.trim() || null;
+      }
+
       if ('social_website' in updates) {
         const normalized = normalizeWebsite(updates.social_website);
         if (normalized && !isValidWebsiteUrl(normalized)) {
@@ -167,6 +172,7 @@ export function useSettings() {
     bio: user?.bio || null,
     social_x: user?.social_x || null,
     social_instagram: user?.social_instagram || null,
+    social_discord: user?.social_discord || null,
     social_website: user?.social_website || null,
   }), [
     user?.display_name,
@@ -175,6 +181,7 @@ export function useSettings() {
     user?.bio,
     user?.social_x,
     user?.social_instagram,
+    user?.social_discord,
     user?.social_website,
   ]);
 

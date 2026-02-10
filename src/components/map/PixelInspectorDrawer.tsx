@@ -11,6 +11,7 @@ interface PixelInspectorDrawerProps {
   onClose: () => void;
   currentUserId?: string;
   actionSelectionCount?: number;
+  onJumpToPixel?: (x: number, y: number) => void;
 }
 
 // Local error boundary for inspector panel
@@ -74,6 +75,7 @@ export function PixelInspectorDrawer({
   onClose,
   currentUserId,
   actionSelectionCount = 0,
+  onJumpToPixel,
 }: PixelInspectorDrawerProps) {
   const isMobile = useIsMobile();
 
@@ -87,6 +89,7 @@ export function PixelInspectorDrawer({
         onClose={onClose}
         currentUserId={currentUserId}
         actionSelectionCount={actionSelectionCount}
+        onJumpToPixel={onJumpToPixel}
       />
     </InspectorErrorBoundary>
   );

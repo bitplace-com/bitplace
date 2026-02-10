@@ -232,6 +232,17 @@ serve(async (req) => {
       updates.social_website = body.social_website || null;
     }
 
+    // Social Discord validation
+    if (body.social_discord !== undefined) {
+      if (body.social_discord && typeof body.social_discord === 'string' && body.social_discord.length > 100) {
+        return new Response(
+          JSON.stringify({ error: 'Discord link must be 100 characters or less' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      updates.social_discord = body.social_discord || null;
+    }
+
     if (Object.keys(updates).length === 0) {
       return new Response(
         JSON.stringify({ error: 'No valid fields to update' }),
