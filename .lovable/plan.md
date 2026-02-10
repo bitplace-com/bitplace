@@ -1,79 +1,74 @@
 
 
-# Fix Settings Persistence + Avatar Upload
+# Discord Social Link + Artwork Navigation Fix
 
-## Problem 1: Data lost after page reload
+## 1. Add Discord Social Link
 
-When settings are saved, `updateUser` (line 929) calls `setUser(data.user)` but never calls `setCachedUser(data.user)`. On page reload, `getCachedUser()` returns the stale cached version from initial login, so all changes disappear.
+### Database
+Add `social_discord` column to the `users` table (nullable text, max 100 chars).
 
-### Fix: `src/contexts/WalletContext.tsx`
+### Backend: `supabase/functions/user-update/index.ts`
+Add validation block for `social_discord` (same pattern as `social_x` and `social_instagram` -- string, max 100 chars) and include it in the `updates` object.
 
-In `updateUser` (line 929), after `setUser(data.user as User)`, add `setCachedUser(data.user as User)` to persist the updated profile to localStorage.
+### Frontend: `src/hooks/useSettings.ts`
+- Add `social_discord` to the memoized `settings` object
+- Add `social_discord` to `ProfileUpdates` interface
+- Add normalization for Discord links in `saveProfile` (handle `discord.gg/` and `discord.com/users/` prefixes)
 
-```ts
-// Line 929 - change from:
-setUser(data.user as User);
+### Frontend: `src/components/modals/SettingsModal.tsx`
+- Add `socialDiscord` state variable
+- Add Discord input field in the Links section (between Instagram and Website)
+- Use a globe icon (no custom Discord pixel icon exists) with label "Discord"
+- Include it in `hasChanges()` check and `handleSave()` payload
+- Sync it in the `useEffect` reset
 
-// To:
-setUser(data.user as User);
-setCachedUser(data.user as User);
-```
-
----
-
-## Problem 2: Avatar upload fails (token verification)
-
-`supabase/functions/avatar-upload/index.ts` (line 26) still uses the broken 2-part JWT verification:
-
-```ts
-const [payloadB64, signatureB64] = token.split('.');
-```
-
-This is the exact same bug that was just fixed in `user-update`. The token is a standard 3-part JWT but this function only expects 2 parts.
-
-### Fix: `supabase/functions/avatar-upload/index.ts`
-
-Replace the `verifyToken` function (lines 24-54) with the corrected 3-part JWT verification that handles URL-safe base64:
-
-```ts
-async function verifyToken(token: string, secret: string) {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const [headerB64, payloadB64, signatureB64] = parts;
-
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      'raw', encoder.encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
-    );
-
-    const sigStr = signatureB64.replace(/-/g, '+').replace(/_/g, '/');
-    const sigBytes = Uint8Array.from(atob(sigStr), c => c.charCodeAt(0));
-    const isValid = await crypto.subtle.verify(
-      'HMAC', key, sigBytes,
-      encoder.encode(`${headerB64}.${payloadB64}`)
-    );
-    if (!isValid) return null;
-
-    const decoded = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
-    const payload = JSON.parse(atob(decoded));
-    if (payload.exp < Date.now()) return null;
-    return payload;
-  } catch {
-    return null;
-  }
-}
-```
+### Frontend: Profile display
+Where social links are shown (e.g. `PixelInfoPanel.tsx` owner section), add Discord link display alongside X/Instagram/Website.
 
 ---
 
-## Summary
+## 2. Fix Artwork Click-to-Navigate
 
-| File | Change |
-|------|--------|
-| `src/contexts/WalletContext.tsx` | Add `setCachedUser()` call in `updateUser` (1 line) |
-| `supabase/functions/avatar-upload/index.ts` | Fix 3-part JWT verification (same fix as user-update) |
+The core bug: `PixelInspectorDrawer` renders `PixelInfoPanel` but never passes `onJumpToPixel`. When `OwnerArtworkModal` calls `onJumpToPixel`, it goes to `handleJumpToPixel` in `PixelInfoPanel` which checks `if (onJumpToPixel)` -- always `undefined`.
 
-No new files, no new dependencies. Two targeted fixes.
+### Fix: `src/components/map/PixelInspectorDrawer.tsx`
+- Accept `onJumpToPixel` prop and pass it through to `PixelInfoPanel`
+
+### Fix: `src/components/map/BitplaceMap.tsx`
+- Create a `handleJumpToPixel` callback that converts grid coords to lng/lat using `gridIntToLngLat`, then calls `mapRef.current.flyTo()` at high zoom (e.g. zoom 18) and opens the inspector after animation
+- Pass this callback to `PixelInspectorDrawer` as `onJumpToPixel`
+
+### Fix: `src/components/map/OwnerArtworkModal.tsx`
+- Improve the artwork display: group pixels into connected clusters using flood-fill, render each cluster as a separate clickable thumbnail card with pixel count and bounding-box preview
+- If there's only one cluster (or pixels are close together), show a single canvas as today but with working navigation
+- Show cluster list as a scrollable grid of mini-canvases, each clickable to jump to that area
+
+---
+
+## 3. Artwork Modal Improvements
+
+### Cluster Detection
+Add a simple connected-component algorithm to group adjacent pixels into clusters. Two pixels belong to the same cluster if they share an edge (4-connectivity) or are within a small gap (tolerance of 2-3 pixels to handle sparse areas).
+
+### Visual Layout
+- Show clusters sorted by size (largest first)
+- Each cluster rendered as a mini-canvas card showing the artwork fragment
+- Display pixel count per cluster
+- Click on any cluster card to fly to its center on the map
+- Keep the "all artwork" overview canvas at the top for context
+
+---
+
+## Technical Summary
+
+| Area | File | Change |
+|------|------|--------|
+| DB | migration | Add `social_discord` text column |
+| Backend | `user-update/index.ts` | Validate + persist `social_discord` |
+| Hook | `useSettings.ts` | Add discord to settings + normalize |
+| UI | `SettingsModal.tsx` | Discord input field |
+| UI | `PixelInfoPanel.tsx` | Display discord link in owner socials |
+| Navigation | `PixelInspectorDrawer.tsx` | Pass `onJumpToPixel` prop through |
+| Navigation | `BitplaceMap.tsx` | Create + pass `handleJumpToPixel` with `flyTo` |
+| Artwork | `OwnerArtworkModal.tsx` | Cluster grouping + mini-canvas cards + working navigation |
 
