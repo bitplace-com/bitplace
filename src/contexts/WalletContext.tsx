@@ -927,6 +927,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
 
     setUser(data.user as User);
+    setCachedUser(data.user as User);
   };
 
   return (
