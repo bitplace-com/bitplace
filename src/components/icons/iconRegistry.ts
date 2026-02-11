@@ -78,6 +78,7 @@ import { PixelThumbtack } from './custom/PixelThumbtack';
 import { PixelImage } from './custom/PixelImage';
 import { PixelFaceThinking } from './custom/PixelFaceThinking';
 import { PixelDiscord } from './custom/PixelDiscord';
+import { PixelLocationPin } from './custom/PixelLocationPin';
 
 export type IconName =
   | 'hand'
@@ -156,7 +157,8 @@ export type IconName =
   | 'thumbtack'
   | 'image'
   | 'faceThinking'
-  | 'discord';
+  | 'discord'
+  | 'locationPin';
 
 type PixelIconComponent = ComponentType<SVGProps<SVGSVGElement> & { className?: string }>;
 
@@ -238,4 +240,5 @@ export const icons: Record<IconName, PixelIconComponent> = {
   image: PixelImage,
   faceThinking: PixelFaceThinking,
   discord: PixelDiscord,
+  locationPin: PixelLocationPin,
 };
