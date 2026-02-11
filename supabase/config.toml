@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.places-my]
 verify_jwt = false
+
+[functions.places-delete]
+verify_jwt = false

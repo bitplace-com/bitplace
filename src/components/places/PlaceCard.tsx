@@ -15,6 +15,8 @@ interface PlaceCardProps {
   onNavigate?: (place: Place) => void;
   onToggleLike?: (placeId: string) => void;
   onToggleSave?: (placeId: string) => void;
+  onDelete?: (placeId: string) => void;
+  isOwner?: boolean;
   isAuthenticated?: boolean;
   className?: string;
 }
@@ -24,6 +26,8 @@ export function PlaceCard({
   onNavigate,
   onToggleLike,
   onToggleSave,
+  onDelete,
+  isOwner = false,
   isAuthenticated = false,
   className,
 }: PlaceCardProps) {
@@ -51,129 +55,142 @@ export function PlaceCard({
     }
   };
 
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete?.(place.id);
+  };
+
   return (
     <div
       className={cn(
-        "group relative rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm p-3",
+        "group relative rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden",
         "hover:border-primary/30 hover:bg-card/80 transition-all duration-200",
         "cursor-pointer",
         className
       )}
       onClick={handleNavigate}
     >
-      <div className="flex gap-3">
-        {/* Thumbnail */}
-        <PlaceThumbnail
-          bbox={hasBbox ? {
-            xmin: place.bbox_xmin!,
-            ymin: place.bbox_ymin!,
-            xmax: place.bbox_xmax!,
-            ymax: place.bbox_ymax!,
-          } : null}
-          width={72}
-          height={72}
-          className="shrink-0"
-        />
+      {/* Full-width Thumbnail */}
+      <PlaceThumbnail
+        bbox={hasBbox ? {
+          xmin: place.bbox_xmin!,
+          ymin: place.bbox_ymin!,
+          xmax: place.bbox_xmax!,
+          ymax: place.bbox_ymax!,
+        } : null}
+        width={400}
+        height={128}
+        className="w-full rounded-none"
+      />
 
-        {/* Content */}
-        <div className="flex-1 min-w-0 flex flex-col">
-          {/* Creator row */}
-          <div className="flex items-center gap-1.5 mb-1">
-            <Avatar className="h-5 w-5">
-              <AvatarImage src={creator?.avatar_url || undefined} />
-              <AvatarFallback className="text-[10px] bg-muted">
-                {getAvatarInitial(creator?.display_name, null)}
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-xs font-medium truncate max-w-20">
-              {creator?.display_name || "Anon"}
+      {/* Content */}
+      <div className="p-3 flex flex-col gap-1">
+        {/* Creator row */}
+        <div className="flex items-center gap-1.5">
+          <Avatar className="h-5 w-5">
+            <AvatarImage src={creator?.avatar_url || undefined} />
+            <AvatarFallback className="text-[10px] bg-muted">
+              {getAvatarInitial(creator?.display_name, null)}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-xs font-medium truncate max-w-20">
+            {creator?.display_name || "Anon"}
+          </span>
+          {country && <span className="text-xs">{country.flag}</span>}
+          <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
+            {formatDistanceToNow(new Date(place.created_at), { addSuffix: false })} ago
+          </span>
+        </div>
+
+        {/* Title */}
+        <h3 className="font-semibold text-sm text-foreground line-clamp-1">
+          {place.title}
+        </h3>
+
+        {/* Description */}
+        {place.description && (
+          <p className="text-xs text-muted-foreground line-clamp-1">
+            {place.description}
+          </p>
+        )}
+
+        {/* PE Value */}
+        {place.stats.total_pe > 0 && (
+          <div className="flex items-center gap-1">
+            <PEIcon size="xs" className="text-muted-foreground" />
+            <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
+              {place.stats.total_pe.toLocaleString()} PE
             </span>
-            {country && <span className="text-xs">{country.flag}</span>}
-            <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-              {formatDistanceToNow(new Date(place.created_at), { addSuffix: false })} ago
+            <span className="text-[10px] text-muted-foreground/70">
+              (${(place.stats.total_pe / PE_PER_USD).toFixed(2)})
             </span>
           </div>
+        )}
 
-          {/* Title */}
-          <h3 className="font-semibold text-sm text-foreground line-clamp-1">
-            {place.title}
-          </h3>
+        {/* Footer: Stats & Actions */}
+        <div className="flex items-center gap-2 pt-1">
+          {/* Likes */}
+          <button
+            onClick={handleLike}
+            className={cn(
+              "flex items-center gap-1 text-xs transition-colors min-w-[44px] min-h-[28px] justify-center rounded-md",
+              place.likedByMe 
+                ? "text-red-500" 
+                : "text-muted-foreground hover:text-red-500",
+              !isAuthenticated && "opacity-50 cursor-not-allowed"
+            )}
+            disabled={!isAuthenticated}
+          >
+            <PixelIcon 
+              name="heart" 
+              size="sm" 
+              className={place.likedByMe ? "fill-current" : ""} 
+            />
+            <span className="tabular-nums">{place.stats.likes_all_time}</span>
+          </button>
 
-          {/* Description */}
-          {place.description && (
-            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-              {place.description}
-            </p>
-          )}
-
-          {/* PE Value */}
-          {place.stats.total_pe > 0 && (
-            <div className="flex items-center gap-1 mt-0.5">
-              <PEIcon size="xs" className="text-muted-foreground" />
-              <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
-                {place.stats.total_pe.toLocaleString()} PE
-              </span>
-              <span className="text-[10px] text-muted-foreground/70">
-                (${(place.stats.total_pe / PE_PER_USD).toFixed(2)})
-              </span>
-            </div>
-          )}
-
-          {/* Footer: Stats & Actions */}
-          <div className="flex items-center gap-2 mt-auto pt-1.5">
-            {/* Likes */}
-            <button
-              onClick={handleLike}
-              className={cn(
-                "flex items-center gap-1 text-xs transition-colors min-w-[44px] min-h-[28px] justify-center rounded-md",
-                place.likedByMe 
-                  ? "text-red-500" 
-                  : "text-muted-foreground hover:text-red-500",
-                !isAuthenticated && "opacity-50 cursor-not-allowed"
-              )}
-              disabled={!isAuthenticated}
-            >
-              <PixelIcon 
-                name="heart" 
-                size="sm" 
-                className={place.likedByMe ? "fill-current" : ""} 
-              />
-              <span className="tabular-nums">{place.stats.likes_all_time}</span>
-            </button>
-
-            {/* Save */}
-            <button
-              onClick={handleSave}
-              className={cn(
-                "flex items-center gap-1 text-xs transition-colors min-w-[28px] min-h-[28px] justify-center rounded-md",
-                place.savedByMe 
-                  ? "text-primary" 
-                  : "text-muted-foreground hover:text-primary",
-                !isAuthenticated && "opacity-50 cursor-not-allowed"
-              )}
-              disabled={!isAuthenticated}
-            >
-              <PixelIcon 
-                name="locationPin" 
-                size="sm"
-                className={place.savedByMe ? "fill-current" : ""}
-              />
-            </button>
-
-            {/* Navigate button */}
-            <Button
+          {/* Save */}
+          <button
+            onClick={handleSave}
+            className={cn(
+              "flex items-center gap-1 text-xs transition-colors min-w-[28px] min-h-[28px] justify-center rounded-md",
+              place.savedByMe 
+                ? "text-primary" 
+                : "text-muted-foreground hover:text-primary",
+              !isAuthenticated && "opacity-50 cursor-not-allowed"
+            )}
+            disabled={!isAuthenticated}
+          >
+            <PixelIcon 
+              name="locationPin" 
               size="sm"
-              variant="ghost"
-              className="h-7 px-2 text-xs ml-auto"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleNavigate();
-              }}
+              className={place.savedByMe ? "fill-current" : ""}
+            />
+          </button>
+
+          {/* Delete (owner only) */}
+          {isOwner && onDelete && (
+            <button
+              onClick={handleDelete}
+              className="flex items-center text-xs text-muted-foreground hover:text-destructive transition-colors min-w-[28px] min-h-[28px] justify-center rounded-md"
             >
-              <PixelIcon name="navigation" size="sm" className="mr-1" />
-              Go
-            </Button>
-          </div>
+              <PixelIcon name="trash" size="sm" />
+            </button>
+          )}
+
+          {/* Navigate button */}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs ml-auto"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleNavigate();
+            }}
+          >
+            <PixelIcon name="navigation" size="sm" className="mr-1" />
+            Go
+          </Button>
         </div>
       </div>
     </div>
