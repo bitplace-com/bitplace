@@ -162,13 +162,27 @@ export function OwnerArtworkModal({
 
     (async () => {
       try {
-        const { data, error } = await supabase
-          .from('pixels')
-          .select('x, y, color')
-          .eq('owner_user_id', userId)
-          .limit(5000);
-        if (mounted && data) setPixels(data as PixelData[]);
-        if (error) console.error('[OwnerArtworkModal]', error);
+        const PAGE_SIZE = 1000;
+        let offset = 0;
+        let allPixels: PixelData[] = [];
+        let hasMore = true;
+
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('pixels')
+            .select('x, y, color')
+            .eq('owner_user_id', userId)
+            .range(offset, offset + PAGE_SIZE - 1);
+
+          if (error) {
+            console.error('[OwnerArtworkModal]', error);
+            break;
+          }
+          if (data) allPixels = allPixels.concat(data as PixelData[]);
+          hasMore = (data?.length || 0) === PAGE_SIZE;
+          offset += PAGE_SIZE;
+        }
+        if (mounted) setPixels(allPixels);
       } catch (err) {
         console.error('[OwnerArtworkModal]', err);
       } finally {
@@ -178,7 +192,7 @@ export function OwnerArtworkModal({
     return () => { mounted = false; };
   }, [open, userId]);
 
-  const clusters = useMemo(() => clusterPixels(pixels), [pixels]);
+  const clusters = useMemo(() => clusterPixels(pixels, 5), [pixels]);
 
   const handleClusterClick = useCallback((cluster: Cluster) => {
     onJumpToPixel(cluster.centerX, cluster.centerY);
