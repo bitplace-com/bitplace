@@ -121,6 +121,24 @@ Deno.serve(async (req) => {
 
     const userLikesSet = new Set(userLikes?.map(l => l.place_id) || []);
 
+    // Compute total_pe for each place
+    const totalPeMap = new Map<string, number>();
+    for (const place of allPlaces) {
+      if (place.bbox_xmin != null && place.bbox_ymin != null &&
+          place.bbox_xmax != null && place.bbox_ymax != null) {
+        const { data: sumData } = await adminClient
+          .from("pixels")
+          .select("owner_stake_pe")
+          .gte("x", place.bbox_xmin)
+          .lte("x", place.bbox_xmax)
+          .gte("y", place.bbox_ymin)
+          .lte("y", place.bbox_ymax);
+        
+        const totalPe = sumData?.reduce((sum: number, p: any) => sum + (p.owner_stake_pe || 0), 0) || 0;
+        totalPeMap.set(place.id, totalPe);
+      }
+    }
+
     // Enrich places with creator and flags
     const enrichPlace = (place: any) => ({
       id: place.id,
@@ -131,11 +149,16 @@ Deno.serve(async (req) => {
       zoom: place.zoom,
       center_x: place.center_x,
       center_y: place.center_y,
+      bbox_xmin: place.bbox_xmin,
+      bbox_ymin: place.bbox_ymin,
+      bbox_xmax: place.bbox_xmax,
+      bbox_ymax: place.bbox_ymax,
       created_at: place.created_at,
       creator: creatorsMap.get(place.creator_user_id) || null,
       stats: {
         likes_all_time: place.likes_count,
         saves_all_time: place.saves_count,
+        total_pe: totalPeMap.get(place.id) || 0,
       },
       likedByMe: userLikesSet.has(place.id),
       savedByMe: true, // All saved places are saved by me

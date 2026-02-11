@@ -75,11 +75,6 @@ Deno.serve(async (req) => {
     const safeLimit = Math.min(Math.max(1, limit), 50);
     const safeOffset = Math.max(0, offset);
 
-    // Get current time bounds
-    const now = new Date();
-    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
     // Fetch places based on category
     let placesQuery = adminClient
       .from("places")
@@ -87,23 +82,21 @@ Deno.serve(async (req) => {
       .eq("is_public", true);
 
     if (category === "new") {
-      // New: Order by created_at DESC
+      // New: most recent first
       placesQuery = placesQuery
         .order("created_at", { ascending: false })
         .range(safeOffset, safeOffset + safeLimit - 1);
-    } else if (category === "popular") {
-      // Popular: Order by likes_count DESC
+    } else if (category === "trending") {
+      // Trending: most liked first
       placesQuery = placesQuery
         .order("likes_count", { ascending: false })
         .order("created_at", { ascending: false })
         .range(safeOffset, safeOffset + safeLimit - 1);
     } else {
-      // Trending: Need to compute score based on recent activity
-      // For now, fetch all recent places and compute scores
+      // Popular: will sort by total_pe after computing — fetch a batch
       placesQuery = placesQuery
-        .gte("created_at", sevenDaysAgo.toISOString())
         .order("created_at", { ascending: false })
-        .limit(200); // Get more to compute trending
+        .limit(200);
     }
 
     const { data: places, error: placesError } = await placesQuery;
@@ -127,35 +120,21 @@ Deno.serve(async (req) => {
 
     const creatorsMap = new Map(creators?.map(c => [c.id, c]) || []);
 
-    // Fetch likes in last 24h for each place
-    const { data: recentLikes } = await adminClient
-      .from("place_likes")
-      .select("place_id")
-      .in("place_id", placeIds)
-      .gte("created_at", twentyFourHoursAgo.toISOString());
-
-    const likes24hMap = new Map<string, number>();
-    recentLikes?.forEach(like => {
-      likes24hMap.set(like.place_id, (likes24hMap.get(like.place_id) || 0) + 1);
-    });
-
-    // Fetch pixel activity in last 24h for each place's bbox
-    // This is expensive, so we'll do a simplified version
-    const activity24hMap = new Map<string, number>();
-    
+    // Compute total_pe for each place with a bbox
+    const totalPeMap = new Map<string, number>();
     for (const place of places) {
-      if (place.bbox_xmin != null && place.bbox_ymin != null && 
+      if (place.bbox_xmin != null && place.bbox_ymin != null &&
           place.bbox_xmax != null && place.bbox_ymax != null) {
-        const { count } = await adminClient
+        const { data: sumData } = await adminClient
           .from("pixels")
-          .select("*", { count: "exact", head: true })
+          .select("owner_stake_pe")
           .gte("x", place.bbox_xmin)
           .lte("x", place.bbox_xmax)
           .gte("y", place.bbox_ymin)
-          .lte("y", place.bbox_ymax)
-          .gte("updated_at", twentyFourHoursAgo.toISOString());
+          .lte("y", place.bbox_ymax);
         
-        activity24hMap.set(place.id, count || 0);
+        const totalPe = sumData?.reduce((sum, p) => sum + (p.owner_stake_pe || 0), 0) || 0;
+        totalPeMap.set(place.id, totalPe);
       }
     }
 
@@ -173,57 +152,38 @@ Deno.serve(async (req) => {
       userSavesSet = new Set(savesResult.data?.map(s => s.place_id) || []);
     }
 
-    // Build response with stats
-    let enrichedPlaces = places.map(place => {
-      const likes24h = likes24hMap.get(place.id) || 0;
-      const activity24h = activity24hMap.get(place.id) || 0;
-      const trendingScore = (likes24h * 5) + activity24h;
+    // Build response
+    let enrichedPlaces = places.map(place => ({
+      id: place.id,
+      title: place.title,
+      description: place.description,
+      lat: place.lat,
+      lng: place.lng,
+      zoom: place.zoom,
+      center_x: place.center_x,
+      center_y: place.center_y,
+      bbox_xmin: place.bbox_xmin,
+      bbox_ymin: place.bbox_ymin,
+      bbox_xmax: place.bbox_xmax,
+      bbox_ymax: place.bbox_ymax,
+      created_at: place.created_at,
+      creator: creatorsMap.get(place.creator_user_id) || null,
+      stats: {
+        likes_all_time: place.likes_count,
+        saves_all_time: place.saves_count,
+        total_pe: totalPeMap.get(place.id) || 0,
+      },
+      likedByMe: userLikesSet.has(place.id),
+      savedByMe: userSavesSet.has(place.id),
+    }));
 
-      return {
-        id: place.id,
-        title: place.title,
-        description: place.description,
-        lat: place.lat,
-        lng: place.lng,
-        zoom: place.zoom,
-        center_x: place.center_x,
-        center_y: place.center_y,
-        bbox_xmin: place.bbox_xmin,
-        bbox_ymin: place.bbox_ymin,
-        bbox_xmax: place.bbox_xmax,
-        bbox_ymax: place.bbox_ymax,
-        created_at: place.created_at,
-        updated_at: place.updated_at,
-        creator: creatorsMap.get(place.creator_user_id) || null,
-        stats: {
-          likes_all_time: place.likes_count,
-          saves_all_time: place.saves_count,
-          likes_24h: likes24h,
-          activity_24h: activity24h,
-          trending_score: trendingScore,
-        },
-        likedByMe: userLikesSet.has(place.id),
-        savedByMe: userSavesSet.has(place.id),
-      };
-    });
-
-    // Sort by trending score for trending category
-    if (category === "trending") {
-      enrichedPlaces.sort((a, b) => {
-        if (b.stats.trending_score !== a.stats.trending_score) {
-          return b.stats.trending_score - a.stats.trending_score;
-        }
-        if (b.stats.likes_24h !== a.stats.likes_24h) {
-          return b.stats.likes_24h - a.stats.likes_24h;
-        }
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      });
-      
-      // Apply pagination for trending
+    // For Popular: sort by total_pe and paginate
+    if (category === "popular") {
+      enrichedPlaces.sort((a, b) => b.stats.total_pe - a.stats.total_pe);
       enrichedPlaces = enrichedPlaces.slice(safeOffset, safeOffset + safeLimit);
     }
 
-    const hasMore = category === "trending" 
+    const hasMore = category === "popular"
       ? enrichedPlaces.length === safeLimit
       : places.length === safeLimit;
 

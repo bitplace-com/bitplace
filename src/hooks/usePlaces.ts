@@ -15,9 +15,7 @@ export interface PlaceCreator {
 export interface PlaceStats {
   likes_all_time: number;
   saves_all_time: number;
-  likes_24h?: number;
-  activity_24h?: number;
-  trending_score?: number;
+  total_pe: number;
 }
 
 export interface Place {

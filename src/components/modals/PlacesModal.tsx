@@ -138,7 +138,7 @@ export function PlacesModal({
       onOpenChange={onOpenChange}
       title="Pinned Locations"
       description="Discover and save interesting places"
-      icon={<PixelIcon name="thumbtack" className="h-5 w-5" />}
+      icon={<PixelIcon name="locationPin" className="h-5 w-5" />}
       size="md"
     >
       {/* Main Tabs: Discover / My Pins */}
@@ -169,7 +169,6 @@ export function PlacesModal({
                     : "bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted"
                 )}
               >
-                {cat === "trending" && <PixelIcon name="bolt" size="xs" className="inline mr-1 text-amber-500" />}
                 {cat.charAt(0).toUpperCase() + cat.slice(1)}
               </button>
             ))}

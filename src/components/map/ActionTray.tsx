@@ -209,7 +209,7 @@ export function ActionTray({
               title="Pinned Locations"
               className="mr-1"
             >
-              <PixelIcon name="thumbtack" className="h-4 w-4" />
+              <PixelIcon name="locationPin" className="h-4 w-4" />
             </GlassIconButton>
             
             {/* More prominent visual separator */}

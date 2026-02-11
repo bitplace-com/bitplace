@@ -7,6 +7,8 @@ import { Place } from "@/hooks/usePlaces";
 import { getCountryByCode } from "@/lib/countries";
 import { getAvatarInitial } from "@/lib/avatar";
 import { PlaceThumbnail } from "./PlaceThumbnail";
+import { PEIcon } from "@/components/ui/pe-icon";
+import { PE_PER_USD } from "@/config/energy";
 
 interface PlaceCardProps {
   place: Place;
@@ -88,7 +90,7 @@ export function PlaceCard({
             </span>
             {country && <span className="text-xs">{country.flag}</span>}
             <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-              {formatDistanceToNow(new Date(place.created_at), { addSuffix: false })}
+              {formatDistanceToNow(new Date(place.created_at), { addSuffix: false })} ago
             </span>
           </div>
 
@@ -102,6 +104,19 @@ export function PlaceCard({
             <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
               {place.description}
             </p>
+          )}
+
+          {/* PE Value */}
+          {place.stats.total_pe > 0 && (
+            <div className="flex items-center gap-1 mt-0.5">
+              <PEIcon size="xs" className="text-muted-foreground" />
+              <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
+                {place.stats.total_pe.toLocaleString()} PE
+              </span>
+              <span className="text-[10px] text-muted-foreground/70">
+                (${(place.stats.total_pe / PE_PER_USD).toFixed(2)})
+              </span>
+            </div>
           )}
 
           {/* Footer: Stats & Actions */}
@@ -139,19 +154,11 @@ export function PlaceCard({
               disabled={!isAuthenticated}
             >
               <PixelIcon 
-                name="pin" 
+                name="locationPin" 
                 size="sm"
                 className={place.savedByMe ? "fill-current" : ""}
               />
             </button>
-
-            {/* Trending score badge */}
-            {place.stats.trending_score != null && place.stats.trending_score > 0 && (
-              <span className="flex items-center gap-0.5 text-[10px] text-amber-500 font-medium">
-                <PixelIcon name="bolt" size="xs" />
-                {place.stats.trending_score}
-              </span>
-            )}
 
             {/* Navigate button */}
             <Button
