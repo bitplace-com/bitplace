@@ -3,7 +3,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { PixelIcon } from '@/components/icons';
 import { GlassIconButton } from '@/components/ui/glass-icon-button';
 import { BASE_PALETTE_GRID, ALL_COLORS } from '@/lib/palettes/basePaletteGrid';
-import { MATERIALS, getMaterialsByCategory, isMaterial, getMaterial } from '@/lib/materials/materialRegistry';
+import { GRADIENT_ROWS } from '@/lib/palettes/gradientPalette';
 import { useSound } from '@/hooks/useSound';
 import { cn } from '@/lib/utils';
 import { PEIcon } from '@/components/ui/pe-icon';
@@ -58,12 +58,6 @@ interface ActionTrayProps {
 
 const PE_CHIPS = [1, 5, 10, 25, 100];
 
-const CATEGORY_LABELS: Record<string, string> = {
-  metals: 'Metals',
-  holographic: 'Holographic',
-  elements: 'Elements',
-  special: 'Special',
-};
 
 // Get the correct action icon based on map mode
 function ModeIcon({ mapMode, className }: { mapMode: MapMode; className?: string }) {
@@ -106,12 +100,10 @@ export function ActionTray({
   onPePerPixelChange,
 }: ActionTrayProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [paletteTab, setPaletteTab] = useState<'colors' | 'special'>('colors');
+  const [paletteTab, setPaletteTab] = useState<'colors' | 'gradients'>('colors');
   const [placesOpen, setPlacesOpen] = useState(false);
   const { play } = useSound();
   const isMobile = useIsMobile();
-  
-  const materialsByCategory = getMaterialsByCategory();
   
   // Use prop for external canPaint control
   const canPaint = canPaintProp;
@@ -263,16 +255,10 @@ export function ActionTray({
                   <div className="flex items-center gap-2">
                     <div 
                       className="w-5 h-5 rounded-md border border-border/50 shrink-0" 
-                      style={{ 
-                        background: isMaterial(selectedColor) 
-                          ? getMaterial(selectedColor)?.cssGradient 
-                          : selectedColor 
-                      }}
+                      style={{ background: selectedColor }}
                     />
                     <span className="text-xs font-mono text-muted-foreground truncate max-w-24">
-                      {isMaterial(selectedColor) 
-                        ? getMaterial(selectedColor)?.label 
-                        : selectedColor.toUpperCase()}
+                      {selectedColor.toUpperCase()}
                     </span>
                   </div>
               ) : (
@@ -396,15 +382,15 @@ export function ActionTray({
                         Colors
                       </button>
                       <button
-                        onClick={() => setPaletteTab('special')}
+                        onClick={() => setPaletteTab('gradients')}
                         className={cn(
                           "px-2.5 py-1 text-[11px] rounded-md transition-colors",
-                          paletteTab === 'special' 
+                          paletteTab === 'gradients' 
                             ? "bg-foreground text-background" 
                             : "bg-muted/70 text-muted-foreground hover:text-foreground"
                         )}
                       >
-                        Special
+                        Gradients
                       </button>
                     </div>
                   </div>
@@ -416,10 +402,9 @@ export function ActionTray({
                   isEraser && "opacity-40 pointer-events-none"
                 )}>
 
-                <div className="max-h-48 overflow-y-auto overflow-x-hidden py-1.5 px-2">
+                <div className="max-h-48 overflow-y-auto overflow-x-hidden py-1 px-1">
                   {paletteTab === 'colors' ? (
-                    /* Standard color palette - larger on mobile, with proper spacing */
-                    <div className="grid grid-cols-8 sm:grid-cols-12 gap-2 w-full">
+                    <div className="grid grid-cols-8 sm:grid-cols-12 gap-1.5 w-full">
                       {displayColors.map((color, index) => {
                         const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
                         return (
@@ -428,7 +413,7 @@ export function ActionTray({
                             onClick={() => handleColorClick(color)}
                             disabled={!canPaint}
                             className={cn(
-                              "w-8 h-8 sm:w-6 sm:h-6 rounded-lg sm:rounded-md transition-all duration-100 focus:outline-none touch-target",
+                              "w-7 h-7 sm:w-[22px] sm:h-[22px] rounded-lg sm:rounded-md transition-all duration-100 focus:outline-none touch-target",
                               canPaint && "hover:ring-1 hover:ring-foreground/30",
                               isSelected && "ring-2 ring-foreground scale-105 z-10",
                               !canPaint && "opacity-40 cursor-not-allowed"
@@ -440,31 +425,29 @@ export function ActionTray({
                       })}
                     </div>
                   ) : (
-                    /* Special materials palette */
-                    <div className="space-y-3 py-0.5">
-                      {Array.from(materialsByCategory.entries()).map(([category, materials]) => (
-                        <div key={category}>
-                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
-                            {CATEGORY_LABELS[category] || category}
-                          </div>
-                          <div className="grid grid-cols-5 sm:grid-cols-8 gap-2.5 sm:gap-2 w-full">
-                            {materials.map((material) => {
-                              const isSelected = selectedColor === material.id;
+                    /* Gradients palette */
+                    <div className="space-y-2 py-0.5">
+                      {GRADIENT_ROWS.map((row) => (
+                        <div key={row.label} className="flex items-center gap-2">
+                          <span className="text-[9px] w-10 text-muted-foreground shrink-0 text-right">
+                            {row.label}
+                          </span>
+                          <div className="flex gap-1 flex-1">
+                            {row.colors.map((color) => {
+                              const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
                               return (
                                 <button
-                                  key={material.id}
-                                  onClick={() => handleColorClick(material.id)}
+                                  key={color}
+                                  onClick={() => handleColorClick(color)}
                                   disabled={!canPaint}
                                   className={cn(
-                                    "w-10 h-10 sm:w-7 sm:h-7 rounded-lg sm:rounded-md transition-all duration-100 focus:outline-none relative overflow-hidden touch-target",
-                                    "hover:scale-110 hover:z-10",
-                                    "animate-shine",
+                                    "w-7 h-7 sm:w-[22px] sm:h-[22px] rounded-md transition-all duration-100 focus:outline-none touch-target",
                                     canPaint && "hover:ring-1 hover:ring-foreground/30",
-                                    isSelected && "ring-2 ring-foreground scale-110 z-10",
+                                    isSelected && "ring-2 ring-foreground scale-105 z-10",
                                     !canPaint && "opacity-40 cursor-not-allowed"
                                   )}
-                                  style={{ background: material.cssGradient }}
-                                  title={material.label}
+                                  style={{ backgroundColor: color }}
+                                  title={color.toUpperCase()}
                                 />
                               );
                             })}
