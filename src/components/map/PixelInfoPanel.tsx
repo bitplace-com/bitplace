@@ -34,7 +34,7 @@ function formatTimeUntil(targetTime: Date): string {
 }
 
 function peToUsd(pe: number): string {
-  return `~$${(pe * 0.01).toFixed(2)}`;
+  return `~$${(pe * 0.001).toFixed(2)}`;
 }
 
 export function PixelInfoPanel({
@@ -248,9 +248,27 @@ export function PixelInfoPanel({
                     )}
                   </div>
                 )}
-              </div>
+               </div>
 
-              {/* ── Pixel Economy ── */}
+               {/* ── Owner Stats ── */}
+               <div className="flex items-center gap-2 text-xs">
+                 <div className="flex-1 bg-muted/50 rounded-lg px-2.5 py-2 text-center">
+                   <div className="font-semibold text-foreground">{(pixel.owner?.pixels_painted_total ?? 0).toLocaleString()}</div>
+                   <div className="text-[10px] text-muted-foreground">Pixels</div>
+                 </div>
+                 <div className="flex-1 bg-muted/50 rounded-lg px-2.5 py-2 text-center">
+                   <div className="font-semibold text-foreground flex items-center justify-center gap-0.5">
+                     {(pixel.owner?.total_staked_pe ?? 0).toLocaleString()} <PEIcon size="xs" />
+                   </div>
+                   <div className="text-[10px] text-muted-foreground">Staked</div>
+                 </div>
+                 <div className="flex-1 bg-muted/50 rounded-lg px-2.5 py-2 text-center">
+                   <div className="font-semibold text-foreground">{peToUsd(pixel.owner?.total_staked_pe ?? 0)}</div>
+                   <div className="text-[10px] text-muted-foreground">Value</div>
+                 </div>
+               </div>
+
+               {/* ── Pixel Economy ── */}
               <div className="bg-muted/50 rounded-lg p-3 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   {/* Owner Stake */}

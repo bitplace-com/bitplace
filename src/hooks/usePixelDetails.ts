@@ -9,6 +9,8 @@ interface OwnerProfile {
   country_code: string | null;
   alliance_tag: string | null;
   avatar_url: string | null;
+  pixels_painted_total: number;
+  total_staked_pe: number;
   owner_health_multiplier: number;
   rebalance_active: boolean;
   rebalance_started_at: string | null;
@@ -161,7 +163,7 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
         // Use public_pixel_owner_info view - safe public fields only (wallet_short, not full address)
         const { data: ownerData, error: ownerError } = await supabase
           .from('public_pixel_owner_info' as any)
-          .select('id, display_name, wallet_short, avatar_url, country_code, alliance_tag, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier, bio, social_x, social_instagram, social_website')
+          .select('id, display_name, wallet_short, avatar_url, country_code, alliance_tag, pixels_painted_total, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier, bio, social_x, social_instagram, social_website')
           .eq('id', pixelData.owner_user_id)
           .maybeSingle();
         
@@ -183,6 +185,8 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
             country_code: data.country_code,
             alliance_tag: data.alliance_tag,
             avatar_url: data.avatar_url,
+            pixels_painted_total: Number(data.pixels_painted_total ?? 0),
+            total_staked_pe: 0, // Will be filled below
             owner_health_multiplier: data.owner_health_multiplier ?? 1,
             rebalance_active: data.rebalance_active ?? false,
             rebalance_started_at: data.rebalance_started_at,
@@ -197,6 +201,22 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
         } else {
           console.warn('[usePixelDetails] No owner profile found for:', pixelData.owner_user_id);
         }
+      }
+
+      // Fetch owner's total staked PE (aggregate query to avoid row limit)
+      if (owner && pixelData.owner_user_id) {
+        const { data: stakeData } = await supabase
+          .from('pixels')
+          .select('owner_stake_pe')
+          .eq('owner_user_id', pixelData.owner_user_id);
+        // Also fetch contribution totals
+        const { data: contribData } = await supabase
+          .from('pixel_contributions')
+          .select('amount_pe')
+          .eq('user_id', pixelData.owner_user_id);
+        const stakeSum = stakeData?.reduce((s, p) => s + Number(p.owner_stake_pe || 0), 0) || 0;
+        const contribSum = contribData?.reduce((s, c) => s + Number(c.amount_pe || 0), 0) || 0;
+        owner.total_staked_pe = stakeSum + contribSum;
       }
 
       const { data: contributions } = await supabase.from('pixel_contributions').select('id, user_id, amount_pe, side').eq('pixel_id', pixelData.id);
