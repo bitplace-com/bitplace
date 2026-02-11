@@ -6,6 +6,25 @@ import { toast } from 'sonner';
 import { getAuthHeadersOrExpire } from '@/lib/authHelpers';
 import { streamingInvoke } from '@/lib/streamingFetch';
 
+// ── Exported warmup helper ──────────────────────────────────────────
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+/**
+ * Fire-and-forget PING to warm up a specific edge function + its DB pool.
+ * Call this as early as possible (e.g. when entering PAINT mode or first draft pixel).
+ */
+export function warmupFunction(functionName: string): void {
+  const headers = getAuthHeadersOrExpire();
+  if (!headers || !SUPABASE_URL) return;
+
+  fetch(`${SUPABASE_URL}/functions/v1/${functionName}`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json', apikey: ANON_KEY },
+    body: JSON.stringify({ mode: 'PING' }),
+  }).catch(() => {});
+}
+
 export type GameMode = 'PAINT' | 'DEFEND' | 'ATTACK' | 'REINFORCE' | 'ERASE';
 
 export interface InvalidPixel {
@@ -319,15 +338,24 @@ export function useGameActions() {
     setProgress({ processed: 0, total: deduplicatedPixels.length });
 
     // Fire-and-forget: pre-warm game-commit DB pool while validate runs
+    warmupFunction('game-commit');
+
+    // AWAIT warmup PING to game-validate (max 15s) - ensures DB connection pool is warm
+    // If DB is already warm this completes in ~200ms; if cold it can take 10-15s
+    // but then the actual validate call afterwards will be fast (~1-2s)
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const apiKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      fetch(`${supabaseUrl}/functions/v1/game-commit`, {
+      const pingController = new AbortController();
+      const pingTimeout = setTimeout(() => pingController.abort(), 15000);
+      await fetch(`${SUPABASE_URL}/functions/v1/game-validate`, {
         method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json', 'apikey': apiKey },
+        signal: pingController.signal,
+        headers: { ...headers, 'Content-Type': 'application/json', apikey: ANON_KEY },
         body: JSON.stringify({ mode: 'PING' }),
-      }).catch(() => {});
-    } catch {}
+      });
+      clearTimeout(pingTimeout);
+    } catch {
+      // Ignore PING errors - proceed with actual validate regardless
+    }
 
     try {
       let data: ValidateResult | null = null;
