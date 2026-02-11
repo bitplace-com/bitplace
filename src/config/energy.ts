@@ -15,8 +15,8 @@ export const ENERGY_CONFIG = {
   },
 } as const;
 
-// PE rate: 1 PE = $0.01, so 1 USD = 100 PE
-export const PE_PER_USD = 100;
+// PE rate: 1 PE = $0.001, so 1 USD = 1000 PE
+export const PE_PER_USD = 1000;
 
 // Stale threshold for auto-refresh before actions (60 seconds)
 export const ENERGY_STALE_THRESHOLD_MS = 60 * 1000;

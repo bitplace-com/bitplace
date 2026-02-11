@@ -31,7 +31,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
                 <h3 className="font-semibold">Pixel Energy (PE)</h3>
               </div>
               <p className="text-muted-foreground pl-9">
-                The unit of energy in Bitplace. Your PE capacity depends on the $ value of $BIT in your wallet. Every action on the map costs PE. You can see your current PE balance in the top bar. 1 PE = $0.01.
+                The unit of energy in Bitplace. Your PE capacity depends on the $ value of $BIT in your wallet. Every action on the map costs PE. You can see your current PE balance in the top bar. 1 PE = $0.001.
               </p>
               <p className="text-xs text-muted-foreground pl-9 italic">
                 Test phase: PE is calculated from the $ value of $SOL in your wallet.
@@ -68,7 +68,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
                 <h3 className="font-semibold">Pixel Value</h3>
               </div>
               <p className="text-muted-foreground pl-9">
-                The total $ strength of a pixel. It equals the owner's stake plus any defense, minus any attacks received. An empty pixel has a value of $0.01 (1 PE). Any pixel can be taken over at any time — you just need to stake more PE than its current value. The lower the value, the cheaper it is to conquer.
+                The total $ strength of a pixel. It equals the owner's stake plus any defense, minus any attacks received. An empty pixel has a value of $0.001 (1 PE). Any pixel can be taken over at any time — you just need to stake more PE than its current value. The lower the value, the cheaper it is to conquer.
               </p>
             </section>
 

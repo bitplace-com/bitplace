@@ -30,8 +30,8 @@ export default function SpecPage() {
               <p><strong>Energy Unit:</strong> PE (Pixel Energy)</p>
             </div>
             <div className="bg-muted/50 p-3 rounded-md font-mono text-xs">
-              1 PE = $0.01 USD<br />
-              1 USD = 100 PE
+              1 PE = $0.001 USD<br />
+              1 USD = 1,000 PE
             </div>
             <p>PE is derived from the user's wallet value in BTP/SOL at current market price.</p>
           </div>
