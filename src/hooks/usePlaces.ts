@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const SESSION_TOKEN_KEY = 'bitplace_session_token';
 
@@ -59,6 +60,7 @@ export function usePlaces() {
   const [isLoadingMy, setIsLoadingMy] = useState(false);
 
   const [isCreating, setIsCreating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadFeed = useCallback(async (
     category: FeedCategory, 
@@ -128,6 +130,7 @@ export function usePlaces() {
     lat: number;
     lng: number;
     zoom?: number;
+    bbox?: { xmin: number; ymin: number; xmax: number; ymax: number };
   }): Promise<Place | null> => {
     const token = getSessionToken();
     if (!token) {
@@ -146,9 +149,7 @@ export function usePlaces() {
 
       const place = result?.place;
       if (place) {
-        // Add to created places
         setCreatedPlaces(prev => [place, ...prev]);
-        // Add to feed if on "new" tab
         setFeed(prev => [place, ...prev]);
       }
       
@@ -158,6 +159,34 @@ export function usePlaces() {
       throw new Error(e.message || 'Failed to create place');
     } finally {
       setIsCreating(false);
+    }
+  }, []);
+
+  const deletePlace = useCallback(async (placeId: string): Promise<boolean> => {
+    const token = getSessionToken();
+    if (!token) return false;
+
+    setIsDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('places-delete', {
+        body: { place_id: placeId },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (error) throw error;
+
+      setCreatedPlaces(prev => prev.filter(p => p.id !== placeId));
+      setFeed(prev => prev.filter(p => p.id !== placeId));
+      setSavedPlaces(prev => prev.filter(p => p.id !== placeId));
+
+      toast.success('Pin deleted');
+      return true;
+    } catch (e) {
+      console.error('Failed to delete place:', e);
+      toast.error('Failed to delete pin');
+      return false;
+    } finally {
+      setIsDeleting(false);
     }
   }, []);
 
@@ -260,6 +289,8 @@ export function usePlaces() {
     // Actions
     createPlace,
     isCreating,
+    deletePlace,
+    isDeleting,
     toggleLike,
     toggleSave,
   };

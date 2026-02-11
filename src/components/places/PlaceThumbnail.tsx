@@ -84,7 +84,7 @@ export const PlaceThumbnail = memo(function PlaceThumbnail({
           // Calculate downsample factor for large areas
           const bboxWidth = bbox.xmax - bbox.xmin + 1;
           const bboxHeight = bbox.ymax - bbox.ymin + 1;
-          const maxPixels = 100;
+          const maxPixels = 500;
           
           // Fetch pixels within bbox (limit to maxPixels)
           const { data, error } = await supabase

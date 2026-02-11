@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -22,6 +22,16 @@ interface PlacesModalProps {
   currentZoom?: number;
 }
 
+interface PinPlacedData {
+  lat: number;
+  lng: number;
+  x: number;
+  y: number;
+  zoom: number;
+  bbox: { xmin: number; ymin: number; xmax: number; ymax: number };
+  artworkPixels: { x: number; y: number; color: string }[];
+}
+
 type MainTab = "discover" | "my";
 
 export function PlacesModal({
@@ -35,12 +45,13 @@ export function PlacesModal({
   const {
     feed, isLoadingFeed, hasMore, loadFeed,
     savedPlaces, createdPlaces, isLoadingMy, loadMyPlaces,
-    createPlace, isCreating, toggleLike, toggleSave,
+    createPlace, isCreating, deletePlace, toggleLike, toggleSave,
   } = usePlaces();
 
   const [mainTab, setMainTab] = useState<MainTab>("discover");
   const [feedCategory, setFeedCategory] = useState<FeedCategory>("new");
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [pinPlacedData, setPinPlacedData] = useState<PinPlacedData | null>(null);
 
   // Load data when modal opens or tab changes
   useEffect(() => {
@@ -53,9 +64,26 @@ export function PlacesModal({
     }
   }, [open, mainTab, feedCategory, loadFeed, loadMyPlaces]);
 
+  // Listen for pin-placed events
+  useEffect(() => {
+    const handlePinPlaced = (e: Event) => {
+      const detail = (e as CustomEvent<PinPlacedData>).detail;
+      if (detail) {
+        setPinPlacedData(detail);
+        setShowCreateForm(true);
+        setMainTab("my");
+        onOpenChange(true);
+      }
+    };
+
+    window.addEventListener("bitplace:pin-placed", handlePinPlaced);
+    return () => window.removeEventListener("bitplace:pin-placed", handlePinPlaced);
+  }, [onOpenChange]);
+
   const handleMainTabChange = (tab: string) => {
     setMainTab(tab as MainTab);
     setShowCreateForm(false);
+    setPinPlacedData(null);
   };
 
   const handleFeedCategoryChange = (category: string) => {
@@ -64,25 +92,37 @@ export function PlacesModal({
 
   const handleNavigate = useCallback((place: Place) => {
     onOpenChange(false);
-    // Emit navigation event for BitplaceMap to handle
     window.dispatchEvent(new CustomEvent("bitplace:navigate", {
       detail: { lat: place.lat, lng: place.lng, zoom: place.zoom }
     }));
   }, [onOpenChange]);
 
-  const handleCreatePlace = async (data: { title: string; description?: string; lat: number; lng: number; zoom: number }) => {
+  const handleStartPinPlacement = () => {
+    onOpenChange(false);
+    setShowCreateForm(false);
+    window.dispatchEvent(new CustomEvent("bitplace:start-pin-placement"));
+  };
+
+  const handleCreatePlace = async (data: { 
+    title: string; description?: string; lat: number; lng: number; zoom: number;
+    bbox?: { xmin: number; ymin: number; xmax: number; ymax: number };
+  }) => {
     const place = await createPlace(data);
     if (place) {
       toast.success("Pinned!", { description: place.title });
       setShowCreateForm(false);
+      setPinPlacedData(null);
       setMainTab("my");
       loadMyPlaces();
     }
   };
 
+  const handleDeletePlace = async (placeId: string) => {
+    await deletePlace(placeId);
+  };
+
   const handleToggleLike = async (placeId: string) => {
     const liked = await toggleLike(placeId);
-    // Sound + haptic feedback
     soundEngine.play(liked ? 'like' : 'unlike');
     hapticsEngine.trigger('like');
     toast.success(liked ? "Liked!" : "Unliked", { duration: 1500 });
@@ -90,18 +130,17 @@ export function PlacesModal({
 
   const handleToggleSave = async (placeId: string) => {
     const saved = await toggleSave(placeId);
-    // Sound + haptic feedback
     soundEngine.play(saved ? 'save' : 'unsave');
     hapticsEngine.trigger('like');
     toast.success(saved ? "Saved!" : "Removed", { duration: 1500 });
   };
 
-  const renderPlacesList = (places: Place[], isLoading: boolean, emptyMessage: string) => {
+  const renderPlacesList = (places: Place[], isLoading: boolean, emptyMessage: string, isOwnerList = false) => {
     if (isLoading && places.length === 0) {
       return (
         <div className="space-y-3">
           {[...Array(3)].map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
+            <Skeleton key={i} className="h-48 rounded-xl" />
           ))}
         </div>
       );
@@ -125,6 +164,8 @@ export function PlacesModal({
             onNavigate={handleNavigate}
             onToggleLike={handleToggleLike}
             onToggleSave={handleToggleSave}
+            onDelete={isOwnerList ? handleDeletePlace : undefined}
+            isOwner={isOwnerList}
             isAuthenticated={isAuthenticated}
           />
         ))}
@@ -141,7 +182,6 @@ export function PlacesModal({
       icon={<PixelIcon name="locationPin" className="h-5 w-5" />}
       size="md"
     >
-      {/* Main Tabs: Discover / My Pins */}
       <Tabs value={mainTab} onValueChange={handleMainTabChange} className="flex flex-col h-full">
         <TabsList className="grid grid-cols-2 mb-4">
           <TabsTrigger value="discover" className="gap-1.5">
@@ -156,7 +196,6 @@ export function PlacesModal({
 
         {/* Discover Tab */}
         <TabsContent value="discover" className="flex-1 flex flex-col mt-0 data-[state=inactive]:hidden">
-          {/* Sub-tabs: New / Trending / Popular */}
           <div className="flex gap-1 mb-4">
             {(["new", "trending", "popular"] as FeedCategory[]).map((cat) => (
               <button
@@ -188,28 +227,28 @@ export function PlacesModal({
             </div>
           ) : showCreateForm ? (
             <CreatePlaceForm
-              currentLat={currentLat}
-              currentLng={currentLng}
-              currentZoom={currentZoom}
+              currentLat={pinPlacedData?.lat ?? currentLat}
+              currentLng={pinPlacedData?.lng ?? currentLng}
+              currentZoom={pinPlacedData?.zoom ?? currentZoom}
+              bbox={pinPlacedData?.bbox}
+              artworkPixels={pinPlacedData?.artworkPixels}
               onSubmit={handleCreatePlace}
-              onCancel={() => setShowCreateForm(false)}
+              onCancel={() => { setShowCreateForm(false); setPinPlacedData(null); }}
               isSubmitting={isCreating}
             />
           ) : (
             <>
-              {/* Create Pin CTA */}
               <Button
-                onClick={() => setShowCreateForm(true)}
+                onClick={handleStartPinPlacement}
                 variant="outline"
                 className="mb-4 border-dashed border-2 h-12"
               >
-                <PixelIcon name="plus" size="sm" className="mr-2" />
-                Create Pin at Current Location
+                <PixelIcon name="locationPin" size="sm" className="mr-2" />
+                Place a Pin on Map
               </Button>
 
               <ScrollArea className="flex-1 -mx-6 px-6">
                 <div className="space-y-6">
-                  {/* Saved Places */}
                   <div>
                     <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-1.5">
                       <PixelIcon name="heart" size="xs" />
@@ -218,13 +257,12 @@ export function PlacesModal({
                     {renderPlacesList(savedPlaces, isLoadingMy, "No saved places yet.")}
                   </div>
 
-                  {/* Created Places */}
                   <div>
                     <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-1.5">
                       <PixelIcon name="star" size="xs" />
                       Created by Me
                     </h3>
-                    {renderPlacesList(createdPlaces, isLoadingMy, "You haven't created any places.")}
+                    {renderPlacesList(createdPlaces, isLoadingMy, "You haven't created any places.", true)}
                   </div>
                 </div>
               </ScrollArea>
