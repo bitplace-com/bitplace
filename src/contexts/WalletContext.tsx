@@ -28,9 +28,6 @@ interface User {
   avatar_url: string | null;
   pe_total_pe: number;
   created_at: string;
-  // Progression fields
-  xp: number;
-  level: number;
   // Energy fields
   energy_asset?: string;
   native_symbol?: string;

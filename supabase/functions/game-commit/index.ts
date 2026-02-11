@@ -219,12 +219,6 @@ function generateSnapshotHash(pixelStates: PixelData[]): string {
   return hash.toString(36);
 }
 
-const LEVEL_BASE = 10;
-const MAX_LEVEL = 100;
-
-function calculateLevel(pixelsPainted: number): number {
-  return Math.min(MAX_LEVEL, Math.floor(Math.sqrt(pixelsPainted / LEVEL_BASE)) + 1);
-}
 
 const VALID_MATERIALS = [
   'mat:gold', 'mat:silver', 'mat:bronze',
@@ -575,20 +569,17 @@ async function executeCommit(
   };
 
   // Update user stats for PAINT
-  let newLevel = user.level || 1;
   let newPixelsPaintedTotal = user.pixels_painted_total || 0;
   let paintCooldownUntil: Date | null = null;
   
   if (mode === "PAINT" && affectedPixels > 0) {
     newPixelsPaintedTotal = (user.pixels_painted_total || 0) + affectedPixels;
-    newLevel = calculateLevel(newPixelsPaintedTotal);
     paintCooldownUntil = new Date(Date.now() + PAINT_COOLDOWN_SECONDS * 1000);
     
     await supabase
       .from("users")
       .update({ 
         pixels_painted_total: newPixelsPaintedTotal, 
-        level: newLevel,
         paint_cooldown_until: paintCooldownUntil.toISOString(),
       })
       .eq("id", userId);
@@ -629,7 +620,6 @@ async function executeCommit(
     ok: true,
     affectedPixels,
     pixelsPaintedTotal: newPixelsPaintedTotal,
-    level: newLevel,
     eventId: eventData?.id,
     contributionsPurged: false,
     purgedContributionCount: 0,

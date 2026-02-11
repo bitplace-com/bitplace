@@ -7,24 +7,13 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { CountryPicker } from "@/components/ui/country-picker";
-import { LevelPill } from "@/components/ui/level-pill";
 import { useWallet } from "@/contexts/WalletContext";
 import { usePeBalance } from "@/hooks/usePeBalance";
 import { usePixelStats } from "@/hooks/usePixelStats";
 import { ENERGY_ASSET } from "@/config/energy";
 import { cn } from "@/lib/utils";
 import { generateAvatarGradient, getAvatarInitial } from "@/lib/avatar";
-import {
-  calculateLevel,
-  levelProgress,
-  thresholdForLevel,
-  thresholdForNextLevel,
-  getStatusTitle,
-  getStatusColor,
-  getStatusBgColor,
-} from "@/lib/progression";
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]*$/;
 const USERNAME_MIN = 3;
@@ -119,13 +108,8 @@ const ProfilePage = () => {
     return `${hours}h ago`;
   };
 
-  // Progression data - based on pixels painted
+  // Stats data
   const pixelsPainted = (user as any)?.pixels_painted_total || 0;
-  const level = user?.level || calculateLevel(pixelsPainted);
-  const progress = levelProgress(pixelsPainted);
-  const statusTitle = getStatusTitle(level);
-  const currentLevelThreshold = thresholdForLevel(level);
-  const nextLevelThreshold = thresholdForNextLevel(level);
   const avatarGradient = generateAvatarGradient(walletAddress || "default");
   const avatarInitial = getAvatarInitial(user?.display_name, walletAddress);
 
@@ -274,73 +258,21 @@ const ProfilePage = () => {
           )}
         </SectionCard>
 
-        {/* Progression Section - Only show when connected */}
+        {/* Stats Section - Only show when connected */}
         {isConnected && (
-          <SectionCard icon={(props) => <PixelIcon name="star" {...props} />} title="Progression">
-            <div className="space-y-4">
-              {/* Avatar + Level Header */}
-              <div className="flex items-center gap-4">
-                {/* Avatar Preview */}
-                {user?.avatar_url ? (
-                  <img
-                    src={user.avatar_url}
-                    alt="Avatar"
-                    className="h-16 w-16 rounded-full object-cover border-2 border-border/50"
-                  />
-                ) : (
-                  <div
-                    className="h-16 w-16 rounded-full flex items-center justify-center text-white font-bold text-xl border-2 border-border/50"
-                    style={{ background: avatarGradient }}
-                  >
-                    {avatarInitial}
-                  </div>
-                )}
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={cn("p-1.5 rounded-lg", getStatusBgColor(level))}
-                    >
-                      <PixelIcon name="star" className={cn("h-4 w-4", getStatusColor(level))} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-lg font-semibold">Level {level}</p>
-                        <LevelPill level={level} size="sm" />
-                      </div>
-                      <p
-                        className={cn("text-sm font-medium", getStatusColor(level))}
-                      >
-                        {statusTitle}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold">{pixelsPainted.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">Pixels Painted</p>
-                </div>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Progress to Level {Math.min(level + 1, 100)}</span>
-                  <span>{Math.round(progress)}%</span>
-                </div>
-                <Progress value={progress} className="h-3" />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{currentLevelThreshold.toLocaleString()} pixels</span>
-                  <span>{nextLevelThreshold.toLocaleString()} pixels</span>
-                </div>
-              </div>
-
-              {/* Level Info */}
-              <div className="p-3 bg-muted/30 rounded-xl">
-                <p className="text-xs text-muted-foreground">
-                  Level up by painting pixels! Your level is based on your total pixels painted.
-                  Max level: 100 (requires ~98,000 pixels).
-                </p>
-              </div>
+          <SectionCard icon={(props) => <PixelIcon name="chart" {...props} />} title="Stats">
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard
+                label="Pixels Painted"
+                value={pixelsPainted.toLocaleString()}
+                icon={(props) => <PixelIcon name="brush" {...props} />}
+              />
+              <StatCard
+                label="PE Used"
+                value={energy.peUsed.toLocaleString()}
+                icon={(props) => <PixelIcon name="coins" {...props} />}
+                variant="primary"
+              />
             </div>
           </SectionCard>
         )}

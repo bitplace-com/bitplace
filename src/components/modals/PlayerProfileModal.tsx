@@ -16,7 +16,6 @@ import { useFollows, useFollowerCount } from "@/hooks/useFollows";
 import { useWallet } from "@/contexts/WalletContext";
 import { generateAvatarGradient } from "@/lib/avatar";
 import { getCountryByCode } from "@/lib/countries";
-import { getStatusTitle } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -169,7 +168,6 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
 
   const avatarGradient = generateAvatarGradient(profile?.id || playerId || '');
   const country = profile?.countryCode ? getCountryByCode(profile.countryCode) : null;
-  const statusTitle = profile ? getStatusTitle(profile.level) : null;
   const hasSocials = profile?.socialX || profile?.socialInstagram || profile?.socialWebsite;
 
   return (
@@ -235,22 +233,6 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
                     [{profile.allianceTag}]
                   </span>
                 )}
-                
-                {/* Level badge */}
-                <div className="flex items-center gap-2 mt-1">
-                  <span className={cn(
-                    "text-xs font-medium px-2 py-0.5 rounded-full",
-                    "bg-primary/10 text-primary"
-                  )}>
-                    <PixelIcon name="crown" className="h-3 w-3 inline mr-1" />
-                    Level {profile.level}
-                  </span>
-                  {statusTitle && (
-                    <span className="text-xs text-muted-foreground">
-                      {statusTitle}
-                    </span>
-                  )}
-                </div>
               </div>
 
               {/* Follow button */}
@@ -365,14 +347,14 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
                 suffix={<PEIcon size="sm" className="text-muted-foreground" />}
               />
               <StatCard
-                label="Level"
-                value={profile.level}
-                iconName="crown"
+                label="Pixels Painted"
+                value={profile.totalPixelsOwned}
+                iconName="brush"
               />
               <StatCard
-                label="XP"
-                value={profile.xp}
-                iconName="bolt"
+                label="PE Used"
+                value={profile.peUsed}
+                suffix={<PEIcon size="sm" className="text-muted-foreground" />}
               />
             </div>
 

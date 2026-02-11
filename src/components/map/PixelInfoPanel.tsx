@@ -7,7 +7,6 @@ import { GlassPanel } from '@/components/ui/glass-panel';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserMinimap } from '@/components/UserMinimap';
-import { LevelPill } from '@/components/ui/level-pill';
 import { OwnerArtworkModal } from './OwnerArtworkModal';
 import { usePixelDetails } from '@/hooks/usePixelDetails';
 import { generateAvatarGradient, getAvatarInitial } from '@/lib/avatar';
@@ -191,7 +190,6 @@ export function PixelInfoPanel({
                       {isOwnPixel && (
                         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">You</span>
                       )}
-                      {pixel.owner && <LevelPill level={pixel.owner.owner_health_multiplier >= 1 ? 1 : 1} size="xs" />}
                       {pixel.owner?.alliance_tag && (
                         <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-accent text-accent-foreground">
                           [{pixel.owner.alliance_tag}]

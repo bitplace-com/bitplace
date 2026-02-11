@@ -14,8 +14,7 @@ export interface PlayerProfile {
   avatarUrl: string | null;
   countryCode: string | null;
   allianceTag: string | null;
-  level: number;
-  xp: number;
+  peUsed: number;
   bio: string | null;
   socialX: string | null;
   socialInstagram: string | null;
@@ -46,7 +45,7 @@ export function usePlayerProfile(playerId: string | null) {
       // Fetch user profile from public view
       const { data: userData, error: userError } = await supabase
         .from('public_user_profiles' as any)
-        .select('id, display_name, wallet_short, avatar_url, country_code, alliance_tag, level, xp')
+        .select('id, display_name, wallet_short, avatar_url, country_code, alliance_tag, pixels_painted_total')
         .eq('id', playerId)
         .maybeSingle();
 
@@ -84,10 +83,10 @@ export function usePlayerProfile(playerId: string | null) {
         0
       );
 
-      // Get user creation date
-      const { data: userCreated } = await supabase
+      // Get user creation date and pe_used_pe
+      const { data: userExtra } = await supabase
         .from('users')
-        .select('created_at')
+        .select('created_at, pe_used_pe')
         .eq('id', playerId)
         .maybeSingle();
 
@@ -101,15 +100,14 @@ export function usePlayerProfile(playerId: string | null) {
         avatarUrl: user.avatar_url,
         countryCode: user.country_code,
         allianceTag: user.alliance_tag,
-        level: user.level || 1,
-        xp: Number(user.xp) || 0,
+        peUsed: Number((userExtra as any)?.pe_used_pe) || 0,
         bio: profile?.bio || null,
         socialX: profile?.social_x || null,
         socialInstagram: profile?.social_instagram || null,
         socialWebsite: profile?.social_website || null,
         totalPixelsOwned: pixels.length,
         totalStaked,
-        joinedAt: (userCreated as any)?.created_at || new Date().toISOString(),
+        joinedAt: (userExtra as any)?.created_at || new Date().toISOString(),
         pixels,
       });
     } catch (err) {
