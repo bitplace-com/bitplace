@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { Hand } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -122,7 +123,7 @@ export function TemplateDetailView({
             onClick={onToggleMoveMode}
             className="h-8 gap-1.5"
           >
-            <PixelIcon name="hand" size="sm" />
+            <Hand className="h-4 w-4" />
             Move
           </Button>
         </div>
