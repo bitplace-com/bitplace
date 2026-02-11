@@ -467,8 +467,9 @@ export function useGameActions() {
       return null;
     } finally {
       setIsValidating(false);
-      setProgress(null);
       setIsStalled(false);
+      // Delay clearing progress so OperationProgress can flash 100%
+      setTimeout(() => setProgress(null), 700);
     }
   }, [user?.id, getAuthHeaders, abortRequest]);
 
@@ -621,8 +622,9 @@ export function useGameActions() {
       return null;
     } finally {
       setIsCommitting(false);
-      setProgress(null);
       setIsStalled(false);
+      // Delay clearing progress so OperationProgress can flash 100%
+      setTimeout(() => setProgress(null), 700);
     }
   }, [user?.id, getAuthHeaders]);
 
