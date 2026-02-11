@@ -1,56 +1,48 @@
 
-# Fix Progress Bar: Completamento Visivo e Continuita
 
-## Problemi Identificati
+# Fix: Minimap e Artwork Modal mostrano disegni incompleti
 
-### 1. La barra scompare senza mostrare il 100%
-Nel `finally` di validate/commit in `useGameActions.ts`, `setProgress(null)` e `setIsValidating(false)` vengono chiamati nello stesso ciclo di render. In `OperationProgress.tsx`, la riga `if (!progress && !showComplete) return null` fa sparire il componente PRIMA che il `useEffect` possa settare `showComplete=true` e mostrare il flash a 100%.
+## Problema Identificato
 
-### 2. Nessuna continuita visiva tra validate e commit
-Quando il validate finisce, la barra sparisce. Quando il commit inizia, ne appare una nuova da 0%. L'utente percepisce un "reset" confuso.
-
-### 3. La guardia `!progress` e troppo aggressiva
-La condizione a riga 95 impedisce la visualizzazione della barra simulata perche `progress` puo essere null anche quando l'operazione e attiva.
+L'utente possiede **1.681 pixel** ma le query ne restituiscono solo **1.000**. Questo succede perche il default di PostgREST limita le risposte a 1.000 righe, indipendentemente dal valore passato a `.limit()`. Risultato:
+- Il disegno Bitcoin appare incompleto (mancano ~680 pixel)
+- Una parte del disegno viene separata in un cluster diverso perche i pixel "ponte" tra le due aree sono tra quelli tagliati
 
 ## Modifiche
 
-### 1. `src/components/map/OperationProgress.tsx`
-- Rimuovere la guardia `if (!progress && !showComplete) return null` (riga 95) -- la barra deve mostrarsi ogni volta che `isActive` e true, indipendentemente da `progress`
-- Semplificare la logica: mostrare il componente quando `isActive || showComplete`
-- La simulazione parte immediatamente quando `isActive` diventa true, senza dipendere da `progress`
+### 1. `src/components/map/OwnerArtworkModal.tsx` - Fetch paginato
+- Sostituire la singola query con un loop paginato usando `.range(offset, offset + 999)` 
+- Continuare a fetchare finche la pagina restituita ha esattamente 1000 righe
+- Questo garantisce di ottenere TUTTI i pixel dell'utente, non solo i primi 1000
 
-### 2. `src/hooks/useGameActions.ts`
-- Nel `finally` di `validate()` (riga 468-472): NON settare `setProgress(null)` immediatamente. Lasciare che `OperationProgress` gestisca la transizione visiva tramite `isActive`
-- Nel `finally` di `commit()` (riga 622-626): stesso fix
-- Spostare `setProgress(null)` nel reset esplicito (`clearValidation`) e nell'inizio di una nuova operazione, non nel finally
-- In alternativa, separare il flusso: settare `setProgress(null)` con un piccolo delay (700ms) dopo la fine dell'operazione per permettere il flash a 100%
+### 2. `src/components/UserMinimap.tsx` - Stesso fix di paginazione
+- Applicare la stessa logica di fetch paginato
+- Stesso pattern: loop con `.range()` fino a esaurimento dati
 
-### 3. `src/components/map/OperationProgress.tsx` - Miglioramento useEffect
-- L'useEffect che gestisce il completamento (quando `isActive` diventa false) deve funzionare senza dipendere da `progress`
-- Rimuovere `hasRealProgress` dalle dipendenze dell'effect principale per evitare restart indesiderati della simulazione
-- Aggiungere un ref `wasActiveRef` per tracciare la transizione `isActive: true -> false` e triggerare il flash a 100% in modo affidabile
+### 3. `src/components/map/OwnerArtworkModal.tsx` - Aumentare il gap di clustering
+- Cambiare il gap da 3 a 5 nella chiamata `clusterPixels(pixels, 5)`
+- Un gap piu ampio riduce la probabilita di separare parti dello stesso disegno in cluster diversi
+- 5 pixel di distanza e un buon compromesso: unisce parti vicine senza fondere disegni realmente separati
 
 ## Dettagli Tecnici
 
-### OperationProgress.tsx - Nuova Logica
-
-La logica di rendering diventa:
+La funzione di fetch paginato sara:
 
 ```text
-isActive=true  -> mostra barra con simulazione (0% -> 90% logaritmico)
-isActive=false, wasActive=true -> flash 100% per 600ms, poi nascondi
-isActive=false, wasActive=false -> nascondi (null)
+PAGE_SIZE = 1000
+offset = 0
+allPixels = []
+
+loop:
+  fetch .range(offset, offset + PAGE_SIZE - 1)
+  append results to allPixels
+  if results.length < PAGE_SIZE -> break
+  offset += PAGE_SIZE
 ```
 
-L'effetto usera un ref `wasActiveRef` per detectare la transizione:
-- Quando `isActive` passa da true a false, setta `showComplete=true` e `simPercent=100`
-- Dopo 600ms, setta `showComplete=false` e `simPercent=0`
+Questo pattern e gia usato con successo nella edge function `pixels-fetch-tiles`.
 
-### useGameActions.ts - Rimozione setProgress(null) dal finally
+### File modificati
+- `src/components/map/OwnerArtworkModal.tsx`
+- `src/components/UserMinimap.tsx`
 
-Nel `finally` di `validate()` e `commit()`:
-- Rimuovere `setProgress(null)` 
-- Mantenere `setIsValidating(false)` / `setIsCommitting(false)` e `setIsStalled(false)`
-- `setProgress(null)` viene chiamato solo in `clearValidation()` e all'inizio di una nuova operazione (`validate()` e `commit()`)
-
-Questo permette a `OperationProgress` di vedere `isActive=false` PRIMA che `progress` venga azzerato, dando tempo al flash di 100%.
