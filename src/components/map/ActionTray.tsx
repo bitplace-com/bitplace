@@ -218,6 +218,7 @@ export function ActionTray({
             {canPaint && (
               <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5">
                 <button
+                  onMouseDown={e => e.preventDefault()}
                   onClick={() => onInteractionModeChange('drag')}
                   className={cn(
                     "w-10 h-10 sm:w-7 sm:h-7 rounded-md flex items-center justify-center transition-colors touch-target",
@@ -230,6 +231,7 @@ export function ActionTray({
                   <PixelIcon name="faceThinking" className="h-5 w-5 sm:h-4 sm:w-4" />
                 </button>
                 <button
+                  onMouseDown={e => e.preventDefault()}
                   onClick={() => onInteractionModeChange('draw')}
                   className={cn(
                     "w-10 h-10 sm:w-7 sm:h-7 rounded-md flex items-center justify-center transition-colors touch-target",
@@ -301,6 +303,7 @@ export function ActionTray({
               variant="ghost"
               size="sm"
               onClick={handleToggleExpand}
+              onMouseDown={e => e.preventDefault()}
               className="rounded-md"
             >
               {isExpanded ? (
@@ -331,6 +334,7 @@ export function ActionTray({
                     {/* Left: Tool cluster */}
                     <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5">
                       <button
+                        onMouseDown={e => e.preventDefault()}
                         onClick={() => handleToolClick('BRUSH', '1x')}
                         className={cn(
                           "w-10 h-10 sm:w-7 sm:h-7 rounded-md flex items-center justify-center transition-colors touch-target",
@@ -343,6 +347,7 @@ export function ActionTray({
                         <PixelIcon name="pixel" className="h-5 w-5 sm:h-4 sm:w-4" />
                       </button>
                       <button
+                        onMouseDown={e => e.preventDefault()}
                         onClick={() => handleToolClick('BRUSH', '2x2')}
                         className={cn(
                           "w-10 h-10 sm:w-7 sm:h-7 rounded-md flex items-center justify-center transition-colors touch-target",
@@ -355,6 +360,7 @@ export function ActionTray({
                         <PixelIcon name="grid2x2" className="h-5 w-5 sm:h-4 sm:w-4" />
                       </button>
                       <button
+                        onMouseDown={e => e.preventDefault()}
                         onClick={() => handleToolClick('ERASER')}
                         className={cn(
                           "w-10 h-10 sm:w-7 sm:h-7 rounded-md flex items-center justify-center transition-colors touch-target",
@@ -371,6 +377,7 @@ export function ActionTray({
                     {/* Right: Tab switch */}
                     <div className="flex gap-1">
                       <button
+                        onMouseDown={e => e.preventDefault()}
                         onClick={() => setPaletteTab('colors')}
                         className={cn(
                           "px-2.5 py-1 text-[11px] rounded-md transition-colors",
@@ -382,6 +389,7 @@ export function ActionTray({
                         Colors
                       </button>
                       <button
+                        onMouseDown={e => e.preventDefault()}
                         onClick={() => setPaletteTab('gradients')}
                         className={cn(
                           "px-2.5 py-1 text-[11px] rounded-md transition-colors",

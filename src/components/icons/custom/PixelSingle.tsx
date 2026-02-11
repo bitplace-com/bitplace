@@ -4,7 +4,7 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelSingle(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <polygon points="17 7 17 17 16 17 16 18 8 18 8 17 7 17 7 7 8 7 8 6 16 6 16 7 17 7" />
+      <polygon points="17 8 17 16 16 16 16 17 8 17 8 16 7 16 7 8 8 8 8 7 16 7 16 8 17 8" />
     </PixelSVG>
   );
 }
