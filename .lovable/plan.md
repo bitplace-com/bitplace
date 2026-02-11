@@ -1,99 +1,136 @@
 
 
-# Revisione Completa Pinned Locations
+# Delete Pin + Anteprima Grande + Pin Placement su Mappa
 
 ## Panoramica
 
-Questa revisione copre 5 aree: icona location-pin, rimozione fulmine da Trending, fix sorting delle categorie, dati mancanti (PE area, bbox per thumbnails, timestamp), e qualita generale del design delle card.
+Tre macro-funzionalita:
+
+1. **Bottone Delete pin** nella sezione "Created by Me" (My Pins)
+2. **Anteprima thumbnail molto piu grande** nella card dei pin
+3. **Nuova UX di creazione pin**: click su "Create Pin" chiude il pannello, il cursore diventa un pin, l'utente clicca sulla mappa per posizionarlo, il sistema identifica l'artwork (tutti i pixel dello stesso owner connessi) e riapre il pannello con i dati compilati
 
 ---
 
-## 1. Icona Location Pin (HackerNoon)
+## 1. Delete Pin
 
-Creare un nuovo componente `PixelLocationPin.tsx` basato sull'SVG `location-pin-solid.svg` di HackerNoon (gia presente nel pacchetto). Il path e:
+### Backend: Nuovo edge function `places-delete`
 
-```text
-m19,6v-2h-1v-1h-1v-1h-2v-1h-6v1h-2v1h-1v1h-1v2h-1v6h1v2h1v1h1v2h1v1h1v2h1v1h1v2h2v-2h1v-1h1v-2h1v-1h1v-2h1v-1h1v-2h1v-6h-1Zm-5,5h-1v1h-2v-1h-1v-1h-1v-2h1v-1h1v-1h2v1h1v1h1v2h-1v1Z
-```
+Creare `supabase/functions/places-delete/index.ts`:
+- Autenticazione JWT (stesso pattern delle altre funzioni)
+- Riceve `{ place_id: string }`
+- Verifica che `creator_user_id = userId` prima di cancellare
+- Cancella anche le righe correlate in `place_likes` e `place_saves` (cascade manuale via service role)
+- Cancella la riga da `places`
+- Ritorna `{ success: true }`
 
-**File da modificare:**
-- NUOVO: `src/components/icons/custom/PixelLocationPin.tsx`
-- `src/components/icons/iconRegistry.ts` -- aggiungere `locationPin: PixelLocationPin`
-- `src/components/map/ActionTray.tsx` -- cambiare `name="thumbtack"` a `name="locationPin"` nel bottone Places
-- `src/components/modals/PlacesModal.tsx` -- cambiare `name="thumbtack"` a `name="locationPin"` nell'header dello sheet
+### Frontend: Hook `usePlaces.ts`
 
----
+Aggiungere funzione `deletePlace(placeId: string)`:
+- Chiama `places-delete` con il token
+- Rimuove il place da `createdPlaces` e `feed` nello state locale
+- Ritorna `true/false`
 
-## 2. Rimuovere icona fulmine da Trending
+### UI: `PlaceCard.tsx`
 
-Nel `PlacesModal.tsx` (riga 172), rimuovere il `PixelIcon name="bolt"` dal bottone Trending nelle sub-tab. Testo semplice "Trending" come New e Popular.
+Aggiungere prop `onDelete?: (placeId: string) => void` e `isOwner?: boolean`.
+Quando `isOwner` e true, mostrare un bottone trash (icona `PixelTrash`) nel footer della card, accanto al bottone "Go". Click apre un dialog di conferma (o direttamente cancella con toast undo).
 
-Nel `PlaceCard.tsx` (righe 149-154), rimuovere il badge trending_score con l'icona bolt dal footer della card. Questo dato non e utile visivamente per l'utente.
+### UI: `PlacesModal.tsx`
 
----
-
-## 3. Fix Sorting Categorie nel Backend
-
-**`supabase/functions/places-feed/index.ts`:**
-
-- **New**: gia corretto (order by `created_at DESC`) -- nessuna modifica
-- **Trending**: cambiare la logica da trending_score (likes_24h * 5 + activity) a ordinamento per `likes_count DESC` (quelli con piu like totali). Questo e piu intuitivo e performante rispetto al calcolo complesso attuale. Rimuovere tutta la logica di likes_24h, activity_24h, e trending_score che e costosa (query per bbox per ogni place)
-- **Popular**: cambiare da `likes_count DESC` a ordinamento per PE totale nell'area. Questo richiede una query di SUM dei `owner_stake_pe` sui pixel nel bbox di ciascun place. Per efficienza, calcolare il totale PE solo per i places nella pagina corrente (dopo il fetch iniziale)
-
-**Aggiornamento dati nel response:**
-Aggiungere al response di `places-feed` un campo `total_pe` per ogni place, calcolato come SUM di `owner_stake_pe` dai pixel nel bbox. Per Popular, ordinare per questo valore. Per le altre categorie, calcolare comunque il valore per mostrarlo nella card.
-
-**Stesso arricchimento per `places-my/index.ts`:** aggiungere `total_pe` e includere i campi `bbox_*` nel response (attualmente mancanti).
+Nella sezione "Created by Me", passare `onDelete` e `isOwner={true}` a ogni `PlaceCard`. Il handler chiama `deletePlace` e mostra un toast di conferma.
 
 ---
 
-## 4. Fix Dati Mancanti
+## 2. Anteprima Thumbnail Piu Grande
 
-### 4a. PlaceStats interface (`usePlaces.ts`)
-Aggiungere `total_pe: number` alla interface `PlaceStats`.
+### `PlaceCard.tsx`
 
-### 4b. places-my response mancante bbox
-In `places-my/index.ts`, la funzione `enrichPlace` non include `bbox_xmin/ymin/xmax/ymax`. Aggiungerli al response cosi le card nel tab My Pins possano mostrare le thumbnail.
+Cambiare il layout della card: la thumbnail passa da 72x72 a occupare l'intera larghezza della card in alto (aspect ratio 16:9 o simile, circa `w-full h-32`). Il contenuto testuale va sotto.
 
-### 4c. places-create response malformato
-In `places-create/index.ts` (riga 238), il response ha `likes_count` e `saves_count` a livello root, ma il frontend si aspetta `stats: { likes_all_time, saves_all_time, total_pe }`. Correggere il response shape.
-
-### 4d. Calcolo PE per area
-Per ogni place, il backend calcolera:
-```sql
-SELECT COALESCE(SUM(owner_stake_pe), 0) as total_pe
-FROM pixels
-WHERE x >= bbox_xmin AND x <= bbox_xmax
-  AND y >= bbox_ymin AND y <= bbox_ymax
-```
-Questo valore viene restituito come `total_pe` nelle stats.
-
----
-
-## 5. Redesign PlaceCard
-
-La card attuale e funzionale ma manca di informazioni chiave. Il nuovo layout:
+Nuovo layout:
 
 ```text
 +------------------------------------------+
-| [Thumbnail 72x72]  Creator  |  3h ago    |
-|                     Title                 |
-|                     Description           |
-|                                           |
-|   PE: 1,250 PE ($1.25)                   |
-|   [Heart] 12   [Pin]        [Go ->]      |
+| [Thumbnail - full width, h-32]           |
++------------------------------------------+
+| Creator avatar + name  |  3h ago         |
+| Title                                    |
+| Description                              |
+| PE: 1,250 PE ($1.25)                    |
+| [Heart] 12   [Pin]   [Trash?]  [Go ->]  |
 +------------------------------------------+
 ```
 
-**Modifiche al `PlaceCard.tsx`:**
+### `PlaceThumbnail.tsx`
 
-1. **Aggiungere riga PE sotto la descrizione:** mostra `total_pe.toLocaleString() PE` e il valore in USD calcolato come `total_pe / 1000` (dato che 1 PE = $0.001). Usare l'icona PEIcon gia esistente.
+Aggiornare per accettare dimensioni piu grandi e rendere meglio: aumentare `maxPixels` da 100 a 500 per catturare piu dettaglio nell'area. Il componente gia supporta `width`/`height` dinamici.
 
-2. **Timestamp**: il `formatDistanceToNow` gia funziona correttamente con `addSuffix: false` (mostra "3 hours", "2 days"). Aggiungere `ago` al testo per chiarezza: `{formatDistanceToNow(...)} ago`.
+---
 
-3. **Rimuovere il badge trending_score** (come menzionato al punto 2).
+## 3. Nuova UX Creazione Pin (Click su Mappa)
 
-4. **Thumbnail**: gia funzionante con `PlaceThumbnail` che fetcha pixel dal bbox -- nessuna modifica al componente thumbnail stesso, ma assicurarsi che i dati bbox arrivino dal backend (fix punto 4b).
+Questo e il cambiamento piu significativo. Il flusso diventa:
+
+### Flusso UX
+
+1. Utente apre Places > My Pins > clicca "Create Pin"
+2. Il pannello Places si chiude
+3. La mappa entra in **modalita pin-placement**: il cursore cambia (icona pin via CSS `cursor: url(...)`)
+4. Un banner in overlay dice "Tap on the map to place your pin" con bottone Cancel
+5. L'utente clicca su un punto della mappa
+6. Il sistema:
+   a. Converte click in coordinate pixel (x, y) usando `lngLatToGridInt`
+   b. Cerca il pixel a quelle coordinate nel DB
+   c. Se il pixel ha un `owner_user_id`, fetcha tutti i pixel dello stesso owner nella zona (usando Union-Find clustering come in `OwnerArtworkModal`)
+   d. Calcola il bbox dell'artwork (cluster di pixel connessi che contiene il pixel cliccato)
+   e. Se non c'e un pixel/owner, usa un bbox default centrato sul punto
+7. Riapre il pannello Places con il form di creazione pre-compilato: lat/lng del click, zoom corrente, bbox dell'artwork trovato, e una preview grande del disegno
+8. L'utente inserisce titolo e descrizione e conferma
+
+### Implementazione Tecnica
+
+#### Stato globale pin-placement: evento custom
+
+Usare eventi `window.dispatchEvent` (pattern gia usato per `bitplace:navigate`):
+- `bitplace:start-pin-placement` -- emesso da PlacesModal quando clicca "Create Pin"
+- `bitplace:cancel-pin-placement` -- emesso dal banner Cancel
+- `bitplace:pin-placed` -- emesso da BitplaceMap quando l'utente clicca durante pin-placement, con `{ lat, lng, x, y, zoom, bbox, artworkPixels }`
+
+#### `BitplaceMap.tsx`
+
+- Aggiungere stato `isPinPlacementMode: boolean`
+- Listener per `bitplace:start-pin-placement`: setta `isPinPlacementMode = true`
+- Quando `isPinPlacementMode`:
+  - Cursor cambia a pin (CSS custom cursor con SVG del pin)
+  - Click sulla mappa: calcola coordinate pixel, cerca artwork, emette `bitplace:pin-placed`
+  - ESC o Cancel: esce dalla modalita
+- Overlay banner "Tap to place pin" + Cancel
+
+#### Ricerca Artwork al click
+
+Al click durante pin-placement:
+1. `lngLatToGridInt(lng, lat)` per ottenere (x, y)
+2. Query al DB: `SELECT * FROM pixels WHERE x = $x AND y = $y` per trovare il pixel
+3. Se il pixel ha un owner, query: `SELECT x, y, color FROM pixels WHERE owner_user_id = $ownerId` (limitato a 1000 pixel piu vicini)
+4. Usare `clusterPixels()` (Union-Find, gap=5) per trovare il cluster che contiene (x, y)
+5. Il bbox del cluster diventa il bbox del place
+6. I pixel del cluster diventano la preview artwork
+
+Se non c'e pixel o owner, bbox default 256x256 centrato sul punto.
+
+#### `PlacesModal.tsx`
+
+- Listener per `bitplace:pin-placed`: riceve i dati, apre il pannello con form pre-compilato
+- Il form mostra la preview grande dell'artwork (usando i pixel ricevuti dall'evento)
+- Passare `bbox` esplicito a `places-create` (gia supportato nel backend)
+
+#### `CreatePlaceForm.tsx`
+
+Estendere per accettare:
+- `artworkPixels?: PixelData[]` -- pixel dell'artwork per renderizzare la preview inline
+- `bbox?: { xmin, ymin, xmax, ymax }` -- bbox calcolato
+- Mostrare una preview canvas grande (stile `ClusterCanvas` di OwnerArtworkModal) sopra il form
 
 ---
 
@@ -101,13 +138,29 @@ La card attuale e funzionale ma manca di informazioni chiave. Il nuovo layout:
 
 | File | Tipo | Modifica |
 |------|------|----------|
-| `src/components/icons/custom/PixelLocationPin.tsx` | NUOVO | Icona location-pin da HackerNoon |
-| `src/components/icons/iconRegistry.ts` | EDIT | Registrare locationPin |
-| `src/components/map/ActionTray.tsx` | EDIT | Cambiare thumbtack -> locationPin |
-| `src/components/modals/PlacesModal.tsx` | EDIT | Cambiare thumbtack -> locationPin, rimuovere bolt da Trending |
-| `src/components/places/PlaceCard.tsx` | EDIT | Aggiungere riga PE+USD, rimuovere trending badge, fix timestamp |
-| `src/hooks/usePlaces.ts` | EDIT | Aggiungere total_pe a PlaceStats |
-| `supabase/functions/places-feed/index.ts` | EDIT | Fix sorting (Trending=likes, Popular=PE), aggiungere total_pe, rimuovere calcoli costosi |
-| `supabase/functions/places-my/index.ts` | EDIT | Aggiungere bbox e total_pe al response |
-| `supabase/functions/places-create/index.ts` | EDIT | Fix response shape per stats |
+| `supabase/functions/places-delete/index.ts` | NUOVO | Edge function per cancellare un place |
+| `src/hooks/usePlaces.ts` | EDIT | Aggiungere `deletePlace()` |
+| `src/components/places/PlaceCard.tsx` | EDIT | Layout thumbnail grande + bottone delete |
+| `src/components/places/PlaceThumbnail.tsx` | EDIT | Aumentare maxPixels, supportare dimensioni grandi |
+| `src/components/modals/PlacesModal.tsx` | EDIT | Handler delete, listener pin-placed, emettere start-pin-placement |
+| `src/components/places/CreatePlaceForm.tsx` | EDIT | Accettare artwork pixels e bbox, mostrare preview |
+| `src/components/map/BitplaceMap.tsx` | EDIT | Pin placement mode (cursor, click handler, artwork detection, overlay banner) |
+
+## Dettagli Tecnici
+
+### Cursor Pin Custom
+
+CSS custom cursor generato da SVG inline del pin (24x24), usato come `cursor: url('data:image/svg+xml,...') 12 24, crosshair` dove 12,24 e l'hotspot alla punta del pin.
+
+### Query Artwork Efficiente
+
+Per evitare di fetchare troppi pixel, la ricerca artwork al click:
+1. Prima trova il pixel singolo clickato
+2. Se ha un owner, cerca pixel dello stesso owner con filtro spaziale (entro 500 unita dal click in ogni direzione)
+3. Clustering locale con Union-Find
+4. Seleziona il cluster che contiene il pixel clickato
+
+### Limite di 1000 righe
+
+La query dei pixel dell'owner e limitata a 1000 righe (limite Supabase). Per artwork molto grandi, il bbox sara approssimativo ma comunque funzionale per la preview.
 
