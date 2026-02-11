@@ -5,6 +5,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { toast } from 'sonner';
 import { getAuthHeadersOrExpire } from '@/lib/authHelpers';
 import { streamingInvoke } from '@/lib/streamingFetch';
+import { hapticsEngine } from '@/lib/hapticsEngine';
 
 // ── Exported warmup helper ──────────────────────────────────────────
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -304,6 +305,7 @@ export function useGameActions() {
         message: 'Please connect wallet first',
         canRetry: false,
       });
+      hapticsEngine.trigger('error');
       return null;
     }
 
@@ -314,6 +316,7 @@ export function useGameActions() {
         message: 'Session expired. Please reconnect wallet.',
         canRetry: false,
       });
+      hapticsEngine.trigger('error');
       return null;
     }
 
@@ -435,6 +438,7 @@ export function useGameActions() {
               : error.message || 'Validation failed',
           canRetry: true,
         });
+        hapticsEngine.trigger('error');
         return null;
       }
 
@@ -492,6 +496,7 @@ export function useGameActions() {
         message: 'Validation error. Please try again.',
         canRetry: true,
       });
+      hapticsEngine.trigger('error');
       return null;
     } finally {
       setIsValidating(false);
@@ -596,6 +601,7 @@ export function useGameActions() {
               : (typeof error.message === 'string' ? error.message : JSON.stringify(error.message)) || 'Commit failed',
           canRetry: true,
         });
+        hapticsEngine.trigger('error');
         return null;
       }
 
@@ -608,6 +614,7 @@ export function useGameActions() {
             requestId: data.requestId,
             canRetry: false,
           });
+          hapticsEngine.trigger('error');
           return null;
         }
         if (data.error === 'STATE_CHANGED') {
@@ -618,6 +625,7 @@ export function useGameActions() {
             canRetry: false,
           });
           setValidationResult(null);
+          hapticsEngine.trigger('error');
           return null;
         }
         setLastError({
@@ -635,6 +643,7 @@ export function useGameActions() {
 
       if (data?.ok) {
         toast.success(`${formatMode(params.mode)} ${data.affectedPixels} pixel(s)`);
+        hapticsEngine.trigger('validate_success');
         setValidationResult(null);
         setInvalidPixels([]);
         setLastError(null);
@@ -647,6 +656,7 @@ export function useGameActions() {
         message: 'Commit error. Please try again.',
         canRetry: true,
       });
+      hapticsEngine.trigger('error');
       return null;
     } finally {
       setIsCommitting(false);

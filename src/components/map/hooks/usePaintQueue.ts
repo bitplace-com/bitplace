@@ -158,6 +158,7 @@ export function usePaintQueue(
     } catch (err) {
       console.error('[usePaintQueue] Flush error:', err);
       toast.error('Paint batch failed');
+      hapticsEngine.trigger('error');
       setIsSpacePainting(false);
     } finally {
       flushingRef.current = false;

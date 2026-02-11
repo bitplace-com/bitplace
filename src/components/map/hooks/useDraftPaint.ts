@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { warmupFunction } from '@/hooks/useGameActions';
+import { hapticsEngine } from '@/lib/hapticsEngine';
 
 // Max pixels per paint action - exported for UI display
 export const PAINT_MAX_PIXELS = 300;
@@ -83,6 +84,7 @@ export function useDraftPaint(): UseDraftPaintResult {
     
     draftOrderRef.current.push(key);
     setDraftDirty(true);
+    hapticsEngine.trigger('light');
     
     return true;
   }, [draft]);

@@ -168,7 +168,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
 
   const avatarGradient = generateAvatarGradient(profile?.id || playerId || '');
   const country = profile?.countryCode ? getCountryByCode(profile.countryCode) : null;
-  const hasSocials = profile?.socialX || profile?.socialInstagram || profile?.socialWebsite;
+  const hasSocials = profile?.socialX || profile?.socialInstagram || profile?.socialDiscord || profile?.socialWebsite;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -310,6 +310,18 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
                   >
                     <PixelIcon name="globe" className="h-4 w-4" />
                     <span className="hidden sm:inline">Website</span>
+                    <PixelIcon name="externalLink" className="h-3 w-3" />
+                  </a>
+                )}
+                {profile.socialDiscord && (
+                  <a
+                    href={profile.socialDiscord.startsWith('http') ? profile.socialDiscord : `https://discord.gg/${profile.socialDiscord}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <PixelIcon name="discord" className="h-4 w-4" />
+                    <span className="hidden sm:inline">Discord</span>
                     <PixelIcon name="externalLink" className="h-3 w-3" />
                   </a>
                 )}
