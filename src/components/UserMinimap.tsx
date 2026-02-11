@@ -36,19 +36,32 @@ export function UserMinimap({
 
     const fetchPixels = async () => {
       try {
-        const { data, error } = await supabase
-          .from('pixels')
-          .select('x, y, color')
-          .eq('owner_user_id', userId)
-          .limit(5000); // Reasonable limit for minimap
+        const PAGE_SIZE = 1000;
+        let offset = 0;
+        let allPixels: PixelData[] = [];
+        let hasMore = true;
 
-        if (error) {
-          console.error('[UserMinimap] Error fetching pixels:', error);
-          return;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('pixels')
+            .select('x, y, color')
+            .eq('owner_user_id', userId)
+            .range(offset, offset + PAGE_SIZE - 1);
+
+          if (error) {
+            console.error('[UserMinimap] Error fetching pixels:', error);
+            return;
+          }
+
+          if (data) {
+            allPixels = allPixels.concat(data as PixelData[]);
+          }
+          hasMore = (data?.length || 0) === PAGE_SIZE;
+          offset += PAGE_SIZE;
         }
 
-        if (isMounted && data) {
-          setPixels(data as PixelData[]);
+        if (isMounted) {
+          setPixels(allPixels);
         }
       } catch (err) {
         console.error('[UserMinimap] Error:', err);

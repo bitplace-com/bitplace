@@ -63,14 +63,24 @@ export function usePlayerProfile(playerId: string | null) {
         .eq('id', playerId)
         .maybeSingle();
 
-      // Fetch pixels owned by this player
-      const { data: pixelsData, error: pixelsError } = await supabase
-        .from('pixels')
-        .select('x, y, color, owner_stake_pe, created_at')
-        .eq('owner_user_id', playerId)
-        .order('created_at', { ascending: false });
+      // Fetch pixels owned by this player (paginated)
+      const PAGE_SIZE = 1000;
+      let offset = 0;
+      let pixelsData: any[] = [];
+      let hasMore = true;
 
-      if (pixelsError) throw pixelsError;
+      while (hasMore) {
+        const { data, error: pErr } = await supabase
+          .from('pixels')
+          .select('x, y, color, owner_stake_pe, created_at')
+          .eq('owner_user_id', playerId)
+          .range(offset, offset + PAGE_SIZE - 1);
+
+        if (pErr) throw pErr;
+        if (data) pixelsData = pixelsData.concat(data);
+        hasMore = (data?.length || 0) === PAGE_SIZE;
+        offset += PAGE_SIZE;
+      }
 
       const pixels: PlayerPixel[] = (pixelsData || []).map(p => ({
         x: Number(p.x),
