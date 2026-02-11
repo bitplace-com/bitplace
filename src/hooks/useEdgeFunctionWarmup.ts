@@ -1,8 +1,8 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { getAuthHeadersOrExpire } from '@/lib/authHelpers';
 
-// OPTIMIZATION: Reduced from 4 to 3 minutes to prevent DB cold start
-const WARMUP_INTERVAL_MS = 3 * 60 * 1000; // 3 minutes
+// OPTIMIZATION: Reduced to 2 minutes to prevent DB cold start
+const WARMUP_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 const CRITICAL_FUNCTIONS = ['game-validate', 'game-commit'];
 
 // Debug logger

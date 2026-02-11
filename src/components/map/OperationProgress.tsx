@@ -78,7 +78,7 @@ export function OperationProgress({
       const elapsed = (now - startTimeRef.current) / 1000; // seconds
       // Logarithmic curve: fast start, slows toward 90%
       // f(t) = 90 * (1 - e^(-t/8)) — reaches ~60% at 7s, ~80% at 13s, ~88% at 17s
-      const target = 90 * (1 - Math.exp(-elapsed / 8));
+      const target = 90 * (1 - Math.exp(-elapsed / 3));
       setSimPercent(Math.floor(target));
       rafRef.current = requestAnimationFrame(animate);
     };
