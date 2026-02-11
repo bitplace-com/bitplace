@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type LeaderboardScope = "players" | "countries" | "alliances";
 export type LeaderboardPeriod = "today" | "week" | "month" | "all";
+export type LeaderboardMetric = "pixels" | "pe_staked";
 
 export interface PlayerEntry {
   rank: number;
@@ -11,8 +12,7 @@ export interface PlayerEntry {
   countryCode: string | null;
   allianceTag: string | null;
   totalPixels: number;
-  peUsed: number;
-  // Profile fields
+  totalPeStaked: number;
   avatarUrl: string | null;
   bio: string | null;
   socialX: string | null;
@@ -25,6 +25,7 @@ export interface CountryEntry {
   countryCode: string;
   playerCount: number;
   totalPixels: number;
+  totalPeStaked: number;
 }
 
 export interface AllianceEntry {
@@ -33,6 +34,7 @@ export interface AllianceEntry {
   allianceName: string;
   playerCount: number;
   totalPixels: number;
+  totalPeStaked: number;
 }
 
 export type LeaderboardEntry = PlayerEntry | CountryEntry | AllianceEntry;
@@ -46,7 +48,8 @@ interface UseLeaderboardResult {
 
 export function useLeaderboard(
   scope: LeaderboardScope,
-  period: LeaderboardPeriod
+  period: LeaderboardPeriod,
+  metric: LeaderboardMetric = "pixels"
 ): UseLeaderboardResult {
   const [data, setData] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -59,9 +62,7 @@ export function useLeaderboard(
     try {
       const { data: result, error: fnError } = await supabase.functions.invoke(
         "leaderboard-get",
-        {
-          body: { scope, period },
-        }
+        { body: { scope, period, metric } }
       );
 
       if (fnError) {
@@ -83,7 +84,7 @@ export function useLeaderboard(
     } finally {
       setIsLoading(false);
     }
-  }, [scope, period]);
+  }, [scope, period, metric]);
 
   useEffect(() => {
     fetchLeaderboard();
