@@ -1,104 +1,92 @@
+import { useState } from "react";
 import { PixelIcon } from "@/components/icons";
 import { PageHeader } from "@/components/ui/page-header";
-import { SectionCard } from "@/components/ui/section-card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
+import {
+  LeaderboardScope,
+  LeaderboardPeriod,
+  LeaderboardMetric,
+} from "@/hooks/useLeaderboard";
+import { LeaderboardList, MetricToggle } from "@/components/modals/LeaderboardModal";
+import { PlayerProfileModal } from "@/components/modals/PlayerProfileModal";
+
+const PERIODS: { value: LeaderboardPeriod; label: string }[] = [
+  { value: "today", label: "Today" },
+  { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
+  { value: "all", label: "All time" },
+];
 
 const LeaderboardPage = () => {
+  const [scope, setScope] = useState<LeaderboardScope>("players");
+  const [period, setPeriod] = useState<LeaderboardPeriod>("all");
+  const [metric, setMetric] = useState<LeaderboardMetric>("pixels");
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  const handlePlayerClick = (id: string) => {
+    setSelectedPlayerId(id);
+    setProfileOpen(true);
+  };
+
   return (
     <div className="min-h-full bg-background p-6 md:p-8 lg:p-12">
-      <div className="max-w-3xl mx-auto space-y-8">
+      <div className="max-w-3xl mx-auto space-y-6">
         <PageHeader
           icon={() => <PixelIcon name="trophy" className="h-6 w-6" />}
           title="Leaderboard"
           subtitle="Top pixel owners, biggest stakers, and most conquered territory."
         />
 
-        {/* Coming Soon State */}
-        <div className="relative overflow-hidden">
-          <SectionCard className="text-center py-12">
-            <div className="flex flex-col items-center gap-6">
-              <div className="relative">
-                <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                  <PixelIcon name="trophy" className="h-10 w-10 text-primary animate-pulse-soft" />
-                </div>
-                <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary/20 animate-ping" />
-              </div>
-              
-              <div className="space-y-2">
-                <h2 className="text-xl font-bold text-foreground">Coming Soon</h2>
-                <p className="text-sm text-muted-foreground max-w-md">
-                  We're building the ultimate ranking system. Compete for glory!
-                </p>
-              </div>
+        <Tabs value={scope} onValueChange={(v) => setScope(v as LeaderboardScope)} className="w-full">
+          <TabsList className="w-full bg-foreground/5">
+            <TabsTrigger value="players" className="flex-1 gap-1.5"><PixelIcon name="user" size="xs" />Players</TabsTrigger>
+            <TabsTrigger value="countries" className="flex-1 gap-1.5"><PixelIcon name="globe" size="xs" />Countries</TabsTrigger>
+            <TabsTrigger value="alliances" className="flex-1 gap-1.5"><PixelIcon name="users" size="xs" />Alliances</TabsTrigger>
+          </TabsList>
 
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium">
-                Phase 8: Polish & Launch
-              </div>
-            </div>
-          </SectionCard>
-        </div>
+          {/* Metric toggle */}
+          <div className="mt-3">
+            <MetricToggle metric={metric} onChange={setMetric} />
+          </div>
 
-        {/* Preview Categories */}
-        <div className="grid gap-4 sm:grid-cols-3">
-          <PreviewCard
-            icon={() => <PixelIcon name="user" className="h-5 w-5" />}
-            title="Top Players"
-            description="Most pixels painted & PE used"
-            color="primary"
-          />
-          <PreviewCard
-            icon={() => <PixelIcon name="globe" className="h-5 w-5" />}
-            title="Top Countries"
-            description="Nations with most pixels"
-            color="defend"
-          />
-          <PreviewCard
-            icon={() => <PixelIcon name="users" className="h-5 w-5" />}
-            title="Top Alliances"
-            description="Strongest alliances by pixels"
-            color="attack"
-          />
-        </div>
+          {/* Time period pills */}
+          <div className="flex gap-1.5 mt-2">
+            {PERIODS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                className={cn(
+                  "px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                  period === p.value
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          <ScrollArea className="h-[calc(100vh-320px)] mt-4 -mx-1 px-1">
+            <TabsContent value="players" className="mt-0">
+              <LeaderboardList scope="players" period={period} metric={metric} onPlayerClick={handlePlayerClick} />
+            </TabsContent>
+            <TabsContent value="countries" className="mt-0">
+              <LeaderboardList scope="countries" period={period} metric={metric} onPlayerClick={handlePlayerClick} />
+            </TabsContent>
+            <TabsContent value="alliances" className="mt-0">
+              <LeaderboardList scope="alliances" period={period} metric={metric} onPlayerClick={handlePlayerClick} />
+            </TabsContent>
+          </ScrollArea>
+        </Tabs>
       </div>
+
+      <PlayerProfileModal open={profileOpen} onOpenChange={setProfileOpen} playerId={selectedPlayerId} />
     </div>
   );
 };
-
-interface PreviewCardProps {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  description: string;
-  color: "primary" | "defend" | "attack";
-}
-
-function PreviewCard({ icon: Icon, title, description, color }: PreviewCardProps) {
-  const colorStyles = {
-    primary: "bg-primary/5 border-primary/10 text-primary",
-    defend: "bg-emerald-500/5 border-emerald-500/10 text-emerald-600",
-    attack: "bg-rose-500/5 border-rose-500/10 text-rose-600",
-  };
-
-  const iconBgStyles = {
-    primary: "bg-primary/10 text-primary",
-    defend: "bg-emerald-500/10 text-emerald-600",
-    attack: "bg-rose-500/10 text-rose-600",
-  };
-
-  return (
-    <div className={`p-5 rounded-xl border ${colorStyles[color]} transition-all hover:scale-[1.02]`}>
-      <div className="flex items-start gap-4">
-        <div className={`h-10 w-10 rounded-lg ${iconBgStyles[color]} flex items-center justify-center shrink-0`}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <div className="space-y-1">
-          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-          <p className="text-xs text-muted-foreground">{description}</p>
-          <div className="pt-2">
-            <div className="h-1.5 w-24 rounded-full bg-muted/50" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default LeaderboardPage;
