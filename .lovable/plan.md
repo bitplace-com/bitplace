@@ -1,48 +1,56 @@
 
-# Ottimizzazione Velocita e Progresso Visivo
+# Fix Progress Bar: Completamento Visivo e Continuita
 
-## Analisi dai Log
+## Problemi Identificati
 
-I log mostrano chiaramente il problema:
-- **DB caldo**: validate ~1.5s, commit ~600ms (veloce)
-- **DB freddo**: validate ~5.7s (fetchPixelsByCoords), commit PING 8.6s + fetch 2.1s (lento)
-- La barra si ferma a 89% perche la curva attuale raggiunge quel valore dopo ~17 secondi, ma le operazioni durano 2-10 secondi
+### 1. La barra scompare senza mostrare il 100%
+Nel `finally` di validate/commit in `useGameActions.ts`, `setProgress(null)` e `setIsValidating(false)` vengono chiamati nello stesso ciclo di render. In `OperationProgress.tsx`, la riga `if (!progress && !showComplete) return null` fa sparire il componente PRIMA che il `useEffect` possa settare `showComplete=true` e mostrare il flash a 100%.
+
+### 2. Nessuna continuita visiva tra validate e commit
+Quando il validate finisce, la barra sparisce. Quando il commit inizia, ne appare una nuova da 0%. L'utente percepisce un "reset" confuso.
+
+### 3. La guardia `!progress` e troppo aggressiva
+La condizione a riga 95 impedisce la visualizzazione della barra simulata perche `progress` puo essere null anche quando l'operazione e attiva.
 
 ## Modifiche
 
-### 1. Curva di progresso piu veloce (`src/components/map/OperationProgress.tsx`)
-- Cambiare il divisore della curva logaritmica da 8 a 3
-- Con divisore 3: raggiunge 60% in ~3s, 80% in ~5s, 89% in ~7s
-- Questo si allinea meglio ai tempi reali delle operazioni (1.5-6s)
-- Formula: `90 * (1 - Math.exp(-elapsed / 3))`
+### 1. `src/components/map/OperationProgress.tsx`
+- Rimuovere la guardia `if (!progress && !showComplete) return null` (riga 95) -- la barra deve mostrarsi ogni volta che `isActive` e true, indipendentemente da `progress`
+- Semplificare la logica: mostrare il componente quando `isActive || showComplete`
+- La simulazione parte immediatamente quando `isActive` diventa true, senza dipendere da `progress`
 
-### 2. Pre-warmup di game-commit durante il validate (`src/hooks/useGameActions.ts`)
-- Quando il validate inizia, lanciare un PING fire-and-forget a `game-commit`
-- Questo scalda il DB pool del commit mentre l'utente aspetta la validazione
-- Quando il commit parte dopo, il DB e gia caldo e risponde in ~600ms invece di 8+ secondi
-- Aggiungere una funzione helper `warmupCommit()` che invia un PING a game-commit senza attendere la risposta
+### 2. `src/hooks/useGameActions.ts`
+- Nel `finally` di `validate()` (riga 468-472): NON settare `setProgress(null)` immediatamente. Lasciare che `OperationProgress` gestisca la transizione visiva tramite `isActive`
+- Nel `finally` di `commit()` (riga 622-626): stesso fix
+- Spostare `setProgress(null)` nel reset esplicito (`clearValidation`) e nell'inizio di una nuova operazione, non nel finally
+- In alternativa, separare il flusso: settare `setProgress(null)` con un piccolo delay (700ms) dopo la fine dell'operazione per permettere il flash a 100%
 
-### 3. Ridurre intervallo warmup periodico (`src/hooks/useEdgeFunctionWarmup.ts`)
-- Ridurre `WARMUP_INTERVAL_MS` da 3 minuti a 2 minuti
-- Questo riduce la probabilita di cold start durante l'uso attivo
+### 3. `src/components/map/OperationProgress.tsx` - Miglioramento useEffect
+- L'useEffect che gestisce il completamento (quando `isActive` diventa false) deve funzionare senza dipendere da `progress`
+- Rimuovere `hasRealProgress` dalle dipendenze dell'effect principale per evitare restart indesiderati della simulazione
+- Aggiungere un ref `wasActiveRef` per tracciare la transizione `isActive: true -> false` e triggerare il flash a 100% in modo affidabile
 
 ## Dettagli Tecnici
 
-### Curva di progresso (prima vs dopo)
+### OperationProgress.tsx - Nuova Logica
+
+La logica di rendering diventa:
 
 ```text
-Tempo    Prima (d=8)    Dopo (d=3)
-1s       11%            26%
-2s       21%            43%
-3s       31%            55%
-5s       47%            72%
-7s       58%            81%
-10s      71%            87%
-15s      85%            89%
+isActive=true  -> mostra barra con simulazione (0% -> 90% logaritmico)
+isActive=false, wasActive=true -> flash 100% per 600ms, poi nascondi
+isActive=false, wasActive=false -> nascondi (null)
 ```
 
-Con la nuova curva, per un'operazione tipica (2-6 secondi) la barra mostra un avanzamento significativo (43-72%) e non resta mai visibilmente "bloccata".
+L'effetto usera un ref `wasActiveRef` per detectare la transizione:
+- Quando `isActive` passa da true a false, setta `showComplete=true` e `simPercent=100`
+- Dopo 600ms, setta `showComplete=false` e `simPercent=0`
 
-### Pre-warmup durante validate
+### useGameActions.ts - Rimozione setProgress(null) dal finally
 
-Nel metodo `validate()`, subito dopo l'invio della richiesta a `game-validate`, invieremo un PING parallelo a `game-commit`. Questo non rallenta il validate (e fire-and-forget) ma assicura che quando il commit parte subito dopo, il database sia gia pronto.
+Nel `finally` di `validate()` e `commit()`:
+- Rimuovere `setProgress(null)` 
+- Mantenere `setIsValidating(false)` / `setIsCommitting(false)` e `setIsStalled(false)`
+- `setProgress(null)` viene chiamato solo in `clearValidation()` e all'inizio di una nuova operazione (`validate()` e `commit()`)
+
+Questo permette a `OperationProgress` di vedere `isActive=false` PRIMA che `progress` venga azzerato, dando tempo al flash di 100%.
