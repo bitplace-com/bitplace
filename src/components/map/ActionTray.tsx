@@ -404,7 +404,7 @@ export function ActionTray({
 
                 <div className="max-h-48 overflow-y-auto overflow-x-hidden py-1 px-1">
                   {paletteTab === 'colors' ? (
-                    <div className="grid grid-cols-8 sm:grid-cols-12 gap-1.5 w-full">
+                    <div className="flex flex-wrap gap-1">
                       {displayColors.map((color, index) => {
                         const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
                         return (
