@@ -38,30 +38,24 @@ const LeaderboardPage = () => {
         </div>
 
         {/* Preview Categories */}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           <PreviewCard
-            icon={() => <PixelIcon name="crown" className="h-5 w-5" />}
-            title="Top Owners"
-            description="Players with the most pixels"
+            icon={() => <PixelIcon name="user" className="h-5 w-5" />}
+            title="Top Players"
+            description="Most pixels painted & PE used"
             color="primary"
           />
           <PreviewCard
-            icon={() => <PixelIcon name="shield" className="h-5 w-5" />}
-            title="Top Defenders"
-            description="Strongest defense contributors"
+            icon={() => <PixelIcon name="globe" className="h-5 w-5" />}
+            title="Top Countries"
+            description="Nations with most pixels"
             color="defend"
           />
           <PreviewCard
-            icon={() => <PixelIcon name="swords" className="h-5 w-5" />}
-            title="Top Attackers"
-            description="Most aggressive players"
+            icon={() => <PixelIcon name="users" className="h-5 w-5" />}
+            title="Top Alliances"
+            description="Strongest alliances by pixels"
             color="attack"
-          />
-          <PreviewCard
-            icon={() => <PixelIcon name="coins" className="h-5 w-5" />}
-            title="Biggest Stakers"
-            description="Highest PE committed"
-            color="primary"
           />
         </div>
       </div>

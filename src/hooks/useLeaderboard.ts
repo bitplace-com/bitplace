@@ -10,8 +10,8 @@ export interface PlayerEntry {
   displayName: string | null;
   countryCode: string | null;
   allianceTag: string | null;
-  level: number;
   totalPixels: number;
+  peUsed: number;
   // Profile fields
   avatarUrl: string | null;
   bio: string | null;

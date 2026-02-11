@@ -21,7 +21,6 @@ interface SearchResult {
   id: string;
   displayName: string | null;
   walletShort: string | null;
-  level: number;
 }
 
 export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
@@ -271,7 +270,6 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
                     <span className="text-sm truncate block">
                       {result.displayName || result.walletShort || "Unknown"}
                     </span>
-                    <span className="text-xs text-muted-foreground">Lv.{result.level}</span>
                   </div>
                   <Button
                     size="sm"
@@ -314,7 +312,7 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
                     </span>
                   </div>
                   <span className="text-xs text-muted-foreground shrink-0">
-                    Lv.{member.level}
+                    {member.role}
                   </span>
                 </div>
               ))}

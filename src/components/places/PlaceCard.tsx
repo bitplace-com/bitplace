@@ -3,7 +3,6 @@ import { cn } from "@/lib/utils";
 import { PixelIcon } from "@/components/icons";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { LevelPill } from "@/components/ui/level-pill";
 import { Place } from "@/hooks/usePlaces";
 import { getCountryByCode } from "@/lib/countries";
 import { getAvatarInitial } from "@/lib/avatar";
@@ -87,7 +86,6 @@ export function PlaceCard({
             <span className="text-xs font-medium truncate max-w-20">
               {creator?.display_name || "Anon"}
             </span>
-            <LevelPill level={creator?.level ?? 1} size="xs" />
             {country && <span className="text-xs">{country.flag}</span>}
             <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
               {formatDistanceToNow(new Date(place.created_at), { addSuffix: false })}
