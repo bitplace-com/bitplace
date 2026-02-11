@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
+import { warmupFunction } from '@/hooks/useGameActions';
 
 // Max pixels per paint action - exported for UI display
 export const PAINT_MAX_PIXELS = 300;
@@ -69,6 +70,11 @@ export function useDraftPaint(): UseDraftPaintResult {
       return false;
     }
     
+    // Trigger warmup on first pixel added to draft (DB will be warm by confirm time)
+    if (draft.size === 0) {
+      warmupFunction('game-validate');
+    }
+
     setDraft(prev => {
       const next = new Map(prev);
       next.set(key, { x, y, color, createdAt: Date.now() });
