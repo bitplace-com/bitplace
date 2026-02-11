@@ -1,4 +1,4 @@
-import { Paintbrush, Shield, Swords, Loader2, Eraser, Undo2, Trash2, AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Paintbrush, Shield, Swords, Eraser, Undo2, Trash2, AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { PeInput } from '../PeInput';
@@ -335,14 +335,10 @@ export function ActionBox({
             onClick={onValidate}
             disabled={isValidating || isCommitting || effectiveCount === 0}
           >
-            {isValidating ? (
-              <>
-                <Loader2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 mr-1.5 animate-spin" />
-                {effectiveCount > 50 ? `Checking ${effectiveCount} px...` : 'Checking...'}
-              </>
-            ) : (
-              'Validate'
-            )}
+          {isValidating 
+              ? (effectiveCount > 50 ? `Checking ${effectiveCount} px...` : 'Checking...')
+              : 'Validate'
+            }
           </Button>
         )}
 
@@ -353,11 +349,8 @@ export function ActionBox({
             onClick={onConfirm}
             disabled={isValidating || isCommitting || (!canConfirm && needsValidation)}
           >
-            {isCommitting ? (
-              <>
-                <Loader2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 mr-1.5 animate-spin" />
-                {effectiveCount > 50 ? `${effectiveCount} px...` : '...'}
-              </>
+          {isCommitting ? (
+              effectiveCount > 50 ? `${config.label}ing ${effectiveCount} px...` : `${config.label}ing...`
             ) : lastCommitFailed ? (
               <>
                 <RefreshCw className="h-4 w-4 sm:h-3.5 sm:w-3.5 mr-1.5" />
