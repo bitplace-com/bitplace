@@ -318,6 +318,17 @@ export function useGameActions() {
     setIsStalled(false);
     setProgress({ processed: 0, total: deduplicatedPixels.length });
 
+    // Fire-and-forget: pre-warm game-commit DB pool while validate runs
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const apiKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      fetch(`${supabaseUrl}/functions/v1/game-commit`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json', 'apikey': apiKey },
+        body: JSON.stringify({ mode: 'PING' }),
+      }).catch(() => {});
+    } catch {}
+
     try {
       let data: ValidateResult | null = null;
       let error: Error | null = null;
