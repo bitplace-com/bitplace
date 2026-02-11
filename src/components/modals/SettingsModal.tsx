@@ -331,7 +331,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           {/* Discord */}
           <div className="space-y-2.5">
             <Label htmlFor="social-discord" className="flex items-center gap-2">
-              <PixelIcon name="globe" className="h-4 w-4" />
+              <PixelIcon name="discord" className="h-4 w-4" />
               Discord
             </Label>
             <Input

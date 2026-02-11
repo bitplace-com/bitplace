@@ -18,6 +18,7 @@ export interface PlayerProfile {
   bio: string | null;
   socialX: string | null;
   socialInstagram: string | null;
+  socialDiscord: string | null;
   socialWebsite: string | null;
   // Stats
   totalPixelsOwned: number;
@@ -59,7 +60,7 @@ export function usePlayerProfile(playerId: string | null) {
       // Fetch additional profile fields from public_pixel_owner_info (has bio/socials)
       const { data: profileData } = await supabase
         .from('public_pixel_owner_info' as any)
-        .select('bio, social_x, social_instagram, social_website')
+        .select('bio, social_x, social_instagram, social_discord, social_website')
         .eq('id', playerId)
         .maybeSingle();
 
@@ -114,6 +115,7 @@ export function usePlayerProfile(playerId: string | null) {
         bio: profile?.bio || null,
         socialX: profile?.social_x || null,
         socialInstagram: profile?.social_instagram || null,
+        socialDiscord: profile?.social_discord || null,
         socialWebsite: profile?.social_website || null,
         totalPixelsOwned: pixels.length,
         totalStaked,

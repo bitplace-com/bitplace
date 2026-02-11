@@ -237,7 +237,7 @@ export function PixelInfoPanel({
                     {pixel.owner.social_discord && (
                       <a href={pixel.owner.social_discord.startsWith('http') ? pixel.owner.social_discord : `https://discord.gg/${pixel.owner.social_discord}`} target="_blank" rel="noopener noreferrer"
                         className="p-1 rounded hover:bg-accent transition-colors">
-                        <PixelIcon name="globe" className="w-3.5 h-3.5 text-muted-foreground" />
+                        <PixelIcon name="discord" className="w-3.5 h-3.5 text-muted-foreground" />
                       </a>
                     )}
                     {pixel.owner.social_website && (
