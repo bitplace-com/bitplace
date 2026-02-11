@@ -1,90 +1,109 @@
 
+# Leaderboard: PE Stakati + Sotto-metriche per tutte le sezioni
 
-# Icona Discord + Feedback Aptico Completo
+## Panoramica
 
-## Parte 1: Icona Discord nel pannello pixel
+Aggiungere a ogni riga della leaderboard il totale PE stakati e il controvalore in USD, e introdurre un sotto-menu "Pixels Painted" / "PE Staked" che cambia l'ordinamento e la metrica principale visualizzata. Questo si applica a tutte e 3 le macro aree (Players, Countries, Alliances).
 
-### Problema
-Il link Discord nel `PixelInfoPanel` e nel `SettingsModal` usa l'icona generica `globe` invece di un'icona Discord dedicata. Il `PlayerProfileModal` non mostra affatto il Discord. La libreria `@hackernoon/pixel-icon-library` non include un'icona Discord, quindi va creata custom.
+## Layout UI
 
-### Modifiche
+```text
+[Players] [Countries] [Alliances]       <-- scope tabs (esistenti)
 
-**Nuovo file: `src/components/icons/custom/PixelDiscord.tsx`**
-- Creare un'icona Discord in stile pixel-art (SVG 24x24 con pixel blocks), coerente con lo stile delle altre icone custom del progetto
+[Pixels Painted] [PE Staked]             <-- NUOVO toggle metrica
+[Today] [Week] [Month] [All time]        <-- filtri tempo (esistenti)
 
-**`src/components/icons/iconRegistry.ts`**
-- Aggiungere `'discord'` al tipo `IconName` e registrare `PixelDiscord` nella mappa `icons`
+#1  Player Name     1,234 px             <-- metrica principale cambia
+                    456 PE ($0.46)        <-- metrica secondaria sotto
+```
 
-**`src/components/map/PixelInfoPanel.tsx` (riga 240)**
-- Sostituire `<PixelIcon name="globe" ...>` per il link Discord con `<PixelIcon name="discord" ...>`
+Quando il toggle e su "Pixels Painted": la lista e ordinata per pixel, il numero grande a destra e i pixel, sotto in piccolo i PE + USD.
+Quando il toggle e su "PE Staked": la lista e ordinata per PE stakati, il numero grande e i PE + USD, sotto in piccolo i pixel.
 
-**`src/components/modals/SettingsModal.tsx` (riga 334)**
-- Sostituire `<PixelIcon name="globe" ...>` nell'etichetta Discord con `<PixelIcon name="discord" ...>`
+## Modifiche
 
-**`src/hooks/usePlayerProfile.ts`**
-- Aggiungere `socialDiscord` alla query `public_pixel_owner_info` (riga 62) e all'interfaccia `PlayerProfile`
-- Mappare `profile?.social_discord` nel risultato (riga 117)
+### 1. Edge function `supabase/functions/leaderboard-get/index.ts`
 
-**`src/components/modals/PlayerProfileModal.tsx`**
-- Aggiungere `socialDiscord` alla condizione `hasSocials` (riga 171)
-- Aggiungere il link Discord nella sezione Social Links con `<PixelIcon name="discord" ...>`
+**Aggiungere `totalPeStaked` a Countries e Alliances:**
+- Nella sezione `countries`: fetchare anche `pe_used_pe` dalla tabella `users` e aggregare per paese
+- Nella sezione `alliances`: stesso approccio, aggregare `pe_used_pe` per alliance
+- Aggiungere nuovo parametro `metric: "pixels" | "pe_staked"` al body della request
+- Ordinare i risultati in base alla metrica scelta (totalPixels o totalPeStaked)
+- Per i players: `pe_used_pe` e gia fetchato, basta usarlo per l'ordinamento alternativo
 
----
+**Countries - nuovi campi nel response:**
+```text
+{
+  rank, countryCode, playerCount, totalPixels,
+  totalPeStaked  // NUOVO: somma pe_used_pe degli utenti di quel paese
+}
+```
 
-## Parte 2: Feedback aptico completo
+**Alliances - nuovi campi nel response:**
+```text
+{
+  rank, allianceTag, allianceName, playerCount, totalPixels,
+  totalPeStaked  // NUOVO: somma pe_used_pe dei membri dell'alliance
+}
+```
 
-### Stato attuale
-- Haptics esistono e funzionano (engine + hook + toggle in settings)
-- Sono usati solo in: commit paint (`usePaintQueue`), like/save (`PlacesModal`), toggle settings
-- **Mancano**: feedback durante il disegno singolo pixel, errori, validate, progresso continuo durante la barra
+### 2. Hook `src/hooks/useLeaderboard.ts`
 
-### Modifiche
+- Aggiungere `metric: "pixels" | "pe_staked"` come parametro (tipo `LeaderboardMetric`)
+- Passarlo nel body della request all'edge function
+- Aggiungere `totalPeStaked` alle interfacce `CountryEntry` e `AllianceEntry`
+- Rinominare `peUsed` in `totalPeStaked` in `PlayerEntry` per consistenza
 
-**`src/lib/haptics.ts` - Nuovi pattern**
-- Aggiungere pattern `progress_tick`: vibrazione breve crescente per il progresso (es. `[5]` -> `[8]` -> `[12]` man mano che la percentuale sale)
-- Nessun nuovo pattern necessario, i pattern esistenti coprono gia i casi (`light`, `medium`, `success`, `error`, `commit`, `validate_success`, `validate_fail`)
+### 3. UI `src/components/modals/LeaderboardModal.tsx`
 
-**`src/components/map/hooks/useDraftPaint.ts` - Haptic su ogni pixel disegnato**
-- Importare `hapticsEngine`
-- Nel metodo `addToDraft`, dopo aver aggiunto il pixel al draft, chiamare `hapticsEngine.trigger('light')` - vibrazione leggera per ogni pixel piazzato
+- Aggiungere stato `metric` con toggle a 2 opzioni: "Pixels Painted" / "PE Staked"
+- Il toggle va posizionato tra i scope tabs e i filtri temporali
+- Stile: segmented control simile ai period pills ma leggermente piu grande, con icone (brush per pixels, bolt per PE)
+- Passare `metric` a `LeaderboardList` e poi al hook
 
-**`src/components/map/OperationProgress.tsx` - Vibrazione crescente durante il progresso**
-- Importare `hapticsEngine`
-- Aggiungere un `useEffect` che monitora `displayPercent`: ogni volta che la percentuale aumenta di almeno 10 punti, triggerare una vibrazione crescente
-  - 0-30%: `hapticsEngine.trigger('light')` (10ms)
-  - 30-60%: `hapticsEngine.trigger('medium')` (20ms)
-  - 60-90%: `hapticsEngine.trigger('heavy')` (40ms)
-- Quando `showComplete` diventa true (100%), triggerare `hapticsEngine.trigger('success')` - pattern di conferma [15, 50, 15]
+**PlayerRow:** aggiungere sotto il valore principale una riga secondaria con l'altra metrica + USD
+**CountryRow:** aggiungere `totalPeStaked` + USD sotto il valore principale  
+**AllianceRow:** aggiungere `totalPeStaked` + USD sotto il valore principale
 
-**`src/hooks/useGameActions.ts` - Haptic su errore**
-- Importare `hapticsEngine`
-- In ogni punto dove viene settato `setLastError(...)`, aggiungere `hapticsEngine.trigger('error')` -- pattern [30, 50, 30, 50, 30]
-- Nel commit success (riga 637, `toast.success`), aggiungere `hapticsEngine.trigger('validate_success')` per conferma
+La conversione USD usa la costante `PE_PER_USD = 1000` (1 PE = $0.001).
 
-**`src/components/map/hooks/usePaintQueue.ts` - Haptic su errore flush**
-- Nel catch (riga 158-161), aggiungere `hapticsEngine.trigger('error')`
+### 4. Pagina `src/pages/LeaderboardPage.tsx`
 
-### Riepilogo feedback aptico
+Attualmente mostra "Coming Soon". Va sostituita con il contenuto reale della leaderboard, riutilizzando la stessa logica del modal ma in layout full-page.
 
-| Evento | Pattern | Sensazione |
-|--------|---------|------------|
-| Pixel disegnato (draft) | `light` (10ms) | Tap leggero |
-| Progresso 0-30% | `light` ogni 10% | Tick sottile |
-| Progresso 30-60% | `medium` ogni 10% | Tick medio |
-| Progresso 60-90% | `heavy` ogni 10% | Tick forte |
-| Completamento (100%) | `success` [15,50,15] | Doppio tap secco |
-| Commit success | `validate_success` [15,40,25] | Conferma |
-| Errore | `error` [30,50,30,50,30] | Triplo buzz |
+## Dettagli Tecnici
+
+### Edge function - Aggregazione PE per Countries
+
+```text
+// Fetch users with country + pe_used_pe
+const { data: users } = await supabase
+  .from("users")
+  .select("id, country_code, pe_used_pe")
+  .not("country_code", "is", null);
+
+// Nella mappa aggregazione, aggiungere:
+current.peStaked += Number(user.pe_used_pe || 0);
+```
+
+### Edge function - Ordinamento per metrica
+
+```text
+const sortKey = metric === "pe_staked" ? "peStaked" : "pixels";
+const sorted = Array.from(totals.entries())
+  .sort((a, b) => b[1][sortKey] - a[1][sortKey])
+  .slice(0, 50);
+```
+
+### Conversione USD nel frontend
+
+```text
+import { PE_PER_USD } from "@/config/energy";
+const peToUsd = (pe: number) => (pe / PE_PER_USD).toFixed(2);
+```
 
 ### File modificati
-- `src/components/icons/custom/PixelDiscord.tsx` (nuovo)
-- `src/components/icons/iconRegistry.ts`
-- `src/components/map/PixelInfoPanel.tsx`
-- `src/components/modals/SettingsModal.tsx`
-- `src/hooks/usePlayerProfile.ts`
-- `src/components/modals/PlayerProfileModal.tsx`
-- `src/components/map/hooks/useDraftPaint.ts`
-- `src/components/map/OperationProgress.tsx`
-- `src/hooks/useGameActions.ts`
-- `src/components/map/hooks/usePaintQueue.ts`
-
+- `supabase/functions/leaderboard-get/index.ts` - aggiungere totalPeStaked + metric sorting
+- `src/hooks/useLeaderboard.ts` - aggiungere metric param + totalPeStaked alle interfacce
+- `src/components/modals/LeaderboardModal.tsx` - toggle metrica + visualizzazione PE/USD in ogni riga
+- `src/pages/LeaderboardPage.tsx` - sostituire "Coming Soon" con leaderboard reale
