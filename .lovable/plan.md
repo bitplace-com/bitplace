@@ -1,53 +1,54 @@
 
 
-# Fix Spaziatura Colors + Analisi Ordinamento Palette
+# Fix Default Color, Default Tool, Icon Shape e Spacebar Focus
 
-## Problema
+## 4 Problemi da risolvere
 
-La griglia Colors usa `grid grid-cols-8 gap-1.5` con quadratini `w-7` (28px) a dimensione fissa. Questo causa overflow sul lato destro perche: 8 colonne x 28px + 7 gap x 6px = 266px, ma il container con `px-3` + `px-1` interno ha meno spazio disponibile. In Gradients invece si usa `flex gap-1` che si adatta naturalmente.
+### 1. Colore di default: bianco (`#ffffff`)
 
-## Soluzione Spaziatura
+Attualmente `selectedColor` parte come `null` e `lastBrushColor` punta a `ALL_COLORS[2]` (un grigio-rosato `#b3b9d1`). Va cambiato in `useMapState.ts`:
 
-Cambiare la griglia Colors da `grid` fisso a `flex flex-wrap gap-1` (stesso `gap-1` dei Gradients), mantenendo la distribuzione libera a flusso (senza righe forzate). I quadratini mantengono le stesse dimensioni `w-7 h-7 sm:w-[22px] sm:h-[22px]` ma con gap uniforme `gap-1` invece di `gap-1.5`.
+- `selectedColor: '#ffffff'` (primo colore della palette, bianco)
+- `lastBrushColor: '#ffffff'`
 
-**`src/components/map/ActionTray.tsx` (riga 407)**
+Questo garantisce che all'apertura il bianco sia gia selezionato e visibile nel tray.
+
+### 2. Tool di default: Brush 1x (non Eraser)
+
+Il paintTool e gia `'BRUSH'` nel codice, ma dato che `selectedColor` era `null`, la logica in `setSelectedColor` impostava `paintTool: 'ERASER'` quando nessun colore era scelto. Risolvendo il punto 1 (colore default bianco), il brush sara automaticamente attivo perche `selectedColor` non sara piu `null`.
+
+### 3. Icona PixelSingle: forma non quadrata
+
+L'attuale polygon ha coordinate x: 7-17 (10 unita) e y: 6-18 (12 unita), quindi e un rettangolo verticale. Va corretto per essere un quadrato centrato nel viewBox 24x24.
+
+Nuove coordinate: un quadrato 10x10 centrato (x: 7-17, y: 7-17):
+
 ```text
-// DA:
-<div className="grid grid-cols-8 sm:grid-cols-12 gap-1.5 w-full">
-
-// A:
-<div className="flex flex-wrap gap-1">
+points="17 7 17 17 16 17 16 18 8 18 8 17 7 17 7 7 8 7 8 6 16 6 16 7 17 7"
+diventa
+points="16 8 16 16 8 16 8 8"
+con bordi pixel-art:
+"17 8 17 16 16 16 16 17 8 17 8 16 7 16 7 8 8 8 8 7 16 7 16 8 17 8"
 ```
 
-Questo:
-- Allinea la spaziatura tra Colors e Gradients (entrambi `gap-1`)
-- Elimina il clipping a destra perche flex-wrap rispetta i bordi del container
-- Mantiene la distribuzione a flusso continuo senza righe forzate
+Questo crea un quadrato 10x10 (7-17 x 7-17) con bordi smussati pixel-art, identico in proporzione ai singoli quadratini dell'icona Grid2x2.
 
-## Analisi Ordinamento Attuale della Palette Colors
+### 4. Spacebar attiva l'ultimo bottone cliccato
 
-La palette attuale (`basePaletteOrdered.ts`) contiene **63 colori** organizzati in cluster per tonalita, ciascuno dal chiaro al scuro:
+Questo e un comportamento standard del browser: dopo aver cliccato un bottone, questo mantiene il focus e la spacebar lo riattiva. La soluzione e aggiungere `tabIndex={-1}` ai bottoni interattivi del tray che non devono catturare il focus da tastiera, in particolare:
 
-| Cluster | Colori | Note |
-|---------|--------|------|
-| Reds | 6 | #ffc5a5 -> #600018 |
-| Pinks/Magentas | 6 | #f38da9 -> #780c99 |
-| Oranges | 5 | #f8b277 -> #dba463 |
-| Browns/Sands | 10 | Cluster molto grande, colori terrosi misti |
-| Yellows | 6 | #fffabc -> #9c8431 |
-| Greens | 6 | #87ff5e -> #4a6b3a |
-| Teals/Cyans | 5 | #bbfaf2 -> #0c816e |
-| Blues | 5 | #7dc7ff -> #28509e |
-| Purples | 5 | #b5aef1 -> #4a4284 |
-| Grays | 9 | #ffffff -> #000000 |
+- Il bottone collapse/expand (chevron)
+- I bottoni di interazione mode (drag/draw)
+- I bottoni tool (brush 1x, 2x2, eraser)
+- I bottoni palette tab (Colors/Gradients)
 
-**Problemi dell'ordinamento attuale:**
-- L'ordine parte dai caldi (rossi) e va verso i freddi (blu/viola), ma il grigio e in fondo -- funziona ma e l'opposto di quanto fatto nei Gradients (freddo -> caldo)
-- Il cluster Browns ha 10 colori, sproporzionato rispetto agli altri (5-6)
-- Alcuni colori nei Browns sono ambigui (es. #d18078 e piu rosato che marrone)
+Alternativa piu pulita: usare `onMouseDown={(e) => e.preventDefault()}` sui bottoni per impedire che il click col mouse sposti il focus. Questo e piu preciso perche `tabIndex={-1}` impedirebbe anche la navigazione tab legittima.
 
-**Proposta di miglioramento:** Invertire l'ordine per allinearlo ai Gradients (freddo in alto, caldo in basso): Grays, Purples, Blues, Teals, Greens, Yellows, Oranges, Browns (ridotto), Reds, Pinks. Questo rende coerente l'esperienza tra i due tab.
+Si usera `onMouseDown={e => e.preventDefault()}` su tutti i bottoni dell'ActionTray, cosi il focus non viene spostato dal click del mouse ma la navigazione tab rimane funzionante.
 
-### File modificati
-- `src/components/map/ActionTray.tsx` -- cambiare grid a flex wrap + gap-1
-- `src/lib/palettes/basePaletteOrdered.ts` -- riordinare i cluster (freddo -> caldo)
+## File modificati
+
+- `src/components/map/hooks/useMapState.ts` -- default `selectedColor: '#ffffff'`, `lastBrushColor: '#ffffff'`
+- `src/components/icons/custom/PixelSingle.tsx` -- fix polygon per quadrato proporzionato
+- `src/components/map/ActionTray.tsx` -- aggiungere `onMouseDown={e => e.preventDefault()}` ai bottoni interattivi
+
