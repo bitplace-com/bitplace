@@ -265,7 +265,7 @@ const ProfilePage = () => {
                     (temporary until BTP launches).
                   </p>
                   <p className="text-xs text-amber-600/80 mt-1">
-                    1 PE = $0.01 • Your PE is calculated from your{" "}
+                    1 PE = $0.001 • Your PE is calculated from your{" "}
                     {energy.nativeSymbol} balance
                   </p>
                 </div>
