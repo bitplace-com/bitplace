@@ -34,8 +34,8 @@ export const COLOR_PALETTE = ALL_COLORS;
 export function useMapState() {
   const [state, setState] = useState<MapState>({
     mode: 'paint',
-    selectedColor: null, // No default color - user must select
-    lastBrushColor: ALL_COLORS[2], // Fallback for when user picks brush
+    selectedColor: '#ffffff',
+    lastBrushColor: '#ffffff',
     paintTool: 'BRUSH',
     brushSize: '1x',
     zoom: 2,
