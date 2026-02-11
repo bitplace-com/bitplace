@@ -1,42 +1,50 @@
 
 
-# Pulizia Mappa e Reset PE
+# Cambio Valutazione: 1 PE = $0.001 (1 USD = 1000 PE)
 
-## Stato Attuale
-- **8.635 pixel** sulla mappa
-- **0 contributi** (nessun DEF/ATK)
-- **29 paint events** nel log
-- Utente FabCap: `pe_used_pe = 8635`, `pixels_painted_total = 9081`
-- Utente 456w...kLby: `pe_used_pe = 0`, `pixels_painted_total = 0`
+## Riepilogo
 
-## Operazioni da Eseguire
+Ripristiniamo il valore originale di 1 PE = $0.001 ($1 = 1000 PE). Questo cambiamento tocca la configurazione frontend, due edge function backend, e tutti i testi/UI che mostrano il valore del PE.
 
-Eseguiremo una singola migrazione SQL che:
+## File da Modificare
 
-1. **Elimina tutti i pixel** dalla tabella `pixels` (TRUNCATE per velocita)
-2. **Elimina tutti i paint events** dalla tabella `paint_events`
-3. **Resetta i contatori utente**: `pe_used_pe = 0` e `pixels_painted_total = 0` per tutti gli utenti
+### 1. Configurazione centrale
+**`src/config/energy.ts`** (linea 18-19)
+- Commento: `1 PE = $0.001, so 1 USD = 1000 PE`
+- `PE_PER_USD = 1000`
 
-### SQL Migration
+### 2. Edge Functions
+**`supabase/functions/energy-refresh/index.ts`** (linea 36-37)
+- Commento e costante: `PE_PER_USD = 1000`
 
-```sql
--- 1. Svuota pixel e paint events
-TRUNCATE TABLE pixels RESTART IDENTITY CASCADE;
-TRUNCATE TABLE paint_events RESTART IDENTITY CASCADE;
-TRUNCATE TABLE pixel_contributions RESTART IDENTITY CASCADE;
+**`supabase/functions/sol-balance/index.ts`** (linea 16-17)
+- Commento e costante: `PE_PER_USD = 1000`
 
--- 2. Reset contatori utente
-UPDATE users SET
-  pe_used_pe = 0,
-  pixels_painted_total = 0,
-  xp = 0,
-  level = 1;
-```
+### 3. UI - Testi e formule
+**`src/components/map/PixelInspectorCard.tsx`**
+- Linea 151: `~$0.01` diventa `~$0.001`
+- Linea 273: `* 0.01` diventa `* 0.001`
 
-Il `CASCADE` su `pixels` gestisce automaticamente eventuali foreign key (come `pixel_contributions`). I trigger `update_pe_used_on_pixel_change` non scattano con TRUNCATE, quindi usiamo l'UPDATE esplicito sui contatori.
+**`src/pages/SpecPage.tsx`** (linee 33-34)
+- `1 PE = $0.001 USD` e `1 USD = 1,000 PE`
 
-## Note
-- `pe_total_pe` NON viene toccato: il saldo PE totale dipende dal wallet e rimane invariato
-- `xp` e `level` vengono resettati perche derivano da `pixels_painted_total`
-- Nessun file frontend da modificare: la mappa si aggiornera automaticamente al prossimo caricamento tile
+**`src/pages/ProfilePage.tsx`** (linea 268)
+- `1 PE = $0.001`
+
+**`src/components/modals/RulesModal.tsx`**
+- Linea 34: `1 PE = $0.001`
+- Linea 71: `$0.001 (1 PE)` per il valore di un pixel vuoto
+
+**`src/components/modals/ShopModal.tsx`**
+- La riga del rate usa gia `PE_PER_USD.toLocaleString()` quindi si aggiorna automaticamente
+
+### 4. Documentazione
+**`docs/bitplace_rules.md`** (linea 7)
+- `1 PE = $0.001`
+
+## Note Tecniche
+- La mappa e gia stata svuotata nella migrazione precedente, quindi non servono ricalcoli sui pixel esistenti
+- Il `pe_total_pe` degli utenti verra ricalcolato automaticamente al prossimo `energy-refresh` (il wallet avra 10x piu PE a parita di saldo)
+- Nessuna migrazione SQL necessaria: il cambio e puramente applicativo
+- Il componente `ShopModal` si aggiorna automaticamente grazie all'uso della costante `PE_PER_USD`
 
