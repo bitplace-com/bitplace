@@ -115,17 +115,15 @@ export function PlaceCard({
         )}
 
         {/* PE Value */}
-        {place.stats.total_pe > 0 && (
-          <div className="flex items-center gap-1">
-            <PEIcon size="xs" className="text-muted-foreground" />
-            <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
-              {place.stats.total_pe.toLocaleString()} PE
-            </span>
-            <span className="text-[10px] text-muted-foreground/70">
-              (${(place.stats.total_pe / PE_PER_USD).toFixed(2)})
-            </span>
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 bg-muted/30 rounded-md px-2 py-1">
+          <PEIcon size="sm" className="text-foreground/70" />
+          <span className="text-sm font-semibold tabular-nums">
+            {place.stats.total_pe.toLocaleString()} PE
+          </span>
+          <span className="text-xs text-muted-foreground">
+            ~${(place.stats.total_pe / PE_PER_USD).toFixed(2)}
+          </span>
+        </div>
 
         {/* Footer: Stats & Actions */}
         <div className="flex items-center gap-2 pt-1">

@@ -28,7 +28,7 @@ interface CreatePlaceFormProps {
 /** Inline canvas preview of artwork pixels */
 function ArtworkPreview({ pixels, bbox }: { pixels: PixelData[]; bbox: { xmin: number; ymin: number; xmax: number; ymax: number } }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const SIZE = 280;
+  const SIZE = 320;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -46,9 +46,9 @@ function ArtworkPreview({ pixels, bbox }: { pixels: PixelData[]; bbox: { xmin: n
 
     const rangeX = bbox.xmax - bbox.xmin + 1;
     const rangeY = bbox.ymax - bbox.ymin + 1;
-    const padding = 8;
+    const padding = 4;
     const available = SIZE - padding * 2;
-    const pixelSize = Math.max(1, Math.min(available / rangeX, available / rangeY, 10));
+    const pixelSize = Math.max(1, Math.min(available / rangeX, available / rangeY));
     const drawW = rangeX * pixelSize;
     const drawH = rangeY * pixelSize;
     const offX = (SIZE - drawW) / 2;

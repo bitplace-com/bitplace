@@ -124,6 +124,12 @@ export const PlaceThumbnail = memo(function PlaceThumbnail({
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
+        // DPR scaling for retina displays
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        ctx.scale(dpr, dpr);
+
         // Clear canvas
         ctx.fillStyle = "hsl(var(--muted))";
         ctx.fillRect(0, 0, width, height);
@@ -132,7 +138,6 @@ export const PlaceThumbnail = memo(function PlaceThumbnail({
         const bboxWidth = bbox.xmax - bbox.xmin + 1;
         const bboxHeight = bbox.ymax - bbox.ymin + 1;
         
-        // Calculate cell size to fit all pixels
         const cellWidth = width / bboxWidth;
         const cellHeight = height / bboxHeight;
         const cellSize = Math.max(1, Math.min(cellWidth, cellHeight));
@@ -146,7 +151,7 @@ export const PlaceThumbnail = memo(function PlaceThumbnail({
           ctx.fillStyle = pixel.color;
           const px = (pixel.x - bbox.xmin) * cellSize + offsetX;
           const py = (pixel.y - bbox.ymin) * cellSize + offsetY;
-          ctx.fillRect(px, py, Math.ceil(cellSize), Math.ceil(cellSize));
+          ctx.fillRect(px, py, cellSize - 0.3, cellSize - 0.3);
         });
 
         setHasPixels(true);
