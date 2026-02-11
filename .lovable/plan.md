@@ -1,44 +1,48 @@
 
-# Fix Loading UI: Rimuovi Spinner Duplicato e Aggiungi Progresso Visivo
+# Ottimizzazione Velocita e Progresso Visivo
 
-## Problema 1: Spinner Duplicato
-Il bottone "Validate"/"Paint" mostra un `Loader2` animato dentro il testo del bottone, e il componente `OperationProgress` sotto il bottone mostra un altro `Loader2`. Rimuoviamo lo spinner dal bottone e manteniamo solo quello in `OperationProgress`.
+## Analisi dai Log
 
-## Problema 2: Barra di Progresso Ferma
-La modalita PAINT usa richieste JSON non-streaming (`invokeWithRetry`), che non emettono eventi di progresso intermedi. Il `progress` rimane a `{processed: 0, total: N}` per tutta la durata. La barra resta a 0%.
+I log mostrano chiaramente il problema:
+- **DB caldo**: validate ~1.5s, commit ~600ms (veloce)
+- **DB freddo**: validate ~5.7s (fetchPixelsByCoords), commit PING 8.6s + fetch 2.1s (lento)
+- La barra si ferma a 89% perche la curva attuale raggiunge quel valore dopo ~17 secondi, ma le operazioni durano 2-10 secondi
 
-### Soluzione: Progresso Simulato a Fasi
+## Modifiche
 
-Dato che le richieste PAINT sono chiamate HTTP singole senza progresso incrementale reale, implementiamo un progresso simulato basato su fasi temporali:
+### 1. Curva di progresso piu veloce (`src/components/map/OperationProgress.tsx`)
+- Cambiare il divisore della curva logaritmica da 8 a 3
+- Con divisore 3: raggiunge 60% in ~3s, 80% in ~5s, 89% in ~7s
+- Questo si allinea meglio ai tempi reali delle operazioni (1.5-6s)
+- Formula: `90 * (1 - Math.exp(-elapsed / 3))`
 
-- **Validate**: Anima da 0% a 90% durante l'attesa, salta a 100% al completamento
-- **Commit**: Anima da 0% a 90% durante l'attesa, salta a 100% al completamento
+### 2. Pre-warmup di game-commit durante il validate (`src/hooks/useGameActions.ts`)
+- Quando il validate inizia, lanciare un PING fire-and-forget a `game-commit`
+- Questo scalda il DB pool del commit mentre l'utente aspetta la validazione
+- Quando il commit parte dopo, il DB e gia caldo e risponde in ~600ms invece di 8+ secondi
+- Aggiungere una funzione helper `warmupCommit()` che invia un PING a game-commit senza attendere la risposta
 
-Il progresso accelera all'inizio e rallenta verso la fine (easing), dando un feedback realistico.
+### 3. Ridurre intervallo warmup periodico (`src/hooks/useEdgeFunctionWarmup.ts`)
+- Ridurre `WARMUP_INTERVAL_MS` da 3 minuti a 2 minuti
+- Questo riduce la probabilita di cold start durante l'uso attivo
 
-## Modifiche Tecniche
+## Dettagli Tecnici
 
-### 1. `src/components/map/inspector/ActionBox.tsx`
-- Rimuovere `Loader2` e spinner animato dal testo dei bottoni "Validate" e "Paint" durante il loading
-- Mostrare solo testo statico ("Validating..." / "Painting...") nel bottone, senza icona rotante
-- Lo spinner rimane solo nel componente `OperationProgress` sotto
+### Curva di progresso (prima vs dopo)
 
-### 2. `src/components/map/OperationProgress.tsx`
-- Aggiungere un hook `useEffect` con `requestAnimationFrame` per simulare il progresso quando `progress.processed === 0` (nessun progresso reale dal server)
-- L'animazione usa una curva logaritmica: avanza rapidamente fino al 60%, poi rallenta fino al 90% dove si ferma in attesa del completamento
-- Quando `isActive` diventa `false`, il progresso salta brevemente a 100% prima di scomparire
-- Mostrare la label della fase corrente ("Validating..." / "Painting...") con la percentuale simulata
+```text
+Tempo    Prima (d=8)    Dopo (d=3)
+1s       11%            26%
+2s       21%            43%
+3s       31%            55%
+5s       47%            72%
+7s       58%            81%
+10s      71%            87%
+15s      85%            89%
+```
 
-### 3. `src/hooks/useGameActions.ts`
-- Nel path non-streaming (PAINT), aggiungere aggiornamenti di progresso nelle transizioni di fase:
-  - Inizio validate: `setProgress({ processed: 0, total: pixelCount })`
-  - Fine validate / Inizio commit: `setProgress({ processed: Math.floor(pixelCount * 0.5), total: pixelCount })`
-  - Questo da almeno un salto al 50% tra le due fasi, migliorando il feedback anche senza simulazione
+Con la nuova curva, per un'operazione tipica (2-6 secondi) la barra mostra un avanzamento significativo (43-72%) e non resta mai visibilmente "bloccata".
 
-## Performance
-L'analisi dei log conferma che le edge function sono performanti:
-- Validate: ~2.8s per 300px (la maggior parte e il fetch parallelo user+pixels)
-- Commit: ~590ms per 300px (fetch 175ms + upsert 414ms)
-- I tempi piu lunghi (5-7s) sono dovuti a cold start del DB, gia mitigati dal sistema di PING warmup
+### Pre-warmup durante validate
 
-Non servono modifiche backend per la performance.
+Nel metodo `validate()`, subito dopo l'invio della richiesta a `game-validate`, invieremo un PING parallelo a `game-commit`. Questo non rallenta il validate (e fire-and-forget) ma assicura che quando il commit parte subito dopo, il database sia gia pronto.
