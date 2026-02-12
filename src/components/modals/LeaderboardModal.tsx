@@ -202,7 +202,7 @@ function EmptyState({ scope }: { scope: LeaderboardScope }) {
   };
   return (
     <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-      <PixelIcon name="usersCrown" size="lg" className="mb-3 opacity-50" />
+      <PixelIcon name="trophy" size="lg" className="mb-3 opacity-50" />
       <p className="text-sm">{messages[scope]}</p>
       <p className="text-xs mt-1">Start painting to climb the ranks!</p>
     </div>
@@ -282,7 +282,7 @@ export function LeaderboardModal({ open, onOpenChange }: LeaderboardModalProps) 
 
   return (
     <>
-      <GamePanel open={open} onOpenChange={onOpenChange} title="Leaderboard" icon={<PixelIcon name="usersCrown" size="md" />} size="lg">
+      <GamePanel open={open} onOpenChange={onOpenChange} title="Leaderboard" icon={<PixelIcon name="trophy" size="md" />} size="lg">
         <Tabs value={scope} onValueChange={(v) => setScope(v as LeaderboardScope)} className="w-full">
           <TabsList className="w-full bg-foreground/5">
             <TabsTrigger value="players" className="flex-1 gap-1.5"><PixelIcon name="user" size="xs" />Players</TabsTrigger>

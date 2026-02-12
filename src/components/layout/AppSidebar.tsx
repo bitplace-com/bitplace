@@ -19,7 +19,7 @@ const navItems = [
   { title: "Map", url: "/", icon: Map, pixelIcon: undefined as string | undefined },
   { title: "Rules", url: "/rules", icon: FileText, pixelIcon: undefined as string | undefined },
   { title: "Profile", url: "/profile", icon: User, pixelIcon: undefined as string | undefined },
-  { title: "Leaderboard", url: "/leaderboard", icon: undefined as any, pixelIcon: "usersCrown" as string | undefined },
+  { title: "Leaderboard", url: "/leaderboard", icon: undefined as any, pixelIcon: "trophy" as string | undefined },
 ];
 
 export function AppSidebar() {

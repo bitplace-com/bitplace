@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Users, Crown, LogOut, Loader2, Search, UserPlus, Check } from "lucide-react";
+import { Crown, LogOut, Loader2, Search, UserPlus, Check } from "lucide-react";
+import { PixelIcon } from "@/components/icons";
 import { GamePanel } from "./GamePanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -155,7 +156,7 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
         onOpenChange={onOpenChange}
         title="Alliances"
         description="Join forces with other players"
-        icon={<Users className="h-5 w-5" />}
+        icon={<PixelIcon name="usersCrown" size="md" />}
         size="md"
       >
         <div className="flex items-center justify-center py-12">
@@ -173,7 +174,7 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
         onOpenChange={onOpenChange}
         title="Alliances"
         description="Create an alliance and invite players"
-        icon={<Users className="h-5 w-5" />}
+        icon={<PixelIcon name="usersCrown" size="md" />}
         size="md"
       >
         <div className="space-y-6">
@@ -224,7 +225,7 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
       onOpenChange={onOpenChange}
       title="My Alliance"
       description="Manage your alliance"
-      icon={<Users className="h-5 w-5" />}
+      icon={<PixelIcon name="usersCrown" size="md" />}
       size="md"
     >
       <div className="space-y-4">
@@ -235,7 +236,7 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
             [{alliance.tag}]
           </span>
           <p className="mt-2 text-sm text-muted-foreground">
-            <Users className="inline h-3.5 w-3.5 mr-1" />
+            <PixelIcon name="usersCrown" size="sm" className="inline mr-1" />
             {alliance.memberCount} member{alliance.memberCount !== 1 ? "s" : ""}
           </p>
         </div>
