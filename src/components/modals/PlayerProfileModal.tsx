@@ -1,5 +1,8 @@
 import { useRef, useEffect, useState } from "react";
 import { PixelIcon } from "@/components/icons";
+import { ProBadge } from "@/components/ui/pro-badge";
+import { AdminBadge } from "@/components/ui/admin-badge";
+import { getProTier, isAdmin } from "@/lib/userBadges";
 import { format } from "date-fns";
 import {
   Dialog,
@@ -221,6 +224,8 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
                   <h3 className="font-semibold text-lg truncate">
                     {profile.displayName || profile.walletShort || 'Unknown'}
                   </h3>
+                  {isAdmin(profile.walletAddress || profile.walletShort) && <AdminBadge size="md" />}
+                  {(() => { const tier = getProTier(profile.peUsed); return tier ? <ProBadge tier={tier} size="md" /> : null; })()}
                   {country && (
                     <span className="text-lg" title={country.name}>
                       {country.flag}

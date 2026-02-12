@@ -107,7 +107,7 @@ export function MapMenuDrawer() {
                   onClick={() => setLeaderboardOpen(true)}
                   className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
                 >
-                  <PixelIcon name="trophy" size="md" />
+                  <PixelIcon name="usersCrown" size="md" />
                   Leaderboard
                 </Button>
               </div>

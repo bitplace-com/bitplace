@@ -1,4 +1,5 @@
-import { Map, FileText, User, Trophy } from "lucide-react";
+import { Map, FileText, User } from "lucide-react";
+import { PixelIcon } from "@/components/icons";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -15,10 +16,10 @@ import {
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const navItems = [
-  { title: "Map", url: "/", icon: Map },
-  { title: "Rules", url: "/rules", icon: FileText },
-  { title: "Profile", url: "/profile", icon: User },
-  { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
+  { title: "Map", url: "/", icon: Map, pixelIcon: undefined as string | undefined },
+  { title: "Rules", url: "/rules", icon: FileText, pixelIcon: undefined as string | undefined },
+  { title: "Profile", url: "/profile", icon: User, pixelIcon: undefined as string | undefined },
+  { title: "Leaderboard", url: "/leaderboard", icon: undefined as any, pixelIcon: "usersCrown" as string | undefined },
 ];
 
 export function AppSidebar() {
@@ -53,7 +54,7 @@ export function AppSidebar() {
                       className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-foreground/70 transition-all hover:bg-accent hover:text-foreground"
                       activeClassName="bg-primary/10 text-foreground font-medium hover:bg-primary/15"
                     >
-                      <item.icon className="h-4 w-4 shrink-0" />
+                      {item.icon ? <item.icon className="h-4 w-4 shrink-0" /> : item.pixelIcon ? <PixelIcon name={item.pixelIcon as any} className="h-4 w-4 shrink-0" /> : null}
                       {!isCollapsed && <span className="text-sm">{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>

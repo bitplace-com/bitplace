@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { Input } from '@/components/ui/input';
 import { PlacesModal } from '@/components/modals/PlacesModal';
-import { Eraser, Hand } from 'lucide-react';
 import type { MapMode, InteractionMode, PaintTool, BrushSize } from './hooks/useMapState';
 
 interface ActionTrayProps {
@@ -228,7 +227,7 @@ export function ActionTray({
                   )}
                   title="Hand mode: Pan map"
                 >
-                  <Hand className="h-5 w-5 sm:h-4 sm:w-4" />
+                  <PixelIcon name="expand" className="h-5 w-5 sm:h-4 sm:w-4" />
                 </button>
                 <button
                   onMouseDown={e => e.preventDefault()}
@@ -370,7 +369,7 @@ export function ActionTray({
                         )}
                         title="Eraser"
                       >
-                        <Eraser className="h-5 w-5 sm:h-4 sm:w-4" />
+                        <PixelIcon name="trash" className="h-5 w-5 sm:h-4 sm:w-4" />
                       </button>
                     </div>
                     

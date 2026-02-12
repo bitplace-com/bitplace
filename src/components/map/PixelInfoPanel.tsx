@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { X, RefreshCw, AlertTriangle, Globe, Expand, Loader2 } from 'lucide-react';
 import { PEIcon } from '@/components/ui/pe-icon';
+import { ProBadge } from '@/components/ui/pro-badge';
+import { AdminBadge } from '@/components/ui/admin-badge';
+import { getProTier, isAdmin } from '@/lib/userBadges';
 import { toast } from 'sonner';
 
 import { GlassPanel } from '@/components/ui/glass-panel';
@@ -179,7 +182,7 @@ export function PixelInfoPanel({
                   )}
 
                   <div className="min-w-0 flex-1 space-y-1">
-                    {/* Name + Level + Alliance */}
+                    {/* Name + Level + Alliance + Badges */}
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className={cn(
                         'font-medium text-sm truncate max-w-[140px]',
@@ -190,6 +193,8 @@ export function PixelInfoPanel({
                       {isOwnPixel && (
                         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">You</span>
                       )}
+                      {isAdmin(pixel.owner?.wallet_short) && <AdminBadge />}
+                      {(() => { const tier = getProTier(pixel.owner?.total_staked_pe ?? 0); return tier ? <ProBadge tier={tier} /> : null; })()}
                       {pixel.owner?.alliance_tag && (
                         <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-accent text-accent-foreground">
                           [{pixel.owner.alliance_tag}]

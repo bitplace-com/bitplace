@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
       if (allUserIds.length > 0) {
         const { data: users, error: usersError } = await supabase
           .from("users")
-          .select("id, display_name, country_code, alliance_tag, avatar_url, bio, social_x, social_instagram, social_website, pe_used_pe, pixels_painted_total")
+          .select("id, display_name, country_code, alliance_tag, avatar_url, bio, social_x, social_instagram, social_website, pe_used_pe, pixels_painted_total, wallet_address")
           .in("id", allUserIds);
         if (usersError) throw usersError;
 
@@ -109,6 +109,7 @@ Deno.serve(async (req) => {
             socialX: user?.social_x || null,
             socialInstagram: user?.social_instagram || null,
             socialWebsite: user?.social_website || null,
+            walletAddress: user?.wallet_address || null,
           };
         });
 

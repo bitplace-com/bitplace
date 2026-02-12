@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { PixelIcon } from "@/components/icons";
+import { ProBadge } from "@/components/ui/pro-badge";
+import { AdminBadge } from "@/components/ui/admin-badge";
+import { getProTier, isAdmin } from "@/lib/userBadges";
 import { GamePanel } from "./GamePanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -88,6 +91,8 @@ function PlayerRow({ entry, metric, onPlayerClick }: { entry: PlayerEntry; metri
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="font-medium text-sm truncate">{displayName}</span>
+          {isAdmin(entry.walletAddress) && <AdminBadge />}
+          {(() => { const tier = getProTier(entry.totalPeStaked); return tier ? <ProBadge tier={tier} /> : null; })()}
           {entry.allianceTag && <span className="text-xs text-primary font-medium">[{entry.allianceTag}]</span>}
           {country && <span className="text-sm">{country.flag}</span>}
         </div>
@@ -197,7 +202,7 @@ function EmptyState({ scope }: { scope: LeaderboardScope }) {
   };
   return (
     <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-      <PixelIcon name="trophy" size="lg" className="mb-3 opacity-50" />
+      <PixelIcon name="usersCrown" size="lg" className="mb-3 opacity-50" />
       <p className="text-sm">{messages[scope]}</p>
       <p className="text-xs mt-1">Start painting to climb the ranks!</p>
     </div>
@@ -277,7 +282,7 @@ export function LeaderboardModal({ open, onOpenChange }: LeaderboardModalProps) 
 
   return (
     <>
-      <GamePanel open={open} onOpenChange={onOpenChange} title="Leaderboard" icon={<PixelIcon name="trophy" size="md" />} size="lg">
+      <GamePanel open={open} onOpenChange={onOpenChange} title="Leaderboard" icon={<PixelIcon name="usersCrown" size="md" />} size="lg">
         <Tabs value={scope} onValueChange={(v) => setScope(v as LeaderboardScope)} className="w-full">
           <TabsList className="w-full bg-foreground/5">
             <TabsTrigger value="players" className="flex-1 gap-1.5"><PixelIcon name="user" size="xs" />Players</TabsTrigger>
