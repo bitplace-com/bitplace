@@ -349,14 +349,13 @@ export function BitplaceMap() {
       zoom: urlPos ? urlPos.zoom : 2,
       minZoom: 2,
       maxZoom: 22,
-      // Disable pitch and rotation for stable grid math
       dragRotate: false,
       touchPitch: false,
-      // Disable world copies for simpler coordinate handling
       renderWorldCopies: false,
-      // Hide MapLibre attribution
       attributionControl: false,
-    });
+      // Enable canvas snapshot for place previews
+      ...(({ preserveDrawingBuffer: true }) as Record<string, unknown>),
+    } as maplibregl.MapOptions);
 
     map.on('load', () => {
       mapRef.current = map;

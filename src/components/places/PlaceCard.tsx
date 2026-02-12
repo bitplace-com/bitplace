@@ -112,17 +112,6 @@ export function PlaceCard({
           </p>
         )}
 
-        {/* PE Value */}
-        <div className="flex items-center gap-1.5">
-          <PEIcon size="sm" className="text-foreground/70" />
-          <span className="text-sm font-semibold tabular-nums">
-            {place.stats.total_pe.toLocaleString()} PE
-          </span>
-          <span className="text-xs font-medium text-emerald-500">
-            ${(place.stats.total_pe / PE_PER_USD).toFixed(2)}
-          </span>
-        </div>
-
         {/* Footer: Stats & Actions */}
         <div className="flex items-center gap-2 pt-1">
           {/* Likes */}
@@ -174,11 +163,22 @@ export function PlaceCard({
             </button>
           )}
 
+          {/* PE Value inline */}
+          <div className="flex items-center gap-1 ml-auto mr-1">
+            <PEIcon size="sm" className="text-foreground/70" />
+            <span className="text-xs font-semibold tabular-nums">
+              {place.stats.total_pe.toLocaleString()} PE
+            </span>
+            <span className="text-xs font-medium text-emerald-500">
+              ${(place.stats.total_pe / PE_PER_USD).toFixed(2)}
+            </span>
+          </div>
+
           {/* Navigate button */}
           <Button
             size="sm"
             variant="ghost"
-            className="h-7 px-2 text-xs ml-auto"
+            className="h-7 px-2 text-xs"
             onClick={(e) => {
               e.stopPropagation();
               handleNavigate();
