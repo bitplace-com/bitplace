@@ -1,35 +1,83 @@
 
 
-# Fix: Spaziature, Allineamento DEF/ATK e Contrasti
+# Fix Prezzo Unclaimed + Badge Alleanza con Tooltip
 
-## Problemi Identificati (dagli screenshot)
+## 1. Fix prezzo "Available to claim"
 
-### 1. Badge Alleanza - Spaziatura insufficiente
-Il badge `[BTP]` usa `px-1 py-0.5` che risulta troppo stretto. Va aumentato il padding interno a `px-2 py-0.5` per dare piu respiro al testo dentro il container.
+Il valore hardcoded `~$0.01` e sbagliato. Dato che 1 PE = $0.001, il costo corretto e `~$0.00` con `toFixed(2)` oppure meglio mostrare `$0.001` esplicitamente. Soluzione: usare la funzione `peToUsd(1)` gia presente nel file che calcola correttamente `(1 * 0.001).toFixed(2)` -- ma questo da `$0.00` che non e ideale. Meglio cambiare il formato per valori sotto $0.01 per mostrare 3 decimali: `~$0.001`.
 
-### 2. DEF / ATK - Allineamento
-Attualmente la riga DEF/ATK e allineata a sinistra (`flex items-center gap-4`). Va centrata usando `justify-center`.
+**Modifica alla funzione `peToUsd`**: aggiungere logica per mostrare 3 decimali quando il valore e sotto $0.01.
 
-### 3. Contrasti Day/Night
-- **Badge Alleanza**: `bg-accent text-accent-foreground` non ha sufficiente contrasto in entrambi i temi. Cambiare a `bg-muted text-foreground/80` con un bordo sottile `border border-border/50` per garantire leggibilita in entrambe le modalita.
-- **Valore USD ($)**: Secondo le convenzioni del progetto, i valori in dollari devono usare `text-emerald-500`. Attualmente il valore USD nelle stat card e nella sezione Economy usa `text-foreground` o `text-muted-foreground` - va corretto.
-- **Stat cards** (`bg-muted/50`): In Day mode risultano troppo trasparenti. Aumentare a `bg-muted/70` per migliore contrasto.
-- **Economy box** (`bg-muted/50`): Stesso problema, aumentare a `bg-muted/70`.
+## 2. Badge Alleanza - proporzioni
 
----
+Ridurre ulteriormente il padding orizzontale da `px-1.5` a `px-1` per rendere il badge piu compatto e proporzionato al testo `text-[10px]`.
 
-## Piano Modifiche
+## 3. Tooltip Alleanza con metriche
 
-### File: `src/components/map/PixelInfoPanel.tsx`
+### Database: nuova RPC function
 
-| Riga | Elemento | Da | A |
-|------|----------|----|----|
-| 200 | Badge alleanza padding | `px-1 py-0.5` | `px-2 py-1` |
-| 200 | Badge alleanza stile | `bg-accent text-accent-foreground` | `bg-muted text-foreground/80 border border-border/50` |
-| 259-273 | Stat cards background | `bg-muted/50` | `bg-muted/70` |
-| 271 | Value USD color | `text-foreground` | `text-emerald-500` |
-| 277 | Economy box background | `bg-muted/50` | `bg-muted/70` |
-| 285, 295 | USD sotto Owner/Total Stake | `text-muted-foreground` | `text-emerald-500` |
-| 300 | DEF/ATK riga | `flex items-center gap-4` | `flex items-center justify-center gap-4` |
+Creare una funzione SQL `get_alliance_stats_by_tag(tag_input text)` con `SECURITY DEFINER` che restituisce:
+- `name` (nome alleanza)
+- `tag`
+- `member_count`
+- `total_pixels` (somma `pixels_painted_total` dei membri)
+- `total_pe_staked` (somma `owner_stake_pe` dei pixel posseduti dai membri)
 
-Tutte le modifiche sono concentrate in un solo file e riguardano esclusivamente classi CSS Tailwind.
+Questo e necessario perche la tabella `alliance_members` ha RLS abilitato senza policy di lettura pubblica.
+
+### Frontend: Tooltip interattivo
+
+Wrappare il badge alleanza in un componente Tooltip (gia presente nel progetto via `@radix-ui/react-tooltip`). Al hover (desktop) o click (mobile), mostrare un pannello con:
+
+```text
++---------------------------+
+|  BitplaceTeam [BTP]       |
+|---------------------------|
+|  Members     1            |
+|  Pixels      2,653        |
+|  PE Staked   2,412 PE     |
+|  Value       ~$2.41       |
++---------------------------+
+```
+
+Il tooltip usera lo stesso stile glass/muted del pannello. I dati vengono fetchati on-demand al primo hover/click tramite una query alla RPC e cachati in stato locale.
+
+## File da modificare
+
+| File | Modifica |
+|------|----------|
+| **Migration SQL** | Nuova RPC `get_alliance_stats_by_tag` |
+| `src/components/map/PixelInfoPanel.tsx` | Fix `$0.01` -> `$0.001`, badge padding, tooltip alleanza con fetch dati |
+
+## Dettagli tecnici
+
+### SQL Migration
+
+```sql
+CREATE OR REPLACE FUNCTION public.get_alliance_stats_by_tag(tag_input text)
+RETURNS TABLE(
+  name text, tag text, member_count bigint,
+  total_pixels bigint, total_pe_staked bigint
+) LANGUAGE sql SECURITY DEFINER STABLE AS $$
+  SELECT a.name, a.tag,
+    COUNT(DISTINCT am.user_id),
+    COALESCE(SUM(u.pixels_painted_total), 0),
+    COALESCE(
+      (SELECT SUM(p.owner_stake_pe) FROM pixels p
+       WHERE p.owner_user_id IN
+         (SELECT user_id FROM alliance_members WHERE alliance_id = a.id)
+      ), 0)
+  FROM alliances a
+  JOIN alliance_members am ON am.alliance_id = a.id
+  JOIN users u ON u.id = am.user_id
+  WHERE a.tag = tag_input
+  GROUP BY a.id;
+$$;
+```
+
+### PixelInfoPanel changes
+
+- Import `Tooltip, TooltipTrigger, TooltipContent, TooltipProvider` da `@/components/ui/tooltip`
+- Aggiungere stato `allianceStats` con fetch lazy al primo hover
+- Wrappare il badge `[BTP]` in `Tooltip` con contenuto formattato
+- Fix `peToUsd`: mostrare 3 decimali per valori < $0.01
