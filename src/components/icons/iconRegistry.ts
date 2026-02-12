@@ -79,6 +79,10 @@ import { PixelImage } from './custom/PixelImage';
 import { PixelFaceThinking } from './custom/PixelFaceThinking';
 import { PixelDiscord } from './custom/PixelDiscord';
 import { PixelLocationPin } from './custom/PixelLocationPin';
+import { PixelExpand } from './custom/PixelExpand';
+import { PixelPro } from './custom/PixelPro';
+import { PixelBadgeCheck } from './custom/PixelBadgeCheck';
+import { PixelUsersCrown } from './custom/PixelUsersCrown';
 
 export type IconName =
   | 'hand'
@@ -158,7 +162,11 @@ export type IconName =
   | 'image'
   | 'faceThinking'
   | 'discord'
-  | 'locationPin';
+  | 'locationPin'
+  | 'expand'
+  | 'pro'
+  | 'badgeCheck'
+  | 'usersCrown';
 
 type PixelIconComponent = ComponentType<SVGProps<SVGSVGElement> & { className?: string }>;
 
@@ -241,4 +249,8 @@ export const icons: Record<IconName, PixelIconComponent> = {
   faceThinking: PixelFaceThinking,
   discord: PixelDiscord,
   locationPin: PixelLocationPin,
+  expand: PixelExpand,
+  pro: PixelPro,
+  badgeCheck: PixelBadgeCheck,
+  usersCrown: PixelUsersCrown,
 };

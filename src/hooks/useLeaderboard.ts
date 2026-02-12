@@ -18,6 +18,7 @@ export interface PlayerEntry {
   socialX: string | null;
   socialInstagram: string | null;
   socialWebsite: string | null;
+  walletAddress: string | null;
 }
 
 export interface CountryEntry {

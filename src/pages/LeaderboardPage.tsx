@@ -35,7 +35,7 @@ const LeaderboardPage = () => {
     <div className="min-h-full bg-background p-6 md:p-8 lg:p-12">
       <div className="max-w-3xl mx-auto space-y-6">
         <PageHeader
-          icon={() => <PixelIcon name="trophy" className="h-6 w-6" />}
+          icon={() => <PixelIcon name="usersCrown" className="h-6 w-6" />}
           title="Leaderboard"
           subtitle="Top pixel owners, biggest stakers, and most conquered territory."
         />

@@ -11,6 +11,7 @@ export interface PlayerProfile {
   id: string;
   displayName: string | null;
   walletShort: string | null;
+  walletAddress: string | null;
   avatarUrl: string | null;
   countryCode: string | null;
   allianceTag: string | null;
@@ -97,7 +98,7 @@ export function usePlayerProfile(playerId: string | null) {
       // Get user creation date and pe_used_pe
       const { data: userExtra } = await supabase
         .from('users')
-        .select('created_at, pe_used_pe')
+        .select('created_at, pe_used_pe, wallet_address')
         .eq('id', playerId)
         .maybeSingle();
 
@@ -108,6 +109,7 @@ export function usePlayerProfile(playerId: string | null) {
         id: user.id,
         displayName: user.display_name,
         walletShort: user.wallet_short,
+        walletAddress: (userExtra as any)?.wallet_address || null,
         avatarUrl: user.avatar_url,
         countryCode: user.country_code,
         allianceTag: user.alliance_tag,

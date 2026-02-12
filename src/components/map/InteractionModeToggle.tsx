@@ -1,4 +1,4 @@
-import { Hand, Paintbrush, Shield, Swords, Zap } from 'lucide-react';
+import { PixelIcon } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import type { MapMode } from './hooks/useMapState';
 
@@ -15,13 +15,13 @@ interface InteractionModeToggleProps {
 function ActionIcon({ mapMode }: { mapMode: MapMode }) {
   switch (mapMode) {
     case 'defend':
-      return <Shield className="h-3.5 w-3.5" />;
+      return <PixelIcon name="shield" className="h-3.5 w-3.5" />;
     case 'attack':
-      return <Swords className="h-3.5 w-3.5" />;
+      return <PixelIcon name="swords" className="h-3.5 w-3.5" />;
     case 'reinforce':
-      return <Zap className="h-3.5 w-3.5" />;
+      return <PixelIcon name="bolt" className="h-3.5 w-3.5" />;
     default:
-      return <Paintbrush className="h-3.5 w-3.5" />;
+      return <PixelIcon name="brush" className="h-3.5 w-3.5" />;
   }
 }
 
@@ -74,7 +74,7 @@ export function InteractionModeToggle({
         )}
         title="Hand mode: Pan map, click to inspect"
       >
-        <Hand className="h-3.5 w-3.5" />
+        <PixelIcon name="expand" className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">Hand</span>
       </button>
       <button

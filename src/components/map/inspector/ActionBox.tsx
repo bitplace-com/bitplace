@@ -1,4 +1,5 @@
-import { Paintbrush, Shield, Swords, Eraser, Undo2, Trash2, AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Undo2, Trash2, AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
+import { PixelIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { PeInput } from '../PeInput';
@@ -37,11 +38,11 @@ interface ActionBoxProps {
 }
 
 const modeConfig: Record<GameMode, { icon: React.ReactNode; label: string }> = {
-  PAINT: { icon: <Paintbrush className="h-3.5 w-3.5" />, label: 'Paint' },
-  DEFEND: { icon: <Shield className="h-3.5 w-3.5" />, label: 'Defend' },
-  ATTACK: { icon: <Swords className="h-3.5 w-3.5" />, label: 'Attack' },
+  PAINT: { icon: <PixelIcon name="brush" className="h-3.5 w-3.5" />, label: 'Paint' },
+  DEFEND: { icon: <PixelIcon name="shield" className="h-3.5 w-3.5" />, label: 'Defend' },
+  ATTACK: { icon: <PixelIcon name="swords" className="h-3.5 w-3.5" />, label: 'Attack' },
   REINFORCE: { icon: <PEIcon size="sm" />, label: 'Reinforce' },
-  ERASE: { icon: <Eraser className="h-3.5 w-3.5" />, label: 'Erase' },
+  ERASE: { icon: <PixelIcon name="trash" className="h-3.5 w-3.5" />, label: 'Erase' },
 };
 
 export function ActionBox({
@@ -112,7 +113,7 @@ export function ActionBox({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-foreground">
-            {mode === 'ERASE' ? <Eraser className="h-3.5 w-3.5" /> : config.icon}
+            {mode === 'ERASE' ? <PixelIcon name="trash" className="h-3.5 w-3.5" /> : config.icon}
           </div>
           <span className="text-xs font-medium">{config.label}</span>
           {/* Color swatch for PAINT */}
