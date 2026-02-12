@@ -10,6 +10,7 @@ interface PlaceThumbnailProps {
     xmax: number | null;
     ymax: number | null;
   } | null;
+  snapshotUrl?: string | null;
   className?: string;
 }
 
@@ -31,6 +32,7 @@ function getBboxKey(bbox: PlaceThumbnailProps["bbox"]): string | null {
 
 export const PlaceThumbnail = memo(function PlaceThumbnail({
   bbox,
+  snapshotUrl,
   className,
 }: PlaceThumbnailProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -101,7 +103,39 @@ export const PlaceThumbnail = memo(function PlaceThumbnail({
       const offsetX = (cw - drawW) / 2;
       const offsetY = (ch - drawH) / 2;
 
-      // Solid background
+      // Draw background: snapshot image or solid color
+      const drawPixels = () => {
+        const cellSize = scale;
+        pixels.forEach((pixel) => {
+          ctx.fillStyle = pixel.color;
+          const px = offsetX + (pixel.x - viewXmin) * scale;
+          const py = offsetY + (pixel.y - viewYmin) * scale;
+          ctx.fillRect(px, py, Math.max(cellSize, 1), Math.max(cellSize, 1));
+        });
+        setHasPixels(true);
+      };
+
+      if (snapshotUrl) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, cw, ch);
+          ctx.fillStyle = 'rgba(0,0,0,0.15)';
+          ctx.fillRect(0, 0, cw, ch);
+          drawPixels();
+          setIsLoading(false);
+        };
+        img.onerror = () => {
+          ctx.fillStyle = "hsl(var(--muted))";
+          ctx.fillRect(0, 0, cw, ch);
+          drawPixels();
+          setIsLoading(false);
+        };
+        img.src = snapshotUrl;
+        return; // async - onload handles setIsLoading
+      }
+
+      // Solid background fallback
       ctx.fillStyle = "hsl(var(--muted))";
       ctx.fillRect(0, 0, cw, ch);
 
@@ -147,7 +181,7 @@ export const PlaceThumbnail = memo(function PlaceThumbnail({
         return;
       }
 
-      // Draw each pixel
+      // Draw each pixel (solid bg path)
       const cellSize = scale;
       pixels.forEach((pixel) => {
         ctx.fillStyle = pixel.color;
@@ -163,7 +197,7 @@ export const PlaceThumbnail = memo(function PlaceThumbnail({
     } finally {
       setIsLoading(false);
     }
-  }, [bbox]);
+  }, [bbox, snapshotUrl]);
 
   useEffect(() => {
     if (!isVisible) return;

@@ -78,6 +78,7 @@ export function PlaceCard({
           xmax: place.bbox_xmax!,
           ymax: place.bbox_ymax!,
         } : null}
+        snapshotUrl={place.snapshot_url}
         className="w-full h-32 rounded-none"
       />
 

@@ -38,6 +38,7 @@ export interface Place {
   likedByMe: boolean;
   savedByMe: boolean;
   isOwner?: boolean;
+  snapshot_url?: string | null;
 }
 
 export type FeedCategory = 'new' | 'trending' | 'popular';
@@ -131,6 +132,7 @@ export function usePlaces() {
     lng: number;
     zoom?: number;
     bbox?: { xmin: number; ymin: number; xmax: number; ymax: number };
+    mapSnapshot?: string;
   }): Promise<Place | null> => {
     const token = getSessionToken();
     if (!token) {
