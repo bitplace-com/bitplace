@@ -121,23 +121,21 @@ Deno.serve(async (req) => {
 
     const userLikesSet = new Set(userLikes?.map(l => l.place_id) || []);
 
-    // Compute total_pe for each place
+    // Compute total_pe for each place using RPC (no 1000-row limit)
     const totalPeMap = new Map<string, number>();
-    for (const place of allPlaces) {
-      if (place.bbox_xmin != null && place.bbox_ymin != null &&
-          place.bbox_xmax != null && place.bbox_ymax != null) {
-        const { data: sumData } = await adminClient
-          .from("pixels")
-          .select("owner_stake_pe")
-          .gte("x", place.bbox_xmin)
-          .lte("x", place.bbox_xmax)
-          .gte("y", place.bbox_ymin)
-          .lte("y", place.bbox_ymax);
-        
-        const totalPe = sumData?.reduce((sum: number, p: any) => sum + (p.owner_stake_pe || 0), 0) || 0;
-        totalPeMap.set(place.id, totalPe);
-      }
-    }
+    const pePromises = allPlaces
+      .filter(p => p.bbox_xmin != null && p.bbox_ymin != null && p.bbox_xmax != null && p.bbox_ymax != null)
+      .map(async (place) => {
+        const { data } = await adminClient.rpc("sum_owner_stake_in_bbox", {
+          p_xmin: place.bbox_xmin,
+          p_ymin: place.bbox_ymin,
+          p_xmax: place.bbox_xmax,
+          p_ymax: place.bbox_ymax,
+          p_owner_id: place.creator_user_id,
+        });
+        totalPeMap.set(place.id, Number(data) || 0);
+      });
+    await Promise.all(pePromises);
 
     // Enrich places with creator and flags
     const enrichPlace = (place: any) => ({

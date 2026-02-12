@@ -157,7 +157,18 @@ export const PlaceThumbnail = memo(function PlaceThumbnail({
         const img = new Image();
         img.crossOrigin = 'anonymous';
         img.onload = () => {
-          ctx.drawImage(img, 0, 0, cw, ch);
+          // "cover" crop to maintain aspect ratio
+          const imgAspect = img.naturalWidth / img.naturalHeight;
+          const canvasAspect = cw / ch;
+          let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+          if (imgAspect > canvasAspect) {
+            sw = img.naturalHeight * canvasAspect;
+            sx = (img.naturalWidth - sw) / 2;
+          } else {
+            sh = img.naturalWidth / canvasAspect;
+            sy = (img.naturalHeight - sh) / 2;
+          }
+          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch);
           ctx.fillStyle = 'rgba(0,0,0,0.15)';
           ctx.fillRect(0, 0, cw, ch);
           drawPixels();
