@@ -1,125 +1,82 @@
 
+# Fix: Map Snapshot, PE Layout, PE Calcolo per Owner
 
-# Fix Preview: Cattura Mappa Reale + Tutti i Pixel
+## 3 Problemi da Risolvere
 
-## Problemi
+### 1. Map snapshot vuoto (sfondo nero)
+La mappa MapLibre usa WebGL, che per default cancella il framebuffer dopo ogni render. `map.getCanvas().toDataURL()` restituisce un'immagine nera/vuota.
 
-1. **Mappa sbagliata nello sfondo**: La preview usa tile raster OSM (`tile.openstreetmap.org/13/...`) ma la mappa reale usa OpenFreeMap Liberty (stile vettoriale completamente diverso). Risultato: colori diversi, scritte greche, rendering differente.
-2. **Pixel mancanti**: La query usa `.limit(1000)` senza paginazione. Se l'area selezionata contiene piu di 1000 pixel, il disegno appare incompleto.
+**Fix**: Aggiungere `preserveDrawingBuffer: true` alla configurazione della mappa MapLibre. Questo mantiene il contenuto del canvas WebGL leggibile anche dopo il render, permettendo a `toDataURL()` di catturare correttamente lo screenshot.
 
-## Soluzione
+**File: `src/components/map/BitplaceMap.tsx`** (riga 345-359)
+- Aggiungere `preserveDrawingBuffer: true` alle opzioni di `new maplibregl.Map()`
 
-### 1. Catturare la mappa reale come sfondo
+### 2. PE e USD allineati con Like/Save nella footer row
+Attualmente PE e USD sono su una riga separata sopra la footer. L'utente vuole che siano allineati nella stessa riga dei bottoni like/save/go.
 
-Invece di scaricare tile OSM separatamente, **catturare il canvas di MapLibre** al momento della selezione. Il canvas gia mostra lo stile corretto (Liberty). 
+**File: `src/components/places/PlaceCard.tsx`**
+- Rimuovere il `div` separato per PE/USD (righe 115-124)
+- Spostare PE e USD nella footer row (riga 127), dopo i bottoni like e save, prima del bottone "Go"
+- Layout: `[Heart 0] [Pin] [PE icon] 1,000 PE $1.00 ... [Go]`
 
-Al `mouseup` del drag-to-select:
-- Usare `map.getCanvas().toDataURL()` per ottenere uno screenshot della mappa
-- Croppare l'immagine all'area del rettangolo di selezione (usando le coordinate `screenX`/`screenY` del drag start/end)
-- Passare il data URL croppato come `mapSnapshot` nell'evento `bitplace:pin-placed`
+### 3. Calcolo PE totali = solo owner_stake_pe dei pixel nell'area
+Il feed attualmente calcola `total_pe` sommando `owner_stake_pe` di TUTTI i pixel nell'area. L'utente vuole che vengano contati solo i PE stakati dall'owner/creator del pin rispetto ai pixel che possiede nell'area selezionata.
 
-Questo elimina completamente il problema dei tile OSM diversi.
+**File: `supabase/functions/places-feed/index.ts`**
+- Modificare la query: filtrare `owner_user_id = creator_user_id` nella somma di `owner_stake_pe`
+- Questo mostra solo i PE investiti dal creatore del pin nell'area, non quelli di altri utenti
 
-**File: `src/components/map/BitplaceMap.tsx`**
-- Nel `handleMouseUp`: dopo calcolo bbox, creare un canvas temporaneo, copiare la porzione selezionata dal canvas della mappa, convertire a `dataURL`
-- Aggiungere `mapSnapshot: string` al detail dell'evento `bitplace:pin-placed`
-
-### 2. Paginazione pixel fetch
-
-Sostituire la query singola con `.limit(1000)` con un loop paginato usando `.range()`:
-
-```
-let allPixels = [];
-let offset = 0;
-while (true) {
-  const { data } = await supabase.from('pixels')...range(offset, offset + 999);
-  allPixels.push(...data);
-  if (data.length < 1000) break;
-  offset += 1000;
-}
-```
-
-**File: `src/components/map/BitplaceMap.tsx`**
-- Sostituire la query singola nel `handleMouseUp` con il loop paginato
-
-### 3. ArtworkPreview usa lo snapshot
-
-La `ArtworkPreview` in `CreatePlaceForm` riceve `mapSnapshot` come prop e lo disegna come sfondo invece di caricare tile OSM.
-
-**File: `src/components/places/CreatePlaceForm.tsx`**
-- Aggiungere prop `mapSnapshot?: string` a `CreatePlaceFormProps`
-- `ArtworkPreview` riceve `mapSnapshot` e lo disegna come immagine di sfondo sul canvas (stretched per riempire), poi disegna i pixel sopra
-- Rimuovere tutta la logica di caricamento tile OSM (`loadTile`, `OSM_ZOOM`, etc.)
-
-### 4. PlaceThumbnail nelle card (feed)
-
-Per le card nel feed, non abbiamo lo snapshot della mappa. Due opzioni:
-- **Opzione A**: Salvare lo snapshot nel DB (troppo pesante)
-- **Opzione B**: Usare uno sfondo semplice scuro senza mappa per le card nel feed, mostrando solo i pixel artwork
-
-Scegliamo **Opzione B**: le card nel feed mostrano solo i pixel su sfondo scuro. Lo sfondo mappa reale e visibile solo nella preview di creazione dove possiamo catturarlo live.
-
-**File: `src/components/places/PlaceThumbnail.tsx`**
-- Rimuovere logica tile OSM
-- Usare sfondo solido `hsl(var(--muted))` 
-- Paginazione per il fetch pixel (loop `.range()`)
-- Rendering pixel centrato con DPR corretto
-
-### 5. PlacesModal passa mapSnapshot al form
-
-**File: `src/components/modals/PlacesModal.tsx`**
-- Estrarre `mapSnapshot` dal detail dell'evento `bitplace:pin-placed`
-- Passarlo a `CreatePlaceForm` come prop
+**File: `supabase/functions/places-create/index.ts`**
+- Alla creazione, calcolare il total_pe iniziale con la stessa logica (filtrando per `creator_user_id`)
 
 ---
+
+## Dettagli Tecnici
+
+### preserveDrawingBuffer
+```js
+const map = new maplibregl.Map({
+  container: containerRef.current,
+  style: 'https://tiles.openfreemap.org/styles/liberty',
+  // ... existing options ...
+  preserveDrawingBuffer: true, // <-- NEW: enables canvas snapshot
+});
+```
+Nota: questo ha un costo minimo di performance ma e necessario per catturare screenshot.
+
+### PlaceCard footer layout
+```
+<div className="flex items-center gap-2 pt-1">
+  {/* Like button */}
+  {/* Save button */}
+  {/* PE inline */}
+  <div className="flex items-center gap-1 ml-auto mr-1">
+    <PEIcon size="sm" className="text-foreground/70" />
+    <span className="text-xs font-semibold tabular-nums">
+      {total_pe.toLocaleString()} PE
+    </span>
+    <span className="text-xs font-medium text-emerald-500">
+      ${(total_pe / PE_PER_USD).toFixed(2)}
+    </span>
+  </div>
+  {/* Go button */}
+</div>
+```
+
+### PE query filtrata per creator
+```sql
+-- In places-feed: per ogni place
+SELECT owner_stake_pe FROM pixels
+WHERE x >= bbox_xmin AND x <= bbox_xmax
+  AND y >= bbox_ymin AND y <= bbox_ymax
+  AND owner_user_id = creator_user_id  -- solo pixel del creatore
+```
 
 ## File Modificati
 
 | File | Modifica |
 |------|----------|
-| `src/components/map/BitplaceMap.tsx` | Cattura canvas MapLibre come snapshot, paginazione pixel fetch |
-| `src/components/places/CreatePlaceForm.tsx` | ArtworkPreview usa mapSnapshot come sfondo, rimuove logica tile OSM |
-| `src/components/places/PlaceThumbnail.tsx` | Rimuove tile OSM, sfondo solido, paginazione pixel fetch |
-| `src/components/modals/PlacesModal.tsx` | Passa mapSnapshot dal pin-placed event al CreatePlaceForm |
-
-## Dettagli Tecnici
-
-### Cattura Canvas MapLibre
-
-```js
-// Nel handleMouseUp di BitplaceMap
-const mapCanvas = map.getCanvas();
-const cropCanvas = document.createElement('canvas');
-const sx = Math.min(pinDragStart.screenX, e.point.x);
-const sy = Math.min(pinDragStart.screenY, e.point.y);
-const sw = Math.abs(e.point.x - pinDragStart.screenX);
-const sh = Math.abs(e.point.y - pinDragStart.screenY);
-
-// Account for DPR
-const dpr = window.devicePixelRatio || 1;
-cropCanvas.width = sw * dpr;
-cropCanvas.height = sh * dpr;
-const cropCtx = cropCanvas.getContext('2d');
-cropCtx.drawImage(mapCanvas, sx * dpr, sy * dpr, sw * dpr, sh * dpr, 0, 0, sw * dpr, sh * dpr);
-const mapSnapshot = cropCanvas.toDataURL('image/jpeg', 0.8);
-```
-
-### Paginazione Pixel
-
-```js
-const PAGE = 1000;
-let allPixels = [];
-let offset = 0;
-let hasMore = true;
-while (hasMore) {
-  const { data } = await supabase.from('pixels')
-    .select('x, y, color')
-    .gte('x', bbox.xmin).lte('x', bbox.xmax)
-    .gte('y', bbox.ymin).lte('y', bbox.ymax)
-    .range(offset, offset + PAGE - 1);
-  allPixels.push(...(data || []));
-  hasMore = (data?.length || 0) === PAGE;
-  offset += PAGE;
-}
-```
-
+| `src/components/map/BitplaceMap.tsx` | Aggiungere `preserveDrawingBuffer: true` |
+| `src/components/places/PlaceCard.tsx` | Spostare PE/USD nella footer row con like/save |
+| `supabase/functions/places-feed/index.ts` | Filtrare owner_stake_pe per creator_user_id |
+| `supabase/functions/places-create/index.ts` | Calcolare total_pe iniziale filtrato per creator |
