@@ -3,8 +3,8 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelImage(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <polygon points="23 20 23 22 22 22 22 23 2 23 2 22 1 22 1 15 2 15 2 16 3 16 3 17 4 17 4 18 5 18 5 19 6 19 6 20 7 20 7 21 8 21 8 20 9 20 9 19 10 19 10 18 11 18 11 17 12 17 12 16 13 16 13 15 14 15 14 14 15 14 15 13 16 13 16 14 17 14 17 15 18 15 18 16 19 16 19 17 20 17 20 18 21 18 21 19 22 19 22 20 23 20" />
-      <path d="m22,2v-1H2v1h-1v10h1v1h1v1h1v1h1v1h1v1h1v1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1V2h-1Zm-13,4v3h-1v1h-3v-1h-1v-3h1v-1h3v1h1Z" />
+      <polygon points="9 6 9 9 8 9 8 10 5 10 5 9 4 9 4 6 5 6 5 5 8 5 8 6 9 6" />
+      <path d="m22,2v-1H2v1h-1v20h1v1h20v-1h1V2h-1Zm-5,12v1h1v1h1v1h1v1h1v3h-13v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v1h1Zm3,1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h-1v-1h-1v-1h-1V3h18v12h-1Zm-15,3v1h1v1h1v1H3v-4h1v1h1Z" />
       <rect width="24" height="24" fill="none" />
     </PixelSVG>
   );
