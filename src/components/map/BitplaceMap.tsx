@@ -1688,7 +1688,7 @@ export function BitplaceMap() {
         {/* Pin Placement Overlay: Banner + Selection Rectangle */}
         {isPinPlacementMode && (
           <>
-            <div className="absolute inset-x-0 top-4 z-50 flex justify-center pointer-events-none">
+            <div className="absolute inset-x-0 top-20 z-50 flex justify-center pointer-events-none">
               <div className="pointer-events-auto flex items-center gap-3 px-4 py-2.5 rounded-xl bg-card/90 backdrop-blur-md border border-border/50 shadow-lg">
                 <PixelIcon name="locationPin" size="sm" className="text-primary" />
                 <span className="text-sm font-medium">Click and drag to select an area</span>
