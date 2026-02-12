@@ -3,27 +3,9 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelImage(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      {/* Frame */}
-      <rect x="3" y="4" width="18" height="16" fill="none" stroke="currentColor" strokeWidth="2" />
-      {/* Sun/circle top-right */}
-      <rect x="15" y="7" width="2" height="2" fill="currentColor" />
-      <rect x="14" y="8" width="1" height="1" fill="currentColor" />
-      <rect x="17" y="8" width="1" height="1" fill="currentColor" />
-      <rect x="15" y="9" width="2" height="1" fill="currentColor" />
-      {/* Mountain left */}
-      <rect x="5" y="16" width="2" height="2" fill="currentColor" />
-      <rect x="6" y="14" width="2" height="2" fill="currentColor" />
-      <rect x="7" y="12" width="2" height="2" fill="currentColor" />
-      <rect x="8" y="14" width="2" height="2" fill="currentColor" />
-      <rect x="9" y="16" width="2" height="2" fill="currentColor" />
-      {/* Mountain right */}
-      <rect x="11" y="16" width="2" height="2" fill="currentColor" />
-      <rect x="12" y="14" width="2" height="2" fill="currentColor" />
-      <rect x="13" y="12" width="2" height="2" fill="currentColor" />
-      <rect x="14" y="10" width="2" height="2" fill="currentColor" />
-      <rect x="15" y="12" width="2" height="2" fill="currentColor" />
-      <rect x="16" y="14" width="2" height="2" fill="currentColor" />
-      <rect x="17" y="16" width="2" height="2" fill="currentColor" />
+      <polygon points="23 20 23 22 22 22 22 23 2 23 2 22 1 22 1 15 2 15 2 16 3 16 3 17 4 17 4 18 5 18 5 19 6 19 6 20 7 20 7 21 8 21 8 20 9 20 9 19 10 19 10 18 11 18 11 17 12 17 12 16 13 16 13 15 14 15 14 14 15 14 15 13 16 13 16 14 17 14 17 15 18 15 18 16 19 16 19 17 20 17 20 18 21 18 21 19 22 19 22 20 23 20" />
+      <path d="m22,2v-1H2v1h-1v10h1v1h1v1h1v1h1v1h1v1h1v1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1V2h-1Zm-13,4v3h-1v1h-3v-1h-1v-3h1v-1h3v1h1Z" />
+      <rect width="24" height="24" fill="none" />
     </PixelSVG>
   );
 }
