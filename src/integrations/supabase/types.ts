@@ -907,6 +907,13 @@ export type Database = {
           y: number
         }[]
       }
+      get_user_total_staked_pe: {
+        Args: { uid: string }
+        Returns: {
+          contribution_total: number
+          pixel_stake_total: number
+        }[]
+      }
       recalc_user_pe_used: { Args: { target_user_id: string }; Returns: number }
       sum_owner_stake_in_bbox: {
         Args: {

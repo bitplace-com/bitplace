@@ -163,7 +163,7 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
         // Use public_pixel_owner_info view - safe public fields only (wallet_short, not full address)
         const { data: ownerData, error: ownerError } = await supabase
           .from('public_pixel_owner_info' as any)
-          .select('id, display_name, wallet_short, avatar_url, country_code, alliance_tag, pixels_painted_total, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier, bio, social_x, social_instagram, social_website')
+          .select('id, display_name, wallet_short, avatar_url, country_code, alliance_tag, pixels_painted_total, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier, bio, social_x, social_instagram, social_discord, social_website')
           .eq('id', pixelData.owner_user_id)
           .maybeSingle();
         
@@ -205,18 +205,10 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
 
       // Fetch owner's total staked PE (aggregate query to avoid row limit)
       if (owner && pixelData.owner_user_id) {
-        const { data: stakeData } = await supabase
-          .from('pixels')
-          .select('owner_stake_pe')
-          .eq('owner_user_id', pixelData.owner_user_id);
-        // Also fetch contribution totals
-        const { data: contribData } = await supabase
-          .from('pixel_contributions')
-          .select('amount_pe')
-          .eq('user_id', pixelData.owner_user_id);
-        const stakeSum = stakeData?.reduce((s, p) => s + Number(p.owner_stake_pe || 0), 0) || 0;
-        const contribSum = contribData?.reduce((s, c) => s + Number(c.amount_pe || 0), 0) || 0;
-        owner.total_staked_pe = stakeSum + contribSum;
+        const { data: rpcData } = await supabase
+          .rpc('get_user_total_staked_pe' as any, { uid: pixelData.owner_user_id });
+        const row = (rpcData as any)?.[0];
+        owner.total_staked_pe = Number(row?.pixel_stake_total ?? 0) + Number(row?.contribution_total ?? 0);
       }
 
       const { data: contributions } = await supabase.from('pixel_contributions').select('id, user_id, amount_pe, side').eq('pixel_id', pixelData.id);

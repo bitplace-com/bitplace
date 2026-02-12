@@ -1,10 +1,9 @@
 import { PixelSVG, PixelSVGProps } from './base';
 
-// Discord icon in pixel-art style
 export function PixelDiscord(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <path d="M5,4h2v1h1v1h8V5h1V4h2v1h1v2h1v3h-1v2h-1v2h-1v1h-1v1h-1v1H9v-1H8v-1H7v-1H6v-2H5V9H4V6h1V4ZM9,10h2v2H9V10Zm4,0h2v2h-2V10Z" />
+      <path d="M22,11V8H21V6H20V5H18V4H15V5H9V4H6V5H4V6H3V8H2v3H1v7H3v1H5v1H7V18H6V17H8v1H9v1h6V18h1V17h2v1H17v2h2V19h2V18h2V11ZM9,15H7V14H6V12H7V11H9v1h1v2H9Zm9-1H17v1H15V14H14V12h1V11h2v1h1Z" />
     </PixelSVG>
   );
 }
