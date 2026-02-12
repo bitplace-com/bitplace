@@ -153,6 +153,7 @@ Deno.serve(async (req) => {
       bbox_ymin: place.bbox_ymin,
       bbox_xmax: place.bbox_xmax,
       bbox_ymax: place.bbox_ymax,
+      snapshot_url: place.snapshot_url || null,
       created_at: place.created_at,
       creator: creatorsMap.get(place.creator_user_id) || null,
       stats: {
