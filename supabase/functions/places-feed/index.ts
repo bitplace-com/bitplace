@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
 
     const creatorsMap = new Map(creators?.map(c => [c.id, c]) || []);
 
-    // Compute total_pe for each place with a bbox
+    // Compute total_pe for each place: only creator's pixels in bbox
     const totalPeMap = new Map<string, number>();
     for (const place of places) {
       if (place.bbox_xmin != null && place.bbox_ymin != null &&
@@ -131,7 +131,8 @@ Deno.serve(async (req) => {
           .gte("x", place.bbox_xmin)
           .lte("x", place.bbox_xmax)
           .gte("y", place.bbox_ymin)
-          .lte("y", place.bbox_ymax);
+          .lte("y", place.bbox_ymax)
+          .eq("owner_user_id", place.creator_user_id);
         
         const totalPe = sumData?.reduce((sum, p) => sum + (p.owner_stake_pe || 0), 0) || 0;
         totalPeMap.set(place.id, totalPe);
