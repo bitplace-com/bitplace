@@ -1,38 +1,35 @@
 
 
-# Fix: Icona Template renderizzata male
+# Fix: Spaziature, Allineamento DEF/ATK e Contrasti
 
-## Causa del problema
+## Problemi Identificati (dagli screenshot)
 
-L'SVG originale HackerNoon per `hn-image` (regular) **non usa** ne `fillRule="evenodd"` ne il `<rect>` trasparente. Il nostro codice ha entrambi, e questo causa il rendering distorto:
+### 1. Badge Alleanza - Spaziatura insufficiente
+Il badge `[BTP]` usa `px-1 py-0.5` che risulta troppo stretto. Va aumentato il padding interno a `px-2 py-0.5` per dare piu respiro al testo dentro il container.
 
-- `fillRule="evenodd"` cambia il modo in cui le aree sovrapposte del path vengono riempite/svuotate, creando bordi irregolari
-- Il `<rect width="24" height="24" fill="none" />` e inutile e potenzialmente interferisce
+### 2. DEF / ATK - Allineamento
+Attualmente la riga DEF/ATK e allineata a sinistra (`flex items-center gap-4`). Va centrata usando `justify-center`.
 
-**SVG originale HackerNoon** (dal file `node_modules/@hackernoon/pixel-icon-library/icons/SVG/regular/image.svg`):
-```xml
-<polygon points="9 6 9 9 8 9 8 10 5 10 5 9 4 9 4 6 5 6 5 5 8 5 8 6 9 6"/>
-<path d="m22,2v-1H2v1h-1v20h1v1h20v-1h1V2h-1Zm-5,12v1h1v1h1v1h1v1h1v3h-13v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v1h1Zm3,1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h-1v-1h-1v-1h-1V3h18v12h-1Zm-15,3v1h1v1h1v1H3v-4h1v1h1Z"/>
-```
+### 3. Contrasti Day/Night
+- **Badge Alleanza**: `bg-accent text-accent-foreground` non ha sufficiente contrasto in entrambi i temi. Cambiare a `bg-muted text-foreground/80` con un bordo sottile `border border-border/50` per garantire leggibilita in entrambe le modalita.
+- **Valore USD ($)**: Secondo le convenzioni del progetto, i valori in dollari devono usare `text-emerald-500`. Attualmente il valore USD nelle stat card e nella sezione Economy usa `text-foreground` o `text-muted-foreground` - va corretto.
+- **Stat cards** (`bg-muted/50`): In Day mode risultano troppo trasparenti. Aumentare a `bg-muted/70` per migliore contrasto.
+- **Economy box** (`bg-muted/50`): Stesso problema, aumentare a `bg-muted/70`.
 
-**Il nostro codice attuale** (rotto):
-```xml
-<polygon points="9 6 9 9 8 9 8 10 5 10 5 9 4 9 4 6 5 6 5 5 8 5 8 6 9 6" />
-<path fillRule="evenodd" d="..." />     <!-- fillRule non presente nell'originale -->
-<rect width="24" height="24" fill="none" />  <!-- non presente nell'originale -->
-```
+---
 
-## Soluzione
+## Piano Modifiche
 
-Modificare `src/components/icons/custom/PixelImage.tsx`:
-- Rimuovere `fillRule="evenodd"` dal `<path>`
-- Rimuovere il `<rect width="24" height="24" fill="none" />`
+### File: `src/components/map/PixelInfoPanel.tsx`
 
-Risultato: SVG identico all'originale HackerNoon, rendering pulito e corretto.
+| Riga | Elemento | Da | A |
+|------|----------|----|----|
+| 200 | Badge alleanza padding | `px-1 py-0.5` | `px-2 py-1` |
+| 200 | Badge alleanza stile | `bg-accent text-accent-foreground` | `bg-muted text-foreground/80 border border-border/50` |
+| 259-273 | Stat cards background | `bg-muted/50` | `bg-muted/70` |
+| 271 | Value USD color | `text-foreground` | `text-emerald-500` |
+| 277 | Economy box background | `bg-muted/50` | `bg-muted/70` |
+| 285, 295 | USD sotto Owner/Total Stake | `text-muted-foreground` | `text-emerald-500` |
+| 300 | DEF/ATK riga | `flex items-center gap-4` | `flex items-center justify-center gap-4` |
 
-## File da modificare
-
-| File | Modifica |
-|------|----------|
-| `src/components/icons/custom/PixelImage.tsx` | Rimuovere `fillRule="evenodd"` e `<rect>` |
-
+Tutte le modifiche sono concentrate in un solo file e riguardano esclusivamente classi CSS Tailwind.
