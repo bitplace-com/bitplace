@@ -78,9 +78,7 @@ export function PlaceCard({
           xmax: place.bbox_xmax!,
           ymax: place.bbox_ymax!,
         } : null}
-        width={400}
-        height={128}
-        className="w-full rounded-none"
+        className="w-full h-32 rounded-none"
       />
 
       {/* Content */}
@@ -115,13 +113,13 @@ export function PlaceCard({
         )}
 
         {/* PE Value */}
-        <div className="flex items-center gap-1.5 bg-muted/30 rounded-md px-2 py-1">
+        <div className="flex items-center gap-1.5">
           <PEIcon size="sm" className="text-foreground/70" />
           <span className="text-sm font-semibold tabular-nums">
             {place.stats.total_pe.toLocaleString()} PE
           </span>
-          <span className="text-xs text-muted-foreground">
-            ~${(place.stats.total_pe / PE_PER_USD).toFixed(2)}
+          <span className="text-xs font-medium text-emerald-500">
+            ${(place.stats.total_pe / PE_PER_USD).toFixed(2)}
           </span>
         </div>
 

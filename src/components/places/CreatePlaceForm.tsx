@@ -25,53 +25,109 @@ interface CreatePlaceFormProps {
   isSubmitting?: boolean;
 }
 
-/** Inline canvas preview of artwork pixels */
+const OSM_ZOOM = 13;
+const OSM_TILE_SIZE = 256;
+
+const tileImgCache = new Map<string, HTMLImageElement>();
+
+function loadTile(tx: number, ty: number): Promise<HTMLImageElement> {
+  const key = `${tx}:${ty}`;
+  const cached = tileImgCache.get(key);
+  if (cached) return Promise.resolve(cached);
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => { tileImgCache.set(key, img); resolve(img); };
+    img.onerror = reject;
+    img.src = `https://tile.openstreetmap.org/${OSM_ZOOM}/${tx}/${ty}.png`;
+  });
+}
+
+/** Inline canvas preview of artwork pixels with OSM map background */
 function ArtworkPreview({ pixels, bbox }: { pixels: PixelData[]; bbox: { xmin: number; ymin: number; xmax: number; ymax: number } }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const SIZE = 320;
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || pixels.length === 0) return;
+    const container = containerRef.current;
+    if (!canvas || !container || pixels.length === 0) return;
+
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+    if (cw === 0 || ch === 0) return;
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = SIZE * dpr;
-    canvas.height = SIZE * dpr;
+    canvas.width = cw * dpr;
+    canvas.height = ch * dpr;
     ctx.scale(dpr, dpr);
 
+    const bw = bbox.xmax - bbox.xmin + 1;
+    const bh = bbox.ymax - bbox.ymin + 1;
+    const padX = Math.max(2, Math.round(bw * 0.2));
+    const padY = Math.max(2, Math.round(bh * 0.2));
+    const vxmin = bbox.xmin - padX;
+    const vymin = bbox.ymin - padY;
+    const vxmax = bbox.xmax + padX;
+    const vymax = bbox.ymax + padY;
+    const vw = vxmax - vxmin + 1;
+    const vh = vymax - vymin + 1;
+
+    const scale = Math.min(cw / vw, ch / vh);
+    const drawW = vw * scale;
+    const drawH = vh * scale;
+    const offX = (cw - drawW) / 2;
+    const offY = (ch - drawH) / 2;
+
     ctx.fillStyle = "hsl(var(--muted))";
-    ctx.fillRect(0, 0, SIZE, SIZE);
+    ctx.fillRect(0, 0, cw, ch);
 
-    const rangeX = bbox.xmax - bbox.xmin + 1;
-    const rangeY = bbox.ymax - bbox.ymin + 1;
-    const padding = 4;
-    const available = SIZE - padding * 2;
-    const pixelSize = Math.max(1, Math.min(available / rangeX, available / rangeY));
-    const drawW = rangeX * pixelSize;
-    const drawH = rangeY * pixelSize;
-    const offX = (SIZE - drawW) / 2;
-    const offY = (SIZE - drawH) / 2;
+    // Load OSM tiles
+    const txMin = Math.floor(vxmin / OSM_TILE_SIZE);
+    const txMax = Math.floor(vxmax / OSM_TILE_SIZE);
+    const tyMin = Math.floor(vymin / OSM_TILE_SIZE);
+    const tyMax = Math.floor(vymax / OSM_TILE_SIZE);
 
-    pixels.forEach((p) => {
-      ctx.fillStyle = p.color || "#888888";
-      ctx.fillRect(
-        offX + (p.x - bbox.xmin) * pixelSize,
-        offY + (p.y - bbox.ymin) * pixelSize,
-        pixelSize - 0.3,
-        pixelSize - 0.3
-      );
+    const promises: Promise<{ tx: number; ty: number; img: HTMLImageElement } | null>[] = [];
+    for (let ty = tyMin; ty <= tyMax; ty++) {
+      for (let tx = txMin; tx <= txMax; tx++) {
+        promises.push(loadTile(tx, ty).then(img => ({ tx, ty, img })).catch(() => null));
+      }
+    }
+
+    Promise.all(promises).then(tiles => {
+      for (const t of tiles) {
+        if (!t) continue;
+        const sx = offX + (t.tx * OSM_TILE_SIZE - vxmin) * scale;
+        const sy = offY + (t.ty * OSM_TILE_SIZE - vymin) * scale;
+        ctx.drawImage(t.img, sx, sy, OSM_TILE_SIZE * scale, OSM_TILE_SIZE * scale);
+      }
+
+      ctx.fillStyle = "rgba(0,0,0,0.15)";
+      ctx.fillRect(0, 0, cw, ch);
+
+      // Draw pixels
+      pixels.forEach((p) => {
+        ctx.fillStyle = p.color || "#888888";
+        const px = offX + (p.x - vxmin) * scale;
+        const py = offY + (p.y - vymin) * scale;
+        ctx.fillRect(px, py, Math.max(scale, 1), Math.max(scale, 1));
+      });
     });
   }, [pixels, bbox]);
 
   return (
     <div className="flex justify-center">
-      <canvas
-        ref={canvasRef}
-        className="rounded-lg border border-border/50"
-        style={{ width: SIZE, height: SIZE, imageRendering: "pixelated" }}
-      />
+      <div ref={containerRef} className="w-full h-64 relative rounded-lg border border-border/50 overflow-hidden">
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full"
+          style={{ imageRendering: "pixelated" }}
+        />
+      </div>
     </div>
   );
 }
