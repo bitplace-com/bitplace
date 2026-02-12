@@ -1,80 +1,93 @@
 
 
-# Fix Thumbnail con Mappa + PE Styling
+# Fix Pin Placement: Selezione Area Rettangolare
 
-## Problemi
+## Problema
 
-1. **Thumbnail sgranata**: Il canvas ha dimensioni fisse inline (`style={{ width: 400, height: 128 }}`) che sovrascrivono `w-full`, causando overflow o scaling scorretto. Inoltre non c'e sfondo mappa -- solo rettangoli colorati su grigio.
-2. **PE row**: Ha un sfondo `bg-muted/30` indesiderato. L'utente vuole testo semplice con colore verde per il valore USD.
+L'auto-detection artwork via Union-Find produce risultati scadenti: il bbox e troppo grande, i pixel sono sub-pixel nella preview, e la mappa di sfondo non si allinea. L'utente non ha controllo su cosa viene catturato.
 
 ## Soluzione
 
-### 1. PlaceThumbnail con sfondo mappa (come Bplace)
+Cambiare il flusso: l'utente **trascina un rettangolo** sulla mappa per definire l'area da pinnare. Il sistema poi:
+1. Fetcha tutti i pixel nell'area selezionata
+2. Calcola il bbox dall'area disegnata
+3. Genera la preview con mappa OSM di sfondo + pixel artwork sopra
 
-Il grid di Bitplace usa `GRID_ZOOM=12` con `TILE_SIZE=512`, quindi la risoluzione totale e `512 * 2^12 = 2,097,152 px`. Questo corrisponde esattamente ai tile raster OSM a zoom 13 (`256 * 2^13 = 2,097,152`).
+### Nuovo Flusso UX
 
-Quindi: **1 pixel grid = 1 pixel tile OSM a zoom 13**.
+1. Click "Place a Pin on Map" -> chiude pannello
+2. Banner overlay: "Click and drag to select an area"
+3. L'utente clicca e trascina -> appare un rettangolo semi-trasparente sulla mappa
+4. Al rilascio del mouse: il sistema converte le coordinate in pixel grid, fetcha i pixel nell'area, e riapre il form con la preview
+5. ESC o Cancel per annullare
 
-Per ogni bbox:
-- Calcolare quali tile OSM a zoom 13 coprono l'area: `tileX = floor(gridX / 256)`, `tileY = floor(gridY / 256)`
-- Caricare le immagini tile da `https://tile.openstreetmap.org/13/{tx}/{ty}.png`
-- Disegnare i tile come sfondo sul canvas
-- Disegnare i pixel artwork sopra
+### Implementazione
 
-**File: `src/components/places/PlaceThumbnail.tsx`**
+**`BitplaceMap.tsx`** -- Riscrivere il handler pin-placement:
 
-Modifiche:
-- Rimuovere `style={{ width, height }}` dal container. Usare solo CSS (`w-full`, `aspect-[3/1]` o altezza fissa via className)
-- Il canvas misura il container con `ResizeObserver` o semplicemente usa `containerRef.current.clientWidth/clientHeight`
-- Prima disegna i tile OSM come sfondo, poi i pixel artwork sopra
-- I tile vengono caricati con `new Image()` e `crossOrigin = "anonymous"`
-- Cache dei tile gia caricati per evitare ri-download
+- Al `mousedown`/`touchstart`: registrare il punto iniziale in coordinate LngLat e grid
+- Al `mousemove`/`touchmove`: aggiornare il rettangolo visuale (overlay CSS o canvas)
+- Al `mouseup`/`touchend`: calcolare bbox grid dai due angoli, fetchare pixel nell'area dal DB, emettere `bitplace:pin-placed`
+- Disabilitare `dragPan` durante il trascinamento (come gia fatto per template move mode)
+- Mostrare un rettangolo di selezione con bordo tratteggiato bianco e sfondo semi-trasparente
 
-### 2. PlaceThumbnail responsive
+Rimuovere tutta la logica Union-Find dal pin placement. Non serve piu: l'utente decide l'area.
 
-Rimuovere le prop `width`/`height` fisse. Il componente si adatta al suo container:
-
-```text
-Container (w-full, h-40 via className)
-  -> Canvas (absolute inset-0, si adatta)
+La query pixel diventa semplicemente:
+```sql
+SELECT x, y, color FROM pixels 
+WHERE x >= bbox.xmin AND x <= bbox.xmax 
+  AND y >= bbox.ymin AND y <= bbox.ymax 
+LIMIT 1000
 ```
 
-Da PlaceCard passare solo `className="w-full h-40 rounded-t-xl rounded-b-none"` senza width/height.
+**`PlaceThumbnail.tsx`** -- Nessuna modifica logica, il componente gia funziona con bbox + pixel fetch. Il problema attuale e che i bbox dall'Union-Find sono troppo grandi. Con la selezione manuale, i bbox saranno ragionevoli e le preview funzioneranno.
 
-### 3. PE e USD senza sfondo, $ in verde
+**`CreatePlaceForm.tsx` `ArtworkPreview`** -- Stesso: nessuna modifica necessaria, il componente gia renderizza correttamente quando il bbox e ragionevole.
 
-**File: `src/components/places/PlaceCard.tsx`**
-
-Cambiare la riga PE da:
+**`PlaceCard.tsx`** -- Rimuovere lo sfondo dalla riga PE/USD. Layout semplice:
 ```
-<div className="... bg-muted/30 rounded-md px-2 py-1">
+[PEIcon] 1,250 PE  $1.25 (verde)
 ```
-A:
-```
-<div className="flex items-center gap-1.5">
-  <PEIcon size="sm" className="text-foreground/70" />
-  <span className="text-sm font-semibold tabular-nums">
-    {total_pe.toLocaleString()} PE
-  </span>
-  <span className="text-xs font-medium text-emerald-500">
-    ${(total_pe / PE_PER_USD).toFixed(2)}
-  </span>
-</div>
-```
-
-Nessuno sfondo, testo semplice, dollaro in verde emerald.
-
-### 4. CreatePlaceForm ArtworkPreview
-
-Stesso fix per la preview nel form di creazione: usare tile OSM come sfondo dietro i pixel dell'artwork, cosi l'utente vede esattamente come apparira il pin con la mappa dietro.
-
----
+Senza wrapper con sfondo, solo flex items inline.
 
 ## File Modificati
 
 | File | Modifica |
 |------|----------|
-| `src/components/places/PlaceThumbnail.tsx` | Sfondo mappa OSM tiles, responsive (no width/height fissi), DPR corretto |
-| `src/components/places/PlaceCard.tsx` | PE row senza sfondo, USD in verde emerald |
-| `src/components/places/CreatePlaceForm.tsx` | ArtworkPreview con sfondo mappa OSM tiles |
+| `src/components/map/BitplaceMap.tsx` | Sostituire click-to-detect con drag-to-select rectangle. Rimuovere Union-Find. Aggiungere overlay rettangolo selezione visuale. Disabilitare dragPan durante selezione. |
+| `src/components/places/PlaceCard.tsx` | Semplificare riga PE: nessun wrapper sfondo, solo testo inline |
+
+## Dettagli Tecnici
+
+### Rettangolo Overlay sulla Mappa
+
+Un `div` assolutamente posizionato sopra la mappa con:
+- `border: 2px dashed white`
+- `background: rgba(255,255,255,0.1)`
+- Coordinate calcolate da `map.project(lngLat)` per convertire da LngLat a pixel schermo
+- Aggiornato via state React durante il drag
+
+### Conversione Coordinate
+
+Al `mousedown`: `map.unproject(point)` -> `lngLatToGridInt()` per il primo angolo.
+Al `mouseup`: stesso per il secondo angolo. I due punti definiscono il bbox grid.
+
+### Disabilitare Pan durante Drag
+
+```js
+map.dragPan.disable();
+// ... al termine
+map.dragPan.enable();
+```
+
+Questo impedisce che la mappa si muova mentre l'utente trascina il rettangolo.
+
+### Banner Overlay
+
+Un div fisso sopra la mappa durante `isPinPlacementMode`:
+```
+[Pin icon] Click and drag to select an area  [Cancel]
+```
+Con sfondo glass/blur, stesso stile degli altri overlay.
 
