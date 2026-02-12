@@ -4,6 +4,14 @@ import { GamePanel } from "./GamePanel";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useSearch, type PlaceResult, type RecentSearch } from "@/hooks/useSearch";
 import { usePinnedPlaces, type PinnedPlace } from "@/hooks/usePinnedPlaces";
 import { parseSearchInput, pixelToLngLat, formatCoords, formatPixel } from "@/lib/coordinates";
@@ -21,6 +29,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
   const [parsedType, setParsedType] = useState<string | null>(null);
   const [editingPinId, setEditingPinId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
+  const [deletingPinId, setDeletingPinId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -168,13 +177,22 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
     setEditLabel("");
   }, [editingPinId, editLabel, renamePin]);
 
-  // Handle delete pin
+  // Handle delete pin with confirmation
   const handleDeletePin = useCallback(async (pinId: string) => {
-    const success = await removePin(pinId);
+    setDeletingPinId(pinId);
+  }, []);
+
+  // Confirm delete pin
+  const confirmDeletePin = useCallback(async () => {
+    if (!deletingPinId) return;
+    
+    const success = await removePin(deletingPinId);
     if (success) {
+      soundEngine.play('pin_remove');
       toast.success('Pin removed');
     }
-  }, [removePin]);
+    setDeletingPinId(null);
+  }, [deletingPinId, removePin]);
 
   // Handle Enter key
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -213,6 +231,9 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
   const filteredRecents = recentSearches.filter(
     r => !isPinned(r.lat, r.lng)
   );
+
+  // Get the pin label for the confirmation dialog
+  const deletingPin = pinnedPlaces.find(p => p.id === deletingPinId);
 
   return (
     <GamePanel
@@ -443,6 +464,22 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
           </div>
         )}
       </div>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!deletingPinId} onOpenChange={(open) => !open && setDeletingPinId(null)}>
+        <AlertDialogContent>
+          <AlertDialogTitle>Delete Pin?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to delete "{deletingPin?.label}"? This action cannot be undone.
+          </AlertDialogDescription>
+          <div className="flex gap-2 justify-end">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeletePin} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </GamePanel>
   );
 }
