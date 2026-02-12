@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { PixelIcon } from "@/components/icons";
@@ -9,6 +10,16 @@ import { getAvatarInitial } from "@/lib/avatar";
 import { PlaceThumbnail } from "./PlaceThumbnail";
 import { PEIcon } from "@/components/ui/pe-icon";
 import { PE_PER_USD } from "@/config/energy";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface PlaceCardProps {
   place: Place;
@@ -31,6 +42,7 @@ export function PlaceCard({
   isAuthenticated = false,
   className,
 }: PlaceCardProps) {
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const creator = place.creator;
   const country = creator?.country_code ? getCountryByCode(creator.country_code) : null;
 
@@ -57,10 +69,16 @@ export function PlaceCard({
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = () => {
     onDelete?.(place.id);
+    setDeleteConfirmOpen(false);
   };
 
   return (
+    <>
     <div
       className={cn(
         "group relative rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden",
@@ -191,5 +209,23 @@ export function PlaceCard({
         </div>
       </div>
     </div>
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Elimina pin</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sei sicuro di voler eliminare questo pin? Questa azione non può essere annullata.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

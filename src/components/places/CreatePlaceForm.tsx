@@ -102,7 +102,7 @@ function ArtworkPreview({ pixels, bbox, mapSnapshot }: { pixels: PixelData[]; bb
 
   return (
     <div className="flex justify-center">
-      <div ref={containerRef} className="w-full h-64 relative rounded-lg border border-border/50 overflow-hidden">
+      <div ref={containerRef} className="w-full h-80 relative rounded-lg border border-border/50 overflow-hidden">
         <canvas
           ref={canvasRef}
           className="absolute inset-0 w-full h-full"
