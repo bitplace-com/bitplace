@@ -1,93 +1,125 @@
 
 
-# Fix Pin Placement: Selezione Area Rettangolare
+# Fix Preview: Cattura Mappa Reale + Tutti i Pixel
 
-## Problema
+## Problemi
 
-L'auto-detection artwork via Union-Find produce risultati scadenti: il bbox e troppo grande, i pixel sono sub-pixel nella preview, e la mappa di sfondo non si allinea. L'utente non ha controllo su cosa viene catturato.
+1. **Mappa sbagliata nello sfondo**: La preview usa tile raster OSM (`tile.openstreetmap.org/13/...`) ma la mappa reale usa OpenFreeMap Liberty (stile vettoriale completamente diverso). Risultato: colori diversi, scritte greche, rendering differente.
+2. **Pixel mancanti**: La query usa `.limit(1000)` senza paginazione. Se l'area selezionata contiene piu di 1000 pixel, il disegno appare incompleto.
 
 ## Soluzione
 
-Cambiare il flusso: l'utente **trascina un rettangolo** sulla mappa per definire l'area da pinnare. Il sistema poi:
-1. Fetcha tutti i pixel nell'area selezionata
-2. Calcola il bbox dall'area disegnata
-3. Genera la preview con mappa OSM di sfondo + pixel artwork sopra
+### 1. Catturare la mappa reale come sfondo
 
-### Nuovo Flusso UX
+Invece di scaricare tile OSM separatamente, **catturare il canvas di MapLibre** al momento della selezione. Il canvas gia mostra lo stile corretto (Liberty). 
 
-1. Click "Place a Pin on Map" -> chiude pannello
-2. Banner overlay: "Click and drag to select an area"
-3. L'utente clicca e trascina -> appare un rettangolo semi-trasparente sulla mappa
-4. Al rilascio del mouse: il sistema converte le coordinate in pixel grid, fetcha i pixel nell'area, e riapre il form con la preview
-5. ESC o Cancel per annullare
+Al `mouseup` del drag-to-select:
+- Usare `map.getCanvas().toDataURL()` per ottenere uno screenshot della mappa
+- Croppare l'immagine all'area del rettangolo di selezione (usando le coordinate `screenX`/`screenY` del drag start/end)
+- Passare il data URL croppato come `mapSnapshot` nell'evento `bitplace:pin-placed`
 
-### Implementazione
+Questo elimina completamente il problema dei tile OSM diversi.
 
-**`BitplaceMap.tsx`** -- Riscrivere il handler pin-placement:
+**File: `src/components/map/BitplaceMap.tsx`**
+- Nel `handleMouseUp`: dopo calcolo bbox, creare un canvas temporaneo, copiare la porzione selezionata dal canvas della mappa, convertire a `dataURL`
+- Aggiungere `mapSnapshot: string` al detail dell'evento `bitplace:pin-placed`
 
-- Al `mousedown`/`touchstart`: registrare il punto iniziale in coordinate LngLat e grid
-- Al `mousemove`/`touchmove`: aggiornare il rettangolo visuale (overlay CSS o canvas)
-- Al `mouseup`/`touchend`: calcolare bbox grid dai due angoli, fetchare pixel nell'area dal DB, emettere `bitplace:pin-placed`
-- Disabilitare `dragPan` durante il trascinamento (come gia fatto per template move mode)
-- Mostrare un rettangolo di selezione con bordo tratteggiato bianco e sfondo semi-trasparente
+### 2. Paginazione pixel fetch
 
-Rimuovere tutta la logica Union-Find dal pin placement. Non serve piu: l'utente decide l'area.
+Sostituire la query singola con `.limit(1000)` con un loop paginato usando `.range()`:
 
-La query pixel diventa semplicemente:
-```sql
-SELECT x, y, color FROM pixels 
-WHERE x >= bbox.xmin AND x <= bbox.xmax 
-  AND y >= bbox.ymin AND y <= bbox.ymax 
-LIMIT 1000
+```
+let allPixels = [];
+let offset = 0;
+while (true) {
+  const { data } = await supabase.from('pixels')...range(offset, offset + 999);
+  allPixels.push(...data);
+  if (data.length < 1000) break;
+  offset += 1000;
+}
 ```
 
-**`PlaceThumbnail.tsx`** -- Nessuna modifica logica, il componente gia funziona con bbox + pixel fetch. Il problema attuale e che i bbox dall'Union-Find sono troppo grandi. Con la selezione manuale, i bbox saranno ragionevoli e le preview funzioneranno.
+**File: `src/components/map/BitplaceMap.tsx`**
+- Sostituire la query singola nel `handleMouseUp` con il loop paginato
 
-**`CreatePlaceForm.tsx` `ArtworkPreview`** -- Stesso: nessuna modifica necessaria, il componente gia renderizza correttamente quando il bbox e ragionevole.
+### 3. ArtworkPreview usa lo snapshot
 
-**`PlaceCard.tsx`** -- Rimuovere lo sfondo dalla riga PE/USD. Layout semplice:
-```
-[PEIcon] 1,250 PE  $1.25 (verde)
-```
-Senza wrapper con sfondo, solo flex items inline.
+La `ArtworkPreview` in `CreatePlaceForm` riceve `mapSnapshot` come prop e lo disegna come sfondo invece di caricare tile OSM.
+
+**File: `src/components/places/CreatePlaceForm.tsx`**
+- Aggiungere prop `mapSnapshot?: string` a `CreatePlaceFormProps`
+- `ArtworkPreview` riceve `mapSnapshot` e lo disegna come immagine di sfondo sul canvas (stretched per riempire), poi disegna i pixel sopra
+- Rimuovere tutta la logica di caricamento tile OSM (`loadTile`, `OSM_ZOOM`, etc.)
+
+### 4. PlaceThumbnail nelle card (feed)
+
+Per le card nel feed, non abbiamo lo snapshot della mappa. Due opzioni:
+- **Opzione A**: Salvare lo snapshot nel DB (troppo pesante)
+- **Opzione B**: Usare uno sfondo semplice scuro senza mappa per le card nel feed, mostrando solo i pixel artwork
+
+Scegliamo **Opzione B**: le card nel feed mostrano solo i pixel su sfondo scuro. Lo sfondo mappa reale e visibile solo nella preview di creazione dove possiamo catturarlo live.
+
+**File: `src/components/places/PlaceThumbnail.tsx`**
+- Rimuovere logica tile OSM
+- Usare sfondo solido `hsl(var(--muted))` 
+- Paginazione per il fetch pixel (loop `.range()`)
+- Rendering pixel centrato con DPR corretto
+
+### 5. PlacesModal passa mapSnapshot al form
+
+**File: `src/components/modals/PlacesModal.tsx`**
+- Estrarre `mapSnapshot` dal detail dell'evento `bitplace:pin-placed`
+- Passarlo a `CreatePlaceForm` come prop
+
+---
 
 ## File Modificati
 
 | File | Modifica |
 |------|----------|
-| `src/components/map/BitplaceMap.tsx` | Sostituire click-to-detect con drag-to-select rectangle. Rimuovere Union-Find. Aggiungere overlay rettangolo selezione visuale. Disabilitare dragPan durante selezione. |
-| `src/components/places/PlaceCard.tsx` | Semplificare riga PE: nessun wrapper sfondo, solo testo inline |
+| `src/components/map/BitplaceMap.tsx` | Cattura canvas MapLibre come snapshot, paginazione pixel fetch |
+| `src/components/places/CreatePlaceForm.tsx` | ArtworkPreview usa mapSnapshot come sfondo, rimuove logica tile OSM |
+| `src/components/places/PlaceThumbnail.tsx` | Rimuove tile OSM, sfondo solido, paginazione pixel fetch |
+| `src/components/modals/PlacesModal.tsx` | Passa mapSnapshot dal pin-placed event al CreatePlaceForm |
 
 ## Dettagli Tecnici
 
-### Rettangolo Overlay sulla Mappa
-
-Un `div` assolutamente posizionato sopra la mappa con:
-- `border: 2px dashed white`
-- `background: rgba(255,255,255,0.1)`
-- Coordinate calcolate da `map.project(lngLat)` per convertire da LngLat a pixel schermo
-- Aggiornato via state React durante il drag
-
-### Conversione Coordinate
-
-Al `mousedown`: `map.unproject(point)` -> `lngLatToGridInt()` per il primo angolo.
-Al `mouseup`: stesso per il secondo angolo. I due punti definiscono il bbox grid.
-
-### Disabilitare Pan durante Drag
+### Cattura Canvas MapLibre
 
 ```js
-map.dragPan.disable();
-// ... al termine
-map.dragPan.enable();
+// Nel handleMouseUp di BitplaceMap
+const mapCanvas = map.getCanvas();
+const cropCanvas = document.createElement('canvas');
+const sx = Math.min(pinDragStart.screenX, e.point.x);
+const sy = Math.min(pinDragStart.screenY, e.point.y);
+const sw = Math.abs(e.point.x - pinDragStart.screenX);
+const sh = Math.abs(e.point.y - pinDragStart.screenY);
+
+// Account for DPR
+const dpr = window.devicePixelRatio || 1;
+cropCanvas.width = sw * dpr;
+cropCanvas.height = sh * dpr;
+const cropCtx = cropCanvas.getContext('2d');
+cropCtx.drawImage(mapCanvas, sx * dpr, sy * dpr, sw * dpr, sh * dpr, 0, 0, sw * dpr, sh * dpr);
+const mapSnapshot = cropCanvas.toDataURL('image/jpeg', 0.8);
 ```
 
-Questo impedisce che la mappa si muova mentre l'utente trascina il rettangolo.
+### Paginazione Pixel
 
-### Banner Overlay
-
-Un div fisso sopra la mappa durante `isPinPlacementMode`:
+```js
+const PAGE = 1000;
+let allPixels = [];
+let offset = 0;
+let hasMore = true;
+while (hasMore) {
+  const { data } = await supabase.from('pixels')
+    .select('x, y, color')
+    .gte('x', bbox.xmin).lte('x', bbox.xmax)
+    .gte('y', bbox.ymin).lte('y', bbox.ymax)
+    .range(offset, offset + PAGE - 1);
+  allPixels.push(...(data || []));
+  hasMore = (data?.length || 0) === PAGE;
+  offset += PAGE;
+}
 ```
-[Pin icon] Click and drag to select an area  [Cancel]
-```
-Con sfondo glass/blur, stesso stile degli altri overlay.
 
