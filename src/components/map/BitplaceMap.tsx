@@ -353,8 +353,7 @@ export function BitplaceMap() {
       touchPitch: false,
       renderWorldCopies: false,
       attributionControl: false,
-      // Enable canvas snapshot for place previews
-      ...(({ preserveDrawingBuffer: true }) as Record<string, unknown>),
+      canvasContextAttributes: { preserveDrawingBuffer: true },
     } as maplibregl.MapOptions);
 
     map.on('load', () => {

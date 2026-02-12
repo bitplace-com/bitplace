@@ -121,23 +121,21 @@ Deno.serve(async (req) => {
     const creatorsMap = new Map(creators?.map(c => [c.id, c]) || []);
 
     // Compute total_pe for each place: only creator's pixels in bbox
+    // Compute total_pe using SQL aggregate (bypasses 1000-row limit)
     const totalPeMap = new Map<string, number>();
-    for (const place of places) {
-      if (place.bbox_xmin != null && place.bbox_ymin != null &&
-          place.bbox_xmax != null && place.bbox_ymax != null) {
-        const { data: sumData } = await adminClient
-          .from("pixels")
-          .select("owner_stake_pe")
-          .gte("x", place.bbox_xmin)
-          .lte("x", place.bbox_xmax)
-          .gte("y", place.bbox_ymin)
-          .lte("y", place.bbox_ymax)
-          .eq("owner_user_id", place.creator_user_id);
-        
-        const totalPe = sumData?.reduce((sum, p) => sum + (p.owner_stake_pe || 0), 0) || 0;
-        totalPeMap.set(place.id, totalPe);
-      }
-    }
+    const pePromises = places
+      .filter(p => p.bbox_xmin != null && p.bbox_ymin != null && p.bbox_xmax != null && p.bbox_ymax != null)
+      .map(async (place) => {
+        const { data } = await adminClient.rpc("sum_owner_stake_in_bbox", {
+          p_xmin: place.bbox_xmin,
+          p_ymin: place.bbox_ymin,
+          p_xmax: place.bbox_xmax,
+          p_ymax: place.bbox_ymax,
+          p_owner_id: place.creator_user_id,
+        });
+        totalPeMap.set(place.id, Number(data) || 0);
+      });
+    await Promise.all(pePromises);
 
     // Fetch user's likes and saves if authenticated
     let userLikesSet = new Set<string>();

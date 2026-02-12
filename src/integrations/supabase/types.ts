@@ -905,6 +905,16 @@ export type Database = {
         }[]
       }
       recalc_user_pe_used: { Args: { target_user_id: string }; Returns: number }
+      sum_owner_stake_in_bbox: {
+        Args: {
+          p_owner_id: string
+          p_xmax: number
+          p_xmin: number
+          p_ymax: number
+          p_ymin: number
+        }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never

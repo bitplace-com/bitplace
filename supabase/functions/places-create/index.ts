@@ -227,19 +227,15 @@ Deno.serve(async (req) => {
       .eq("id", userId)
       .single();
 
-    // Compute initial total_pe: only creator's pixels in bbox
-    let initialTotalPe = 0;
-    {
-      const { data: sumData } = await adminClient
-        .from("pixels")
-        .select("owner_stake_pe")
-        .gte("x", bboxXmin)
-        .lte("x", bboxXmax)
-        .gte("y", bboxYmin)
-        .lte("y", bboxYmax)
-        .eq("owner_user_id", userId);
-      initialTotalPe = sumData?.reduce((sum, p) => sum + (p.owner_stake_pe || 0), 0) || 0;
-    }
+    // Compute initial total_pe using SQL aggregate (bypasses 1000-row limit)
+    const { data: peSum } = await adminClient.rpc("sum_owner_stake_in_bbox", {
+      p_xmin: bboxXmin,
+      p_ymin: bboxYmin,
+      p_xmax: bboxXmax,
+      p_ymax: bboxYmax,
+      p_owner_id: userId,
+    });
+    const initialTotalPe = Number(peSum) || 0;
 
     console.log("[places-create] Created place:", place.id, "total_pe:", initialTotalPe);
 
