@@ -896,6 +896,16 @@ export type Database = {
           y: number
         }[]
       }
+      get_alliance_stats_by_tag: {
+        Args: { tag_input: string }
+        Returns: {
+          member_count: number
+          name: string
+          tag: string
+          total_pe_staked: number
+          total_pixels: number
+        }[]
+      }
       get_pixels_by_tiles: {
         Args: { tile_x_list: number[]; tile_y_list: number[] }
         Returns: {

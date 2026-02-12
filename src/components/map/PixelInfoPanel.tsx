@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { X, RefreshCw, AlertTriangle, Globe, Expand, Loader2 } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
+import { supabase } from '@/integrations/supabase/client';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { ProBadge } from '@/components/ui/pro-badge';
 import { AdminBadge } from '@/components/ui/admin-badge';
@@ -37,7 +39,82 @@ function formatTimeUntil(targetTime: Date): string {
 }
 
 function peToUsd(pe: number): string {
-  return `~$${(pe * 0.001).toFixed(2)}`;
+  const usd = pe * 0.001;
+  return `~$${usd < 0.01 ? usd.toFixed(3) : usd.toFixed(2)}`;
+}
+
+interface AllianceStats {
+  name: string;
+  tag: string;
+  member_count: number;
+  total_pixels: number;
+  total_pe_staked: number;
+}
+
+function AllianceTagBadge({ tag }: { tag: string }) {
+  const [stats, setStats] = useState<AllianceStats | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [fetched, setFetched] = useState(false);
+
+  const fetchStats = useCallback(async () => {
+    if (fetched) return;
+    setLoading(true);
+    setFetched(true);
+    const { data } = await supabase.rpc('get_alliance_stats_by_tag', { tag_input: tag });
+    if (data && data.length > 0) {
+      setStats(data[0] as unknown as AllianceStats);
+    }
+    setLoading(false);
+  }, [tag, fetched]);
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className="text-[10px] font-medium px-1 py-0.5 rounded bg-muted text-foreground/80 border border-border/50 w-fit cursor-pointer"
+            onPointerDown={fetchStats}
+            onMouseEnter={fetchStats}
+          >
+            [{tag}]
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="p-0 bg-popover border-border w-48">
+          {loading ? (
+            <div className="p-3 flex items-center justify-center">
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : stats ? (
+            <div className="p-3 space-y-2">
+              <div className="font-medium text-xs">
+                {stats.name} <span className="text-muted-foreground">[{stats.tag}]</span>
+              </div>
+              <div className="space-y-1 text-[11px]">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Members</span>
+                  <span className="font-medium">{stats.member_count.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Pixels</span>
+                  <span className="font-medium">{stats.total_pixels.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">PE Staked</span>
+                  <span className="font-medium">{stats.total_pe_staked.toLocaleString()} PE</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Value</span>
+                  <span className="font-medium text-emerald-500">{peToUsd(stats.total_pe_staked)}</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 text-xs text-muted-foreground">No data</div>
+          )}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
 
 export function PixelInfoPanel({
@@ -155,7 +232,7 @@ export function PixelInfoPanel({
               <div className="text-center space-y-1">
                 <span className="text-sm font-medium block">Available to claim</span>
                 <span className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-                  1 <PEIcon size="xs" /> <span className="text-muted-foreground/60">(~$0.01)</span>
+                  1 <PEIcon size="xs" /> <span className="text-muted-foreground/60">({peToUsd(1)})</span>
                 </span>
               </div>
             </div>
@@ -196,10 +273,8 @@ export function PixelInfoPanel({
                       {isAdmin(pixel.owner?.wallet_short) && <AdminBadge />}
                       {(() => { const tier = getProTier(pixel.owner?.total_staked_pe ?? 0); return tier ? <ProBadge tier={tier} /> : null; })()}
                     </div>
-                    {pixel.owner?.alliance_tag && (
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-foreground/80 border border-border/50 w-fit">
-                        [{pixel.owner.alliance_tag}]
-                      </span>
+                  {pixel.owner?.alliance_tag && (
+                      <AllianceTagBadge tag={pixel.owner.alliance_tag} />
                     )}
 
                     {/* Wallet + Country */}
