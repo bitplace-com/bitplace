@@ -30,6 +30,40 @@ function getBboxKey(bbox: PlaceThumbnailProps["bbox"]): string | null {
   return `${bbox.xmin}-${bbox.ymin}-${bbox.xmax}-${bbox.ymax}`;
 }
 
+async function fetchPixels(bbox: { xmin: number; ymin: number; xmax: number; ymax: number }, bboxKey: string): Promise<PixelData[]> {
+  const cached = pixelCache.get(bboxKey);
+  if (cached) return cached;
+
+  const PAGE = 1000;
+  const allPixels: PixelData[] = [];
+  let offset = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from("pixels")
+      .select("x, y, color")
+      .gte("x", bbox.xmin)
+      .lte("x", bbox.xmax)
+      .gte("y", bbox.ymin)
+      .lte("y", bbox.ymax)
+      .range(offset, offset + PAGE - 1);
+
+    if (error) {
+      console.error("Failed to fetch thumbnail pixels:", error);
+      return [];
+    }
+
+    allPixels.push(...((data as PixelData[]) || []));
+    hasMore = (data?.length || 0) === PAGE;
+    offset += PAGE;
+  }
+
+  if (allPixels.length > 0) {
+    pixelCache.set(bboxKey, allPixels);
+  }
+  return allPixels;
+}
+
 export const PlaceThumbnail = memo(function PlaceThumbnail({
   bbox,
   snapshotUrl,
@@ -103,7 +137,12 @@ export const PlaceThumbnail = memo(function PlaceThumbnail({
       const offsetX = (cw - drawW) / 2;
       const offsetY = (ch - drawH) / 2;
 
-      // Draw background: snapshot image or solid color
+      // Fetch pixels first (before any branching)
+      const pixels = await fetchPixels(
+        { xmin: bbox.xmin, ymin: bbox.ymin, xmax: bbox.xmax, ymax: bbox.ymax },
+        bboxKey
+      );
+
       const drawPixels = () => {
         const cellSize = scale;
         pixels.forEach((pixel) => {
@@ -112,7 +151,6 @@ export const PlaceThumbnail = memo(function PlaceThumbnail({
           const py = offsetY + (pixel.y - viewYmin) * scale;
           ctx.fillRect(px, py, Math.max(cellSize, 1), Math.max(cellSize, 1));
         });
-        setHasPixels(true);
       };
 
       if (snapshotUrl) {
@@ -123,57 +161,23 @@ export const PlaceThumbnail = memo(function PlaceThumbnail({
           ctx.fillStyle = 'rgba(0,0,0,0.15)';
           ctx.fillRect(0, 0, cw, ch);
           drawPixels();
+          setHasPixels(true);
           setIsLoading(false);
         };
         img.onerror = () => {
           ctx.fillStyle = "hsl(var(--muted))";
           ctx.fillRect(0, 0, cw, ch);
           drawPixels();
+          setHasPixels(pixels.length > 0);
           setIsLoading(false);
         };
         img.src = snapshotUrl;
-        return; // async - onload handles setIsLoading
+        return;
       }
 
       // Solid background fallback
       ctx.fillStyle = "hsl(var(--muted))";
       ctx.fillRect(0, 0, cw, ch);
-
-      // Fetch pixels with pagination
-      let pixels = pixelCache.get(bboxKey);
-
-      if (!pixels) {
-        const PAGE = 1000;
-        const allPixels: PixelData[] = [];
-        let offset = 0;
-        let hasMore = true;
-        while (hasMore) {
-          const { data, error } = await supabase
-            .from("pixels")
-            .select("x, y, color")
-            .gte("x", bbox.xmin)
-            .lte("x", bbox.xmax)
-            .gte("y", bbox.ymin)
-            .lte("y", bbox.ymax)
-            .range(offset, offset + PAGE - 1);
-
-          if (error) {
-            console.error("Failed to fetch thumbnail pixels:", error);
-            setHasPixels(false);
-            setIsLoading(false);
-            return;
-          }
-
-          allPixels.push(...((data as PixelData[]) || []));
-          hasMore = (data?.length || 0) === PAGE;
-          offset += PAGE;
-        }
-
-        pixels = allPixels;
-        if (pixels.length > 0) {
-          pixelCache.set(bboxKey, pixels);
-        }
-      }
 
       if (pixels.length === 0) {
         setHasPixels(false);
@@ -181,15 +185,7 @@ export const PlaceThumbnail = memo(function PlaceThumbnail({
         return;
       }
 
-      // Draw each pixel (solid bg path)
-      const cellSize = scale;
-      pixels.forEach((pixel) => {
-        ctx.fillStyle = pixel.color;
-        const px = offsetX + (pixel.x - viewXmin) * scale;
-        const py = offsetY + (pixel.y - viewYmin) * scale;
-        ctx.fillRect(px, py, Math.max(cellSize, 1), Math.max(cellSize, 1));
-      });
-
+      drawPixels();
       setHasPixels(true);
     } catch (e) {
       console.error("Thumbnail render error:", e);
