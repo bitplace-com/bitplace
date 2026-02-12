@@ -1,82 +1,74 @@
 
-# Fix: Map Snapshot, PE Layout, PE Calcolo per Owner
 
-## 3 Problemi da Risolvere
+# Fix: Map Snapshot + PE Calcolo Senza Limiti
 
-### 1. Map snapshot vuoto (sfondo nero)
-La mappa MapLibre usa WebGL, che per default cancella il framebuffer dopo ogni render. `map.getCanvas().toDataURL()` restituisce un'immagine nera/vuota.
+## Problemi Identificati
 
-**Fix**: Aggiungere `preserveDrawingBuffer: true` alla configurazione della mappa MapLibre. Questo mantiene il contenuto del canvas WebGL leggibile anche dopo il render, permettendo a `toDataURL()` di catturare correttamente lo screenshot.
+### 1. Map snapshot nero/vuoto
+Il `preserveDrawingBuffer: true` e stato aggiunto come opzione top-level della mappa, ma in MapLibre v5 questa opzione va dentro `canvasContextAttributes`. Risultato: il buffer viene cancellato dopo ogni render e `toDataURL()` restituisce un'immagine nera.
 
-**File: `src/components/map/BitplaceMap.tsx`** (riga 345-359)
-- Aggiungere `preserveDrawingBuffer: true` alle opzioni di `new maplibregl.Map()`
-
-### 2. PE e USD allineati con Like/Save nella footer row
-Attualmente PE e USD sono su una riga separata sopra la footer. L'utente vuole che siano allineati nella stessa riga dei bottoni like/save/go.
-
-**File: `src/components/places/PlaceCard.tsx`**
-- Rimuovere il `div` separato per PE/USD (righe 115-124)
-- Spostare PE e USD nella footer row (riga 127), dopo i bottoni like e save, prima del bottone "Go"
-- Layout: `[Heart 0] [Pin] [PE icon] 1,000 PE $1.00 ... [Go]`
-
-### 3. Calcolo PE totali = solo owner_stake_pe dei pixel nell'area
-Il feed attualmente calcola `total_pe` sommando `owner_stake_pe` di TUTTI i pixel nell'area. L'utente vuole che vengano contati solo i PE stakati dall'owner/creator del pin rispetto ai pixel che possiede nell'area selezionata.
-
-**File: `supabase/functions/places-feed/index.ts`**
-- Modificare la query: filtrare `owner_user_id = creator_user_id` nella somma di `owner_stake_pe`
-- Questo mostra solo i PE investiti dal creatore del pin nell'area, non quelli di altri utenti
-
-**File: `supabase/functions/places-create/index.ts`**
-- Alla creazione, calcolare il total_pe iniziale con la stessa logica (filtrando per `creator_user_id`)
+### 2. PE limitato a 1000
+Le edge functions `places-feed` e `places-create` fetchano le righe con `.select("owner_stake_pe")` e poi sommano in JavaScript. Supabase ha un limite di 1000 righe per query, quindi il totale PE e troncato a 1000 pixel massimo. Per un artwork con piu di 1000 pixel del creatore, il valore risulta sottostimato.
 
 ---
 
-## Dettagli Tecnici
+## Soluzione
 
-### preserveDrawingBuffer
-```js
-const map = new maplibregl.Map({
-  container: containerRef.current,
-  style: 'https://tiles.openfreemap.org/styles/liberty',
-  // ... existing options ...
-  preserveDrawingBuffer: true, // <-- NEW: enables canvas snapshot
-});
-```
-Nota: questo ha un costo minimo di performance ma e necessario per catturare screenshot.
+### Fix 1: canvasContextAttributes
 
-### PlaceCard footer layout
-```
-<div className="flex items-center gap-2 pt-1">
-  {/* Like button */}
-  {/* Save button */}
-  {/* PE inline */}
-  <div className="flex items-center gap-1 ml-auto mr-1">
-    <PEIcon size="sm" className="text-foreground/70" />
-    <span className="text-xs font-semibold tabular-nums">
-      {total_pe.toLocaleString()} PE
-    </span>
-    <span className="text-xs font-medium text-emerald-500">
-      ${(total_pe / PE_PER_USD).toFixed(2)}
-    </span>
-  </div>
-  {/* Go button */}
-</div>
+Spostare `preserveDrawingBuffer: true` dentro `canvasContextAttributes`:
+
+```text
+new maplibregl.Map({
+  container: ...,
+  style: ...,
+  canvasContextAttributes: {
+    preserveDrawingBuffer: true,
+  },
+  ...
+})
 ```
 
-### PE query filtrata per creator
+Questo e l'unico modo supportato da MapLibre v5 per abilitare il canvas snapshot.
+
+**File: `src/components/map/BitplaceMap.tsx`**
+- Rimuovere lo spread `...(({ preserveDrawingBuffer: true }) as Record<string, unknown>)`
+- Aggiungere `canvasContextAttributes: { preserveDrawingBuffer: true }` come opzione diretta
+
+### Fix 2: SQL Aggregate SUM() per PE
+
+Sostituire il fetch di righe + reduce in JS con una query SQL aggregate che usa `SUM()`. Questo bypassa il limite di 1000 righe.
+
+Le edge functions useranno `.rpc()` per chiamare una nuova funzione SQL:
+
 ```sql
--- In places-feed: per ogni place
-SELECT owner_stake_pe FROM pixels
-WHERE x >= bbox_xmin AND x <= bbox_xmax
-  AND y >= bbox_ymin AND y <= bbox_ymax
-  AND owner_user_id = creator_user_id  -- solo pixel del creatore
+CREATE OR REPLACE FUNCTION sum_owner_stake_in_bbox(
+  p_xmin bigint, p_ymin bigint,
+  p_xmax bigint, p_ymax bigint,
+  p_owner_id uuid
+) RETURNS bigint AS $$
+  SELECT COALESCE(SUM(owner_stake_pe), 0)
+  FROM pixels
+  WHERE x >= p_xmin AND x <= p_xmax
+    AND y >= p_ymin AND y <= p_ymax
+    AND owner_user_id = p_owner_id;
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = 'public';
 ```
+
+**File: `supabase/functions/places-feed/index.ts`**
+- Sostituire il loop che fetcha righe con `.rpc('sum_owner_stake_in_bbox', { ... })`
+
+**File: `supabase/functions/places-create/index.ts`**
+- Stessa modifica: usare `.rpc('sum_owner_stake_in_bbox', { ... })`
+
+---
 
 ## File Modificati
 
 | File | Modifica |
 |------|----------|
-| `src/components/map/BitplaceMap.tsx` | Aggiungere `preserveDrawingBuffer: true` |
-| `src/components/places/PlaceCard.tsx` | Spostare PE/USD nella footer row con like/save |
-| `supabase/functions/places-feed/index.ts` | Filtrare owner_stake_pe per creator_user_id |
-| `supabase/functions/places-create/index.ts` | Calcolare total_pe iniziale filtrato per creator |
+| `src/components/map/BitplaceMap.tsx` | Spostare `preserveDrawingBuffer` dentro `canvasContextAttributes` |
+| `supabase/functions/places-feed/index.ts` | Usare RPC `sum_owner_stake_in_bbox` invece di fetch + reduce |
+| `supabase/functions/places-create/index.ts` | Stessa modifica RPC |
+| Migrazione DB | Creare funzione SQL `sum_owner_stake_in_bbox` |
+
