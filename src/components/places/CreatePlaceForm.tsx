@@ -17,6 +17,7 @@ interface CreatePlaceFormProps {
   currentZoom: number;
   bbox?: { xmin: number; ymin: number; xmax: number; ymax: number };
   artworkPixels?: PixelData[];
+  mapSnapshot?: string;
   onSubmit: (data: { 
     title: string; description?: string; lat: number; lng: number; zoom: number;
     bbox?: { xmin: number; ymin: number; xmax: number; ymax: number };
@@ -25,26 +26,8 @@ interface CreatePlaceFormProps {
   isSubmitting?: boolean;
 }
 
-const OSM_ZOOM = 13;
-const OSM_TILE_SIZE = 256;
-
-const tileImgCache = new Map<string, HTMLImageElement>();
-
-function loadTile(tx: number, ty: number): Promise<HTMLImageElement> {
-  const key = `${tx}:${ty}`;
-  const cached = tileImgCache.get(key);
-  if (cached) return Promise.resolve(cached);
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => { tileImgCache.set(key, img); resolve(img); };
-    img.onerror = reject;
-    img.src = `https://tile.openstreetmap.org/${OSM_ZOOM}/${tx}/${ty}.png`;
-  });
-}
-
-/** Inline canvas preview of artwork pixels with OSM map background */
-function ArtworkPreview({ pixels, bbox }: { pixels: PixelData[]; bbox: { xmin: number; ymin: number; xmax: number; ymax: number } }) {
+/** Inline canvas preview of artwork pixels with map snapshot background */
+function ArtworkPreview({ pixels, bbox, mapSnapshot }: { pixels: PixelData[]; bbox: { xmin: number; ymin: number; xmax: number; ymax: number }; mapSnapshot?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -82,30 +65,12 @@ function ArtworkPreview({ pixels, bbox }: { pixels: PixelData[]; bbox: { xmin: n
     const offX = (cw - drawW) / 2;
     const offY = (ch - drawH) / 2;
 
+    // Background
     ctx.fillStyle = "hsl(var(--muted))";
     ctx.fillRect(0, 0, cw, ch);
 
-    // Load OSM tiles
-    const txMin = Math.floor(vxmin / OSM_TILE_SIZE);
-    const txMax = Math.floor(vxmax / OSM_TILE_SIZE);
-    const tyMin = Math.floor(vymin / OSM_TILE_SIZE);
-    const tyMax = Math.floor(vymax / OSM_TILE_SIZE);
-
-    const promises: Promise<{ tx: number; ty: number; img: HTMLImageElement } | null>[] = [];
-    for (let ty = tyMin; ty <= tyMax; ty++) {
-      for (let tx = txMin; tx <= txMax; tx++) {
-        promises.push(loadTile(tx, ty).then(img => ({ tx, ty, img })).catch(() => null));
-      }
-    }
-
-    Promise.all(promises).then(tiles => {
-      for (const t of tiles) {
-        if (!t) continue;
-        const sx = offX + (t.tx * OSM_TILE_SIZE - vxmin) * scale;
-        const sy = offY + (t.ty * OSM_TILE_SIZE - vymin) * scale;
-        ctx.drawImage(t.img, sx, sy, OSM_TILE_SIZE * scale, OSM_TILE_SIZE * scale);
-      }
-
+    const drawPixels = () => {
+      // Semi-transparent overlay
       ctx.fillStyle = "rgba(0,0,0,0.15)";
       ctx.fillRect(0, 0, cw, ch);
 
@@ -116,8 +81,24 @@ function ArtworkPreview({ pixels, bbox }: { pixels: PixelData[]; bbox: { xmin: n
         const py = offY + (p.y - vymin) * scale;
         ctx.fillRect(px, py, Math.max(scale, 1), Math.max(scale, 1));
       });
-    });
-  }, [pixels, bbox]);
+    };
+
+    if (mapSnapshot) {
+      // Use map snapshot as background
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, cw, ch);
+        drawPixels();
+      };
+      img.onerror = () => {
+        // Fallback to solid background
+        drawPixels();
+      };
+      img.src = mapSnapshot;
+    } else {
+      drawPixels();
+    }
+  }, [pixels, bbox, mapSnapshot]);
 
   return (
     <div className="flex justify-center">
@@ -138,6 +119,7 @@ export function CreatePlaceForm({
   currentZoom,
   bbox,
   artworkPixels,
+  mapSnapshot,
   onSubmit,
   onCancel,
   isSubmitting = false,
@@ -185,7 +167,7 @@ export function CreatePlaceForm({
       {artworkPixels && artworkPixels.length > 0 && bbox && (
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Artwork Preview</Label>
-          <ArtworkPreview pixels={artworkPixels} bbox={bbox} />
+          <ArtworkPreview pixels={artworkPixels} bbox={bbox} mapSnapshot={mapSnapshot} />
           <p className="text-[10px] text-muted-foreground text-center">
             {artworkPixels.length.toLocaleString()} pixels detected
           </p>

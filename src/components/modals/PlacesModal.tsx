@@ -30,6 +30,7 @@ interface PinPlacedData {
   zoom: number;
   bbox: { xmin: number; ymin: number; xmax: number; ymax: number };
   artworkPixels: { x: number; y: number; color: string }[];
+  mapSnapshot?: string;
 }
 
 type MainTab = "discover" | "my";
@@ -232,6 +233,7 @@ export function PlacesModal({
               currentZoom={pinPlacedData?.zoom ?? currentZoom}
               bbox={pinPlacedData?.bbox}
               artworkPixels={pinPlacedData?.artworkPixels}
+              mapSnapshot={pinPlacedData?.mapSnapshot}
               onSubmit={handleCreatePlace}
               onCancel={() => { setShowCreateForm(false); setPinPlacedData(null); }}
               isSubmitting={isCreating}

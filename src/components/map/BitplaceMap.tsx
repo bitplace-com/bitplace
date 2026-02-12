@@ -501,18 +501,48 @@ export function BitplaceMap() {
         const centerLngLat = gridIntToLngLat(centerX, centerY);
         const currentZoom = map.getZoom();
 
-        // Fetch pixels in the selected area
+        // Capture map canvas snapshot cropped to selection area
+        let mapSnapshot = '';
         try {
-          const { data: areaPixels } = await supabase
-            .from('pixels')
-            .select('x, y, color')
-            .gte('x', bbox.xmin)
-            .lte('x', bbox.xmax)
-            .gte('y', bbox.ymin)
-            .lte('y', bbox.ymax)
-            .limit(1000);
+          const mapCanvas = map.getCanvas();
+          const dpr = window.devicePixelRatio || 1;
+          const sx = Math.min(pinDragStart.screenX, e.point.x);
+          const sy = Math.min(pinDragStart.screenY, e.point.y);
+          const sw = Math.abs(e.point.x - pinDragStart.screenX);
+          const sh = Math.abs(e.point.y - pinDragStart.screenY);
+          if (sw > 0 && sh > 0) {
+            const cropCanvas = document.createElement('canvas');
+            cropCanvas.width = sw * dpr;
+            cropCanvas.height = sh * dpr;
+            const cropCtx = cropCanvas.getContext('2d');
+            if (cropCtx) {
+              cropCtx.drawImage(mapCanvas, sx * dpr, sy * dpr, sw * dpr, sh * dpr, 0, 0, sw * dpr, sh * dpr);
+              mapSnapshot = cropCanvas.toDataURL('image/jpeg', 0.8);
+            }
+          }
+        } catch (snapErr) {
+          console.warn('[BitplaceMap] Map snapshot capture failed:', snapErr);
+        }
 
-          const artworkPixels = (areaPixels || []) as { x: number; y: number; color: string }[];
+        // Fetch pixels in the selected area with pagination
+        try {
+          const PAGE = 1000;
+          const allPixels: { x: number; y: number; color: string }[] = [];
+          let offset = 0;
+          let hasMore = true;
+          while (hasMore) {
+            const { data } = await supabase
+              .from('pixels')
+              .select('x, y, color')
+              .gte('x', bbox.xmin)
+              .lte('x', bbox.xmax)
+              .gte('y', bbox.ymin)
+              .lte('y', bbox.ymax)
+              .range(offset, offset + PAGE - 1);
+            allPixels.push(...((data as { x: number; y: number; color: string }[]) || []));
+            hasMore = (data?.length || 0) === PAGE;
+            offset += PAGE;
+          }
 
           setIsPinPlacementMode(false);
           setPinDragStart(null);
@@ -528,7 +558,8 @@ export function BitplaceMap() {
               y: centerY,
               zoom: currentZoom,
               bbox,
-              artworkPixels,
+              artworkPixels: allPixels,
+              mapSnapshot,
             }
           }));
         } catch (err) {
