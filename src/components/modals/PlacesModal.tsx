@@ -108,7 +108,10 @@ export function PlacesModal({
     title: string; description?: string; lat: number; lng: number; zoom: number;
     bbox?: { xmin: number; ymin: number; xmax: number; ymax: number };
   }) => {
-    const place = await createPlace(data);
+    const place = await createPlace({
+      ...data,
+      mapSnapshot: pinPlacedData?.mapSnapshot,
+    });
     if (place) {
       toast.success("Pinned!", { description: place.title });
       setShowCreateForm(false);

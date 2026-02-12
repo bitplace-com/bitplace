@@ -604,6 +604,10 @@ export function BitplaceMap() {
     if (!map || !mapReady) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept when typing in form fields
+      const tag = (document.activeElement?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
       // ESC: clear ONLY actionSelection + validation, NEVER paintDraft
       if (e.key === 'Escape') {
         // Only clear action selection (pendingPixels, brushSelection) - NOT draft
@@ -691,6 +695,10 @@ export function BitplaceMap() {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      // Don't intercept when typing in form fields
+      const tag = (document.activeElement?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
       // SPACE release
       if (e.code === 'Space' && isSpaceHeld) {
         setIsSpaceHeld(false);

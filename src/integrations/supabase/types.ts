@@ -490,6 +490,7 @@ export type Database = {
           likes_count: number
           lng: number
           saves_count: number
+          snapshot_url: string | null
           title: string
           updated_at: string
           zoom: number
@@ -510,6 +511,7 @@ export type Database = {
           likes_count?: number
           lng: number
           saves_count?: number
+          snapshot_url?: string | null
           title: string
           updated_at?: string
           zoom?: number
@@ -530,6 +532,7 @@ export type Database = {
           likes_count?: number
           lng?: number
           saves_count?: number
+          snapshot_url?: string | null
           title?: string
           updated_at?: string
           zoom?: number

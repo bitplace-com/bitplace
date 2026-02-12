@@ -94,6 +94,7 @@ interface CreatePlaceRequest {
     xmax: number;
     ymax: number;
   };
+  mapSnapshot?: string;
 }
 
 Deno.serve(async (req) => {
@@ -140,7 +141,7 @@ Deno.serve(async (req) => {
     }
 
     const body: CreatePlaceRequest = await req.json();
-    const { title, description, lat, lng, zoom = 12, bbox } = body;
+    const { title, description, lat, lng, zoom = 12, bbox, mapSnapshot } = body;
 
     // Validate input
     if (!title || title.trim().length === 0 || title.length > 100) {
@@ -220,6 +221,36 @@ Deno.serve(async (req) => {
       throw error;
     }
 
+    // Upload map snapshot to storage if provided
+    let snapshotUrl: string | null = null;
+    if (mapSnapshot && mapSnapshot.startsWith('data:image')) {
+      try {
+        const base64 = mapSnapshot.replace(/^data:image\/\w+;base64,/, '');
+        const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+        const filePath = `${place.id}.jpg`;
+
+        const { error: uploadError } = await adminClient.storage
+          .from('place-snapshots')
+          .upload(filePath, bytes, { contentType: 'image/jpeg', upsert: true });
+
+        if (uploadError) {
+          console.error("[places-create] Snapshot upload error:", uploadError);
+        } else {
+          const { data: urlData } = adminClient.storage
+            .from('place-snapshots')
+            .getPublicUrl(filePath);
+          snapshotUrl = urlData.publicUrl;
+
+          await adminClient
+            .from('places')
+            .update({ snapshot_url: snapshotUrl } as any)
+            .eq('id', place.id);
+        }
+      } catch (snapErr) {
+        console.error("[places-create] Snapshot processing error:", snapErr);
+      }
+    }
+
     // Fetch creator profile for response
     const { data: creator } = await adminClient
       .from("public_user_profiles")
@@ -255,6 +286,7 @@ Deno.serve(async (req) => {
           bbox_ymin: place.bbox_ymin,
           bbox_xmax: place.bbox_xmax,
           bbox_ymax: place.bbox_ymax,
+          snapshot_url: snapshotUrl,
           created_at: place.created_at,
           creator,
           stats: {
