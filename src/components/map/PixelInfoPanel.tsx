@@ -197,7 +197,7 @@ export function PixelInfoPanel({
                       {(() => { const tier = getProTier(pixel.owner?.total_staked_pe ?? 0); return tier ? <ProBadge tier={tier} /> : null; })()}
                     </div>
                     {pixel.owner?.alliance_tag && (
-                      <span className="text-[10px] font-medium px-2 py-1 rounded bg-muted text-foreground/80 border border-border/50 w-fit">
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-foreground/80 border border-border/50 w-fit">
                         [{pixel.owner.alliance_tag}]
                       </span>
                     )}
