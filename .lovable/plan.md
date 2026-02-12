@@ -1,65 +1,59 @@
 
 
-# Fix: Map Snapshot + PE Calcolo Senza Limiti
+# Fix: Spacebar nei Campi Testo + Mappa di Sfondo nel Feed
 
-## Problemi Identificati
+## Due Problemi
 
-### 1. Map snapshot nero/vuoto
-Il `preserveDrawingBuffer: true` e stato aggiunto come opzione top-level della mappa, ma in MapLibre v5 questa opzione va dentro `canvasContextAttributes`. Risultato: il buffer viene cancellato dopo ogni render e `toDataURL()` restituisce un'immagine nera.
+### 1. Spacebar non funziona nei campi di testo
+Il handler globale `keydown` in `BitplaceMap.tsx` (riga 624) intercetta il tasto Space con `e.preventDefault()` su tutta la finestra. Quando il form di creazione pin e aperto e l'utente scrive nel titolo/descrizione, lo spazio viene intercettato dalla mappa invece di essere inserito nel campo.
 
-### 2. PE limitato a 1000
-Le edge functions `places-feed` e `places-create` fetchano le righe con `.select("owner_stake_pe")` e poi sommano in JavaScript. Supabase ha un limite di 1000 righe per query, quindi il totale PE e troncato a 1000 pixel massimo. Per un artwork con piu di 1000 pixel del creatore, il valore risulta sottostimato.
-
----
-
-## Soluzione
-
-### Fix 1: canvasContextAttributes
-
-Spostare `preserveDrawingBuffer: true` dentro `canvasContextAttributes`:
+**Fix**: Aggiungere un check all'inizio dell'handler: se l'elemento attivo e un `<input>` o `<textarea>`, fare `return` senza intercettare il tasto.
 
 ```text
-new maplibregl.Map({
-  container: ...,
-  style: ...,
-  canvasContextAttributes: {
-    preserveDrawingBuffer: true,
-  },
-  ...
-})
+const handleKeyDown = (e: KeyboardEvent) => {
+  // Don't intercept when typing in form fields
+  const tag = (document.activeElement?.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  // ... rest of handler
+};
 ```
 
-Questo e l'unico modo supportato da MapLibre v5 per abilitare il canvas snapshot.
+**File: `src/components/map/BitplaceMap.tsx`** - aggiungere guard all'inizio di `handleKeyDown` (riga ~606)
 
-**File: `src/components/map/BitplaceMap.tsx`**
-- Rimuovere lo spread `...(({ preserveDrawingBuffer: true }) as Record<string, unknown>)`
-- Aggiungere `canvasContextAttributes: { preserveDrawingBuffer: true }` come opzione diretta
+### 2. Mappa di sfondo non salvata per le card nel feed
+Lo snapshot della mappa viene catturato al momento della creazione ma non viene salvato. Le card nel feed (PlaceThumbnail) mostrano solo pixel su sfondo nero/scuro.
 
-### Fix 2: SQL Aggregate SUM() per PE
+**Soluzione**: Salvare lo snapshot come immagine in Supabase Storage durante la creazione del pin, e mostrarlo come sfondo nelle card del feed.
 
-Sostituire il fetch di righe + reduce in JS con una query SQL aggregate che usa `SUM()`. Questo bypassa il limite di 1000 righe.
+#### Passaggi:
 
-Le edge functions useranno `.rpc()` per chiamare una nuova funzione SQL:
+**a) Creare bucket Storage "place-snapshots"**
+- Migrazione DB per creare il bucket e le policy di accesso pubblico in lettura
 
-```sql
-CREATE OR REPLACE FUNCTION sum_owner_stake_in_bbox(
-  p_xmin bigint, p_ymin bigint,
-  p_xmax bigint, p_ymax bigint,
-  p_owner_id uuid
-) RETURNS bigint AS $$
-  SELECT COALESCE(SUM(owner_stake_pe), 0)
-  FROM pixels
-  WHERE x >= p_xmin AND x <= p_xmax
-    AND y >= p_ymin AND y <= p_ymax
-    AND owner_user_id = p_owner_id;
-$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = 'public';
-```
+**b) Aggiungere colonna `snapshot_url` alla tabella `places`**
+- Migrazione DB per aggiungere la colonna `text nullable`
 
-**File: `supabase/functions/places-feed/index.ts`**
-- Sostituire il loop che fetcha righe con `.rpc('sum_owner_stake_in_bbox', { ... })`
+**c) Aggiornare `places-create` edge function**
+- Ricevere il `mapSnapshot` (base64 data URL) nel body della request
+- Decodificare il base64 in un buffer binario
+- Upload su Storage nel bucket `place-snapshots` con path `{placeId}.jpg`
+- Salvare l'URL pubblico nella colonna `snapshot_url`
 
-**File: `supabase/functions/places-create/index.ts`**
-- Stessa modifica: usare `.rpc('sum_owner_stake_in_bbox', { ... })`
+**d) Aggiornare `places-feed` edge function**
+- Includere `snapshot_url` nel SELECT dei places
+
+**e) Aggiornare il tipo `Place` nel hook `usePlaces`**
+- Aggiungere `snapshot_url?: string | null`
+
+**f) Passare `mapSnapshot` a `createPlace` nel `PlacesModal`**
+- Modificare la chiamata `createPlace` per includere il base64
+
+**g) Aggiornare `PlaceThumbnail`**
+- Accettare prop `snapshotUrl?: string`
+- Se presente, caricare l'immagine come sfondo prima di disegnare i pixel sopra
+
+**h) Aggiornare `PlaceCard`**
+- Passare `place.snapshot_url` come prop a `PlaceThumbnail`
 
 ---
 
@@ -67,8 +61,90 @@ $$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = 'public';
 
 | File | Modifica |
 |------|----------|
-| `src/components/map/BitplaceMap.tsx` | Spostare `preserveDrawingBuffer` dentro `canvasContextAttributes` |
-| `supabase/functions/places-feed/index.ts` | Usare RPC `sum_owner_stake_in_bbox` invece di fetch + reduce |
-| `supabase/functions/places-create/index.ts` | Stessa modifica RPC |
-| Migrazione DB | Creare funzione SQL `sum_owner_stake_in_bbox` |
+| `src/components/map/BitplaceMap.tsx` | Guard per input/textarea nel keydown handler |
+| `supabase/functions/places-create/index.ts` | Ricevere e salvare mapSnapshot in Storage |
+| `supabase/functions/places-feed/index.ts` | Includere snapshot_url nella query |
+| `src/hooks/usePlaces.ts` | Aggiungere snapshot_url al tipo Place, passare mapSnapshot a createPlace |
+| `src/components/modals/PlacesModal.tsx` | Passare mapSnapshot a createPlace |
+| `src/components/places/PlaceThumbnail.tsx` | Mostrare snapshotUrl come sfondo |
+| `src/components/places/PlaceCard.tsx` | Passare snapshot_url a PlaceThumbnail |
+| Migrazione DB | Creare bucket + colonna snapshot_url |
+
+## Dettagli Tecnici
+
+### Guard per Spacebar
+Aggiunto come prima riga sia nel `handleKeyDown` che nel `handleKeyUp` del blocco globale (riga ~606):
+```text
+const tag = (document.activeElement?.tagName || '').toLowerCase();
+if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+```
+
+### Storage Upload in places-create
+```text
+// Decode base64 data URL
+const base64 = mapSnapshot.replace(/^data:image\/\w+;base64,/, '');
+const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+
+// Upload to storage
+await adminClient.storage
+  .from('place-snapshots')
+  .upload(`${place.id}.jpg`, bytes, {
+    contentType: 'image/jpeg',
+    upsert: true,
+  });
+
+// Get public URL
+const { data: urlData } = adminClient.storage
+  .from('place-snapshots')
+  .getPublicUrl(`${place.id}.jpg`);
+
+// Update place with snapshot_url
+await adminClient
+  .from('places')
+  .update({ snapshot_url: urlData.publicUrl })
+  .eq('id', place.id);
+```
+
+### PlaceThumbnail con sfondo mappa
+```text
+// Se snapshotUrl e presente, carica come sfondo
+if (snapshotUrl) {
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, cw, ch);
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fillRect(0, 0, cw, ch);
+    drawPixels(); // disegna i pixel sopra la mappa
+  };
+  img.src = snapshotUrl;
+} else {
+  ctx.fillStyle = 'hsl(var(--muted))';
+  ctx.fillRect(0, 0, cw, ch);
+  drawPixels();
+}
+```
+
+### Migrazione DB
+```text
+-- Add snapshot_url column
+ALTER TABLE public.places ADD COLUMN IF NOT EXISTS snapshot_url text;
+
+-- Create storage bucket
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('place-snapshots', 'place-snapshots', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Allow public read access
+CREATE POLICY "Public read place-snapshots"
+ON storage.objects FOR SELECT
+TO public
+USING (bucket_id = 'place-snapshots');
+
+-- Allow authenticated insert
+CREATE POLICY "Auth insert place-snapshots"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'place-snapshots');
+```
 
