@@ -409,9 +409,9 @@ export function ActionTray({
                   isEraser && "opacity-40 pointer-events-none"
                 )}>
 
-                <div className="max-h-48 overflow-y-auto overflow-x-hidden py-1 px-1">
+                <div className="max-h-48 overflow-y-auto overflow-x-hidden py-1 px-1 w-full">
                   {paletteTab === 'colors' ? (
-                    <div className="flex flex-wrap gap-1">
+                    <div className="grid grid-cols-10 gap-1">
                       {displayColors.map((color, index) => {
                         const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
                         return (
@@ -420,7 +420,7 @@ export function ActionTray({
                             onClick={() => handleColorClick(color)}
                             disabled={!canPaint}
                             className={cn(
-                              "w-7 h-7 sm:w-[22px] sm:h-[22px] rounded-lg sm:rounded-md transition-all duration-100 focus:outline-none touch-target",
+                              "w-full aspect-square rounded-lg sm:rounded-md transition-all duration-100 focus:outline-none touch-target",
                               canPaint && "hover:ring-1 hover:ring-foreground/30",
                               isSelected && "ring-2 ring-foreground scale-105 z-10",
                               !canPaint && "opacity-40 cursor-not-allowed"
