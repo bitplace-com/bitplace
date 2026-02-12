@@ -195,12 +195,12 @@ export function PixelInfoPanel({
                       )}
                       {isAdmin(pixel.owner?.wallet_short) && <AdminBadge />}
                       {(() => { const tier = getProTier(pixel.owner?.total_staked_pe ?? 0); return tier ? <ProBadge tier={tier} /> : null; })()}
-                      {pixel.owner?.alliance_tag && (
-                        <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-accent text-accent-foreground">
-                          [{pixel.owner.alliance_tag}]
-                        </span>
-                      )}
                     </div>
+                    {pixel.owner?.alliance_tag && (
+                      <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-accent text-accent-foreground w-fit">
+                        [{pixel.owner.alliance_tag}]
+                      </span>
+                    )}
 
                     {/* Wallet + Country */}
                     <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
