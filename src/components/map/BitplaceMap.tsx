@@ -82,6 +82,9 @@ export function BitplaceMap() {
   const [previewHiddenPixels, setPreviewHiddenPixels] = useState<Set<string>>(new Set());
   const [validatedActionPixels, setValidatedActionPixels] = useState<Set<string> | null>(null);
   const [isPinPlacementMode, setIsPinPlacementMode] = useState(false);
+  const [pinDragStart, setPinDragStart] = useState<{ screenX: number; screenY: number; lng: number; lat: number } | null>(null);
+  const [pinDragEnd, setPinDragEnd] = useState<{ screenX: number; screenY: number } | null>(null);
+  const isPinDraggingRef = useRef(false);
   
   const { user, walletAddress, refreshUser, connect, isConnecting, updatePeStatus } = useWallet();
   const { isWalletModalOpen, setWalletModalOpen, requireWallet } = useWalletGate();
@@ -447,134 +450,124 @@ export function BitplaceMap() {
     };
   }, []);
 
-  // Custom cursor + click handler for pin placement
+  // Drag-to-select rectangle for pin placement
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
 
     if (isPinPlacementMode) {
-      const pinSvg = encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="%23e11d48" d="m19,6v-2h-1v-1h-1v-1h-2v-1h-6v1h-2v1h-1v1h-1v2h-1v6h1v2h1v1h1v2h1v1h1v2h1v1h1v2h2v-2h1v-1h1v-2h1v-1h1v-2h1v-1h1v-2h1v-6h-1Zm-5,5h-1v1h-2v-1h-1v-1h-1v-2h1v-1h1v-1h2v1h1v1h1v2h-1v1Z"/></svg>`);
-      map.getCanvas().style.cursor = `url('data:image/svg+xml,${pinSvg}') 12 24, crosshair`;
+      map.getCanvas().style.cursor = 'crosshair';
+      map.dragPan.disable();
 
-      const handleClick = async (e: maplibregl.MapMouseEvent) => {
-        const { lng, lat } = e.lngLat;
-        const { x, y } = lngLatToGridInt(lng, lat);
+      const handleMouseDown = (e: maplibregl.MapMouseEvent) => {
+        const point = e.point;
+        const lngLat = e.lngLat;
+        setPinDragStart({ screenX: point.x, screenY: point.y, lng: lngLat.lng, lat: lngLat.lat });
+        setPinDragEnd({ screenX: point.x, screenY: point.y });
+        isPinDraggingRef.current = true;
+      };
+
+      const handleMouseMove = (e: maplibregl.MapMouseEvent) => {
+        if (!isPinDraggingRef.current) return;
+        setPinDragEnd({ screenX: e.point.x, screenY: e.point.y });
+      };
+
+      const handleMouseUp = async (e: maplibregl.MapMouseEvent) => {
+        if (!isPinDraggingRef.current || !pinDragStart) return;
+        isPinDraggingRef.current = false;
+
+        const endLngLat = e.lngLat;
+        const startGrid = lngLatToGridInt(pinDragStart.lng, pinDragStart.lat);
+        const endGrid = lngLatToGridInt(endLngLat.lng, endLngLat.lat);
+
+        const bbox = {
+          xmin: Math.min(startGrid.x, endGrid.x),
+          ymin: Math.min(startGrid.y, endGrid.y),
+          xmax: Math.max(startGrid.x, endGrid.x),
+          ymax: Math.max(startGrid.y, endGrid.y),
+        };
+
+        // Minimum size check (at least 2x2 grid pixels)
+        if (bbox.xmax - bbox.xmin < 2 && bbox.ymax - bbox.ymin < 2) {
+          setPinDragStart(null);
+          setPinDragEnd(null);
+          toast.info('Drag a larger area to select', { id: 'pin-area-too-small' });
+          return;
+        }
+
+        // Calculate center
+        const centerX = Math.round((bbox.xmin + bbox.xmax) / 2);
+        const centerY = Math.round((bbox.ymin + bbox.ymax) / 2);
+        const centerLngLat = gridIntToLngLat(centerX, centerY);
         const currentZoom = map.getZoom();
 
-        setIsPinPlacementMode(false);
-        map.getCanvas().style.cursor = '';
-
-        // Detect artwork at click
+        // Fetch pixels in the selected area
         try {
-          const { data: clickedPixel } = await supabase
+          const { data: areaPixels } = await supabase
             .from('pixels')
-            .select('x, y, color, owner_user_id')
-            .eq('x', x)
-            .eq('y', y)
-            .maybeSingle();
+            .select('x, y, color')
+            .gte('x', bbox.xmin)
+            .lte('x', bbox.xmax)
+            .gte('y', bbox.ymin)
+            .lte('y', bbox.ymax)
+            .limit(1000);
 
-          let artworkPixels: { x: number; y: number; color: string }[] = [];
-          let bbox = { xmin: x - 128, ymin: y - 128, xmax: x + 128, ymax: y + 128 };
+          const artworkPixels = (areaPixels || []) as { x: number; y: number; color: string }[];
 
-          if (clickedPixel?.owner_user_id) {
-            // Fetch owner's nearby pixels
-            const { data: ownerPixels } = await supabase
-              .from('pixels')
-              .select('x, y, color')
-              .eq('owner_user_id', clickedPixel.owner_user_id)
-              .gte('x', x - 500)
-              .lte('x', x + 500)
-              .gte('y', y - 500)
-              .lte('y', y + 500)
-              .limit(1000);
-
-            if (ownerPixels && ownerPixels.length > 0) {
-              // Union-Find clustering (gap=5)
-              const pixels = ownerPixels as { x: number; y: number; color: string }[];
-              const keyMap = new Map<string, number>();
-              pixels.forEach((p, i) => keyMap.set(`${p.x}:${p.y}`, i));
-              const parent = pixels.map((_, i) => i);
-              const rank = new Array(pixels.length).fill(0);
-              const find = (a: number): number => {
-                while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; }
-                return a;
-              };
-              const union = (a: number, b: number) => {
-                const ra = find(a), rb = find(b);
-                if (ra === rb) return;
-                if (rank[ra] < rank[rb]) parent[ra] = rb;
-                else if (rank[ra] > rank[rb]) parent[rb] = ra;
-                else { parent[rb] = ra; rank[ra]++; }
-              };
-              const gap = 5;
-              for (let i = 0; i < pixels.length; i++) {
-                const p = pixels[i];
-                for (let dx = -gap; dx <= gap; dx++) {
-                  for (let dy = -gap; dy <= gap; dy++) {
-                    if (dx === 0 && dy === 0) continue;
-                    const neighbor = keyMap.get(`${p.x + dx}:${p.y + dy}`);
-                    if (neighbor !== undefined) union(i, neighbor);
-                  }
-                }
-              }
-
-              // Find cluster containing clicked pixel
-              const clickedIdx = keyMap.get(`${x}:${y}`);
-              let targetRoot: number | null = null;
-              if (clickedIdx !== undefined) {
-                targetRoot = find(clickedIdx);
-              } else {
-                // Find nearest cluster
-                let minDist = Infinity;
-                pixels.forEach((p, i) => {
-                  const d = Math.abs(p.x - x) + Math.abs(p.y - y);
-                  if (d < minDist) { minDist = d; targetRoot = find(i); }
-                });
-              }
-
-              if (targetRoot !== null) {
-                const clusterPixels = pixels.filter((_, i) => find(i) === targetRoot);
-                artworkPixels = clusterPixels;
-                const xs = clusterPixels.map(p => p.x);
-                const ys = clusterPixels.map(p => p.y);
-                bbox = {
-                  xmin: Math.min(...xs),
-                  ymin: Math.min(...ys),
-                  xmax: Math.max(...xs),
-                  ymax: Math.max(...ys),
-                };
-              }
-            }
-          }
+          setIsPinPlacementMode(false);
+          setPinDragStart(null);
+          setPinDragEnd(null);
+          map.dragPan.enable();
+          map.getCanvas().style.cursor = '';
 
           window.dispatchEvent(new CustomEvent('bitplace:pin-placed', {
-            detail: { lat, lng, x, y, zoom: currentZoom, bbox, artworkPixels }
+            detail: {
+              lat: centerLngLat.lat,
+              lng: centerLngLat.lng,
+              x: centerX,
+              y: centerY,
+              zoom: currentZoom,
+              bbox,
+              artworkPixels,
+            }
           }));
         } catch (err) {
-          console.error('[BitplaceMap] Artwork detection failed:', err);
-          window.dispatchEvent(new CustomEvent('bitplace:pin-placed', {
-            detail: { lat, lng, x, y, zoom: currentZoom, bbox: { xmin: x - 128, ymin: y - 128, xmax: x + 128, ymax: y + 128 }, artworkPixels: [] }
-          }));
+          console.error('[BitplaceMap] Pixel fetch for pin area failed:', err);
+          setIsPinPlacementMode(false);
+          setPinDragStart(null);
+          setPinDragEnd(null);
+          map.dragPan.enable();
+          map.getCanvas().style.cursor = '';
+          toast.error('Failed to load pixels for this area');
         }
       };
 
-      map.on('click', handleClick);
+      map.on('mousedown', handleMouseDown);
+      map.on('mousemove', handleMouseMove);
+      map.on('mouseup', handleMouseUp);
 
       const handleEsc = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
           setIsPinPlacementMode(false);
+          isPinDraggingRef.current = false;
+          setPinDragStart(null);
+          setPinDragEnd(null);
+          map.dragPan.enable();
           map.getCanvas().style.cursor = '';
         }
       };
       window.addEventListener('keydown', handleEsc);
 
       return () => {
-        map.off('click', handleClick);
+        map.off('mousedown', handleMouseDown);
+        map.off('mousemove', handleMouseMove);
+        map.off('mouseup', handleMouseUp);
         window.removeEventListener('keydown', handleEsc);
+        map.dragPan.enable();
         map.getCanvas().style.cursor = '';
       };
     }
-  }, [isPinPlacementMode, mapReady]);
+  }, [isPinPlacementMode, mapReady, pinDragStart]);
 
   // SPACE key handling for hover-paint, SHIFT for selection, ESC to cancel
   useEffect(() => {
@@ -1655,25 +1648,45 @@ export function BitplaceMap() {
           </HudSlot>
         </HudOverlay>
 
-        {/* Pin Placement Overlay */}
+        {/* Pin Placement Overlay: Banner + Selection Rectangle */}
         {isPinPlacementMode && (
-          <div className="absolute inset-x-0 top-4 z-50 flex justify-center pointer-events-none">
-            <div className="pointer-events-auto flex items-center gap-3 px-4 py-2.5 rounded-xl bg-card/90 backdrop-blur-md border border-border/50 shadow-lg">
-              <PixelIcon name="locationPin" size="sm" className="text-primary" />
-              <span className="text-sm font-medium">Tap on the map to place your pin</span>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 px-2 text-xs"
-                onClick={() => {
-                  setIsPinPlacementMode(false);
-                  if (mapRef.current) mapRef.current.getCanvas().style.cursor = '';
-                }}
-              >
-                Cancel
-              </Button>
+          <>
+            <div className="absolute inset-x-0 top-4 z-50 flex justify-center pointer-events-none">
+              <div className="pointer-events-auto flex items-center gap-3 px-4 py-2.5 rounded-xl bg-card/90 backdrop-blur-md border border-border/50 shadow-lg">
+                <PixelIcon name="locationPin" size="sm" className="text-primary" />
+                <span className="text-sm font-medium">Click and drag to select an area</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => {
+                    setIsPinPlacementMode(false);
+                    isPinDraggingRef.current = false;
+                    setPinDragStart(null);
+                    setPinDragEnd(null);
+                    if (mapRef.current) {
+                      mapRef.current.dragPan.enable();
+                      mapRef.current.getCanvas().style.cursor = '';
+                    }
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
-          </div>
+            {/* Selection rectangle */}
+            {pinDragStart && pinDragEnd && (
+              <div
+                className="absolute z-40 border-2 border-dashed border-white/80 bg-white/10 pointer-events-none"
+                style={{
+                  left: Math.min(pinDragStart.screenX, pinDragEnd.screenX),
+                  top: Math.min(pinDragStart.screenY, pinDragEnd.screenY),
+                  width: Math.abs(pinDragEnd.screenX - pinDragStart.screenX),
+                  height: Math.abs(pinDragEnd.screenY - pinDragStart.screenY),
+                }}
+              />
+            )}
+          </>
         )}
 
         {/* Action Tray - always visible */}
