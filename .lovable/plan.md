@@ -1,150 +1,50 @@
 
+# Fix: Snapshot Distorsione, PE in places-my, Spacing Bottoni
 
-# Fix: Spacebar nei Campi Testo + Mappa di Sfondo nel Feed
+## Tre Problemi
 
-## Due Problemi
+### 1. Snapshot della mappa stretchato nelle card
+In `PlaceThumbnail.tsx`, lo snapshot viene disegnato con `ctx.drawImage(img, 0, 0, cw, ch)` che lo allunga per riempire il canvas (container 100% x 128px). L'immagine originale ha proporzioni diverse dal container, causando la distorsione.
 
-### 1. Spacebar non funziona nei campi di testo
-Il handler globale `keydown` in `BitplaceMap.tsx` (riga 624) intercetta il tasto Space con `e.preventDefault()` su tutta la finestra. Quando il form di creazione pin e aperto e l'utente scrive nel titolo/descrizione, lo spazio viene intercettato dalla mappa invece di essere inserito nel campo.
-
-**Fix**: Aggiungere un check all'inizio dell'handler: se l'elemento attivo e un `<input>` o `<textarea>`, fare `return` senza intercettare il tasto.
+**Fix**: Usare un calcolo "cover" per mantenere le proporzioni originali dell'immagine, centrando e ritagliando l'eccesso:
 
 ```text
-const handleKeyDown = (e: KeyboardEvent) => {
-  // Don't intercept when typing in form fields
-  const tag = (document.activeElement?.tagName || '').toLowerCase();
-  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-  // ... rest of handler
-};
+// In PlaceThumbnail.tsx, dentro img.onload
+const imgAspect = img.naturalWidth / img.naturalHeight;
+const canvasAspect = cw / ch;
+let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+if (imgAspect > canvasAspect) {
+  sw = img.naturalHeight * canvasAspect;
+  sx = (img.naturalWidth - sw) / 2;
+} else {
+  sh = img.naturalWidth / canvasAspect;
+  sy = (img.naturalHeight - sh) / 2;
+}
+ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch);
 ```
 
-**File: `src/components/map/BitplaceMap.tsx`** - aggiungere guard all'inizio di `handleKeyDown` (riga ~606)
+**File**: `src/components/places/PlaceThumbnail.tsx` - modifica sia `onload` che `onerror` nel blocco snapshotUrl
 
-### 2. Mappa di sfondo non salvata per le card nel feed
-Lo snapshot della mappa viene catturato al momento della creazione ma non viene salvato. Le card nel feed (PlaceThumbnail) mostrano solo pixel su sfondo nero/scuro.
+### 2. PE limitato a 1000 nella tab "My Pins"
+Il file `supabase/functions/places-my/index.ts` (righe 124-139) usa ancora il vecchio pattern: `.select("owner_stake_pe")` + reduce in JS. Questo e soggetto al limite di 1000 righe. Inoltre, non filtra per `owner_user_id`, sommando i PE di tutti gli utenti.
 
-**Soluzione**: Salvare lo snapshot come immagine in Supabase Storage durante la creazione del pin, e mostrarlo come sfondo nelle card del feed.
+**Fix**: Sostituire con la RPC `sum_owner_stake_in_bbox` (gia creata), parallelizzando le chiamate con `Promise.all`.
 
-#### Passaggi:
+**File**: `supabase/functions/places-my/index.ts` - righe 124-139
 
-**a) Creare bucket Storage "place-snapshots"**
-- Migrazione DB per creare il bucket e le policy di accesso pubblico in lettura
+### 3. Bottoni Cancel/Create tagliati
+Il `CreatePlaceForm` termina con `<div className="flex gap-2 pt-2">` per i bottoni. Il container `GlassSheet` ha `pb-4` ma quando il form e lungo e scrolla, i bottoni finiscono troppo vicini al bordo inferiore.
 
-**b) Aggiungere colonna `snapshot_url` alla tabella `places`**
-- Migrazione DB per aggiungere la colonna `text nullable`
+**Fix**: Aggiungere `pb-6` al div dei bottoni nel `CreatePlaceForm` per garantire spazio sufficiente in fondo.
 
-**c) Aggiornare `places-create` edge function**
-- Ricevere il `mapSnapshot` (base64 data URL) nel body della request
-- Decodificare il base64 in un buffer binario
-- Upload su Storage nel bucket `place-snapshots` con path `{placeId}.jpg`
-- Salvare l'URL pubblico nella colonna `snapshot_url`
-
-**d) Aggiornare `places-feed` edge function**
-- Includere `snapshot_url` nel SELECT dei places
-
-**e) Aggiornare il tipo `Place` nel hook `usePlaces`**
-- Aggiungere `snapshot_url?: string | null`
-
-**f) Passare `mapSnapshot` a `createPlace` nel `PlacesModal`**
-- Modificare la chiamata `createPlace` per includere il base64
-
-**g) Aggiornare `PlaceThumbnail`**
-- Accettare prop `snapshotUrl?: string`
-- Se presente, caricare l'immagine come sfondo prima di disegnare i pixel sopra
-
-**h) Aggiornare `PlaceCard`**
-- Passare `place.snapshot_url` come prop a `PlaceThumbnail`
+**File**: `src/components/places/CreatePlaceForm.tsx` - riga 224
 
 ---
 
-## File Modificati
+## Riepilogo File Modificati
 
 | File | Modifica |
 |------|----------|
-| `src/components/map/BitplaceMap.tsx` | Guard per input/textarea nel keydown handler |
-| `supabase/functions/places-create/index.ts` | Ricevere e salvare mapSnapshot in Storage |
-| `supabase/functions/places-feed/index.ts` | Includere snapshot_url nella query |
-| `src/hooks/usePlaces.ts` | Aggiungere snapshot_url al tipo Place, passare mapSnapshot a createPlace |
-| `src/components/modals/PlacesModal.tsx` | Passare mapSnapshot a createPlace |
-| `src/components/places/PlaceThumbnail.tsx` | Mostrare snapshotUrl come sfondo |
-| `src/components/places/PlaceCard.tsx` | Passare snapshot_url a PlaceThumbnail |
-| Migrazione DB | Creare bucket + colonna snapshot_url |
-
-## Dettagli Tecnici
-
-### Guard per Spacebar
-Aggiunto come prima riga sia nel `handleKeyDown` che nel `handleKeyUp` del blocco globale (riga ~606):
-```text
-const tag = (document.activeElement?.tagName || '').toLowerCase();
-if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-```
-
-### Storage Upload in places-create
-```text
-// Decode base64 data URL
-const base64 = mapSnapshot.replace(/^data:image\/\w+;base64,/, '');
-const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-
-// Upload to storage
-await adminClient.storage
-  .from('place-snapshots')
-  .upload(`${place.id}.jpg`, bytes, {
-    contentType: 'image/jpeg',
-    upsert: true,
-  });
-
-// Get public URL
-const { data: urlData } = adminClient.storage
-  .from('place-snapshots')
-  .getPublicUrl(`${place.id}.jpg`);
-
-// Update place with snapshot_url
-await adminClient
-  .from('places')
-  .update({ snapshot_url: urlData.publicUrl })
-  .eq('id', place.id);
-```
-
-### PlaceThumbnail con sfondo mappa
-```text
-// Se snapshotUrl e presente, carica come sfondo
-if (snapshotUrl) {
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.onload = () => {
-    ctx.drawImage(img, 0, 0, cw, ch);
-    ctx.fillStyle = 'rgba(0,0,0,0.15)';
-    ctx.fillRect(0, 0, cw, ch);
-    drawPixels(); // disegna i pixel sopra la mappa
-  };
-  img.src = snapshotUrl;
-} else {
-  ctx.fillStyle = 'hsl(var(--muted))';
-  ctx.fillRect(0, 0, cw, ch);
-  drawPixels();
-}
-```
-
-### Migrazione DB
-```text
--- Add snapshot_url column
-ALTER TABLE public.places ADD COLUMN IF NOT EXISTS snapshot_url text;
-
--- Create storage bucket
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('place-snapshots', 'place-snapshots', true)
-ON CONFLICT (id) DO NOTHING;
-
--- Allow public read access
-CREATE POLICY "Public read place-snapshots"
-ON storage.objects FOR SELECT
-TO public
-USING (bucket_id = 'place-snapshots');
-
--- Allow authenticated insert
-CREATE POLICY "Auth insert place-snapshots"
-ON storage.objects FOR INSERT
-TO authenticated
-WITH CHECK (bucket_id = 'place-snapshots');
-```
-
+| `src/components/places/PlaceThumbnail.tsx` | Rendering "cover" per lo snapshot (proportional crop) |
+| `supabase/functions/places-my/index.ts` | Usare RPC `sum_owner_stake_in_bbox` con `Promise.all` |
+| `src/components/places/CreatePlaceForm.tsx` | Aggiungere `pb-6` ai bottoni finali |
