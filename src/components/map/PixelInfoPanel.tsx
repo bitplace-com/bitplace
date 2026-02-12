@@ -197,7 +197,7 @@ export function PixelInfoPanel({
                       {(() => { const tier = getProTier(pixel.owner?.total_staked_pe ?? 0); return tier ? <ProBadge tier={tier} /> : null; })()}
                     </div>
                     {pixel.owner?.alliance_tag && (
-                      <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-accent text-accent-foreground w-fit">
+                      <span className="text-[10px] font-medium px-2 py-1 rounded bg-muted text-foreground/80 border border-border/50 w-fit">
                         [{pixel.owner.alliance_tag}]
                       </span>
                     )}
@@ -257,24 +257,24 @@ export function PixelInfoPanel({
 
                {/* ── Owner Stats ── */}
                <div className="flex items-center gap-2 text-xs">
-                 <div className="flex-1 bg-muted/50 rounded-lg px-2.5 py-2 text-center">
+                 <div className="flex-1 bg-muted/70 rounded-lg px-2.5 py-2 text-center">
                    <div className="font-semibold text-foreground">{(pixel.owner?.pixels_painted_total ?? 0).toLocaleString()}</div>
                    <div className="text-[10px] text-muted-foreground">Pixels</div>
                  </div>
-                 <div className="flex-1 bg-muted/50 rounded-lg px-2.5 py-2 text-center">
+                 <div className="flex-1 bg-muted/70 rounded-lg px-2.5 py-2 text-center">
                    <div className="font-semibold text-foreground flex items-center justify-center gap-0.5">
                      {(pixel.owner?.total_staked_pe ?? 0).toLocaleString()} <PEIcon size="xs" />
                    </div>
                    <div className="text-[10px] text-muted-foreground">Staked</div>
                  </div>
-                 <div className="flex-1 bg-muted/50 rounded-lg px-2.5 py-2 text-center">
-                   <div className="font-semibold text-foreground">{peToUsd(pixel.owner?.total_staked_pe ?? 0)}</div>
+                 <div className="flex-1 bg-muted/70 rounded-lg px-2.5 py-2 text-center">
+                   <div className="font-semibold text-emerald-500">{peToUsd(pixel.owner?.total_staked_pe ?? 0)}</div>
                    <div className="text-[10px] text-muted-foreground">Value</div>
                  </div>
                </div>
 
                {/* ── Pixel Economy ── */}
-              <div className="bg-muted/50 rounded-lg p-3 space-y-3">
+              <div className="bg-muted/70 rounded-lg p-3 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   {/* Owner Stake */}
                   <div className="space-y-0.5">
@@ -282,7 +282,7 @@ export function PixelInfoPanel({
                       <PEIcon size="xs" /> Owner Stake
                     </span>
                     <div className="text-sm font-semibold">{pixel.owner_stake_pe.toLocaleString()} PE</div>
-                    <div className="text-[10px] text-muted-foreground">{peToUsd(pixel.owner_stake_pe)}</div>
+                    <div className="text-[10px] text-emerald-500">{peToUsd(pixel.owner_stake_pe)}</div>
                   </div>
                   {/* Total Stake */}
                   <div className="space-y-0.5">
@@ -292,12 +292,12 @@ export function PixelInfoPanel({
                     <div className={cn('text-sm font-semibold', pixel.vNow < 0 && 'text-destructive')}>
                       {pixel.vNow.toLocaleString()} PE
                     </div>
-                    <div className="text-[10px] text-muted-foreground">{peToUsd(pixel.vNow)}</div>
+                    <div className="text-[10px] text-emerald-500">{peToUsd(pixel.vNow)}</div>
                   </div>
                 </div>
 
                 {/* DEF / ATK row */}
-                <div className="flex items-center gap-4 pt-1 border-t border-border/40">
+                <div className="flex items-center justify-center gap-4 pt-1 border-t border-border/40">
                   <span className="text-xs text-emerald-500 flex items-center gap-1 font-medium">
                     <PixelIcon name="shield" className="w-3 h-3" />
                     DEF +{pixel.defTotal.toLocaleString()}
