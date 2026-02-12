@@ -1,56 +1,38 @@
 
 
-# Fix: Icona Template, Discord e Calcolo PE
+# Fix: Icona Template renderizzata male
 
-## Problemi Identificati
+## Causa del problema
 
-### 1. Icona Template (`PixelImage.tsx`)
-Il componente `PixelImage` usa un SVG personalizzato (montagne/paesaggio) disegnato a mano, **non** l'SVG ufficiale HackerNoon `image-solid`. Va sostituito il path con quello della libreria HackerNoon.
+L'SVG originale HackerNoon per `hn-image` (regular) **non usa** ne `fillRule="evenodd"` ne il `<rect>` trasparente. Il nostro codice ha entrambi, e questo causa il rendering distorto:
 
-### 2. Icona Discord mancante nel pannello pixel
-La query in `usePixelDetails.ts` (riga 166) **non include `social_discord`** nel campo `select`:
-```
-.select('... bio, social_x, social_instagram, social_website')
-```
-Manca `social_discord`, quindi il valore e sempre `undefined` e l'icona Discord non appare nel pannello info pixel. La colonna esiste nella view `public_pixel_owner_info` (verificato nel DB).
+- `fillRule="evenodd"` cambia il modo in cui le aree sovrapposte del path vengono riempite/svuotate, creando bordi irregolari
+- Il `<rect width="24" height="24" fill="none" />` e inutile e potenzialmente interferisce
 
-### 3. Calcolo PE Staked errato
-Il codice (righe 207-219) recupera **tutte le righe** dei pixel dell'utente e le somma lato client. L'utente attuale ha **2412 pixel**, ma Supabase ha un **limite di 1000 righe per query**. Risultato: il calcolo tronca a 1000 righe, mostrando un valore PE errato.
-
-Soluzione: usare `COUNT(*)` e `SUM(owner_stake_pe)` tramite una funzione RPC SQL, come indicato dalle best practice del progetto.
-
----
-
-## Piano di Implementazione
-
-### File 1: `src/components/icons/custom/PixelImage.tsx`
-Sostituire l'intero SVG con il path ufficiale HackerNoon `image-solid`:
-- Polygon per la parte inferiore (montagne/terra)
-- Path per la parte superiore (cielo/sole)
-- Rect trasparente di background
-
-### File 2: `src/hooks/usePixelDetails.ts`
-**Riga 166**: Aggiungere `social_discord` alla stringa di select:
-```
-.select('... social_x, social_instagram, social_discord, social_website')
+**SVG originale HackerNoon** (dal file `node_modules/@hackernoon/pixel-icon-library/icons/SVG/regular/image.svg`):
+```xml
+<polygon points="9 6 9 9 8 9 8 10 5 10 5 9 4 9 4 6 5 6 5 5 8 5 8 6 9 6"/>
+<path d="m22,2v-1H2v1h-1v20h1v1h20v-1h1V2h-1Zm-5,12v1h1v1h1v1h1v1h1v3h-13v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v1h1Zm3,1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h-1v-1h-1v-1h-1V3h18v12h-1Zm-15,3v1h1v1h1v1H3v-4h1v1h1Z"/>
 ```
 
-**Righe 207-219**: Sostituire le due query separate (pixels + contributions) con una singola chiamata RPC che usa `SUM()` e `COUNT()` lato database, evitando il limite di 1000 righe.
+**Il nostro codice attuale** (rotto):
+```xml
+<polygon points="9 6 9 9 8 9 8 10 5 10 5 9 4 9 4 6 5 6 5 5 8 5 8 6 9 6" />
+<path fillRule="evenodd" d="..." />     <!-- fillRule non presente nell'originale -->
+<rect width="24" height="24" fill="none" />  <!-- non presente nell'originale -->
+```
 
-### File 3: Migrazione SQL
-Creare una funzione RPC `get_user_total_staked_pe(uid)` che restituisce:
-- `pixel_stake_total`: `SUM(owner_stake_pe)` dalla tabella `pixels`
-- `contribution_total`: `SUM(amount_pe)` dalla tabella `pixel_contributions`
+## Soluzione
 
-In una singola query aggregata, senza limiti di righe.
+Modificare `src/components/icons/custom/PixelImage.tsx`:
+- Rimuovere `fillRule="evenodd"` dal `<path>`
+- Rimuovere il `<rect width="24" height="24" fill="none" />`
 
----
+Risultato: SVG identico all'originale HackerNoon, rendering pulito e corretto.
 
-## Riepilogo File
+## File da modificare
 
-| File | Azione |
-|------|--------|
-| `src/components/icons/custom/PixelImage.tsx` | Sostituire SVG con HackerNoon `image-solid` |
-| `src/hooks/usePixelDetails.ts` | Aggiungere `social_discord` al select + usare RPC per PE |
-| Migrazione SQL | Creare funzione `get_user_total_staked_pe` |
+| File | Modifica |
+|------|----------|
+| `src/components/icons/custom/PixelImage.tsx` | Rimuovere `fillRule="evenodd"` e `<rect>` |
 
