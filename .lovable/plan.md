@@ -1,50 +1,42 @@
 
-# Fix: Snapshot Distorsione, PE in places-my, Spacing Bottoni
+# Fix: Posizione Banner Pin, Altezza Preview, Doppia Conferma Eliminazione
 
-## Tre Problemi
+## 1. Spostare "Click and drag to select" sotto il pannello comandi
 
-### 1. Snapshot della mappa stretchato nelle card
-In `PlaceThumbnail.tsx`, lo snapshot viene disegnato con `ctx.drawImage(img, 0, 0, cw, ch)` che lo allunga per riempire il canvas (container 100% x 128px). L'immagine originale ha proporzioni diverse dal container, causando la distorsione.
+Attualmente il banner e posizionato con `top-4` (`absolute inset-x-0 top-4`) che lo mette sopra i bottoni del menu in alto a sinistra.
 
-**Fix**: Usare un calcolo "cover" per mantenere le proporzioni originali dell'immagine, centrando e ritagliando l'eccesso:
+**Fix**: Cambiare da `top-4` a `top-20` (80px) per posizionarlo sotto il pannello dei 4 comandi, mantenendo il centramento orizzontale.
 
-```text
-// In PlaceThumbnail.tsx, dentro img.onload
-const imgAspect = img.naturalWidth / img.naturalHeight;
-const canvasAspect = cw / ch;
-let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
-if (imgAspect > canvasAspect) {
-  sw = img.naturalHeight * canvasAspect;
-  sx = (img.naturalWidth - sw) / 2;
-} else {
-  sh = img.naturalWidth / canvasAspect;
-  sy = (img.naturalHeight - sh) / 2;
-}
-ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch);
-```
+**File**: `src/components/map/BitplaceMap.tsx` - riga 1691
+- Cambiare `className="absolute inset-x-0 top-4 z-50 ..."` in `className="absolute inset-x-0 top-20 z-50 ..."`
 
-**File**: `src/components/places/PlaceThumbnail.tsx` - modifica sia `onload` che `onerror` nel blocco snapshotUrl
+## 2. Aumentare altezza preview artwork nel form di creazione
 
-### 2. PE limitato a 1000 nella tab "My Pins"
-Il file `supabase/functions/places-my/index.ts` (righe 124-139) usa ancora il vecchio pattern: `.select("owner_stake_pe")` + reduce in JS. Questo e soggetto al limite di 1000 righe. Inoltre, non filtra per `owner_user_id`, sommando i PE di tutti gli utenti.
+La preview attualmente usa `h-64` (256px) nel componente `ArtworkPreview` dentro `CreatePlaceForm.tsx`.
 
-**Fix**: Sostituire con la RPC `sum_owner_stake_in_bbox` (gia creata), parallelizzando le chiamate con `Promise.all`.
+**Fix**: Aumentare a `h-80` (320px) per dare piu spazio alla preview.
 
-**File**: `supabase/functions/places-my/index.ts` - righe 124-139
+**File**: `src/components/places/CreatePlaceForm.tsx` - riga 96
+- Cambiare `className="w-full h-64 relative ..."` in `className="w-full h-80 relative ..."`
 
-### 3. Bottoni Cancel/Create tagliati
-Il `CreatePlaceForm` termina con `<div className="flex gap-2 pt-2">` per i bottoni. Il container `GlassSheet` ha `pb-4` ma quando il form e lungo e scrolla, i bottoni finiscono troppo vicini al bordo inferiore.
+## 3. Doppia conferma per eliminazione pin
 
-**Fix**: Aggiungere `pb-6` al div dei bottoni nel `CreatePlaceForm` per garantire spazio sufficiente in fondo.
+Attualmente il click sul cestino chiama direttamente `onDelete(place.id)` senza conferma.
 
-**File**: `src/components/places/CreatePlaceForm.tsx` - riga 224
+**Fix**: Aggiungere un `AlertDialog` di conferma nel `PlaceCard`. Al click sul cestino si apre il dialog con messaggio "Sei sicuro di voler eliminare questo pin?" e due bottoni: "Annulla" e "Elimina".
+
+**File**: `src/components/places/PlaceCard.tsx`
+- Importare `AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger` da `@/components/ui/alert-dialog`
+- Aggiungere stato `deleteConfirmOpen`
+- Wrappare il bottone cestino in un `AlertDialog` con trigger e contenuto di conferma
+- Chiamare `onDelete` solo dopo la conferma
 
 ---
 
-## Riepilogo File Modificati
+## Riepilogo File
 
 | File | Modifica |
 |------|----------|
-| `src/components/places/PlaceThumbnail.tsx` | Rendering "cover" per lo snapshot (proportional crop) |
-| `supabase/functions/places-my/index.ts` | Usare RPC `sum_owner_stake_in_bbox` con `Promise.all` |
-| `src/components/places/CreatePlaceForm.tsx` | Aggiungere `pb-6` ai bottoni finali |
+| `src/components/map/BitplaceMap.tsx` | Spostare banner da `top-4` a `top-20` |
+| `src/components/places/CreatePlaceForm.tsx` | Preview da `h-64` a `h-80` |
+| `src/components/places/PlaceCard.tsx` | Aggiungere AlertDialog di conferma per eliminazione |
