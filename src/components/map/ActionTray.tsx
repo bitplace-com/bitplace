@@ -141,8 +141,6 @@ export function ActionTray({
   }, [canPaint, onColorSelect, paintTool, onPaintToolChange]);
 
   const handleToolClick = useCallback((tool: PaintTool, size?: BrushSize) => {
-    if (!canPaint) return;
-    
     // Auto-switch to draw mode when selecting a tool
     if (interactionMode !== 'draw') {
       onInteractionModeChange('draw');
@@ -156,7 +154,7 @@ export function ActionTray({
         onBrushSizeChange(size);
       }
     }
-  }, [canPaint, interactionMode, onInteractionModeChange, onPaintToolChange, onBrushSizeChange]);
+  }, [interactionMode, onInteractionModeChange, onPaintToolChange, onBrushSizeChange]);
 
   const handleEyedropperClick = useCallback(() => {
     if (!canPaint) return;
