@@ -1,114 +1,123 @@
 
 
-# Aggiornamento UI Completo: Player Profile, Leaderboard, Alliance e Correzioni Varie
+# Selezione Area Rettangolare + Correzioni UI ActionTray e InspectSelectionPanel
 
-## 1. Player Profile Modal - Redesign con Glass Style
-
-**File: `src/components/modals/PlayerProfileModal.tsx`**
-
-- Sostituire `Dialog` con `GamePanel` (glass-sheet) per coerenza con gli altri pannelli
-- Applicare glass style (usa `GlassSheet` tramite `GamePanel`)
-- Rendere la mini-map cliccabile per aprire `OwnerArtworkModal` (riutilizzando lo stesso componente del PixelInfoPanel) - serve anche un prop `onJumpToPixel` da passare (navigazione alla mappa)
-- Rimuovere le icone `externalLink` dai social link, mantenere solo icona social + testo cliccabile
-- Aggiungere stat "Total Staked" con valore in $ (verde emerald)
-- Aggiungere stat "Value" in verde emerald ($)
-- Correggere "Pixels Painted" per usare `pixels_painted_total` dal DB (attualmente mostra `totalPixelsOwned` che e sbagliato)
-
-**File: `src/hooks/usePlayerProfile.ts`**
-
-- Aggiungere campo `pixelsPaintedTotal` all'interfaccia `PlayerProfile`
-- Popolare con `pixels_painted_total` dalla query `public_user_profiles`
-
-## 2. Admin Badge - Colore Dorato con Effetto Shiny
-
-**File: `src/components/ui/admin-badge.tsx`**
-
-- Cambiare il colore da `text-violet-500` a `text-yellow-500` (dorato)
-- Aggiungere la classe `animate-shine` (stessa usata dal ProBadge) per l'effetto shiny
-
-## 3. Leaderboard - Centrare Toggle, Effetti Podio, Colori
-
-**File: `src/components/modals/LeaderboardModal.tsx`**
-
-- Centrare `MetricToggle` e `Period pills` (aggiungere `justify-center`)
-- Nella sezione "PE Staked", rimuovere la riga secondaria che mostra i total pixels (nel `MetricValue` quando `metric === "pe_staked"`)
-- Colorare il valore in `$` con `text-emerald-500` ovunque appaia nella leaderboard
-- Aggiungere effetto shiny alle prime 3 posizioni nel `RankBadge` (oro, argento, bronzo con `animate-shine`)
-- Aggiungere colori podio anche alle righe (sottile highlight di sfondo per top 3)
-
-## 4. Alliance - Rimuovere Sottotitolo + Immagine
-
-**File: `src/components/modals/AllianceModal.tsx`**
-
-- Rimuovere `description="Manage your alliance"` e `description="Join forces with other players"` e `description="Create an alliance and invite players"` dai GamePanel
-- Cambiare titolo consistente: "Alliance" (non "Alliances" o "My Alliance")
-
-**Immagine Alleanza**: Questo richiede una modifica al database (aggiunta colonna `image_url` alla tabella alliances) e un meccanismo di upload. Verra incluso nel piano ma richiede una migrazione DB.
-
-## 5. GlassSheet - Rimuovere Sottotitoli (Description)
-
-**File: `src/components/ui/glass-sheet.tsx`**
-
-- Nessuna modifica strutturale; i sottotitoli vengono rimossi rimuovendo il prop `description` dai singoli pannelli
-
-**File: `src/components/modals/GamePanel.tsx`**
-
-- Il prop `description` e gia opzionale, basta non passarlo
-
-## 6. Artwork -> Paints (Rename globale)
-
-Cambiare "Artwork" in "Paints" in:
-
-- `src/components/map/PixelInfoPanel.tsx` - label "Artwork" -> "Paints", bottone "Expand"
-- `src/components/map/OwnerArtworkModal.tsx` - titolo `{name}'s Artwork` -> `{name}'s Paints`, `Owner's Artwork` -> `Owner's Paints`
-- `src/hooks/useWalletGate.ts` - toast `'Sign in to save your artwork'` -> `'Sign in to save your paints'`
-- `src/components/map/hooks/usePaintQueue.ts` - toast `'Sign in to save your artwork'` -> `'Sign in to save your paints'`
-- `src/components/places/CreatePlaceForm.tsx` - label `"Artwork Preview"` -> `"Paints Preview"`, variabili interne non rinominate (non visibili all'utente)
-
-## 7. Pixel Info Panel - Rimuovere Corona + "Owned by"
-
-**File: `src/components/map/PixelInfoPanel.tsx`**
-
-- Rimuovere l'icona `crown` dalla riga "You own this pixel" (linea ~160)
-- Quando il pixel non e tuo, mostrare "Owned by" (al posto di nessun testo/solo il nome)
-- Cambiare "Available to claim" in "Available to paint" (linea ~233)
-
-## 8. Default a Brush 1x quando si switcha a Draw Mode
-
-**File: `src/components/map/hooks/useMapState.ts`**
-
-- Modificare `setInteractionMode` per resettare `paintTool: 'BRUSH'` e `brushSize: '1x'` e ripristinare `selectedColor` al `lastBrushColor` quando si passa a `'draw'`
-
-## 9. Rimuovere Bottone Matita Extra
-
-Dall'analisi del codice, nel pannello ActionTray il bottone nel toggle di interazione (drag/draw) mostra un'icona `ModeIcon` che cambia in base al mode (brush/shield/swords). Il bottone "draw" nel toggle `drag`/`draw` non e un bottone extra superfluo - e il toggle stesso. L'utente potrebbe riferirsi a un elemento specifico visibile nella UI. Dall'analisi del codice non trovo un bottone matita duplicato separato dal toggle. Verra verificato e rimosso se presente.
+## Problema Attuale
+1. **Spacebar selection (drag mode + eraser)**: Seleziona solo i pixel su cui passa il cursore, uno per uno. L'utente vuole una selezione rettangolare (definire due angoli, riempire l'area).
+2. **ActionTray in modalita esplora**: Mostra le sotto-icone (1px, 4px, gomma) anche quando si e in modalita drag/esplora. Devono essere nascoste e i colori oscurati.
+3. **InspectSelectionPanel**: Usa icone Lucide (Shield, Swords, User, Coins) invece delle icone pixel-art del progetto. Le diciture devono essere aggiornate.
 
 ---
 
-## Dettagli Tecnici
+## 1. Selezione Rettangolare con Spacebar
 
-### Modifiche al Database (per immagine alleanza)
+Attualmente il SPACE key usa `useBrushSelection` (aggiunge pixel uno a uno al passaggio del mouse). Va sostituito con una logica rettangolare:
 
-Nuova colonna nella tabella `alliances`:
-```sql
-ALTER TABLE alliances ADD COLUMN image_url text;
+- **SPACE down**: Registra la posizione di partenza (ancora del rettangolo)
+- **Mouse move con SPACE tenuto**: Calcola il rettangolo tra il punto di partenza e la posizione attuale del cursore
+- **SPACE up**: Genera tutti i pixel nell'area rettangolare e li usa come selezione
+
+Questo si applica a:
+- **Modalita drag (inspect)**: SPACE + drag definisce un rettangolo, al rilascio tutti i pixel nell'area vengono selezionati per l'InspectSelectionPanel
+- **Modalita eraser**: SPACE + drag definisce un rettangolo, al rilascio i pixel draft vengono rimossi e quelli committed vanno al flusso validate
+
+### File: `src/components/map/BitplaceMap.tsx`
+
+**SPACE keydown** (riga ~628-690):
+- Invece di `startInspectBrushSelection` / `startBrushSelection`, salvare solo il punto di ancoraggio in un nuovo ref (`rectAnchorRef`)
+- Disabilitare dragPan e impostare cursore crosshair
+
+**Mouse move** (riga ~1017-1055):
+- Quando SPACE e tenuto, invece di `addToInspectBrushSelection` / `addToBrushSelection`, aggiornare un state `rectEnd` con la posizione corrente del mouse
+- Il CanvasOverlay disegna il rettangolo di anteprima tra `rectAnchor` e `rectEnd`
+
+**SPACE keyup** (riga ~703-773):
+- Calcolare tutti i pixel nel rettangolo (`rectAnchor` -> `rectEnd`)
+- Per inspect mode: impostare `inspectSelection` con tutti i pixel nell'area
+- Per eraser mode: separare draft pixels (rimuovere) e committed pixels (validate flow)
+- Per action modes: impostare `pendingPixels`
+- Applicare il limite `MAX_BRUSH_SELECTION` (10000 pixel)
+
+### Nuovo state/ref necessari:
+```typescript
+const rectAnchorRef = useRef<{ x: number; y: number } | null>(null);
+const [rectPreview, setRectPreview] = useState<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null);
 ```
 
-Modifica alla edge function `alliance-manage` per supportare upload/update immagine alleanza.
+### Helper per generare pixel da rettangolo:
+```typescript
+const getPixelsInRect = (start, end) => {
+  const minX = Math.min(start.x, end.x);
+  const maxX = Math.max(start.x, end.x);
+  const minY = Math.min(start.y, end.y);
+  const maxY = Math.max(start.y, end.y);
+  const pixels = [];
+  for (let x = minX; x <= maxX; x++)
+    for (let y = minY; y <= maxY; y++)
+      pixels.push({ x, y });
+  return pixels;
+};
+```
 
-### File coinvolti (riepilogo)
+### CanvasOverlay
+Aggiungere rendering del rettangolo di anteprima (bordo tratteggiato) quando `rectPreview` e attivo. Il CanvasOverlay gia riceve props simili per la selezione; passare `rectPreview` come prop aggiuntivo.
 
-| File | Modifiche |
-|------|-----------|
-| `src/components/modals/PlayerProfileModal.tsx` | Redesign glass style, pixel cliccabili, social fix, stats corretti |
-| `src/hooks/usePlayerProfile.ts` | Aggiungere `pixelsPaintedTotal` |
-| `src/components/ui/admin-badge.tsx` | Colore dorato + shine |
-| `src/components/modals/LeaderboardModal.tsx` | Centrare toggle, rimuovere px da PE staked, $ verde, podio shiny |
-| `src/components/modals/AllianceModal.tsx` | Rimuovere sottotitoli, titolo "Alliance" |
-| `src/components/map/PixelInfoPanel.tsx` | Rimuovere corona, "Owned by", "Available to paint", "Paints" |
-| `src/components/map/OwnerArtworkModal.tsx` | "Paints" |
-| `src/components/map/hooks/useMapState.ts` | Default BRUSH 1x su draw mode |
-| `src/hooks/useWalletGate.ts` | "paints" |
-| `src/components/map/hooks/usePaintQueue.ts` | "paints" |
-| `src/components/places/CreatePlaceForm.tsx` | "Paints Preview" |
+---
+
+## 2. ActionTray: Nascondere Tool Icons in Modalita Esplora
+
+### File: `src/components/map/ActionTray.tsx`
+
+Nella sezione "Tool row" (riga ~330-404):
+- Wrappare l'intera toolbar dei tool (1px, 4px, gomma) e la palette tabs in una condizione: mostrare solo quando `interactionMode === 'draw'`
+- Quando `interactionMode === 'drag'`: nascondere la riga dei tool e oscurare la palette colori (aggiungere `opacity-40 pointer-events-none` al wrapper della palette)
+
+Logica:
+```typescript
+const isDrawMode = interactionMode === 'draw';
+
+// Tool row: visibile solo in draw mode
+{canPaint && isDrawMode && (
+  <div className="flex items-center justify-between mb-2">
+    {/* tool buttons... */}
+  </div>
+)}
+
+// Palette: oscurata in drag mode
+<div className={cn(
+  "transition-opacity",
+  (!isDrawMode || isEraser) && "opacity-40 pointer-events-none"
+)}>
+```
+
+---
+
+## 3. InspectSelectionPanel: Aggiornare Icone e Diciture
+
+### File: `src/components/map/inspector/InspectSelectionPanel.tsx`
+
+Sostituire le icone Lucide con PixelIcon:
+- `Shield` (lucide) -> `<PixelIcon name="shield" />` (DEF)
+- `Swords` (lucide) -> `<PixelIcon name="swords" />` (ATK)
+- `User` (lucide) -> `<PixelIcon name="user" />` (Owned)
+- `Coins` (lucide) -> `<PEIcon />` (PE staked)
+- `X` (lucide) -> `<PixelIcon name="close" />` (chiudi)
+- `Loader2` (lucide) -> `<PixelIcon name="loader" />` (loading)
+
+Aggiornare diciture:
+- "My Contributions" -> "Your Contributions"
+- "Withdraw DEF" -> "Withdraw DEF"  (invariato)
+- "Owned by you" -> "Owned by you" (invariato)
+- Aggiungere valore in $ (verde emerald) per PE staked: `$X.XX` calcolato come `PE * 0.001`
+
+---
+
+## File Coinvolti
+
+| File | Modifica |
+|------|----------|
+| `src/components/map/BitplaceMap.tsx` | Selezione rettangolare con SPACE (inspect + eraser + action), nuovo state `rectPreview`, helper `getPixelsInRect` |
+| `src/components/map/ActionTray.tsx` | Nascondere tool icons e oscurare palette in drag mode |
+| `src/components/map/inspector/InspectSelectionPanel.tsx` | Icone PixelIcon, diciture aggiornate, valore in $ |
+| `src/components/map/CanvasOverlay.tsx` | Rendering rettangolo di anteprima per SPACE selection |
 
