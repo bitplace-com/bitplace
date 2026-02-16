@@ -1,54 +1,36 @@
 
 
-# Terms & Conditions Page + Footer Links
+# Aggiornamento Privacy Policy per Bitplace
 
 ## Panoramica
-Creare una pagina dedicata `/terms` con i Terms & Conditions adattati per Bitplace, rimuovere la sezione "Legal" dal SettingsModal, e aggiungere link piccoli a fondo pagina (T&C + Privacy Policy) nello stile tipico dei footer legali.
+Aggiornare la pagina `/privacy` (attualmente placeholder) con una Privacy Policy completa, adattata dal reference di Bplace al contesto Bitplace.
 
-## Modifiche previste
+## Adattamenti rispetto al reference Bplace
+- **"Better Place"** diventa **"Bitplace"**
+- **Account Information**: Wallet Solana invece di email/username, niente Google OAuth
+- **Third-Party Services**: Rimuovere Google OAuth, mantenere riferimento generico ai servizi backend
+- **Authentication Data**: Wallet signature e nonce invece di token OAuth
+- **Email contatto**: `contact@bitplace.app`
+- **Stessa struttura**: PageHeader + SectionCard, identica alla TermsPage
 
-### 1. Nuova pagina `src/pages/TermsPage.tsx`
-Pagina dedicata con tutti i T&C adattati per Bitplace:
-- Sostituire "Better Place" con "Bitplace" ovunque
-- Sostituire "Chromas" con "$BIT" / "Pixel Energy (PE)" secondo il modello economico di Bitplace
-- Rimuovere sezioni non pertinenti (pacchetti Chromas, prezzi USD, color palettes come acquisto)
-- Adattare le sezioni su wallet (Solana wallet auth invece di email/Google OAuth)
-- Adattare la sezione contenuti utente per pixel art su mappa
-- Aggiornare contatti email e riferimenti legali
-- Stile coerente con le altre pagine (PageHeader, SectionCard, stesso layout di RulesPage/SpecPage)
+## Contenuto delle sezioni
 
-### 2. Nuova pagina `src/pages/PrivacyPage.tsx`
-Pagina placeholder per la Privacy Policy con struttura base, pronta per essere popolata con contenuto reale in futuro.
+1. **Introduction** -- Benvenuto su Bitplace, impegno per la privacy
+2. **Data We Collect** -- Wallet address, profile info volontario, pixel placements, usage data, device info
+3. **How We Use Your Data** -- Service delivery, auth, sync, analytics, comunicazioni
+4. **Data Storage and Security** -- SSL/TLS, secure auth, audit, access controls
+5. **Third-Party Services** -- Servizi backend per database e storage (senza menzionare Supabase direttamente), blockchain Solana
+6. **Cookies and Tracking** -- Session, preferenze, analytics
+7. **Your Rights** -- Access, correction, deletion, export, opt-out
+8. **Data Retention** -- Attivo finche account attivo, cancellazione entro 30 giorni
+9. **Children's Privacy** -- Non per minori di 13 anni
+10. **Changes to This Policy** -- Notifica aggiornamenti
+11. **Contact Us** -- contact@bitplace.app
 
-### 3. Aggiornare `src/App.tsx`
-Aggiungere le due nuove route:
-- `/terms` con MainLayout
-- `/privacy` con MainLayout
+## File da modificare
 
-### 4. Modificare `src/components/modals/SettingsModal.tsx`
-- Rimuovere l'intera sezione "Legal" (righe 386-417)
-- Aggiungere in fondo, sotto il bottone Save, dei link piccoli e discreti per T&C e Privacy Policy (testo muted, font piccolo, stile footer classico con separatore `|`)
-- I link apriranno le pagine in una nuova tab (`target="_blank"`)
+| File | Modifica |
+|------|----------|
+| `src/pages/PrivacyPage.tsx` | Riscrittura completa con contenuto adattato |
 
-### 5. Aggiornare il menu laterale `MapMenuDrawer.tsx`
-Nessuna modifica al menu principale: i link legali non vanno nel menu di navigazione, restano solo nel footer delle Settings (approccio standard).
-
-## Contenuto T&C adattato per Bitplace
-Le principali differenze rispetto al reference di Bplace:
-- **Nome**: "Bitplace" invece di "Better Place"
-- **Autenticazione**: Wallet Solana (Phantom, Solflare) invece di email/Google
-- **Valuta virtuale**: $BIT token e Pixel Energy (PE) invece di Chromas
-- **Meccaniche**: Paint, Defend, Attack, Reinforce, staking PE
-- **Acquisti**: Rimossi pacchetti prezzo fissi, riferimento generico all'economia on-chain
-- **Email contatto**: Placeholder `contact@bitplace.app` (da confermare)
-- **Giurisdizione**: Mantenuta generica o aggiornabile successivamente
-
-## File coinvolti
-
-| File | Azione |
-|------|--------|
-| `src/pages/TermsPage.tsx` | Nuovo |
-| `src/pages/PrivacyPage.tsx` | Nuovo |
-| `src/App.tsx` | Aggiungere 2 route |
-| `src/components/modals/SettingsModal.tsx` | Rimuovere sezione Legal, aggiungere footer links |
-
+Nessuna modifica a routing o altri file necessaria (route `/privacy` gia presente in App.tsx).
