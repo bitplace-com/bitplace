@@ -83,6 +83,9 @@ export function CanvasOverlay({
     const zoom = map.getZoom();
     const cellSize = getCellSize(zoom);
     
+    // Snap-to-next-pixel: ensures adjacent pixels share exact borders (no grid lines)
+    const pxFloor = (v: number) => Math.floor(v * dpr) / dpr;
+    
     // Get viewport top-left in grid coordinates (float for precise alignment)
     const tlLngLat = map.unproject([0, 0]);
     const tlGrid = lngLatToGridFloat(tlLngLat.lng, tlLngLat.lat);
@@ -130,16 +133,15 @@ export function CanvasOverlay({
       colorBatches.forEach((positions, color) => {
         ctx.fillStyle = color;
         positions.forEach(({ x, y }) => {
-          // Calculate screen position using grid math
           const screenX = (x - tlGrid.x) * cellSize;
           const screenY = (y - tlGrid.y) * cellSize;
           
-          // Round to device pixels for crisp rendering
-          const rx = roundToDevicePixel(screenX, dpr);
-          const ry = roundToDevicePixel(screenY, dpr);
-          const rSize = Math.max(1, roundToDevicePixel(cellSize, dpr));
+          const rx = pxFloor(screenX);
+          const ry = pxFloor(screenY);
+          const rw = pxFloor(screenX + cellSize) - rx;
+          const rh = pxFloor(screenY + cellSize) - ry;
           
-          ctx.fillRect(rx, ry, rSize, rSize);
+          ctx.fillRect(rx, ry, Math.max(1, rw), Math.max(1, rh));
         });
       });
 
@@ -156,11 +158,12 @@ export function CanvasOverlay({
           const screenX = (x - tlGrid.x) * cellSize;
           const screenY = (y - tlGrid.y) * cellSize;
           
-          const rx = roundToDevicePixel(screenX, dpr);
-          const ry = roundToDevicePixel(screenY, dpr);
-          const rSize = Math.max(1, roundToDevicePixel(cellSize, dpr));
+          const rx = pxFloor(screenX);
+          const ry = pxFloor(screenY);
+          const rw = pxFloor(screenX + cellSize) - rx;
+          const rh = pxFloor(screenY + cellSize) - ry;
           
-          ctx.fillRect(rx, ry, rSize, rSize);
+          ctx.fillRect(rx, ry, Math.max(1, rw), Math.max(1, rh));
         });
       });
 
@@ -233,10 +236,11 @@ export function CanvasOverlay({
           positions.forEach(({ x, y }) => {
             const screenX = (x - tlGrid.x) * cellSize;
             const screenY = (y - tlGrid.y) * cellSize;
-            const rx = roundToDevicePixel(screenX, dpr);
-            const ry = roundToDevicePixel(screenY, dpr);
-            const rSize = Math.max(1, roundToDevicePixel(cellSize, dpr));
-            ctx.fillRect(rx, ry, rSize, rSize);
+            const rx = pxFloor(screenX);
+            const ry = pxFloor(screenY);
+            const rw = pxFloor(screenX + cellSize) - rx;
+            const rh = pxFloor(screenY + cellSize) - ry;
+            ctx.fillRect(rx, ry, Math.max(1, rw), Math.max(1, rh));
           });
         });
         
@@ -247,10 +251,11 @@ export function CanvasOverlay({
           positions.forEach(({ x, y }) => {
             const screenX = (x - tlGrid.x) * cellSize;
             const screenY = (y - tlGrid.y) * cellSize;
-            const rx = roundToDevicePixel(screenX, dpr);
-            const ry = roundToDevicePixel(screenY, dpr);
-            const rSize = Math.max(1, roundToDevicePixel(cellSize, dpr));
-            ctx.fillRect(rx, ry, rSize, rSize);
+            const rx = pxFloor(screenX);
+            const ry = pxFloor(screenY);
+            const rw = pxFloor(screenX + cellSize) - rx;
+            const rh = pxFloor(screenY + cellSize) - ry;
+            ctx.fillRect(rx, ry, Math.max(1, rw), Math.max(1, rh));
           });
         });
         
