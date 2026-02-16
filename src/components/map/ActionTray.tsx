@@ -327,8 +327,8 @@ export function ActionTray({
             {isPaintMode ? (
               /* PAINT MODE: Color palette with tabs */
               <>
-                {/* Tool row - ALWAYS CLICKABLE (outside opacity wrapper) */}
-                {canPaint && (
+                {/* Tool row - visible only in draw mode */}
+                {canPaint && interactionMode === 'draw' && (
                   <div className="flex items-center justify-between mb-2">
                     {/* Left: Tool cluster */}
                     <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5">
@@ -403,10 +403,10 @@ export function ActionTray({
                   </div>
                 )}
 
-                {/* Palette grid - THIS is what gets disabled when eraser is active */}
+                {/* Palette grid - disabled when eraser is active OR in drag mode */}
                 <div className={cn(
                   "transition-opacity",
-                  isEraser && "opacity-40 pointer-events-none"
+                  (isEraser || interactionMode !== 'draw') && "opacity-40 pointer-events-none"
                 )}>
 
                 <div className="max-h-48 overflow-y-auto overflow-x-hidden py-1 px-1 w-full">
