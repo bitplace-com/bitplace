@@ -1,10 +1,11 @@
 import { PixelSVG, PixelSVGProps } from './base';
 
+// Sound Mute (solid) from HackerNoon pixel library
 export function PixelVolumeOff(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      <polygon points="13 3 13 6 12 6 12 7 11 7 11 8 9 8 9 9 5 9 5 16 9 16 9 17 11 17 11 18 12 18 12 19 13 19 13 22 11 22 11 21 10 21 10 20 9 20 9 19 8 19 8 18 3 18 3 7 8 7 8 6 9 6 9 5 10 5 10 4 11 4 11 3 13 3" />
-      <polygon points="21 10 21 12 23 12 23 13 21 13 21 15 19 15 19 13 17 13 17 12 19 12 19 10 21 10" />
+      <polygon points="14 2 14 22 11 22 11 21 10 21 10 20 9 20 9 19 8 19 8 18 7 18 7 17 6 17 6 16 1 16 1 8 6 8 6 7 7 7 7 6 8 6 8 5 9 5 9 4 10 4 10 3 11 3 11 2 14 2" />
+      <polygon points="22 8 22 10 21 10 21 11 20 11 20 13 21 13 21 14 22 14 22 16 20 16 20 15 19 15 19 14 18 14 18 15 17 15 17 16 15 16 15 14 16 14 16 13 17 13 17 11 16 11 16 10 15 10 15 8 17 8 17 9 18 9 18 10 19 10 19 9 20 9 20 8 22 8" />
     </PixelSVG>
   );
 }
