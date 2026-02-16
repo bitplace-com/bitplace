@@ -1,36 +1,39 @@
 
 
-# Aggiornamento Privacy Policy per Bitplace
+# Aggiornamento pagine T&C e Privacy Policy
 
-## Panoramica
-Aggiornare la pagina `/privacy` (attualmente placeholder) con una Privacy Policy completa, adattata dal reference di Bplace al contesto Bitplace.
+## Cosa cambia
 
-## Adattamenti rispetto al reference Bplace
-- **"Better Place"** diventa **"Bitplace"**
-- **Account Information**: Wallet Solana invece di email/username, niente Google OAuth
-- **Third-Party Services**: Rimuovere Google OAuth, mantenere riferimento generico ai servizi backend
-- **Authentication Data**: Wallet signature e nonce invece di token OAuth
-- **Email contatto**: `contact@bitplace.app`
-- **Stessa struttura**: PageHeader + SectionCard, identica alla TermsPage
+### 1. Rimuovere sezioni relative a paese/giurisdizione
 
-## Contenuto delle sezioni
+**TermsPage.tsx:**
+- Rimuovere **Section 15 "Governing Law"** (riferimento a Francia/Parigi)
+- Rimuovere **Section 16 "Dispute Resolution"** (riferimento a risoluzione dispute con sede legale)
+- Rinumerare le sezioni successive (17 -> 15, 18 -> 16, ecc.)
 
-1. **Introduction** -- Benvenuto su Bitplace, impegno per la privacy
-2. **Data We Collect** -- Wallet address, profile info volontario, pixel placements, usage data, device info
-3. **How We Use Your Data** -- Service delivery, auth, sync, analytics, comunicazioni
-4. **Data Storage and Security** -- SSL/TLS, secure auth, audit, access controls
-5. **Third-Party Services** -- Servizi backend per database e storage (senza menzionare Supabase direttamente), blockchain Solana
-6. **Cookies and Tracking** -- Session, preferenze, analytics
-7. **Your Rights** -- Access, correction, deletion, export, opt-out
-8. **Data Retention** -- Attivo finche account attivo, cancellazione entro 30 giorni
-9. **Children's Privacy** -- Non per minori di 13 anni
-10. **Changes to This Policy** -- Notifica aggiornamenti
-11. **Contact Us** -- contact@bitplace.app
+**PrivacyPage.tsx:** Nessun riferimento a paesi, quindi nessuna modifica al contenuto.
 
-## File da modificare
+### 2. Layout dedicato senza sidebar/menu
+
+Entrambe le pagine attualmente usano `MainLayout` che include la sidebar e il menu completo. Sostituiremo con un layout minimale:
+
+- Un bottone "Back to Map" (con icona freccia) in alto a sinistra
+- Nessuna sidebar, nessun wallet button, nessun menu
+- Solo il contenuto della pagina
+
+**Modifiche in `App.tsx`:**
+- Rimuovere il wrapping `<MainLayout>` dalle route `/terms` e `/privacy`
+- Le pagine gestiranno il proprio header minimale internamente
+
+**Modifiche in `TermsPage.tsx` e `PrivacyPage.tsx`:**
+- Aggiungere in cima un bottone/link "Back to Map" che naviga a `/`
+- Stile: piccolo, discreto, con icona freccia a sinistra
+
+## File coinvolti
 
 | File | Modifica |
 |------|----------|
-| `src/pages/PrivacyPage.tsx` | Riscrittura completa con contenuto adattato |
+| `src/pages/TermsPage.tsx` | Rimuovere sezioni 15-16, rinumerare, aggiungere bottone back |
+| `src/pages/PrivacyPage.tsx` | Aggiungere bottone back |
+| `src/App.tsx` | Rimuovere MainLayout wrapper dalle route terms e privacy |
 
-Nessuna modifica a routing o altri file necessaria (route `/privacy` gia presente in App.tsx).
