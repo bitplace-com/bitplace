@@ -1,79 +1,114 @@
 
 
-# Aggiornamento dominio a .com + Eliminazione righe griglia pixel
+# Aggiornamento UI Completo: Player Profile, Leaderboard, Alliance e Correzioni Varie
 
-## Parte 1: Dominio bitplace.app -> bitplace.com
+## 1. Player Profile Modal - Redesign con Glass Style
 
-Aggiornare tutti i riferimenti da `bitplace.app` a `bitplace.com` in **13 file**:
+**File: `src/components/modals/PlayerProfileModal.tsx`**
 
-### Frontend (2 file)
-- `src/pages/TermsPage.tsx` -- email `contact@bitplace.com`
-- `src/pages/PrivacyPage.tsx` -- email `contact@bitplace.com` (3 occorrenze)
+- Sostituire `Dialog` con `GamePanel` (glass-sheet) per coerenza con gli altri pannelli
+- Applicare glass style (usa `GlassSheet` tramite `GamePanel`)
+- Rendere la mini-map cliccabile per aprire `OwnerArtworkModal` (riutilizzando lo stesso componente del PixelInfoPanel) - serve anche un prop `onJumpToPixel` da passare (navigazione alla mappa)
+- Rimuovere le icone `externalLink` dai social link, mantenere solo icona social + testo cliccabile
+- Aggiungere stat "Total Staked" con valore in $ (verde emerald)
+- Aggiungere stat "Value" in verde emerald ($)
+- Correggere "Pixels Painted" per usare `pixels_painted_total` dal DB (attualmente mostra `totalPixelsOwned` che e sbagliato)
 
-### Edge Functions CORS (10 file)
-Aggiornare `ALLOWED_ORIGINS` da `bitplace.app` a `bitplace.com` in:
-- `auth-nonce`, `auth-verify`, `avatar-upload`, `energy-refresh`, `game-commit`, `game-validate`, `alliance-manage`, `notifications-manage`, `pe-status`, `user-update`
+**File: `src/hooks/usePlayerProfile.ts`**
 
-### Geocode User-Agent (1 file)
-- `supabase/functions/geocode/index.ts` -- User-Agent URL
+- Aggiungere campo `pixelsPaintedTotal` all'interfaccia `PlayerProfile`
+- Popolare con `pixels_painted_total` dalla query `public_user_profiles`
+
+## 2. Admin Badge - Colore Dorato con Effetto Shiny
+
+**File: `src/components/ui/admin-badge.tsx`**
+
+- Cambiare il colore da `text-violet-500` a `text-yellow-500` (dorato)
+- Aggiungere la classe `animate-shine` (stessa usata dal ProBadge) per l'effetto shiny
+
+## 3. Leaderboard - Centrare Toggle, Effetti Podio, Colori
+
+**File: `src/components/modals/LeaderboardModal.tsx`**
+
+- Centrare `MetricToggle` e `Period pills` (aggiungere `justify-center`)
+- Nella sezione "PE Staked", rimuovere la riga secondaria che mostra i total pixels (nel `MetricValue` quando `metric === "pe_staked"`)
+- Colorare il valore in `$` con `text-emerald-500` ovunque appaia nella leaderboard
+- Aggiungere effetto shiny alle prime 3 posizioni nel `RankBadge` (oro, argento, bronzo con `animate-shine`)
+- Aggiungere colori podio anche alle righe (sottile highlight di sfondo per top 3)
+
+## 4. Alliance - Rimuovere Sottotitolo + Immagine
+
+**File: `src/components/modals/AllianceModal.tsx`**
+
+- Rimuovere `description="Manage your alliance"` e `description="Join forces with other players"` e `description="Create an alliance and invite players"` dai GamePanel
+- Cambiare titolo consistente: "Alliance" (non "Alliances" o "My Alliance")
+
+**Immagine Alleanza**: Questo richiede una modifica al database (aggiunta colonna `image_url` alla tabella alliances) e un meccanismo di upload. Verra incluso nel piano ma richiede una migrazione DB.
+
+## 5. GlassSheet - Rimuovere Sottotitoli (Description)
+
+**File: `src/components/ui/glass-sheet.tsx`**
+
+- Nessuna modifica strutturale; i sottotitoli vengono rimossi rimuovendo il prop `description` dai singoli pannelli
+
+**File: `src/components/modals/GamePanel.tsx`**
+
+- Il prop `description` e gia opzionale, basta non passarlo
+
+## 6. Artwork -> Paints (Rename globale)
+
+Cambiare "Artwork" in "Paints" in:
+
+- `src/components/map/PixelInfoPanel.tsx` - label "Artwork" -> "Paints", bottone "Expand"
+- `src/components/map/OwnerArtworkModal.tsx` - titolo `{name}'s Artwork` -> `{name}'s Paints`, `Owner's Artwork` -> `Owner's Paints`
+- `src/hooks/useWalletGate.ts` - toast `'Sign in to save your artwork'` -> `'Sign in to save your paints'`
+- `src/components/map/hooks/usePaintQueue.ts` - toast `'Sign in to save your artwork'` -> `'Sign in to save your paints'`
+- `src/components/places/CreatePlaceForm.tsx` - label `"Artwork Preview"` -> `"Paints Preview"`, variabili interne non rinominate (non visibili all'utente)
+
+## 7. Pixel Info Panel - Rimuovere Corona + "Owned by"
+
+**File: `src/components/map/PixelInfoPanel.tsx`**
+
+- Rimuovere l'icona `crown` dalla riga "You own this pixel" (linea ~160)
+- Quando il pixel non e tuo, mostrare "Owned by" (al posto di nessun testo/solo il nome)
+- Cambiare "Available to claim" in "Available to paint" (linea ~233)
+
+## 8. Default a Brush 1x quando si switcha a Draw Mode
+
+**File: `src/components/map/hooks/useMapState.ts`**
+
+- Modificare `setInteractionMode` per resettare `paintTool: 'BRUSH'` e `brushSize: '1x'` e ripristinare `selectedColor` al `lastBrushColor` quando si passa a `'draw'`
+
+## 9. Rimuovere Bottone Matita Extra
+
+Dall'analisi del codice, nel pannello ActionTray il bottone nel toggle di interazione (drag/draw) mostra un'icona `ModeIcon` che cambia in base al mode (brush/shield/swords). Il bottone "draw" nel toggle `drag`/`draw` non e un bottone extra superfluo - e il toggle stesso. L'utente potrebbe riferirsi a un elemento specifico visibile nella UI. Dall'analisi del codice non trovo un bottone matita duplicato separato dal toggle. Verra verificato e rimosso se presente.
 
 ---
 
-## Parte 2: Eliminare le righe della griglia tra i pixel
+## Dettagli Tecnici
 
-### Il problema
-Nella screenshot si vedono chiaramente le linee della griglia che separano i pixel disegnati. Questo succede perche `roundToDevicePixel()` arrotonda ogni posizione indipendentemente, creando gap sub-pixel tra pixel adiacenti. Quando lo zoom cambia, questi gap appaiono e scompaiono a seconda dell'allineamento.
+### Modifiche al Database (per immagine alleanza)
 
-### La soluzione
-Modificare il calcolo della dimensione di ogni cella in `CanvasOverlay.tsx` per usare **floor per la posizione di inizio** e **calcolare la dimensione come differenza tra la posizione arrotondata del pixel successivo e quella attuale**. In questo modo due pixel adiacenti condividono esattamente lo stesso bordo, eliminando qualsiasi gap.
-
-```text
-PRIMA (gap possibili):
-  rx = round(screenX)
-  ry = round(screenY)
-  rSize = round(cellSize)    <-- costante, non si adatta
-
-DOPO (nessun gap):
-  rx = floor(screenX)
-  ry = floor(screenY)
-  rw = floor(screenX + cellSize) - rx   <-- si aggancia al prossimo pixel
-  rh = floor(screenY + cellSize) - ry
+Nuova colonna nella tabella `alliances`:
+```sql
+ALTER TABLE alliances ADD COLUMN image_url text;
 ```
 
-Questa tecnica e chiamata "snap-to-next-pixel" ed e standard nel rendering di griglie su canvas. Il costo computazionale aggiuntivo e trascurabile (un `Math.floor` in piu per pixel).
+Modifica alla edge function `alliance-manage` per supportare upload/update immagine alleanza.
 
-### File da modificare
+### File coinvolti (riepilogo)
 
-| File | Modifica |
-|------|----------|
-| `src/components/map/CanvasOverlay.tsx` | Sostituire `roundToDevicePixel` con logica floor-based per tutte le chiamate `fillRect` dei pixel (colori solidi, materiali, draft, erase preview). Mantenere `roundToDevicePixel` per gli overlay UI (selezione, hover, badge) dove la precisione al sub-pixel e desiderata. |
-| `src/lib/pixelGrid.ts` | Nessuna modifica necessaria (la funzione `roundToDevicePixel` resta disponibile per altri usi) |
+| File | Modifiche |
+|------|-----------|
+| `src/components/modals/PlayerProfileModal.tsx` | Redesign glass style, pixel cliccabili, social fix, stats corretti |
+| `src/hooks/usePlayerProfile.ts` | Aggiungere `pixelsPaintedTotal` |
+| `src/components/ui/admin-badge.tsx` | Colore dorato + shine |
+| `src/components/modals/LeaderboardModal.tsx` | Centrare toggle, rimuovere px da PE staked, $ verde, podio shiny |
+| `src/components/modals/AllianceModal.tsx` | Rimuovere sottotitoli, titolo "Alliance" |
+| `src/components/map/PixelInfoPanel.tsx` | Rimuovere corona, "Owned by", "Available to paint", "Paints" |
+| `src/components/map/OwnerArtworkModal.tsx` | "Paints" |
+| `src/components/map/hooks/useMapState.ts` | Default BRUSH 1x su draw mode |
+| `src/hooks/useWalletGate.ts` | "paints" |
+| `src/components/map/hooks/usePaintQueue.ts` | "paints" |
+| `src/components/places/CreatePlaceForm.tsx` | "Paints Preview" |
 
-### Dettagli tecnici
-
-Creare una helper inline o locale nel draw callback:
-
-```typescript
-// Snap pixel rect to device pixel grid ensuring no gaps
-const pxFloor = (v: number) => Math.floor(v * dpr) / dpr;
-```
-
-Per ogni pixel renderizzato:
-```typescript
-const sx = pxFloor(screenX);
-const sy = pxFloor(screenY);
-const sw = pxFloor(screenX + cellSize) - sx;
-const sh = pxFloor(screenY + cellSize) - sy;
-ctx.fillRect(sx, sy, Math.max(1, sw), Math.max(1, sh));
-```
-
-Questo si applica a:
-- Batch colori solidi (riga ~132-143)
-- Batch materiali (riga ~148-160)
-- Draft pixel colori solidi (riga ~188-196)
-- Draft pixel materiali (riga ~200-208)
-
-Gli overlay di selezione, hover, invalid e brush restano con `roundToDevicePixel` perche non hanno il problema dei gap (sono disegnati singolarmente con bordi).
-
-### Risultato atteso
-I disegni sulla mappa appariranno come blocchi pieni e continui senza righe visibili tra i pixel, a qualsiasi livello di zoom e durante le transizioni di zoom.
