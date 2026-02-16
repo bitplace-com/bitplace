@@ -186,7 +186,7 @@ export function ActionTray({
           onClick={onZoomIn}
           className="mb-2 px-3 py-1.5 text-xs font-medium rounded-full bg-muted/60 backdrop-blur-sm text-foreground hover:bg-muted border border-border/50 transition-all pointer-events-auto hover:scale-105 active:scale-95"
         >
-          Zoom in to paint
+          Zoom in to see pixels
         </button>
       )}
       <div 
