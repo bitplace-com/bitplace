@@ -310,7 +310,7 @@ export function ActionTray({
               /* PAINT MODE: Color palette with tabs */
               <>
                 {/* Tool row - visible only in draw mode */}
-                {canPaint && interactionMode === 'draw' && (
+                {interactionMode === 'draw' && (
                   <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5 mb-2">
                     <button
                       onMouseDown={e => e.preventDefault()}
