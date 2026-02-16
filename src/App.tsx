@@ -16,6 +16,8 @@ import ProfilePage from "./pages/ProfilePage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import WalletCallbackPage from "./pages/WalletCallbackPage";
 import WhitePaperPage from "./pages/WhitePaperPage";
+import TermsPage from "./pages/TermsPage";
+import PrivacyPage from "./pages/PrivacyPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,6 +53,8 @@ const App = () => (
                 <Route element={<MainLayout><ProfilePage /></MainLayout>} path="/profile" />
                 <Route element={<MainLayout><LeaderboardPage /></MainLayout>} path="/leaderboard" />
                 <Route element={<MainLayout><WhitePaperPage /></MainLayout>} path="/whitepaper" />
+                <Route element={<MainLayout><TermsPage /></MainLayout>} path="/terms" />
+                <Route element={<MainLayout><PrivacyPage /></MainLayout>} path="/privacy" />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

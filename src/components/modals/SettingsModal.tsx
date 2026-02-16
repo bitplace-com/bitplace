@@ -381,41 +381,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
         </section>
 
-        <Separator className="my-2" />
-
-        {/* Legal Section */}
-        <section className="space-y-4">
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-            <PixelIcon name="shield" className="h-4 w-4" />
-            Legal
-          </h3>
-          
-          <div className="flex flex-col gap-2">
-            <a 
-              href="#" 
-              className="text-sm text-primary hover:underline flex items-center gap-1"
-              onClick={(e) => e.preventDefault()}
-            >
-              <PixelIcon name="book" className="h-4 w-4" />
-              Terms & Conditions
-              <PixelIcon name="externalLink" className="h-3 w-3" />
-            </a>
-            <a 
-              href="#" 
-              className="text-sm text-primary hover:underline flex items-center gap-1"
-              onClick={(e) => e.preventDefault()}
-            >
-              <PixelIcon name="shield" className="h-4 w-4" />
-              Privacy Policy
-              <PixelIcon name="externalLink" className="h-3 w-3" />
-            </a>
-          </div>
-          
-          <p className="text-xs text-muted-foreground text-center pt-2">
-            v1.0.0 • Made with ❤️ by Bitplace Team
-          </p>
-        </section>
-
         {/* Save Button */}
         {isAuthenticated && (
           <div className="flex justify-end gap-3 pt-6 border-t border-border">
@@ -430,6 +395,18 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             </Button>
           </div>
         )}
+
+        {/* Footer legal links */}
+        <div className="text-center pt-4">
+          <p className="text-xs text-muted-foreground">
+            <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:underline">Terms & Conditions</a>
+            {" | "}
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline">Privacy Policy</a>
+          </p>
+          <p className="text-[10px] text-muted-foreground/60 mt-1">
+            v1.0.0 • Made with ❤️ by Bitplace Team
+          </p>
+        </div>
       </div>
     </GamePanel>
   );
