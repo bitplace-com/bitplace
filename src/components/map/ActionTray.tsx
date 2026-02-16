@@ -309,9 +309,11 @@ export function ActionTray({
             {isPaintMode ? (
               /* PAINT MODE: Color palette with tabs */
               <>
-                {/* Tool row - visible only in draw mode */}
-                {interactionMode === 'draw' && (
-                  <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5 mb-2">
+                {/* Tool row - always visible, dimmed in explore mode */}
+                <div className={cn(
+                  "flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5 mb-2 transition-opacity",
+                  interactionMode === 'drag' && "opacity-40 pointer-events-none"
+                )}>
                     <button
                       onMouseDown={e => e.preventDefault()}
                       onClick={() => handleToolClick('BRUSH', '1x')}
@@ -351,8 +353,7 @@ export function ActionTray({
                     >
                       <PixelIcon name="trash" className="h-5 w-5 sm:h-4 sm:w-4" />
                     </button>
-                  </div>
-                )}
+                </div>
 
                 {/* Tab switch - always visible when expanded */}
                 <div className="flex gap-1 justify-end mb-2">
