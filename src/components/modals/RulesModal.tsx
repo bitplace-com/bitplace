@@ -16,6 +16,50 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
       size="md"
     >
       <div className="space-y-5 text-sm">
+        {/* SECTION 0: RULES */}
+        <div>
+          <p className="px-1 mb-3 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+            Rules
+          </p>
+          <div className="space-y-4">
+            <section className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-destructive/10 flex items-center justify-center">
+                  <PixelIcon name="alert" size="sm" />
+                </div>
+                <h3 className="font-semibold">No NSFW or Sexual Content</h3>
+              </div>
+              <p className="text-muted-foreground pl-9">
+                Pornographic, erotic, or sexualized imagery is forbidden — even if stylized, pixelated, or symbolic. Any sexualized depiction of minors is strictly prohibited. Bitplace must remain safe for all ages.
+              </p>
+            </section>
+
+            <section className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-destructive/10 flex items-center justify-center">
+                  <PixelIcon name="shield" size="sm" />
+                </div>
+                <h3 className="font-semibold">No Hate or Harassment</h3>
+              </div>
+              <p className="text-muted-foreground pl-9">
+                Hate speech, threats, or targeting of individuals or groups based on identity (race, religion, gender, sexuality, disability, etc.) are prohibited, including hate symbols and extremist propaganda.
+              </p>
+            </section>
+
+            <section className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-destructive/10 flex items-center justify-center">
+                  <PixelIcon name="skull" size="sm" />
+                </div>
+                <h3 className="font-semibold">No Violence or Illegal Content</h3>
+              </div>
+              <p className="text-muted-foreground pl-9">
+                Graphic violence, gore, or content that promotes or instructs illegal or dangerous activities is prohibited.
+              </p>
+            </section>
+          </div>
+        </div>
+
         {/* SECTION 1: ENERGY */}
         <div>
           <p className="px-1 mb-3 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
