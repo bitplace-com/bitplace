@@ -157,7 +157,6 @@ export function PixelInfoPanel({
             <span className="flex items-center gap-1 text-xs font-medium truncate flex-1">
               {isOwnPixel ? (
                 <>
-                  <PixelIcon name="crown" className="w-3.5 h-3.5 text-primary shrink-0" />
                   <span className="text-primary truncate">You own this pixel</span>
                 </>
               ) : pixel.myContribution?.side === 'DEF' ? (
@@ -171,6 +170,11 @@ export function PixelInfoPanel({
                   <span className="text-rose-500 truncate">You're attacking</span>
                 </>
               ) : null}
+            </span>
+          )}
+          {pixel && isOwned && !isOwnPixel && !pixel.myContribution && (
+            <span className="flex items-center gap-1 text-xs font-medium truncate flex-1">
+              <span className="text-muted-foreground truncate">Owned by {pixel.owner?.display_name || pixel.owner?.wallet_short || 'someone'}</span>
             </span>
           )}
           {!(pixel && isOwned) && <span className="flex-1" />}
@@ -230,7 +234,7 @@ export function PixelInfoPanel({
                 <PixelIcon name="plus" className="w-6 h-6 text-muted-foreground" />
               </div>
               <div className="text-center space-y-1">
-                <span className="text-sm font-medium block">Available to claim</span>
+                <span className="text-sm font-medium block">Available to paint</span>
                 <span className="text-xs text-muted-foreground flex items-center justify-center gap-1">
                   1 <PEIcon size="xs" /> <span className="text-muted-foreground/60">({peToUsd(1)})</span>
                 </span>
@@ -450,7 +454,7 @@ export function PixelInfoPanel({
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground flex items-center gap-1">
                       <PixelIcon name="brush" className="w-3 h-3" />
-                      Artwork
+                       Paints
                     </span>
                     <button
                       onClick={() => setArtworkModalOpen(true)}

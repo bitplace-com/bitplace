@@ -166,7 +166,7 @@ export function CreatePlaceForm({
       {/* Artwork Preview */}
       {artworkPixels && artworkPixels.length > 0 && bbox && (
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Artwork Preview</Label>
+          <Label className="text-xs text-muted-foreground">Paints Preview</Label>
           <ArtworkPreview pixels={artworkPixels} bbox={bbox} mapSnapshot={mapSnapshot} />
           <p className="text-[10px] text-muted-foreground text-center">
             {artworkPixels.length.toLocaleString()} pixels detected

@@ -32,7 +32,7 @@ export function useWalletGate(): UseWalletGateResult {
     if (walletState === 'AUTH_REQUIRED' && walletAddress) {
       // Show toast once per cooldown with sign action
       if (now - lastToastRef.current > TOAST_COOLDOWN) {
-        toast.info('Sign in to save your artwork', {
+        toast.info('Sign in to save your paints', {
           action: {
             label: 'Sign',
             onClick: () => {

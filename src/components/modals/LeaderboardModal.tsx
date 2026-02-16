@@ -47,27 +47,34 @@ function peToUsd(pe: number): string {
   return (pe / PE_PER_USD).toFixed(2);
 }
 
+// Podium row highlight classes
+function getPodiumRowClass(rank: number): string {
+  if (rank === 1) return "bg-yellow-500/5";
+  if (rank === 2) return "bg-slate-300/5";
+  if (rank === 3) return "bg-amber-600/5";
+  return "";
+}
+
 function MetricValue({ metric, totalPixels, totalPeStaked }: { metric: LeaderboardMetric; totalPixels: number; totalPeStaked: number }) {
   if (metric === "pixels") {
     return (
       <div className="text-right shrink-0">
         <div className="text-sm font-medium tabular-nums">{formatNumber(totalPixels)} <span className="text-muted-foreground text-xs">px</span></div>
-        <div className="text-xs text-muted-foreground tabular-nums">{formatNumber(totalPeStaked)} PE <span className="opacity-70">(${peToUsd(totalPeStaked)})</span></div>
+        <div className="text-xs tabular-nums">{formatNumber(totalPeStaked)} PE <span className="text-emerald-500">(${peToUsd(totalPeStaked)})</span></div>
       </div>
     );
   }
   return (
     <div className="text-right shrink-0">
-      <div className="text-sm font-medium tabular-nums">{formatNumber(totalPeStaked)} <span className="text-muted-foreground text-xs">PE</span> <span className="text-xs text-muted-foreground">(${peToUsd(totalPeStaked)})</span></div>
-      <div className="text-xs text-muted-foreground tabular-nums">{formatNumber(totalPixels)} px</div>
+      <div className="text-sm font-medium tabular-nums">{formatNumber(totalPeStaked)} <span className="text-muted-foreground text-xs">PE</span> <span className="text-xs text-emerald-500">(${peToUsd(totalPeStaked)})</span></div>
     </div>
   );
 }
 
 function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1) return <div className="w-6 h-6 rounded-full bg-yellow-500/20 text-yellow-600 flex items-center justify-center text-xs font-bold">1</div>;
-  if (rank === 2) return <div className="w-6 h-6 rounded-full bg-slate-300/30 text-slate-500 flex items-center justify-center text-xs font-bold">2</div>;
-  if (rank === 3) return <div className="w-6 h-6 rounded-full bg-amber-600/20 text-amber-700 flex items-center justify-center text-xs font-bold">3</div>;
+  if (rank === 1) return <div className="w-6 h-6 rounded-full bg-yellow-500/20 text-yellow-600 flex items-center justify-center text-xs font-bold animate-shine">1</div>;
+  if (rank === 2) return <div className="w-6 h-6 rounded-full bg-slate-300/30 text-slate-500 flex items-center justify-center text-xs font-bold animate-shine">2</div>;
+  if (rank === 3) return <div className="w-6 h-6 rounded-full bg-amber-600/20 text-amber-700 flex items-center justify-center text-xs font-bold animate-shine">3</div>;
   return <div className="w-6 h-6 flex items-center justify-center text-xs text-muted-foreground">{rank}</div>;
 }
 
@@ -79,7 +86,7 @@ function PlayerRow({ entry, metric, onPlayerClick }: { entry: PlayerEntry; metri
   const hasProfileInfo = entry.bio || hasSocials;
 
   const rowContent = (
-    <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-foreground/5 transition-colors cursor-pointer" onClick={() => onPlayerClick(entry.id)}>
+    <div className={cn("flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-foreground/5 transition-colors cursor-pointer", getPodiumRowClass(entry.rank))} onClick={() => onPlayerClick(entry.id)}>
       <RankBadge rank={entry.rank} />
       {entry.avatarUrl ? (
         <img src={entry.avatarUrl} alt="" className="w-8 h-8 rounded-full flex-shrink-0 object-cover" />
@@ -134,7 +141,7 @@ function PlayerRow({ entry, metric, onPlayerClick }: { entry: PlayerEntry; metri
           )}
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border">
             <span>{formatNumber(entry.totalPixels)} pixels</span>
-            <span>{formatNumber(entry.totalPeStaked)} PE (${peToUsd(entry.totalPeStaked)})</span>
+            <span>{formatNumber(entry.totalPeStaked)} PE <span className="text-emerald-500">(${peToUsd(entry.totalPeStaked)})</span></span>
           </div>
         </div>
       </HoverCardContent>
@@ -145,7 +152,7 @@ function PlayerRow({ entry, metric, onPlayerClick }: { entry: PlayerEntry; metri
 function CountryRow({ entry, metric }: { entry: CountryEntry; metric: LeaderboardMetric }) {
   const country = getCountryByCode(entry.countryCode);
   return (
-    <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-foreground/5 transition-colors">
+    <div className={cn("flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-foreground/5 transition-colors", getPodiumRowClass(entry.rank))}>
       <RankBadge rank={entry.rank} />
       <div className="text-2xl">{country?.flag || "🏳️"}</div>
       <div className="flex-1 min-w-0">
@@ -159,7 +166,7 @@ function CountryRow({ entry, metric }: { entry: CountryEntry; metric: Leaderboar
 
 function AllianceRow({ entry, metric }: { entry: AllianceEntry; metric: LeaderboardMetric }) {
   return (
-    <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-foreground/5 transition-colors">
+    <div className={cn("flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-foreground/5 transition-colors", getPodiumRowClass(entry.rank))}>
       <RankBadge rank={entry.rank} />
       <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
         <PixelIcon name="users" size="sm" className="text-primary" />
@@ -290,13 +297,13 @@ export function LeaderboardModal({ open, onOpenChange }: LeaderboardModalProps) 
             <TabsTrigger value="alliances" className="flex-1 gap-1.5"><PixelIcon name="users" size="xs" />Alliances</TabsTrigger>
           </TabsList>
 
-          {/* Metric toggle */}
-          <div className="mt-3">
+          {/* Metric toggle - centered */}
+          <div className="mt-3 flex justify-center">
             <MetricToggle metric={metric} onChange={setMetric} />
           </div>
 
-          {/* Time period pills */}
-          <div className="flex gap-1.5 mt-2">
+          {/* Time period pills - centered */}
+          <div className="flex gap-1.5 mt-2 justify-center">
             {PERIODS.map((p) => (
               <button
                 key={p.value}

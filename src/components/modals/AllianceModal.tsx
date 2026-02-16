@@ -154,8 +154,7 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
       <GamePanel
         open={open}
         onOpenChange={onOpenChange}
-        title="Alliances"
-        description="Join forces with other players"
+        title="Alliance"
         icon={<PixelIcon name="usersCrown" size="md" />}
         size="md"
       >
@@ -172,8 +171,7 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
       <GamePanel
         open={open}
         onOpenChange={onOpenChange}
-        title="Alliances"
-        description="Create an alliance and invite players"
+        title="Alliance"
         icon={<PixelIcon name="usersCrown" size="md" />}
         size="md"
       >
@@ -223,8 +221,7 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
     <GamePanel
       open={open}
       onOpenChange={onOpenChange}
-      title="My Alliance"
-      description="Manage your alliance"
+      title="Alliance"
       icon={<PixelIcon name="usersCrown" size="md" />}
       size="md"
     >

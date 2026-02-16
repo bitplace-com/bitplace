@@ -24,6 +24,7 @@ export interface PlayerProfile {
   // Stats
   totalPixelsOwned: number;
   totalStaked: number;
+  pixelsPaintedTotal: number;
   joinedAt: string;
   // Pixels for mini-map
   pixels: PlayerPixel[];
@@ -121,6 +122,7 @@ export function usePlayerProfile(playerId: string | null) {
         socialWebsite: profile?.social_website || null,
         totalPixelsOwned: pixels.length,
         totalStaked,
+        pixelsPaintedTotal: Number(user.pixels_painted_total) || 0,
         joinedAt: (userExtra as any)?.created_at || new Date().toISOString(),
         pixels,
       });
