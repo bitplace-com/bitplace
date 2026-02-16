@@ -18,13 +18,11 @@ const supportsVibration = (() => {
 })();
 
 class HapticsEngine {
+  // Always enabled — toggle removed, only Android users will feel it
   private enabled: boolean = true;
 
   constructor() {
-    // Load preference from localStorage
-    const stored = localStorage.getItem(HAPTICS_STORAGE_KEY);
-    // Default to ON if supported, OFF if not supported
-    this.enabled = stored === null ? supportsVibration : stored === 'true';
+    // No longer reads from localStorage; always on
   }
 
   /**
