@@ -114,21 +114,24 @@ function StatCard({
   iconName,
   suffix,
   valueClassName,
+  iconPosition = 'header',
 }: { 
   label: string; 
   value: string | number;
   iconName?: string;
   suffix?: React.ReactNode;
   valueClassName?: string;
+  iconPosition?: 'header' | 'value';
 }) {
   return (
     <div className="bg-muted/70 rounded-lg p-3">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-        {iconName && <PixelIcon name={iconName as any} className="h-3 w-3" />}
+        {iconName && iconPosition === 'header' && <PixelIcon name={iconName as any} className="h-3 w-3" />}
         {label}
       </div>
       <div className={cn("text-lg font-semibold flex items-center gap-1", valueClassName)}>
         {typeof value === 'number' ? value.toLocaleString() : value}
+        {iconName && iconPosition === 'value' && <PixelIcon name={iconName as any} className="h-4 w-4 text-muted-foreground" />}
         {suffix}
       </div>
     </div>
@@ -366,19 +369,22 @@ export function PlayerProfileModal({ open, onOpenChange, playerId, onJumpToPixel
                 label="Pixels Painted"
                 value={profile.pixelsPaintedTotal}
                 iconName="brush"
+                iconPosition="value"
               />
               <StatCard
                 label="Pixels Owned"
                 value={profile.totalPixelsOwned}
                 iconName="pin"
+                iconPosition="value"
               />
               <StatCard
-                label="Total Staked"
+                label="PE Staked"
                 value={profile.totalStaked}
+                iconPosition="value"
                 suffix={<PEIcon size="sm" className="text-muted-foreground" />}
               />
               <StatCard
-                label="Value"
+                label="Staked Value"
                 value={peToUsd(profile.totalStaked)}
                 valueClassName="text-emerald-500"
               />
