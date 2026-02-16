@@ -47,7 +47,7 @@ import { useTemplates } from '@/hooks/useTemplates';
 import { getValidSessionToken } from '@/lib/authHelpers';
 import { computePixelHash } from '@/lib/pixelHash';
 import { lngLatToGridInt, gridIntToLngLat, getViewportGridBounds, Z_SHOW_PAINTS } from '@/lib/pixelGrid';
-import { haptic } from '@/lib/haptics';
+import { hapticsEngine } from '@/lib/hapticsEngine';
 import { markMapMountStart } from '@/lib/perfMetrics';
 
 // Helper to get snapped 2x2 block coordinates
@@ -173,7 +173,7 @@ export function BitplaceMap() {
     if (mode === 'paint' && paintTool === 'BRUSH') {
       if (selectedColor === null) {
         toast.info('Select a color to paint', { id: 'no-color-hint' });
-        haptic('warning');
+        hapticsEngine.trigger('warning');
         return;
       }
       if (brushSize === '2x2') {
@@ -190,7 +190,7 @@ export function BitplaceMap() {
       }
       isTouchPaintingRef.current = true;
       playSound('pixel_select');
-      haptic('light'); // Haptic feedback for paint
+      hapticsEngine.trigger('light'); // Haptic feedback for paint
     }
     // Eraser
     else if (paintTool === 'ERASER') {
@@ -198,10 +198,10 @@ export function BitplaceMap() {
       if (draftPixels.has(draftKey)) {
         removeFromDraft(x, y);
         playSound('pixel_deselect');
-        haptic('light'); // Haptic feedback for erase
+        hapticsEngine.trigger('light'); // Haptic feedback for erase
       } else {
         startBrushSelection(x, y);
-        haptic('medium'); // Haptic feedback for selection
+        hapticsEngine.trigger('medium'); // Haptic feedback for selection
       }
       isTouchPaintingRef.current = true;
     }
@@ -210,7 +210,7 @@ export function BitplaceMap() {
       if (!requireWallet('interact')) return;
       startBrushSelection(x, y);
       isTouchPaintingRef.current = true;
-      haptic('medium'); // Haptic feedback for action selection
+      hapticsEngine.trigger('medium'); // Haptic feedback for action selection
     }
   }, [mode, paintTool, selectedColor, brushSize, addToDraft, removeFromDraft, startBrushSelection, draftPixels, draftRemainingCapacity, requireWallet, playSound]);
 
@@ -229,14 +229,14 @@ export function BitplaceMap() {
           if (toAdd.length > 0) {
             toAdd.forEach(p => addToDraft(p.x, p.y, selectedColor));
             lastDraftedPixelRef.current = topLeft;
-            haptic('light'); // Light haptic for each new pixel
+            hapticsEngine.trigger('light'); // Light haptic for each new pixel
           }
         }
       } else {
         if (!last || last.x !== x || last.y !== y) {
           addToDraft(x, y, selectedColor);
           lastDraftedPixelRef.current = { x, y };
-          haptic('light'); // Light haptic for each new pixel
+          hapticsEngine.trigger('light'); // Light haptic for each new pixel
         }
       }
     }
@@ -245,7 +245,7 @@ export function BitplaceMap() {
       const draftKey = `${x}:${y}`;
       if (draftPixels.has(draftKey)) {
         removeFromDraft(x, y);
-        haptic('light');
+        hapticsEngine.trigger('light');
       } else {
         addToBrushSelection(x, y);
       }

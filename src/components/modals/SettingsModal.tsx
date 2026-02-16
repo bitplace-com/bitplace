@@ -383,7 +383,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           {hapticsSupported && (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <PixelIcon name="smartphone" className="h-4 w-4" />
+                <PixelIcon name="sparkles" className="h-4 w-4" />
                 <Label>Haptic Feedback</Label>
               </div>
               <Switch
