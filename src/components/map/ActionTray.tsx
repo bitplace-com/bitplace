@@ -284,20 +284,8 @@ export function ActionTray({
             )}
           </div>
 
-          {/* Right: Eyedropper + Expand */}
+          {/* Right: Expand */}
           <div className="flex items-center gap-1 shrink-0">
-            {isExpanded && isPaintMode && (
-              <GlassIconButton
-                variant={isEyedropperActive ? 'active' : 'ghost'}
-                size="sm"
-                onClick={handleEyedropperClick}
-                disabled={!canPaint}
-                className="rounded-md"
-                title="Eyedropper (Alt+Click)"
-              >
-                <PixelIcon name="pipette" className="h-4 w-4" />
-              </GlassIconButton>
-            )}
             <GlassIconButton
               variant="ghost"
               size="sm"
@@ -317,96 +305,87 @@ export function ActionTray({
         {/* Expanded content */}
         {isExpanded && (
           <div className="px-3 pb-3 overflow-hidden">
-            {/* Zoom hint */}
-            {!canPaint && (
-              <div className="text-center py-1.5 mb-2 text-[11px] text-muted-foreground bg-muted/50 rounded-lg">
-                Zoom in to interact
-              </div>
-            )}
             
             {isPaintMode ? (
               /* PAINT MODE: Color palette with tabs */
               <>
                 {/* Tool row - visible only in draw mode */}
                 {canPaint && interactionMode === 'draw' && (
-                  <div className="flex items-center justify-between mb-2">
-                    {/* Left: Tool cluster */}
-                    <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5">
-                      <button
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => handleToolClick('BRUSH', '1x')}
-                        className={cn(
-                          "w-10 h-10 sm:w-7 sm:h-7 rounded-md flex items-center justify-center transition-colors touch-target",
-                          paintTool === 'BRUSH' && brushSize === '1x'
-                            ? "bg-foreground text-background" 
-                            : "text-muted-foreground hover:text-foreground"
-                        )}
-                        title="Brush 1x"
-                      >
-                        <PixelIcon name="pixel" className="h-5 w-5 sm:h-4 sm:w-4" />
-                      </button>
-                      <button
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => handleToolClick('BRUSH', '2x2')}
-                        className={cn(
-                          "w-10 h-10 sm:w-7 sm:h-7 rounded-md flex items-center justify-center transition-colors touch-target",
-                          paintTool === 'BRUSH' && brushSize === '2x2'
-                            ? "bg-foreground text-background" 
-                            : "text-muted-foreground hover:text-foreground"
-                        )}
-                        title="Brush 2×2"
-                      >
-                        <PixelIcon name="grid2x2" className="h-5 w-5 sm:h-4 sm:w-4" />
-                      </button>
-                      <button
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => handleToolClick('ERASER')}
-                        className={cn(
-                          "w-10 h-10 sm:w-7 sm:h-7 rounded-md flex items-center justify-center transition-colors touch-target",
-                          paintTool === 'ERASER'
-                            ? "bg-foreground text-background" 
-                            : "text-muted-foreground hover:text-foreground"
-                        )}
-                        title="Eraser"
-                      >
-                        <PixelIcon name="trash" className="h-5 w-5 sm:h-4 sm:w-4" />
-                      </button>
-                    </div>
-                    
-                    {/* Right: Tab switch */}
-                    <div className="flex gap-1">
-                      <button
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => setPaletteTab('colors')}
-                        className={cn(
-                          "px-2.5 py-1 text-[11px] rounded-md transition-colors",
-                          paletteTab === 'colors' 
-                            ? "bg-foreground text-background" 
-                            : "bg-muted/70 text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        Colors
-                      </button>
-                      <button
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => setPaletteTab('gradients')}
-                        className={cn(
-                          "px-2.5 py-1 text-[11px] rounded-md transition-colors",
-                          paletteTab === 'gradients' 
-                            ? "bg-foreground text-background" 
-                            : "bg-muted/70 text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        Gradients
-                      </button>
-                    </div>
+                  <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5 mb-2">
+                    <button
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => handleToolClick('BRUSH', '1x')}
+                      className={cn(
+                        "w-10 h-10 sm:w-7 sm:h-7 rounded-md flex items-center justify-center transition-colors touch-target",
+                        paintTool === 'BRUSH' && brushSize === '1x'
+                          ? "bg-foreground text-background" 
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                      title="Brush 1x"
+                    >
+                      <PixelIcon name="pixel" className="h-5 w-5 sm:h-4 sm:w-4" />
+                    </button>
+                    <button
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => handleToolClick('BRUSH', '2x2')}
+                      className={cn(
+                        "w-10 h-10 sm:w-7 sm:h-7 rounded-md flex items-center justify-center transition-colors touch-target",
+                        paintTool === 'BRUSH' && brushSize === '2x2'
+                          ? "bg-foreground text-background" 
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                      title="Brush 2×2"
+                    >
+                      <PixelIcon name="grid2x2" className="h-5 w-5 sm:h-4 sm:w-4" />
+                    </button>
+                    <button
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => handleToolClick('ERASER')}
+                      className={cn(
+                        "w-10 h-10 sm:w-7 sm:h-7 rounded-md flex items-center justify-center transition-colors touch-target",
+                        paintTool === 'ERASER'
+                          ? "bg-foreground text-background" 
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                      title="Eraser"
+                    >
+                      <PixelIcon name="trash" className="h-5 w-5 sm:h-4 sm:w-4" />
+                    </button>
                   </div>
                 )}
 
-                {/* Palette grid - disabled when eraser is active OR in drag mode */}
+                {/* Tab switch - always visible when expanded */}
+                <div className="flex gap-1 justify-end mb-2">
+                  <button
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => setPaletteTab('colors')}
+                    className={cn(
+                      "px-2.5 py-1 text-[11px] rounded-md transition-colors",
+                      paletteTab === 'colors' 
+                        ? "bg-foreground text-background" 
+                        : "bg-muted/70 text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Colors
+                  </button>
+                  <button
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => setPaletteTab('gradients')}
+                    className={cn(
+                      "px-2.5 py-1 text-[11px] rounded-md transition-colors",
+                      paletteTab === 'gradients' 
+                        ? "bg-foreground text-background" 
+                        : "bg-muted/70 text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Gradients
+                  </button>
+                </div>
+
+                {/* Palette grid - disabled only when eraser is active */}
                 <div className={cn(
                   "transition-opacity",
-                  (isEraser || interactionMode !== 'draw') && "opacity-40 pointer-events-none"
+                  isEraser && "opacity-40 pointer-events-none"
                 )}>
 
                 <div className="max-h-48 overflow-y-auto overflow-x-hidden py-1 px-1 w-full">
