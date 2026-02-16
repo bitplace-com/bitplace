@@ -379,19 +379,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             />
           </div>
 
-          {/* Haptics */}
-          {hapticsSupported && (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <PixelIcon name="sparkles" className="h-4 w-4" />
-                <Label>Haptic Feedback</Label>
-              </div>
-              <Switch
-                checked={hapticsEnabled}
-                onCheckedChange={toggleHaptics}
-              />
-            </div>
-          )}
         </section>
 
         <Separator className="my-2" />
