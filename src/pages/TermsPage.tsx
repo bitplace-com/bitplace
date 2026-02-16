@@ -257,7 +257,7 @@ const TermsPage = () => {
           <div className="space-y-3 text-sm text-muted-foreground">
             <p>If you have any questions about these Terms of Service, please contact us at:</p>
             <p>
-              Email: <a href="mailto:contact@bitplace.app" className="text-primary hover:underline">contact@bitplace.app</a>
+              Email: <a href="mailto:contact@bitplace.com" className="text-primary hover:underline">contact@bitplace.com</a>
             </p>
             <p className="text-xs pt-2 border-t border-border/30">
               By using Bitplace, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.

@@ -103,7 +103,7 @@ const PrivacyPage = () => {
             </ul>
             <p>
               To exercise these rights, please contact us at{" "}
-              <a href="mailto:contact@bitplace.app" className="text-primary hover:underline">contact@bitplace.app</a>.
+              <a href="mailto:contact@bitplace.com" className="text-primary hover:underline">contact@bitplace.com</a>.
             </p>
           </div>
         </SectionCard>
@@ -117,7 +117,7 @@ const PrivacyPage = () => {
         <SectionCard title="9. Children's Privacy">
           <p className="text-sm text-muted-foreground">
             Our Service is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13. If you are a parent or guardian and believe your child has provided us with personal data, please contact us at{" "}
-            <a href="mailto:contact@bitplace.app" className="text-primary hover:underline">contact@bitplace.app</a>.
+            <a href="mailto:contact@bitplace.com" className="text-primary hover:underline">contact@bitplace.com</a>.
           </p>
         </SectionCard>
 
@@ -131,7 +131,7 @@ const PrivacyPage = () => {
           <div className="space-y-3 text-sm text-muted-foreground">
             <p>If you have any questions about this Privacy Policy or our data practices, please contact us at:</p>
             <p>
-              Email: <a href="mailto:contact@bitplace.app" className="text-primary hover:underline">contact@bitplace.app</a>
+              Email: <a href="mailto:contact@bitplace.com" className="text-primary hover:underline">contact@bitplace.com</a>
             </p>
           </div>
         </SectionCard>
