@@ -6,8 +6,16 @@ import { HapticPatterns, type HapticType } from './haptics';
 
 const HAPTICS_STORAGE_KEY = 'bitplace_haptics_enabled';
 
-// Check if vibration is supported
-const supportsVibration = typeof navigator !== 'undefined' && 'vibrate' in navigator;
+// Check if vibration is actually supported (not just declared)
+const supportsVibration = (() => {
+  if (typeof navigator === 'undefined' || !('vibrate' in navigator)) return false;
+  try {
+    // Some WebViews report vibrate exists but it silently fails
+    return navigator.vibrate(0) !== false;
+  } catch {
+    return false;
+  }
+})();
 
 class HapticsEngine {
   private enabled: boolean = true;

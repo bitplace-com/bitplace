@@ -86,6 +86,7 @@ import { PixelUsersCrown } from './custom/PixelUsersCrown';
 import { PixelEyeCross } from './custom/PixelEyeCross';
 import { PixelExclamationTriangle } from './custom/PixelExclamationTriangle';
 import { PixelHockeyMask } from './custom/PixelHockeyMask';
+import { PixelSparkles } from './custom/PixelSparkles';
 
 export type IconName =
   | 'hand'
@@ -172,7 +173,8 @@ export type IconName =
   | 'usersCrown'
   | 'eyeCross'
   | 'exclamationTriangle'
-  | 'hockeyMask';
+  | 'hockeyMask'
+  | 'sparkles';
 
 type PixelIconComponent = ComponentType<SVGProps<SVGSVGElement> & { className?: string }>;
 
@@ -262,4 +264,5 @@ export const icons: Record<IconName, PixelIconComponent> = {
   eyeCross: PixelEyeCross,
   exclamationTriangle: PixelExclamationTriangle,
   hockeyMask: PixelHockeyMask,
+  sparkles: PixelSparkles,
 };

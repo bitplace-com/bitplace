@@ -5,7 +5,7 @@ import { GlassPanel } from '@/components/ui/glass-panel';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
-import { haptic } from '@/lib/haptics';
+import { hapticsEngine } from '@/lib/hapticsEngine';
 import { type MapMode } from './hooks/useMapState';
 
 interface MapToolbarProps {
@@ -36,7 +36,7 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
     if (!value) return;
     
     // Haptic feedback on mode switch
-    haptic('medium');
+    hapticsEngine.trigger('medium');
     
     onModeChange(value as MapMode);
     
@@ -88,7 +88,7 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
           {/* Toggle button - always visible */}
           <button
             onClick={() => {
-              haptic('light');
+              hapticsEngine.trigger('light');
               setIsExpanded(!isExpanded);
             }}
             className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10 shrink-0"
