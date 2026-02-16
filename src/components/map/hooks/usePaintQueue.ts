@@ -85,7 +85,7 @@ export function usePaintQueue(
   const flushQueue = useCallback(async () => {
     const token = localStorage.getItem('bitplace_session_token');
     if (!token) {
-      toast.error('Sign in to save your artwork');
+      toast.error('Sign in to save your paints');
       setIsSpacePainting(false);
       pendingPixelsRef.current.clear();
       setQueue(new Set());

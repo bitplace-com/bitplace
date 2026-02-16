@@ -205,7 +205,7 @@ export function OwnerArtworkModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PixelIcon name="brush" className="w-4 h-4" />
-            {ownerName ? `${ownerName}'s Artwork` : "Owner's Artwork"}
+            {ownerName ? `${ownerName}'s Paints` : "Owner's Paints"}
           </DialogTitle>
         </DialogHeader>
 

@@ -71,7 +71,16 @@ export function useMapState() {
   }, []);
 
   const setInteractionMode = useCallback((interactionMode: InteractionMode) => {
-    setState((prev) => ({ ...prev, interactionMode }));
+    setState((prev) => ({
+      ...prev,
+      interactionMode,
+      // Reset to BRUSH 1x when switching to draw mode
+      ...(interactionMode === 'draw' ? {
+        paintTool: 'BRUSH' as PaintTool,
+        brushSize: '1x' as BrushSize,
+        selectedColor: prev.lastBrushColor,
+      } : {}),
+    }));
   }, []);
 
   const canPaint = canInteractAtZoom(state.zoom);

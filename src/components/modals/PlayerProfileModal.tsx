@@ -4,12 +4,7 @@ import { ProBadge } from "@/components/ui/pro-badge";
 import { AdminBadge } from "@/components/ui/admin-badge";
 import { getProTier, isAdmin } from "@/lib/userBadges";
 import { format } from "date-fns";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { GamePanel } from "./GamePanel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
@@ -17,6 +12,7 @@ import { PEIcon } from "@/components/ui/pe-icon";
 import { usePlayerProfile, PlayerPixel } from "@/hooks/usePlayerProfile";
 import { useFollows, useFollowerCount } from "@/hooks/useFollows";
 import { useWallet } from "@/contexts/WalletContext";
+import { OwnerArtworkModal } from "@/components/map/OwnerArtworkModal";
 import { generateAvatarGradient } from "@/lib/avatar";
 import { getCountryByCode } from "@/lib/countries";
 import { cn } from "@/lib/utils";
@@ -26,10 +22,16 @@ interface PlayerProfileModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   playerId: string | null;
+  onJumpToPixel?: (x: number, y: number) => void;
+}
+
+function peToUsd(pe: number): string {
+  const usd = pe * 0.001;
+  return usd < 0.01 ? `$${usd.toFixed(3)}` : `$${usd.toFixed(2)}`;
 }
 
 // Mini-map component that shows player's pixels
-function PixelMiniMap({ pixels }: { pixels: PlayerPixel[] }) {
+function PixelMiniMap({ pixels, onClick }: { pixels: PlayerPixel[]; onClick?: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -47,13 +49,11 @@ function PixelMiniMap({ pixels }: { pixels: PlayerPixel[] }) {
     canvas.height = displayHeight * dpr;
     ctx.scale(dpr, dpr);
 
-    // Clear canvas
     ctx.fillStyle = 'hsl(var(--muted))';
     ctx.fillRect(0, 0, displayWidth, displayHeight);
 
     if (pixels.length === 0) return;
 
-    // Calculate bounds
     const xs = pixels.map(p => p.x);
     const ys = pixels.map(p => p.y);
     const minX = Math.min(...xs);
@@ -64,29 +64,24 @@ function PixelMiniMap({ pixels }: { pixels: PlayerPixel[] }) {
     const rangeX = maxX - minX + 1;
     const rangeY = maxY - minY + 1;
     
-    // Add padding
     const padding = 10;
     const availableWidth = displayWidth - padding * 2;
     const availableHeight = displayHeight - padding * 2;
     
-    // Calculate pixel size to fit all pixels
     const pixelSize = Math.max(2, Math.min(
       availableWidth / rangeX,
       availableHeight / rangeY,
-      8 // Max pixel size
+      8
     ));
 
-    // Center the drawing
     const drawWidth = rangeX * pixelSize;
     const drawHeight = rangeY * pixelSize;
     const offsetX = (displayWidth - drawWidth) / 2;
     const offsetY = (displayHeight - drawHeight) / 2;
 
-    // Draw pixels
     pixels.forEach(pixel => {
       const x = offsetX + (pixel.x - minX) * pixelSize;
       const y = offsetY + (pixel.y - minY) * pixelSize;
-      
       ctx.fillStyle = pixel.color || '#888888';
       ctx.fillRect(x, y, pixelSize - 0.5, pixelSize - 0.5);
     });
@@ -103,8 +98,12 @@ function PixelMiniMap({ pixels }: { pixels: PlayerPixel[] }) {
   return (
     <canvas
       ref={canvasRef}
-      className="w-full h-32 rounded-lg"
+      className={cn(
+        "w-full h-32 rounded-lg",
+        onClick && "cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+      )}
       style={{ imageRendering: 'pixelated' }}
+      onClick={onClick}
     />
   );
 }
@@ -114,19 +113,21 @@ function StatCard({
   value, 
   iconName,
   suffix,
+  valueClassName,
 }: { 
   label: string; 
   value: string | number;
   iconName?: string;
   suffix?: React.ReactNode;
+  valueClassName?: string;
 }) {
   return (
-    <div className="bg-accent rounded-lg p-3">
+    <div className="bg-muted/70 rounded-lg p-3">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
         {iconName && <PixelIcon name={iconName as any} className="h-3 w-3" />}
         {label}
       </div>
-      <div className="text-lg font-semibold flex items-center gap-1">
+      <div className={cn("text-lg font-semibold flex items-center gap-1", valueClassName)}>
         {typeof value === 'number' ? value.toLocaleString() : value}
         {suffix}
       </div>
@@ -134,7 +135,7 @@ function StatCard({
   );
 }
 
-export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfileModalProps) {
+export function PlayerProfileModal({ open, onOpenChange, playerId, onJumpToPixel }: PlayerProfileModalProps) {
   const { profile, isLoading, error } = usePlayerProfile(open ? playerId : null);
   const { user } = useWallet();
   const userId = user?.id;
@@ -142,6 +143,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
   const { count: followerCount } = useFollowerCount(open ? playerId : null);
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [artworkModalOpen, setArtworkModalOpen] = useState(false);
 
   const isOwnProfile = userId && playerId === userId;
   const following = playerId ? isFollowing(playerId) : false;
@@ -153,14 +155,10 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
     try {
       if (following) {
         const success = await unfollow(playerId);
-        if (success) {
-          toast({ title: "Unfollowed player" });
-        }
+        if (success) toast({ title: "Unfollowed player" });
       } else {
         const success = await follow(playerId);
-        if (success) {
-          toast({ title: "Following player", description: "You'll get notified when they paint" });
-        }
+        if (success) toast({ title: "Following player", description: "You'll get notified when they paint" });
       }
     } catch (err) {
       toast({ title: "Error", description: "Failed to update follow status", variant: "destructive" });
@@ -169,17 +167,20 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
     }
   };
 
+  const handleJumpToPixel = (x: number, y: number) => {
+    if (onJumpToPixel) {
+      onJumpToPixel(x, y);
+      onOpenChange(false);
+    }
+  };
+
   const avatarGradient = generateAvatarGradient(profile?.id || playerId || '');
   const country = profile?.countryCode ? getCountryByCode(profile.countryCode) : null;
   const hasSocials = profile?.socialX || profile?.socialInstagram || profile?.socialDiscord || profile?.socialWebsite;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto px-4 sm:px-6">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold">Player Profile</DialogTitle>
-        </DialogHeader>
-
+    <>
+      <GamePanel open={open} onOpenChange={onOpenChange} title="Player Profile" icon={<PixelIcon name="user" size="md" />}>
         {isLoading ? (
           <div className="space-y-4 py-4">
             <div className="flex items-center gap-4">
@@ -201,7 +202,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
             <p className="text-muted-foreground">{error || 'Player not found'}</p>
           </div>
         ) : (
-          <div className="space-y-5 py-4 sm:space-y-6">
+          <div className="space-y-5 py-2 sm:space-y-6">
             {/* Header */}
             <div className="flex items-start gap-4">
               {profile.avatarUrl ? (
@@ -279,9 +280,9 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
               </p>
             )}
 
-            {/* Social Links */}
+            {/* Social Links - no external link icons */}
             {hasSocials && (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 {profile.socialX && (
                   <a
                     href={profile.socialX}
@@ -290,8 +291,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
                     className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <PixelIcon name="twitter" className="h-4 w-4" />
-                    <span className="hidden sm:inline">Twitter</span>
-                    <PixelIcon name="externalLink" className="h-3 w-3" />
+                    <span>Twitter</span>
                   </a>
                 )}
                 {profile.socialInstagram && (
@@ -302,8 +302,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
                     className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <PixelIcon name="instagram" className="h-4 w-4" />
-                    <span className="hidden sm:inline">Instagram</span>
-                    <PixelIcon name="externalLink" className="h-3 w-3" />
+                    <span>Instagram</span>
                   </a>
                 )}
                 {profile.socialWebsite && (
@@ -314,8 +313,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
                     className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <PixelIcon name="globe" className="h-4 w-4" />
-                    <span className="hidden sm:inline">Website</span>
-                    <PixelIcon name="externalLink" className="h-3 w-3" />
+                    <span>Website</span>
                   </a>
                 )}
                 {profile.socialDiscord && (
@@ -326,8 +324,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
                     className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <PixelIcon name="discord" className="h-4 w-4" />
-                    <span className="hidden sm:inline">Discord</span>
-                    <PixelIcon name="externalLink" className="h-3 w-3" />
+                    <span>Discord</span>
                   </a>
                 )}
               </div>
@@ -335,24 +332,41 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
 
             <Separator />
 
-            {/* Mini-map */}
+            {/* Mini-map - clickable to open Paints modal */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-medium flex items-center gap-1.5">
-                  <PixelIcon name="pin" className="h-4 w-4" />
-                  Owned Pixels
+                  <PixelIcon name="brush" className="h-4 w-4" />
+                  Paints
                 </h4>
-                <span className="text-xs text-muted-foreground">
-                  {profile.totalPixelsOwned} pixel{profile.totalPixelsOwned !== 1 ? 's' : ''}
-                </span>
+                {profile.pixels.length > 0 && (
+                  <button
+                    onClick={() => setArtworkModalOpen(true)}
+                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition-colors"
+                  >
+                    <PixelIcon name="expand" className="h-3 w-3" />
+                    Expand
+                  </button>
+                )}
               </div>
-              <PixelMiniMap pixels={profile.pixels} />
+              <PixelMiniMap
+                pixels={profile.pixels}
+                onClick={profile.pixels.length > 0 ? () => setArtworkModalOpen(true) : undefined}
+              />
+              <span className="text-xs text-muted-foreground">
+                {profile.totalPixelsOwned} pixel{profile.totalPixelsOwned !== 1 ? 's' : ''} owned
+              </span>
             </div>
 
             <Separator />
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <StatCard
+                label="Pixels Painted"
+                value={profile.pixelsPaintedTotal}
+                iconName="brush"
+              />
               <StatCard
                 label="Pixels Owned"
                 value={profile.totalPixelsOwned}
@@ -364,14 +378,9 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
                 suffix={<PEIcon size="sm" className="text-muted-foreground" />}
               />
               <StatCard
-                label="Pixels Painted"
-                value={profile.totalPixelsOwned}
-                iconName="brush"
-              />
-              <StatCard
-                label="PE Used"
-                value={profile.peUsed}
-                suffix={<PEIcon size="sm" className="text-muted-foreground" />}
+                label="Value"
+                value={peToUsd(profile.totalStaked)}
+                valueClassName="text-emerald-500"
               />
             </div>
 
@@ -382,7 +391,18 @@ export function PlayerProfileModal({ open, onOpenChange, playerId }: PlayerProfi
             </div>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </GamePanel>
+
+      {/* Paints Modal */}
+      {profile?.id && (
+        <OwnerArtworkModal
+          open={artworkModalOpen}
+          onOpenChange={setArtworkModalOpen}
+          userId={profile.id}
+          ownerName={profile.displayName}
+          onJumpToPixel={handleJumpToPixel}
+        />
+      )}
+    </>
   );
 }
