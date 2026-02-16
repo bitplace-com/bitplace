@@ -214,7 +214,7 @@ export function ActionTray({
             {/* More prominent visual separator */}
             <div className="w-px h-6 bg-border/70 mx-1" />
             
-            {canPaint && (
+            {(
               <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5">
                 <button
                   onMouseDown={e => e.preventDefault()}
@@ -385,7 +385,7 @@ export function ActionTray({
                 {/* Palette grid - disabled only when eraser is active */}
                 <div className={cn(
                   "transition-opacity",
-                  isEraser && "opacity-40 pointer-events-none"
+                  (isEraser || interactionMode === 'drag') && "opacity-40 pointer-events-none"
                 )}>
 
                 <div className="max-h-48 overflow-y-auto overflow-x-hidden py-1 px-1 w-full">
