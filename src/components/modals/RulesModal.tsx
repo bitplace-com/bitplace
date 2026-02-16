@@ -25,7 +25,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             <section className="space-y-2">
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-lg bg-destructive/10 flex items-center justify-center">
-                  <PixelIcon name="alert" size="sm" />
+                  <i className="hn hn-eye-cross-solid text-sm"></i>
                 </div>
                 <h3 className="font-semibold">No NSFW or Sexual Content</h3>
               </div>
@@ -37,7 +37,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             <section className="space-y-2">
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-lg bg-destructive/10 flex items-center justify-center">
-                  <PixelIcon name="shield" size="sm" />
+                  <i className="hn hn-exclamation-triangle-solid text-sm"></i>
                 </div>
                 <h3 className="font-semibold">No Hate or Harassment</h3>
               </div>
@@ -49,7 +49,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             <section className="space-y-2">
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-lg bg-destructive/10 flex items-center justify-center">
-                  <PixelIcon name="skull" size="sm" />
+                  <i className="hn hn-hockey-mask-solid text-sm"></i>
                 </div>
                 <h3 className="font-semibold">No Violence or Illegal Content</h3>
               </div>
