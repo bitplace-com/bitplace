@@ -16,7 +16,7 @@ import { generateAvatarGradient, getAvatarInitial } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 import { SettingsModal } from "./SettingsModal";
 import { LeaderboardModal } from "./LeaderboardModal";
-import { RulesModal } from "./RulesModal";
+import { ShopModal } from "./ShopModal";
 
 interface UserMenuPanelProps {
   children: React.ReactNode;
@@ -43,7 +43,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
   const [copied, setCopied] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
-  const [rulesOpen, setRulesOpen] = useState(false);
+  const [shopOpen, setShopOpen] = useState(false);
   const { enabled: soundEnabled, toggle: toggleSound } = useSound();
 
   const country = getCountryByCode(user?.country_code);
@@ -184,14 +184,6 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <PixelIcon name="settings" className="h-4 w-4" />
-            Settings
-          </Button>
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
             onClick={() => setLeaderboardOpen(true)}
           >
             <PixelIcon name="trophy" className="h-4 w-4" />
@@ -200,10 +192,18 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
-            onClick={() => setRulesOpen(true)}
+            onClick={() => setSettingsOpen(true)}
           >
-            <PixelIcon name="book" className="h-4 w-4" />
-            Rules
+            <PixelIcon name="settings" className="h-4 w-4" />
+            Settings
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
+            onClick={() => setShopOpen(true)}
+          >
+            <PixelIcon name="cart" className="h-4 w-4" />
+            Buy $BIT
           </Button>
         </div>
 
@@ -245,8 +245,8 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
       {/* Leaderboard Modal */}
       <LeaderboardModal open={leaderboardOpen} onOpenChange={setLeaderboardOpen} />
       
-      {/* Rules Modal */}
-      <RulesModal open={rulesOpen} onOpenChange={setRulesOpen} />
+      {/* Shop Modal */}
+      <ShopModal open={shopOpen} onOpenChange={setShopOpen} />
     </Popover>
   );
 }
