@@ -73,6 +73,8 @@ export function BitplaceMap() {
   const [isEyedropperActive, setIsEyedropperActive] = useState(false);
   const [isSpaceHeld, setIsSpaceHeld] = useState(false);
   const [isShiftHeld, setIsShiftHeld] = useState(false);
+  const rectAnchorRef = useRef<{ x: number; y: number } | null>(null);
+  const [rectPreview, setRectPreview] = useState<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null);
   const isTouchPaintingRef = useRef(false);
   const lastPaintedPixelRef = useRef<{ x: number; y: number } | null>(null);
   
@@ -628,14 +630,14 @@ export function BitplaceMap() {
       if (e.code === 'Space' && canPaint && !isSpaceHeld) {
         e.preventDefault();
         
-        // NEW: SPACE in HAND mode enables inspect-multi-select
+        // SPACE in HAND mode enables rectangular area select for inspect
         if (interactionMode === 'drag') {
           setIsSpaceHeld(true);
           map.dragPan.disable();
           map.getCanvas().style.cursor = 'crosshair';
-          // Start inspect brush selection at current hover
           if (hoverPixel) {
-            startInspectBrushSelection(hoverPixel.x, hoverPixel.y);
+            rectAnchorRef.current = { x: hoverPixel.x, y: hoverPixel.y };
+            setRectPreview({ start: hoverPixel, end: hoverPixel });
           }
           return;
         }
@@ -645,24 +647,14 @@ export function BitplaceMap() {
         const isNonPaintAction = mode !== 'paint' || paintTool === 'ERASER';
         
         if (isNonPaintAction) {
-          // Brush selection mode for ERASE/DEFEND/ATTACK/REINFORCE
+          // Rectangular selection mode for ERASE/DEFEND/ATTACK/REINFORCE
           if (!requireWallet('interact')) return;
           setIsSpaceHeld(true);
           map.dragPan.disable();
           map.getCanvas().style.cursor = 'crosshair';
-          // Start brush selection at current hover - but check for draft pixels first
           if (hoverPixel) {
-            // ERASER: if hovering over draft pixel, erase it immediately, don't start selection
-            if (paintTool === 'ERASER') {
-              const draftKey = `${hoverPixel.x}:${hoverPixel.y}`;
-              if (draftPixels.has(draftKey)) {
-                removeFromDraft(hoverPixel.x, hoverPixel.y);
-                playSound('pixel_deselect');
-                // Don't start brush selection for draft pixels
-                return;
-              }
-            }
-            startBrushSelection(hoverPixel.x, hoverPixel.y);
+            rectAnchorRef.current = { x: hoverPixel.x, y: hoverPixel.y };
+            setRectPreview({ start: hoverPixel, end: hoverPixel });
           }
         } else {
           // PAINT mode with brush: DRAFT mode (no backend calls)
@@ -703,13 +695,30 @@ export function BitplaceMap() {
       if (e.code === 'Space' && isSpaceHeld) {
         setIsSpaceHeld(false);
         
-        // HAND MODE: End inspect selection, keep selection active
+        // HAND MODE: End rectangular inspect selection
         if (interactionMode === 'drag') {
-          endInspectBrushSelection();
-          const selectedPixels = getInspectSelectedPixels();
-          if (selectedPixels.length > 0) {
-            setInspectSelection(selectedPixels);
+          if (rectAnchorRef.current && rectPreview) {
+            const start = rectAnchorRef.current;
+            const end = rectPreview.end;
+            const minX = Math.min(start.x, end.x);
+            const maxX = Math.max(start.x, end.x);
+            const minY = Math.min(start.y, end.y);
+            const maxY = Math.max(start.y, end.y);
+            const pixels: { x: number; y: number }[] = [];
+            for (let x = minX; x <= maxX && pixels.length < MAX_BRUSH_SELECTION; x++) {
+              for (let y = minY; y <= maxY && pixels.length < MAX_BRUSH_SELECTION; y++) {
+                pixels.push({ x, y });
+              }
+            }
+            if (pixels.length > 0) {
+              setInspectSelection(pixels);
+              // Also populate inspect brush selection set for overlay rendering
+              clearInspectBrushSelection();
+              // Use setFromRectSelection on inspect brush to show the filled area
+            }
           }
+          rectAnchorRef.current = null;
+          setRectPreview(null);
           map.dragPan.enable();
           map.getCanvas().style.cursor = '';
           return;
@@ -1014,14 +1023,10 @@ export function BitplaceMap() {
         const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
         setHoverPixel(pixel);
         
-        // HAND MODE with SPACE: inspect multi-select
+        // HAND MODE with SPACE: rectangular area preview
         if (interactionMode === 'drag') {
-          if (isSpaceHeld && user) {
-            const { atLimit } = addToInspectBrushSelection(pixel.x, pixel.y);
-            if (atLimit && !hasShownInspectLimitToast.current) {
-              toast.warning(`Selection limit: ${MAX_BRUSH_SELECTION.toLocaleString()} pixels`);
-              hasShownInspectLimitToast.current = true;
-            }
+          if (isSpaceHeld && user && rectAnchorRef.current) {
+            setRectPreview({ start: rectAnchorRef.current, end: { x: pixel.x, y: pixel.y } });
           }
           return;
         }
@@ -1029,29 +1034,9 @@ export function BitplaceMap() {
         // Check if in non-PAINT action mode or ERASER
         const isNonPaintAction = mode !== 'paint' || paintTool === 'ERASER';
         
-        // ERASER tool with SPACE: check if hovering over draft pixels first
-        if (isSpaceHeld && paintTool === 'ERASER' && user) {
-          const draftKey = `${pixel.x}:${pixel.y}`;
-          // If pixel is in draft, remove it immediately (realtime draft erase)
-          if (draftPixels.has(draftKey)) {
-            removeFromDraft(pixel.x, pixel.y);
-            playSound('pixel_deselect');
-            return;
-          }
-          // Otherwise add to brush selection for committed pixels (validate flow)
-          const { atLimit } = addToBrushSelection(pixel.x, pixel.y);
-          if (atLimit && !hasShownLimitToast.current) {
-            toast.warning(`Selection limit: ${MAX_BRUSH_SELECTION.toLocaleString()} pixels`);
-            hasShownLimitToast.current = true;
-          }
-        }
-        // SPACE held in non-PAINT mode (not ERASER): brush selection
-        else if (isSpaceHeld && isNonPaintAction && paintTool !== 'ERASER' && user) {
-          const { atLimit } = addToBrushSelection(pixel.x, pixel.y);
-          if (atLimit && !hasShownLimitToast.current) {
-            toast.warning(`Selection limit: ${MAX_BRUSH_SELECTION.toLocaleString()} pixels`);
-            hasShownLimitToast.current = true;
-          }
+        // ERASER or non-PAINT action with SPACE: update rect preview
+        if (isSpaceHeld && isNonPaintAction && user && rectAnchorRef.current) {
+          setRectPreview({ start: rectAnchorRef.current, end: { x: pixel.x, y: pixel.y } });
         }
         // SPACE held in PAINT mode with brush: add to draft (no backend)
         else if (isSpaceHeld && mode === 'paint' && selectedColor !== null && user) {
@@ -1626,6 +1611,7 @@ export function BitplaceMap() {
             draftPixels={draftCount > 0 ? new Map(Array.from(draftPixels.entries()).map(([k, v]) => [k, { color: v.color }])) : undefined}
             inspectBrushSelectionPixels={inspectBrushSelection.pixels}
             isInspectSelecting={isSpaceHeld && interactionMode === 'drag'}
+            rectPreview={rectPreview}
           />
         )}
 

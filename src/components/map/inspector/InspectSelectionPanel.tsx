@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Shield, Swords, X, Loader2, Coins, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GlassPanel } from '@/components/ui/glass-panel';
+import { PixelIcon } from '@/components/icons';
+import { PEIcon } from '@/components/ui/pe-icon';
 import { supabase } from '@/integrations/supabase/client';
 import { useWithdrawContribution } from '@/hooks/useWithdrawContribution';
 import { cn } from '@/lib/utils';
+
+const PE_TO_USD = 0.001;
 
 interface AggregatedStats {
   myDefTotal: number;
@@ -40,12 +43,10 @@ export function InspectSelectionPanel({
 
     setIsLoading(true);
     try {
-      // Build OR condition for pixel coordinates
       const orCondition = selectedPixels
         .map(p => `and(x.eq.${p.x},y.eq.${p.y})`)
         .join(',');
 
-      // Fetch pixels
       const { data: pixels, error: pixelError } = await supabase
         .from('pixels')
         .select('id, x, y, owner_user_id, owner_stake_pe')
@@ -60,17 +61,12 @@ export function InspectSelectionPanel({
       
       if (pixelIds.length === 0) {
         setAggregatedStats({
-          myDefTotal: 0,
-          myAtkTotal: 0,
-          myOwnedCount: 0,
-          myOwnerStake: 0,
-          defPixelCount: 0,
-          atkPixelCount: 0,
+          myDefTotal: 0, myAtkTotal: 0, myOwnedCount: 0,
+          myOwnerStake: 0, defPixelCount: 0, atkPixelCount: 0,
         });
         return;
       }
 
-      // Fetch user's contributions on these pixels
       const { data: contributions, error: contribError } = await supabase
         .from('pixel_contributions')
         .select('pixel_id, amount_pe, side')
@@ -82,7 +78,6 @@ export function InspectSelectionPanel({
         return;
       }
 
-      // Aggregate stats
       let myDefTotal = 0;
       let myAtkTotal = 0;
       let myOwnedCount = 0;
@@ -108,12 +103,8 @@ export function InspectSelectionPanel({
       });
 
       setAggregatedStats({
-        myDefTotal,
-        myAtkTotal,
-        myOwnedCount,
-        myOwnerStake,
-        defPixelCount: defPixelIds.size,
-        atkPixelCount: atkPixelIds.size,
+        myDefTotal, myAtkTotal, myOwnedCount, myOwnerStake,
+        defPixelCount: defPixelIds.size, atkPixelCount: atkPixelIds.size,
       });
     } catch (error) {
       console.error('[InspectSelectionPanel] Error:', error);
@@ -131,12 +122,16 @@ export function InspectSelectionPanel({
     try {
       const result = await commit(selectedPixels, side);
       if (result?.ok) {
-        // Refresh stats after withdrawal
         await fetchAggregatedStats();
       }
     } finally {
       setWithdrawingSide(null);
     }
+  };
+
+  const formatUsd = (pe: number) => {
+    const usd = pe * PE_TO_USD;
+    return usd < 0.01 ? `$${usd.toFixed(3)}` : `$${usd.toFixed(2)}`;
   };
 
   const hasAnyContributions = aggregatedStats && 
@@ -156,7 +151,7 @@ export function InspectSelectionPanel({
           className="h-6 w-6"
           onClick={onClearSelection}
         >
-          <X className="h-4 w-4" />
+          <PixelIcon name="close" size="xs" />
         </Button>
       </div>
 
@@ -164,23 +159,26 @@ export function InspectSelectionPanel({
       <div className="p-3 space-y-3 overflow-y-auto flex-1">
         {isLoading ? (
           <div className="flex items-center justify-center py-6">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <PixelIcon name="loader" size="md" className="animate-spin text-muted-foreground" />
           </div>
         ) : aggregatedStats ? (
           <>
-            {/* My Contributions */}
+            {/* Your Contributions */}
             {hasAnyContributions && (
               <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 space-y-3">
-                <div className="text-xs font-medium text-foreground">My Contributions</div>
+                <div className="text-xs font-medium text-foreground">Your Contributions</div>
                 
                 {/* DEF Row */}
                 {aggregatedStats.myDefTotal > 0 && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Shield className="h-4 w-4 text-emerald-400" />
+                        <PixelIcon name="shield" size="sm" className="text-emerald-400" />
                         <span className="text-sm">
                           {aggregatedStats.myDefTotal.toLocaleString()} PE
+                        </span>
+                        <span className="text-xs text-emerald-500 font-medium">
+                          {formatUsd(aggregatedStats.myDefTotal)}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           ({aggregatedStats.defPixelCount} px)
@@ -195,9 +193,9 @@ export function InspectSelectionPanel({
                       disabled={isCommitting || withdrawingSide !== null}
                     >
                       {withdrawingSide === 'DEF' ? (
-                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        <PixelIcon name="loader" size="xs" className="mr-1.5 animate-spin" />
                       ) : (
-                        <Shield className="h-3.5 w-3.5 mr-1.5" />
+                        <PixelIcon name="shield" size="xs" className="mr-1.5" />
                       )}
                       Withdraw DEF • +{aggregatedStats.myDefTotal.toLocaleString()} PE
                     </Button>
@@ -209,9 +207,12 @@ export function InspectSelectionPanel({
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Swords className="h-4 w-4 text-rose-400" />
+                        <PixelIcon name="swords" size="sm" className="text-rose-400" />
                         <span className="text-sm">
                           {aggregatedStats.myAtkTotal.toLocaleString()} PE
+                        </span>
+                        <span className="text-xs text-emerald-500 font-medium">
+                          {formatUsd(aggregatedStats.myAtkTotal)}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           ({aggregatedStats.atkPixelCount} px)
@@ -226,9 +227,9 @@ export function InspectSelectionPanel({
                       disabled={isCommitting || withdrawingSide !== null}
                     >
                       {withdrawingSide === 'ATK' ? (
-                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        <PixelIcon name="loader" size="xs" className="mr-1.5 animate-spin" />
                       ) : (
-                        <Swords className="h-3.5 w-3.5 mr-1.5" />
+                        <PixelIcon name="swords" size="xs" className="mr-1.5" />
                       )}
                       Withdraw ATK • +{aggregatedStats.myAtkTotal.toLocaleString()} PE
                     </Button>
@@ -241,7 +242,7 @@ export function InspectSelectionPanel({
             {aggregatedStats.myOwnedCount > 0 && (
               <div className="bg-muted/50 rounded-lg p-3 space-y-1">
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <User className="h-3 w-3" />
+                  <PixelIcon name="user" size="xs" />
                   <span>Owned by you</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -251,8 +252,9 @@ export function InspectSelectionPanel({
                   <span className="text-sm text-muted-foreground">pixels</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Coins className="h-3 w-3" />
+                  <PEIcon size="xs" />
                   <span>{aggregatedStats.myOwnerStake.toLocaleString()} PE staked</span>
+                  <span className="text-emerald-500 font-medium">{formatUsd(aggregatedStats.myOwnerStake)}</span>
                 </div>
               </div>
             )}
