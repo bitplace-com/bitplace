@@ -53,8 +53,8 @@ const App = () => (
                 <Route element={<MainLayout><ProfilePage /></MainLayout>} path="/profile" />
                 <Route element={<MainLayout><LeaderboardPage /></MainLayout>} path="/leaderboard" />
                 <Route element={<MainLayout><WhitePaperPage /></MainLayout>} path="/whitepaper" />
-                <Route element={<MainLayout><TermsPage /></MainLayout>} path="/terms" />
-                <Route element={<MainLayout><PrivacyPage /></MainLayout>} path="/privacy" />
+                <Route element={<TermsPage />} path="/terms" />
+                <Route element={<PrivacyPage />} path="/privacy" />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

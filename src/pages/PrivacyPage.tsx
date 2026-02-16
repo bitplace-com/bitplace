@@ -1,11 +1,21 @@
 import { Shield } from "lucide-react";
+import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
+import { PixelArrowLeft } from "@/components/icons/custom/PixelArrowLeft";
 
 const PrivacyPage = () => {
   return (
     <div className="min-h-full bg-background p-6 md:p-8 lg:p-12">
       <div className="max-w-3xl mx-auto space-y-8">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <PixelArrowLeft className="w-4 h-4" />
+          Back to Map
+        </Link>
+
         <PageHeader
           icon={Shield}
           title="Privacy Policy"

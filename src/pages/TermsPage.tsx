@@ -1,11 +1,21 @@
 import { FileText } from "lucide-react";
+import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
+import { PixelArrowLeft } from "@/components/icons/custom/PixelArrowLeft";
 
 const TermsPage = () => {
   return (
     <div className="min-h-full bg-background p-6 md:p-8 lg:p-12">
       <div className="max-w-3xl mx-auto space-y-8">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <PixelArrowLeft className="w-4 h-4" />
+          Back to Map
+        </Link>
+
         <PageHeader
           icon={FileText}
           title="Terms of Service"
@@ -225,42 +235,25 @@ const TermsPage = () => {
           </p>
         </SectionCard>
 
-        <SectionCard title="15. Governing Law">
-          <p className="text-sm text-muted-foreground">
-            These Terms shall be governed by and construed in accordance with the laws of France, without regard to its conflict of law provisions. Any legal action or proceeding arising under these Terms will be brought exclusively in the courts located in Paris, France, and you consent to personal jurisdiction in such courts.
-          </p>
-        </SectionCard>
-
-        <SectionCard title="16. Dispute Resolution">
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <p>
-              If you have any dispute with us, you agree to first contact us at <a href="mailto:contact@bitplace.app" className="text-primary hover:underline">contact@bitplace.app</a> and attempt to resolve the dispute informally.
-            </p>
-            <p>
-              If we cannot resolve the dispute within 30 days, either party may pursue formal legal action as described in Section 15.
-            </p>
-          </div>
-        </SectionCard>
-
-        <SectionCard title="17. Privacy">
+        <SectionCard title="15. Privacy">
           <p className="text-sm text-muted-foreground">
             Your privacy is important to us. Please review our <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a> to understand how we collect, use, and protect your personal information.
           </p>
         </SectionCard>
 
-        <SectionCard title="18. Severability">
+        <SectionCard title="16. Severability">
           <p className="text-sm text-muted-foreground">
             If any provision of these Terms is found to be invalid or unenforceable, the remaining provisions will remain in full force and effect. The invalid or unenforceable provision will be modified to the extent necessary to make it valid and enforceable while preserving its intent.
           </p>
         </SectionCard>
 
-        <SectionCard title="19. Entire Agreement">
+        <SectionCard title="17. Entire Agreement">
           <p className="text-sm text-muted-foreground">
             These Terms, together with our Privacy Policy, constitute the entire agreement between you and Bitplace regarding your use of the Service and supersede any prior agreements.
           </p>
         </SectionCard>
 
-        <SectionCard title="20. Contact Information">
+        <SectionCard title="18. Contact Information">
           <div className="space-y-3 text-sm text-muted-foreground">
             <p>If you have any questions about these Terms of Service, please contact us at:</p>
             <p>
