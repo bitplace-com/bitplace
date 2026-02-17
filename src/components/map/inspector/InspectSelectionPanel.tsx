@@ -50,7 +50,7 @@ export function InspectSelectionPanel({
       const coords = selectedPixels.map(p => ({ x: p.x, y: p.y }));
       const { data: pixels, error: pixelError } = await supabase.rpc('fetch_pixels_by_coords', {
         coords: coords,
-      });
+      }).limit(10000);
 
       if (pixelError) {
         console.error('[InspectSelectionPanel] Error fetching pixels:', pixelError);
