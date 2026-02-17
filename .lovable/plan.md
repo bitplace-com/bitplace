@@ -1,43 +1,40 @@
 
-
-# Fix: InvalidPixelList mostra messaggi errati per REINFORCE
+# Fix: Info pixel non mostrate per selezioni grandi
 
 ## Problema
-Il componente `InvalidPixelList` ha un messaggio fisso "can't be erased -- you don't own them" che viene mostrato per TUTTI i modi di gioco (REINFORCE, DEFEND, ATTACK, ERASE). Questo crea confusione perche':
-1. Dice "erased" anche quando sei in modalita' Reinforce
-2. Dice "you don't own them" anche quando i pixel sono semplicemente vuoti (non esistono nel DB)
-
-## Causa
-In `src/components/map/inspector/InvalidPixelList.tsx`, riga 43, il messaggio e' hardcoded senza tenere conto del `mode` corrente ne' del motivo (`reason`) reale dei pixel invalidi.
-
-I 681 pixel segnalati come invalidi nel tuo caso sono pixel **vuoti** (non ancora dipinti da nessuno) che rientrano nella selezione rettangolare ma non contengono nessun disegno. Per REINFORCE, non puoi rinforzare pixel vuoti -- il che e' corretto come logica, ma il messaggio e' sbagliato.
+Quando selezioni piu' di circa 500-700 pixel con la spacebar in modalita' esplora, il pannello mostra "Select pixels to view stats" invece delle informazioni reali. Questo succede perche' la query costruisce una stringa `.or()` enorme con tutte le coordinate dei pixel (es. `and(x.eq.100,y.eq.200),and(x.eq.101,y.eq.200),...`) che supera il limite di lunghezza URL di PostgREST, causando un errore silenzioso.
 
 ## Soluzione
+Modificare `InspectSelectionPanel.tsx` per:
 
-### 1. Aggiornare `InvalidPixelList` per accettare il `mode` corrente
-- Passare la prop `mode: GameMode` al componente
-- Generare un messaggio dinamico basato su mode + ragioni reali dei pixel invalidi
+1. **Usare l'RPC `fetch_pixels_by_coords`** gia' esistente nel database, che accetta coordinate come JSONB nel body (nessun limite URL). Questo e' lo stesso approccio gia' usato da game-validate e game-commit.
 
-### 2. Messaggi specifici per modo
-| Mode | Messaggio |
-|------|-----------|
-| ERASE | "X pixel(s) can't be erased" |
-| REINFORCE | "X pixel(s) can't be reinforced" |
-| DEFEND | "X pixel(s) can't be defended" |
-| ATTACK | "X pixel(s) can't be attacked" |
+2. **Paginare la query delle contributions** usando `.range()` per gestire selezioni con piu' di 1000 pixel che hanno contributions.
 
-### 3. Descrizione basata sulla ragione reale
-Invece di dire sempre "you don't own them", il messaggio usera' la ragione dominante:
-- `EMPTY_PIXEL` -> "they are empty"
-- `NOT_OWNER` -> "you don't own them"
-- `IS_OWNER` -> "they belong to you"
-- `OPPOSITE_SIDE` -> "opposite contribution exists"
-- Mix di ragioni -> solo il conteggio generico
+3. **Gestire errori visivamente** - mostrare un messaggio di errore nel pannello invece di fallire silenziosamente.
 
 ## Dettagli tecnici
 
-File da modificare:
-- `src/components/map/inspector/InvalidPixelList.tsx` -- aggiungere prop `mode`, rendere il messaggio dinamico
-- `src/components/map/inspector/InspectorPanel.tsx` -- passare `mode` a InvalidPixelList
-- `src/components/map/MobileActionDock.tsx` -- se usa InvalidPixelList, passare `mode` anche li'
+### File: `src/components/map/inspector/InspectSelectionPanel.tsx`
 
+Sostituire la query pixels (righe 46-53):
+```typescript
+// PRIMA (problematico per grandi selezioni):
+const orCondition = selectedPixels
+  .map(p => `and(x.eq.${p.x},y.eq.${p.y})`)
+  .join(',');
+const { data: pixels } = await supabase
+  .from('pixels')
+  .select('id, x, y, owner_user_id, owner_stake_pe')
+  .or(orCondition);
+
+// DOPO (usa RPC, nessun limite):
+const coords = selectedPixels.map(p => ({ x: p.x, y: p.y }));
+const { data: pixels } = await supabase.rpc('fetch_pixels_by_coords', {
+  coords: coords,
+});
+```
+
+Per le contributions, aggiungere paginazione con `.range()` in batch da 1000 per gestire selezioni con molti pixel che hanno contributions nel database.
+
+Aggiungere anche un messaggio di errore visibile nel pannello nel caso la query fallisca, invece di restituire silenziosamente nessun dato.
