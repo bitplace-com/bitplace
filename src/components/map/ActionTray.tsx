@@ -284,19 +284,17 @@ export function ActionTray({
 
           {/* Right: Expand */}
           <div className="flex items-center gap-1 shrink-0">
-            <GlassIconButton
-              variant="ghost"
-              size="sm"
+            <button
               onClick={handleToggleExpand}
               onMouseDown={e => e.preventDefault()}
-              className="rounded-md !backdrop-blur-none !backdrop-saturate-100"
+              className="h-9 w-9 inline-flex items-center justify-center rounded-md bg-transparent hover:bg-accent active:bg-accent/80 text-muted-foreground transition-colors"
             >
               {isExpanded ? (
                 <PixelIcon name="chevronDown" className="h-4 w-4" />
               ) : (
                 <PixelIcon name="chevronUp" className="h-4 w-4" />
               )}
-            </GlassIconButton>
+            </button>
           </div>
         </div>
 
