@@ -244,7 +244,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
       icon={<PixelIcon name="globe" className="h-5 w-5" />}
       size="sm"
     >
-      <div className="space-y-2">
+      <div className="space-y-3">
         {/* Search input */}
         <div className="relative">
           <Input
@@ -253,7 +253,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search for a place..."
-            className="bg-background/50 border-border/50 pr-10"
+            className="bg-background border-border/50 pr-10 focus-visible:ring-offset-0"
           />
           {inputValue && (
             <Button
@@ -297,16 +297,16 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
 
         {/* Pinned places */}
         {pinnedPlaces.length > 0 && !isSearching && (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Pinned
             </h4>
             <ScrollArea className="max-h-32">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {pinnedPlaces.map((pin) => (
                   <div
                     key={pin.id}
-                    className="flex items-center gap-1.5 p-1.5 rounded-lg hover:bg-muted/50 transition-colors group"
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group"
                   >
                     <PixelIcon name="star" className="h-4 w-4 text-primary shrink-0" />
                     
@@ -363,18 +363,18 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
 
         {/* Place results */}
         {!isSearching && searchResults.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Results
             </h4>
             <ScrollArea className="max-h-48">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {searchResults.map((place, i) => {
                   const pinned = isPinned(place.lat, place.lng);
                   return (
                     <div
                       key={i}
-                      className="flex items-center gap-1.5 p-1.5 rounded-lg hover:bg-muted/50 transition-colors group"
+                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group"
                     >
                       <PixelIcon name="pin" className="h-4 w-4 text-primary shrink-0" />
                       <button
@@ -407,7 +407,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
 
         {/* Recent searches */}
         {filteredRecents.length > 0 && !searchResults.length && !isSearching && (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Recent
@@ -422,11 +422,11 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
               </Button>
             </div>
             <ScrollArea className="max-h-40">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {filteredRecents.map((recent) => (
                   <div
                     key={recent.id}
-                    className="flex items-center gap-1.5 p-1.5 rounded-lg hover:bg-muted/50 transition-colors group"
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group"
                   >
                     <PixelIcon name="clock" className="h-4 w-4 text-muted-foreground shrink-0" />
                     <button
