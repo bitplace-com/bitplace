@@ -140,10 +140,10 @@ export function BitplaceMap() {
     return checkSelectionChanged(currentDraftPixels);
   }, [paintState, frozenPayload, getDraftPixels, checkSelectionChanged]);
 
-  // Reset selectedColor when wallet disconnects
+  // Reset to default brush when wallet disconnects (keep BRUSH tool, not ERASER)
   useEffect(() => {
     if (!user) {
-      setSelectedColor(null);
+      setSelectedColor('#ffffff');
     }
   }, [user, setSelectedColor]);
 
