@@ -47,15 +47,21 @@ export function InspectSelectionPanel({
     setError(null);
     try {
       // Use RPC to avoid URL length limits with large selections
+      // Batch in groups of 900 to stay under server's 1000-row limit
+      const BATCH_SIZE = 900;
       const coords = selectedPixels.map(p => ({ x: p.x, y: p.y }));
-      const { data: pixels, error: pixelError } = await supabase.rpc('fetch_pixels_by_coords', {
-        coords: coords,
-      }).limit(10000);
-
-      if (pixelError) {
-        console.error('[InspectSelectionPanel] Error fetching pixels:', pixelError);
-        setError('Failed to load pixel data');
-        return;
+      const pixels: any[] = [];
+      for (let i = 0; i < coords.length; i += BATCH_SIZE) {
+        const batch = coords.slice(i, i + BATCH_SIZE);
+        const { data, error: pixelError } = await supabase.rpc('fetch_pixels_by_coords', {
+          coords: batch,
+        });
+        if (pixelError) {
+          console.error('[InspectSelectionPanel] Error fetching pixels:', pixelError);
+          setError('Failed to load pixel data');
+          return;
+        }
+        if (data) pixels.push(...data);
       }
 
       const pixelIds = pixels?.map(p => p.id) || [];
