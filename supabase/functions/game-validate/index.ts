@@ -241,12 +241,15 @@ async function fetchPixelsByCoords(
     y: Math.floor(p.y) 
   }));
   
-  const allData: any[] = [];
+  // Launch all batch RPCs in parallel for speed
+  const batchPromises: Promise<any>[] = [];
   for (let i = 0; i < coords.length; i += BATCH_SIZE) {
     const batch = coords.slice(i, i + BATCH_SIZE);
-    const { data, error } = await supabase.rpc("fetch_pixels_by_coords", { 
-      coords: batch 
-    });
+    batchPromises.push(supabase.rpc("fetch_pixels_by_coords", { coords: batch }));
+  }
+  const batchResults = await Promise.all(batchPromises);
+  const allData: any[] = [];
+  for (const { data, error } of batchResults) {
     if (error) {
       console.error('[game-validate] fetchPixelsByCoords RPC error:', error);
       throw error;

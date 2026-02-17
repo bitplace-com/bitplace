@@ -135,12 +135,15 @@ async function fetchPixelsByCoords(
   const BATCH_SIZE = 900;
   const coords = pixels.map(p => ({ x: p.x, y: p.y }));
   
-  const allData: any[] = [];
+  // Launch all batch RPCs in parallel for speed
+  const batchPromises: any[] = [];
   for (let i = 0; i < coords.length; i += BATCH_SIZE) {
     const batch = coords.slice(i, i + BATCH_SIZE);
-    const { data, error } = await supabase.rpc('fetch_pixels_by_coords', {
-      coords: batch,
-    });
+    batchPromises.push(supabase.rpc('fetch_pixels_by_coords', { coords: batch }));
+  }
+  const batchResults = await Promise.all(batchPromises);
+  const allData: any[] = [];
+  for (const { data, error } of batchResults) {
     if (error) {
       console.error('[game-commit] fetchPixelsByCoords error:', error);
       throw error;
@@ -308,20 +311,39 @@ async function executeCommit(
       affectedPixels = deletedPixels?.length || 0;
     }
   } else if (mode === "REINFORCE") {
-    // OPTIMIZED: Batch update for REINFORCE
+    // OPTIMIZED: Parallel batch updates for REINFORCE
     const ownedPixels = pixelStates.filter(p => p.id && p.owner_user_id === userId);
     
-    for (const pixel of ownedPixels) {
-      const { error } = await supabase
-        .from("pixels")
-        .update({ 
-          owner_stake_pe: (pixel.owner_stake_pe || 0) + pePerPixel!,
-          updated_at: now
+    const REINFORCE_BATCH = 100;
+    const MAX_PARALLEL = 5;
+    const reinforceBatches: typeof ownedPixels[] = [];
+    for (let i = 0; i < ownedPixels.length; i += REINFORCE_BATCH) {
+      reinforceBatches.push(ownedPixels.slice(i, i + REINFORCE_BATCH));
+    }
+    
+    console.log(`[game-commit] REINFORCE: ${ownedPixels.length} pixels in ${reinforceBatches.length} batches (parallel=${MAX_PARALLEL})`);
+    
+    for (let i = 0; i < reinforceBatches.length; i += MAX_PARALLEL) {
+      const parallelGroup = reinforceBatches.slice(i, i + MAX_PARALLEL);
+      const results = await Promise.all(
+        parallelGroup.map(async (batch) => {
+          let count = 0;
+          // Use individual updates within each batch but run batches in parallel
+          for (const pixel of batch) {
+            const { error } = await supabase
+              .from("pixels")
+              .update({
+                owner_stake_pe: (pixel.owner_stake_pe || 0) + pePerPixel!,
+                updated_at: now
+              })
+              .eq("id", pixel.id)
+              .eq("owner_user_id", userId);
+            if (!error) count++;
+          }
+          return count;
         })
-        .eq("id", pixel.id)
-        .eq("owner_user_id", userId);
-      
-      if (!error) affectedPixels++;
+      );
+      affectedPixels += results.reduce((a, b) => a + b, 0);
     }
   } else if (mode === "DEFEND" || mode === "ATTACK") {
     const side = mode === "DEFEND" ? "DEF" : "ATK";
