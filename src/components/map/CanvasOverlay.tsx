@@ -470,59 +470,60 @@ export function CanvasOverlay({
         ctx.textBaseline = 'middle';
         ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY + badgeHeight / 2);
       }
+    }
 
-      // Draw rectangular preview for SPACE area selection
-      if (rectPreview && cellSize > 1) {
-        const { start, end } = rectPreview;
-        const minX = Math.min(start.x, end.x);
-        const maxX = Math.max(start.x, end.x);
-        const minY = Math.min(start.y, end.y);
-        const maxY = Math.max(start.y, end.y);
-        
-        const rectScreenX = (minX - tlGrid.x) * cellSize;
-        const rectScreenY = (minY - tlGrid.y) * cellSize;
-        const rectScreenEndX = (maxX + 1 - tlGrid.x) * cellSize;
-        const rectScreenEndY = (maxY + 1 - tlGrid.y) * cellSize;
-        
-        const rx = roundToDevicePixel(rectScreenX, dpr);
-        const ry = roundToDevicePixel(rectScreenY, dpr);
-        const rw = roundToDevicePixel(rectScreenEndX - rectScreenX, dpr);
-        const rh = roundToDevicePixel(rectScreenEndY - rectScreenY, dpr);
-        
-        // Fill with purple tint
-        ctx.fillStyle = 'rgba(168, 85, 247, 0.15)';
-        ctx.fillRect(rx, ry, rw, rh);
-        
-        // Dashed border
-        ctx.strokeStyle = 'rgba(168, 85, 247, 0.9)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6, 4]);
-        ctx.strokeRect(rx, ry, rw, rh);
-        ctx.setLineDash([]);
-        
-        // Pixel count badge
-        const pixelCount = (maxX - minX + 1) * (maxY - minY + 1);
-        const badgeText = `${pixelCount.toLocaleString()} px`;
-        ctx.font = 'bold 12px system-ui, sans-serif';
-        const tm = ctx.measureText(badgeText);
-        const bp = 8;
-        const bh = 24;
-        const bw = tm.width + bp * 2;
-        const bx = rx + rw / 2 - bw / 2;
-        const by = ry - bh - 8;
-        
-        ctx.fillStyle = 'rgba(88, 28, 135, 0.95)';
-        ctx.beginPath();
-        ctx.roundRect(bx, by, bw, bh, 6);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(168, 85, 247, 0.8)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        ctx.fillStyle = '#E9D5FF';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(badgeText, bx + bw / 2, by + bh / 2);
-      }
+    // Draw rectangular preview for SPACE area selection (outside selection.bounds block)
+    if (rectPreview && cellSize > 1) {
+      ctx.globalAlpha = 1;
+      const { start, end } = rectPreview;
+      const minX = Math.min(start.x, end.x);
+      const maxX = Math.max(start.x, end.x);
+      const minY = Math.min(start.y, end.y);
+      const maxY = Math.max(start.y, end.y);
+      
+      const rectScreenX = (minX - tlGrid.x) * cellSize;
+      const rectScreenY = (minY - tlGrid.y) * cellSize;
+      const rectScreenEndX = (maxX + 1 - tlGrid.x) * cellSize;
+      const rectScreenEndY = (maxY + 1 - tlGrid.y) * cellSize;
+      
+      const rx = roundToDevicePixel(rectScreenX, dpr);
+      const ry = roundToDevicePixel(rectScreenY, dpr);
+      const rw = roundToDevicePixel(rectScreenEndX - rectScreenX, dpr);
+      const rh = roundToDevicePixel(rectScreenEndY - rectScreenY, dpr);
+      
+      // Fill with purple tint
+      ctx.fillStyle = 'rgba(168, 85, 247, 0.15)';
+      ctx.fillRect(rx, ry, rw, rh);
+      
+      // Dashed border
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.9)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(rx, ry, rw, rh);
+      ctx.setLineDash([]);
+      
+      // Pixel count badge
+      const pixelCount = (maxX - minX + 1) * (maxY - minY + 1);
+      const badgeText = `${pixelCount.toLocaleString()} px`;
+      ctx.font = 'bold 12px system-ui, sans-serif';
+      const tm = ctx.measureText(badgeText);
+      const bp = 8;
+      const bh = 24;
+      const bw = tm.width + bp * 2;
+      const bx = rx + rw / 2 - bw / 2;
+      const by = ry - bh - 8;
+      
+      ctx.fillStyle = 'rgba(88, 28, 135, 0.95)';
+      ctx.beginPath();
+      ctx.roundRect(bx, by, bw, bh, 6);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.8)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = '#E9D5FF';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(badgeText, bx + bw / 2, by + bh / 2);
     }
     
     // Track pixel count and mark draw end for perf metrics

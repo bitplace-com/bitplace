@@ -37,24 +37,11 @@ export function InvalidPixelList({ invalidPixels, onExcludeInvalid, isPartialVal
 
   return (
     <div className={`border-t ${colorClass} p-3`}>
-      <div className="flex items-center justify-between mb-2">
-        <div className={`flex items-center gap-2 text-xs font-medium ${textColorClass}`}>
-          <AlertCircle className={`h-3 w-3 ${iconColorClass}`} />
-          <span>
-            {isPartialValid ? 'Cannot Erase' : 'Invalid Pixels'} ({invalidPixels.length})
-          </span>
-        </div>
-        {onExcludeInvalid && isPartialValid && (
-          <Button 
-            type="button"
-            size="sm" 
-            variant="ghost" 
-            onClick={onExcludeInvalid}
-            className="h-6 px-2 text-[10px] text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
-          >
-            Exclude All
-          </Button>
-        )}
+      <div className="flex items-center gap-2 text-xs font-medium mb-2">
+        <AlertCircle className={`h-3 w-3 ${iconColorClass}`} />
+        <span className={textColorClass}>
+          {invalidPixels.length} pixel{invalidPixels.length > 1 ? 's' : ''} can't be erased — you don't own {invalidPixels.length > 1 ? 'them' : 'it'}
+        </span>
       </div>
       
       {/* Show grouped summary by reason */}
