@@ -132,7 +132,7 @@ export function NotificationsPanel({ open, onOpenChange }: NotificationsPanelPro
       open={open}
       onOpenChange={onOpenChange}
       title="Notifications"
-      description={unreadCount > 0 ? `${unreadCount} unread` : "All caught up"}
+      description={undefined}
       icon={<PixelIcon name="bell" className="h-5 w-5" />}
       size="sm"
     >

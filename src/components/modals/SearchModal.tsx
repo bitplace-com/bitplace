@@ -240,8 +240,8 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
       open={open}
       onOpenChange={onOpenChange}
       title="Search"
-      description="Jump to coordinates or find places"
-      icon={<PixelIcon name="search" className="h-5 w-5" />}
+      description={undefined}
+      icon={<PixelIcon name="globe" className="h-5 w-5" />}
       size="sm"
     >
       <div className="space-y-4">
@@ -252,7 +252,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="lat,lng · x:y · or place name..."
+            placeholder="Search for a place..."
             className="bg-background/50 border-border/50 pr-20"
           />
           {inputValue && (
