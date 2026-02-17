@@ -51,7 +51,7 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
           <div
             className={cn(
               "transition-all duration-300 ease-out overflow-hidden",
-              isExpanded ? "max-w-[240px] opacity-100" : "max-w-0 opacity-0"
+              isExpanded ? "max-w-[200px] opacity-100" : "max-w-0 opacity-0"
             )}
           >
             <div ref={scrollRef} className="overflow-x-auto toolbar-scroll">
