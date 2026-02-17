@@ -72,9 +72,21 @@ function MetricValue({ metric, totalPixels, totalPeStaked }: { metric: Leaderboa
 }
 
 function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1) return <div className="w-6 h-6 rounded-full bg-yellow-500/20 text-yellow-600 flex items-center justify-center text-xs font-bold animate-shine">1</div>;
-  if (rank === 2) return <div className="w-6 h-6 rounded-full bg-slate-300/30 text-slate-500 flex items-center justify-center text-xs font-bold animate-shine">2</div>;
-  if (rank === 3) return <div className="w-6 h-6 rounded-full bg-amber-600/20 text-amber-700 flex items-center justify-center text-xs font-bold animate-shine">3</div>;
+  if (rank === 1) return (
+    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold animate-shine relative bg-gradient-to-br from-yellow-300 via-yellow-500 to-amber-600 text-white shadow-[0_0_8px_2px_rgba(234,179,8,0.35)]">
+      <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">1</span>
+    </div>
+  );
+  if (rank === 2) return (
+    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold animate-shine relative bg-gradient-to-br from-slate-200 via-slate-400 to-slate-500 text-white shadow-[0_0_8px_2px_rgba(148,163,184,0.3)]">
+      <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">2</span>
+    </div>
+  );
+  if (rank === 3) return (
+    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold animate-shine relative bg-gradient-to-br from-amber-500 via-amber-700 to-amber-900 text-white shadow-[0_0_8px_2px_rgba(180,83,9,0.3)]">
+      <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">3</span>
+    </div>
+  );
   return <div className="w-6 h-6 flex items-center justify-center text-xs text-muted-foreground">{rank}</div>;
 }
 
