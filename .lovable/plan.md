@@ -1,48 +1,24 @@
 
 
-## Piano di Implementazione
+## Fix: ERASE Network Error on Large Selections
 
-Ci sono due problemi distinti da risolvere:
+### Root Cause
 
-### Problema 1: Pannello laterale ERASE confusionario
+The `game-commit` edge function uses `.in("pixel_id", pixelIds)` to fetch pixel data. With 1650 pixels, this generates a URL query string that exceeds PostgREST's URL length limit, resulting in a **400 Bad Request** error that surfaces as "Network error" in the UI.
 
-Il pannello destro (InspectorPanel) in modalità ERASE mostra il PixelTab con coordinate inutili, icone Lucide generiche (Flag) invece delle bandierine emoji, e troppi dettagli. Va semplificato per allinearlo allo stile pulito del PixelInfoPanel.
+The `game-validate` function already solved this problem by using an RPC function (`fetch_pixels_by_coords`) that passes coordinates as JSONB -- no URL limit issue.
 
-**Modifiche previste:**
+### Fix
 
-- **PixelTab.tsx**: 
-  - Rimuovere la riga "Coordinates" (non serve)
-  - Sostituire l'icona Lucide `Flag` con la bandiera emoji del paese usando `getCountryByCode()` (stessa logica del PixelInfoPanel)
-  - Importare `getCountryByCode` da `@/lib/countries`
+Replace `fetchPixelsByIds` in `game-commit/index.ts` with `fetchPixelsByCoords` using the same RPC approach as `game-validate`.
 
-### Problema 2: Spacebar per selezione area in ERASE non funziona
+### Technical Details
 
-Il bug e' nel handler `keyUp` dello spacebar in BitplaceMap.tsx. Quando si rilascia SPACE in modalita' ERASER/draw:
+**File: `supabase/functions/game-commit/index.ts`**
 
-1. Il rettangolo viene mostrato visivamente tramite `rectPreview` (funziona)
-2. Ma al rilascio, il codice chiama `getBrushSelectedPixels()` che e' vuoto perche' i pixel dal rettangolo non vengono mai trasferiti nella brush selection
-3. Risultato: nessun pixel viene selezionato
+1. Replace the `fetchPixelsByIds` function (lines 117-150) with a `fetchPixelsByCoords` function that calls the existing `fetch_pixels_by_coords` RPC (same as game-validate)
+2. Update both call sites (streaming handler ~line 669, non-streaming handler) to use the new function
+3. Remove the `computePixelId` helper since it won't be needed for the fetch anymore (keep it if used elsewhere for pixelMap keys)
 
-**Causa**: nel keyUp, per la modalita' HAND c'e' codice che costruisce manualmente l'array di pixel dal `rectPreview`, ma per la modalita' DRAW/ERASER manca questo passaggio. Il codice chiama `endBrushSelection()` e poi `getBrushSelectedPixels()` ma la brush selection non e' mai stata popolata dal rettangolo.
-
-**Fix in BitplaceMap.tsx** (handler keyUp, sezione DRAW mode ERASER):
-  - Prima di chiamare `endBrushSelection()`, costruire l'array di pixel dal `rectPreview` (come gia' fatto per HAND mode)
-  - Usare i pixel dal rettangolo direttamente invece di `getBrushSelectedPixels()`
-  - Pulire `rectAnchorRef` e `rectPreview` dopo l'uso
-
-### Dettagli tecnici
-
-**File da modificare:**
-
-1. **src/components/map/inspector/PixelTab.tsx**
-   - Rimuovere righe 103-107 (blocco Coordinates)
-   - Importare `getCountryByCode` da `@/lib/countries`
-   - Righe 139-144: sostituire `<Flag>` Lucide con `country.flag` emoji + `country.name`
-
-2. **src/components/map/BitplaceMap.tsx**
-   - Nel handler `handleKeyUp`, sezione che gestisce il rilascio SPACE in draw mode per ERASER (circa righe 728-773):
-     - Aggiungere costruzione dell'array pixel dal `rectPreview` (come gia' fatto per HAND mode alle righe 700-712)
-     - Usare quei pixel direttamente per le operazioni di ERASE (rimuovere dal draft e/o settare come pendingPixels)
-     - Pulire `rectAnchorRef` e `rectPreview`
-     - Ri-abilitare `dragPan` e resettare il cursore
+The RPC function already exists in the database -- no schema changes needed. The function accepts a JSONB array of `{x, y}` coordinates and returns matching pixel rows, bypassing PostgREST's URL length limit entirely.
 
