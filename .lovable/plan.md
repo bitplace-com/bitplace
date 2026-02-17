@@ -1,82 +1,45 @@
 
 
-## Ottimizzazione Mobile e WalletButton Collassabile
+## Decrementare pixels_painted_total quando l'utente cancella i propri pixel
 
-### Problemi Identificati
-
-1. **WalletButton sovrappone il MapToolbar**: Su mobile, il pulsante "Connect Wallet" (top-right) si sovrappone alla toolbar dei modi (Paint/Defend/Attack/Reinforce) posizionata al centro-top
-2. **Menu laterale**: Piccoli problemi di spaziatura (padding top eccessivo nel drawer)
-3. **WalletButton non collassabile**: Su mobile occupa troppo spazio orizzontale e non si puo nascondere
+### Problema
+Attualmente `pixels_painted_total` viene incrementato solo durante il PAINT ma non viene mai decrementato durante l'ERASE. Un utente potrebbe disegnare e cancellare all'infinito per gonfiare la propria posizione in classifica.
 
 ### Soluzione
+Nel file `supabase/functions/game-commit/index.ts`, aggiungere la logica per decrementare `pixels_painted_total` quando un utente cancella i propri pixel con la gomma.
 
-#### 1. WalletButton Collassabile su Mobile
-Creare un wrapper `MobileWalletButton` che:
-- Quando **collassato**: mostra solo il pallino verde lampeggiante (indicatore wallet connesso) - occupa circa 32x32px
-- Quando **espanso**: mostra il WalletButton completo con wallet abbreviato e bilancio
-- **Tap sul pallino** per espandere, tap fuori o swipe per collassare
-- Quando espanso, il menu Popover (UserMenuPanel) funziona normalmente
-- Quando il wallet non e connesso: mostra il pulsante "Connect Wallet" compatto (solo icona wallet)
+### Dettagli tecnici
 
-**File: `src/components/wallet/MobileWalletButton.tsx`** (nuovo)
-- Componente wrapper che gestisce lo stato collapsed/expanded
-- Collapsed: solo pallino verde animato (pulse) in un piccolo contenitore glass
-- Expanded: il WalletButton completo attuale
-- Auto-collapse dopo 5 secondi di inattivita (opzionale)
+**File: `supabase/functions/game-commit/index.ts`** (righe 569-584)
 
-#### 2. Aggiornare BitplaceMap HUD Layout
-**File: `src/components/map/BitplaceMap.tsx`** (righe 1684-1686)
-- Su mobile: usare `MobileWalletButton` invece di `WalletButton`
-- Su desktop: mantenere `WalletButton` invariato
-
-#### 3. Fix Sovrapposizione Top Area
-**File: `src/components/map/BitplaceMap.tsx`**
-- Su mobile il MapToolbar (top-center) e il WalletButton (top-right) si sovrappongono
-- Con il wallet collassato a pallino verde, lo spazio viene liberato
-- Aggiungere `max-w-[60%]` al MapToolbar su mobile per evitare overflow
-
-#### 4. Menu Drawer - Fix Spaziatura
-**File: `src/components/map/MapMenuDrawer.tsx`**
-- Ridurre il `mt-6` della nav a `mt-3` per meno spazio vuoto in alto
-- Aggiungere `safe-top` al SheetContent per gestire correttamente il notch iOS
-
-#### 5. ActionTray Mobile - Ottimizzazioni
-**File: `src/components/map/ActionTray.tsx`**
-- I bottoni tool row sono gia responsivi con classi sm: separate
-- Verificare che la palette colori non sborda su schermi piccoli (gia ha `max-w-[calc(100vw-1rem)]`)
-
-#### 6. StatusStrip Mobile - Fix Wrapping
-**File: `src/components/map/StatusStrip.tsx`**
-- Su schermi stretti, il contenuto wrappa su piu righe causando altezze variabili
-- Aggiungere `overflow-x-auto` con `scrollbar-hide` per scroll orizzontale (gia presente)
-- Verificare che i chip non si sovrappongano
-
-### Dettagli Tecnici
-
-**Nuovo file: `src/components/wallet/MobileWalletButton.tsx`**
+Dopo il blocco che gestisce il PAINT, aggiungere un blocco per l'ERASE che sottrae i pixel cancellati dal contatore:
 
 ```typescript
-// Stato: collapsed (pallino verde) | expanded (WalletButton completo)
-// - collapsed: div 32x32 glass con pallino verde animate-pulse
-// - expanded: WalletButton originale con animazione slide-in
-// - Se wallet non connesso: icona wallet compatta
-// - Tap su pallino -> expand
-// - Tap fuori -> collapse (useClickOutside)
+// Codice attuale (solo PAINT):
+if (mode === "PAINT" && affectedPixels > 0) {
+  newPixelsPaintedTotal = (user.pixels_painted_total || 0) + affectedPixels;
+  paintCooldownUntil = new Date(Date.now() + PAINT_COOLDOWN_SECONDS * 1000);
+  await supabase
+    .from("users")
+    .update({ 
+      pixels_painted_total: newPixelsPaintedTotal, 
+      paint_cooldown_until: paintCooldownUntil.toISOString(),
+    })
+    .eq("id", userId);
+}
+
+// Aggiunta per ERASE:
+if (mode === "ERASE" && affectedPixels > 0) {
+  newPixelsPaintedTotal = Math.max(0, (user.pixels_painted_total || 0) - affectedPixels);
+  await supabase
+    .from("users")
+    .update({ pixels_painted_total: newPixelsPaintedTotal })
+    .eq("id", userId);
+}
 ```
 
-**Modifica in BitplaceMap.tsx (riga 1684-1686):**
-```typescript
-<HudSlot position="top-right">
-  {isMobile ? <MobileWalletButton /> : <WalletButton />}
-</HudSlot>
-```
+- `Math.max(0, ...)` garantisce che il contatore non vada mai sotto zero
+- La leaderboard usa `pixels_painted_total` dalla tabella `users`, quindi si aggiorna automaticamente
+- Nessuna modifica al database necessaria, solo logica backend
 
-**Modifica in MapMenuDrawer.tsx:**
-- `mt-6` -> `mt-3` sulla nav
-- Aggiungere `safe-top` al contenitore
-
-**Modifica in WalletButton.tsx:**
-- Nessuna modifica, resta il componente base riutilizzato
-
-Totale file coinvolti: 4 (1 nuovo + 3 modifiche)
-
+**File coinvolti:** 1 (edge function `game-commit`)
