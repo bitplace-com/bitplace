@@ -1,66 +1,33 @@
 
-## Fix: Layout mobile per palette colori, menu e toolbar azioni
 
-Ci sono 4 problemi da risolvere, tutti legati al layout mobile.
+## Fix: Proporzioni pannello colori su mobile
 
----
+### Problemi identificati dallo screenshot
+1. **Pannello troppo largo**: quando espanso, il container usa `width: 100%` con `max-w-[calc(100vw-1rem)]`, lasciando solo 0.5rem di margine per lato. I colori arrivano quasi ai bordi dello schermo
+2. **Colori troppo grandi**: la griglia `grid-cols-[repeat(10,1fr)]` espande i quadrati colore per riempire tutta la larghezza, rendendoli sproporzionati
+3. **Strumenti tagliati a sinistra**: il bottone "1x" (pixel singolo) nella tool row sembra tagliato sul bordo sinistro
 
-### 1. Palette Colors - distribuzione disallineata
+### Soluzione
 
-**Problema**: La griglia `grid-cols-10` con `gap-1` non si adatta bene alla larghezza mobile. I colori hanno dimensioni variabili e non riempiono uniformemente lo spazio.
+**File: `src/components/map/ActionTray.tsx`**
 
-**Soluzione** in `src/components/map/ActionTray.tsx`:
-- Cambiare la griglia Colors da `grid grid-cols-10 gap-1` a una griglia con colonne a larghezza fissa uniforme, usando `grid-cols-[repeat(10,1fr)]` con `gap-0.5` su mobile
-- Rimuovere `overflow-x-hidden` e aggiungere `overflow-x-auto` al container della palette per permettere lo scorrimento laterale se i colori escono dallo schermo
-- Mantenere `overflow-y-auto` per lo scorrimento verticale
+1. **Ridurre la larghezza massima mobile**: cambiare `max-w-[calc(100vw-1rem)]` in `max-w-[calc(100vw-2rem)]` per avere 1rem di margine per lato (16px per lato invece di 8px)
 
-### 2. Palette Gradients - pannello troppo largo
+2. **Colori a dimensione fissa invece di fluida**: nella griglia Colors, i bottoni colore devono avere dimensione fissa (`w-7 h-7` su mobile, `w-[22px] h-[22px]` su desktop) con `shrink-0`, e la griglia deve usare `auto-fill` con dimensioni fisse invece di `1fr` che espande. Oppure piu semplicemente: mantenere `grid-cols-10` ma dare ai bottoni `w-full aspect-square` con un `max-w` ragionevole
 
-**Problema**: Il pannello Gradients usa `flex gap-1 flex-1` per i colori di ogni riga, che li espande fino ai bordi dello schermo. Le label ("Purple", "Blue") occupano spazio extra.
+3. **Approccio semplificato**: dato che il pannello ha padding `px-3` (12px per lato) e il container interno ha `px-1` (4px per lato), la larghezza utile e circa `viewport - 2rem - 32px`. Con 10 colonne e gap-0.5 (2px), ogni colore sara circa `(larghezza_utile - 18px_gap) / 10`. Su un iPhone 390px: `(390 - 32 - 32 - 18) / 10 = ~30px` per colore, che e ragionevole.
 
-**Soluzione** in `src/components/map/ActionTray.tsx`:
-- Rendere le righe gradient scrollabili orizzontalmente con `overflow-x-auto` e `flex-nowrap`
-- Dare dimensioni fisse ai bottoni colore (uguali alla griglia Colors) invece di lasciarli espandere con `flex-1`
-- Allineare le proporzioni del gradients con quelle del colors per coerenza visiva
+4. **Uniformare Gradients con Colors**: i bottoni gradient devono avere la stessa dimensione dei bottoni colors
 
-### 3. Menu laterale (MapMenuDrawer) - vuoti sopra e sotto
+### Dettaglio tecnico
 
-**Problema**: Il `SheetContent` usa `inset-y-0 h-full` ma su browser in-app (Phantom, Safari) la viewport puo essere piu corta della finestra visibile. Quando la mappa scorre sotto, appaiono spazi vuoti sopra e sotto il menu.
+- **Riga 175**: `max-w-[calc(100vw-1rem)]` diventa `max-w-[calc(100vw-2rem)]` per margini piu ampi
+- **Riga 392**: la griglia Colors resta `grid-cols-[repeat(10,1fr)]` con `gap-0.5` - i colori si adatteranno automaticamente alla nuova larghezza ridotta
+- **Righe 396-408**: i bottoni colore mantengono `w-full aspect-square` ma con `rounded-md` uniforme (non `rounded-lg` su mobile che spreca spazio)
+- **Riga 390**: il container scroll usa `max-h-48` che va bene per lo scroll verticale
 
-**Soluzione** in `src/components/ui/sheet.tsx`:
-- Per il side `left`, aggiungere `min-h-[100dvh]` e `h-[100dvh]` al posto di `h-full` per usare la viewport dinamica
-- Aggiungere `top-0 bottom-0` espliciti per ancorare il menu ai bordi reali della finestra
-- In alternativa, aggiungere `position: fixed` con `inset: 0` specificamente per mobile
+Il problema principale e la larghezza totale del pannello (`100vw - 1rem` e troppo), non la griglia in se.
 
-### 4. MapToolbar - 4 azioni non scrollabili da mobile
+### Rischio: Zero
+Solo modifiche CSS di dimensionamento.
 
-**Problema**: Il `ToggleGroup` con le 4 modalita (Paint, Defend, Attack, Reinforce) usa `overflow-hidden` nel container e non permette lo scorrimento laterale su mobile. L'utente non riesce a vedere tutte le opzioni.
-
-**Soluzione** in `src/components/map/MapToolbar.tsx`:
-- Sostituire `overflow-hidden` con `overflow-x-auto` quando espanso su mobile
-- Aggiungere `scrollbar-hide` (CSS utility) per nascondere la scrollbar visivamente
-- Assicurarsi che `flex-nowrap` sia applicato al ToggleGroup per impedire il wrapping
-
----
-
-### Dettagli tecnici
-
-**File coinvolti: 3**
-
-**`src/components/map/ActionTray.tsx`** (problemi 1 e 2):
-- Linea 390: cambiare `overflow-y-auto overflow-x-hidden` in `overflow-auto` per abilitare scroll in entrambe le direzioni
-- Linea 392: uniformare `gap-1` a `gap-0.5` su mobile per evitare spazi irregolari nella griglia
-- Linea 401: rendere i bottoni colore con dimensione minima fissa (`min-w-[28px]`) per allineamento consistente
-- Linee 414-441: nella sezione Gradients, dare ai bottoni colore una dimensione fissa uguale a Colors e rendere la riga `overflow-x-auto` con `flex-nowrap`
-- Rimuovere `flex-1` dalla riga gradient colors per evitare l'espansione ai bordi
-
-**`src/components/ui/sheet.tsx`** (problema 3):
-- Linea 39: cambiare il variant `left` da `h-full` a `h-[100dvh]` e aggiungere `fixed inset-y-0` per garantire copertura completa su browser in-app
-- Aggiungere `overscroll-contain` per impedire che lo scroll della mappa sotto influenzi il menu
-
-**`src/components/map/MapToolbar.tsx`** (problema 4):
-- Linea 60: cambiare `overflow-hidden` in `overflow-x-auto scrollbar-hide` per permettere lo scroll laterale delle 4 azioni su mobile
-- Aggiungere CSS utility `scrollbar-hide` in `src/index.css` se non gia presente (o usare la classe Tailwind equivalente)
-
-### Rischio rottura: Basso
-Modifiche puramente CSS/layout. Nessuna logica di gioco o dati coinvolta.
