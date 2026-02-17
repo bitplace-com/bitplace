@@ -108,7 +108,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               )}
               {user?.alliance_tag && (
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <PixelIcon name="users" className="h-3 w-3 text-foreground" />
+                  <PixelIcon name="usersCrown" className="h-3 w-3 text-foreground" />
                   <span className="text-xs font-medium font-mono text-foreground">
                     [{user.alliance_tag}]
                   </span>
