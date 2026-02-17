@@ -728,9 +728,27 @@ export function BitplaceMap() {
         const isNonPaintAction = mode !== 'paint' || paintTool === 'ERASER';
         
         if (isNonPaintAction) {
-          // End brush selection and update pendingPixels
-          endBrushSelection();
-          const selectedPixels = getBrushSelectedPixels();
+          // Build pixel array from rect selection if available (same as HAND mode)
+          let selectedPixels: { x: number; y: number }[] = [];
+          if (rectAnchorRef.current && rectPreview) {
+            const start = rectAnchorRef.current;
+            const end = rectPreview.end;
+            const minX = Math.min(start.x, end.x);
+            const maxX = Math.max(start.x, end.x);
+            const minY = Math.min(start.y, end.y);
+            const maxY = Math.max(start.y, end.y);
+            for (let x = minX; x <= maxX && selectedPixels.length < MAX_BRUSH_SELECTION; x++) {
+              for (let y = minY; y <= maxY && selectedPixels.length < MAX_BRUSH_SELECTION; y++) {
+                selectedPixels.push({ x, y });
+              }
+            }
+            rectAnchorRef.current = null;
+            setRectPreview(null);
+            map.dragPan.enable();
+          } else {
+            endBrushSelection();
+            selectedPixels = getBrushSelectedPixels();
+          }
           
           // ERASER mode: Auto-remove draft pixels immediately on SPACE release
           if (paintTool === 'ERASER' && selectedPixels.length > 0) {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { User, Flag, Users, Shield, Swords, RefreshCw, AlertTriangle, ArrowUpFromLine, Loader2 } from 'lucide-react';
+import { User, Users, Shield, Swords, RefreshCw, AlertTriangle, ArrowUpFromLine, Loader2 } from 'lucide-react';
+import { getCountryByCode } from '@/lib/countries';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -100,12 +101,6 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
 
   return (
     <div className="space-y-4">
-      {/* Coordinates */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>Coordinates</span>
-        <span className="font-mono">({x}, {y})</span>
-      </div>
-
       {/* Owner Section */}
       <div className="bg-muted/50 rounded-lg p-3 space-y-2">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -136,12 +131,15 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
             </div>
             
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              {pixel.owner?.country_code && (
-                <div className="flex items-center gap-1">
-                  <Flag className="h-3 w-3" />
-                  <span>{pixel.owner.country_code}</span>
-                </div>
-              )}
+              {pixel.owner?.country_code && (() => {
+                const country = getCountryByCode(pixel.owner.country_code);
+                return country ? (
+                  <div className="flex items-center gap-1">
+                    <span>{country.flag}</span>
+                    <span>{country.name}</span>
+                  </div>
+                ) : null;
+              })()}
               {pixel.owner?.alliance_tag && (
                 <div className="flex items-center gap-1">
                   <Users className="h-3 w-3" />
