@@ -37,7 +37,7 @@ const WhitePaperPage = () => {
               description="Drain energy from pixels you want to repaint. Each Attack weakens the pixel. When it's weak enough, you can paint over it."
             />
             <ActionCard
-              icon={<PixelIcon name="plus" size="md" />}
+              icon={<PixelIcon name="bolt" size="md" />}
               title="Reinforce"
               description="Add more energy to pixels you already painted. Strengthens your stake and makes your artwork harder to take."
             />

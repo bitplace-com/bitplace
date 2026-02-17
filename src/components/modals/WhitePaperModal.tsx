@@ -39,7 +39,7 @@ export function WhitePaperModal({
               <ActionCard icon={<PixelIcon name="brush" size="md" />} title="Paint" description="Color any pixel on the map. Stake energy to paint it. Your mark stays until someone paints over it." />
               <ActionCard icon={<PixelIcon name="shield" size="md" />} title="Defend" description="Add energy to protect any pixel. The more energy staked, the harder it is to Attack." />
               <ActionCard icon={<PixelIcon name="swords" size="md" />} title="Attack" description="Drain energy from pixels you want to repaint. Each Attack weakens the pixel. When it's weak enough, you can paint over it." />
-              <ActionCard icon={<PixelIcon name="plus" size="md" />} title="Reinforce" description="Add more energy to pixels you already painted. Strengthens your stake and makes your artwork harder to take." />
+              <ActionCard icon={<PixelIcon name="bolt" size="md" />} title="Reinforce" description="Add more energy to pixels you already painted. Strengthens your stake and makes your artwork harder to take." />
             </div>
           </section>
 
