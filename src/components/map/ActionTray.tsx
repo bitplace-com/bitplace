@@ -302,7 +302,7 @@ export function ActionTray({
 
         {/* Expanded content */}
         {isExpanded && (
-          <div className="px-3 pb-3 overflow-hidden">
+          <div className="px-2 pb-2 sm:px-3 sm:pb-3 overflow-hidden">
             
             {isPaintMode ? (
               /* PAINT MODE: Color palette with tabs */
@@ -387,9 +387,9 @@ export function ActionTray({
                   (isEraser || interactionMode === 'drag') && "opacity-40 pointer-events-none"
                 )}>
 
-                <div className="max-h-48 overflow-auto py-1 px-1 w-full">
+                <div className="max-h-56 overflow-auto py-1 px-1 w-full">
                   {paletteTab === 'colors' ? (
-                    <div className="grid grid-cols-[repeat(10,1fr)] gap-0.5 sm:gap-1">
+                    <div className="grid grid-cols-[repeat(8,1fr)] sm:grid-cols-[repeat(10,1fr)] gap-0.5 sm:gap-1">
                       {displayColors.map((color, index) => {
                         const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
                         return (
@@ -398,7 +398,7 @@ export function ActionTray({
                             onClick={() => handleColorClick(color)}
                             disabled={!canPaint}
                             className={cn(
-                              "w-full aspect-square rounded-lg sm:rounded-md transition-all duration-100 focus:outline-none touch-target",
+                              "w-full aspect-square rounded-md transition-all duration-100 focus:outline-none touch-target",
                               canPaint && "hover:ring-1 hover:ring-foreground/30",
                               isSelected && "ring-2 ring-foreground scale-105 z-10",
                               !canPaint && "opacity-40 cursor-not-allowed"
@@ -426,7 +426,7 @@ export function ActionTray({
                                   onClick={() => handleColorClick(color)}
                                   disabled={!canPaint}
                                   className={cn(
-                                    "w-7 h-7 sm:w-[22px] sm:h-[22px] shrink-0 rounded-md transition-all duration-100 focus:outline-none touch-target",
+                                    "w-6 h-6 sm:w-[22px] sm:h-[22px] shrink-0 rounded-md transition-all duration-100 focus:outline-none touch-target",
                                     canPaint && "hover:ring-1 hover:ring-foreground/30",
                                     isSelected && "ring-2 ring-foreground scale-105 z-10",
                                     !canPaint && "opacity-40 cursor-not-allowed"
