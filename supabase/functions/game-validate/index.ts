@@ -1086,8 +1086,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (pixels.length > 1000) {
-      return new Response(JSON.stringify({ ok: false, error: "TOO_MANY_PIXELS", message: "Max 1000 pixels per request", requestId }), {
+    const maxPixels = mode === "PAINT" ? MAX_PAINT_PIXELS : 10000;
+    if (pixels.length > maxPixels) {
+      return new Response(JSON.stringify({ ok: false, error: "TOO_MANY_PIXELS", message: `Max ${maxPixels} pixels per request`, requestId }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
