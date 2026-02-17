@@ -234,11 +234,12 @@ export function InspectorPanel({
 
       {/* Invalid Pixels List */}
       {invalidPixels.length > 0 && (
-        <InvalidPixelList 
-          invalidPixels={invalidPixels} 
-          onExcludeInvalid={onExcludeInvalid}
-          isPartialValid={validationResult?.partialValid}
-        />
+                <InvalidPixelList 
+                  invalidPixels={invalidPixels} 
+                  onExcludeInvalid={onExcludeInvalid}
+                  isPartialValid={validationResult?.partialValid}
+                  mode={mode}
+                />
       )}
 
       {/* Withdraw Section - only show when user has contributions */}

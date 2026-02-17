@@ -296,6 +296,7 @@ export function MobileActionDock({
                       invalidPixels={invalidPixels} 
                       onExcludeInvalid={onExcludeInvalid}
                       isPartialValid={validationResult?.partialValid}
+                      mode={mode}
                     />
                   )}
 
