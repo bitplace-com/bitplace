@@ -54,7 +54,7 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
               isExpanded ? "max-w-[200px] opacity-100" : "max-w-0 opacity-0"
             )}
           >
-            <div ref={scrollRef} className="overflow-x-auto toolbar-scroll">
+            <div ref={scrollRef} className="overflow-x-auto scrollbar-hide">
               <ToggleGroup
                 type="single"
                 value={mode}

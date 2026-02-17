@@ -1199,8 +1199,13 @@ export function BitplaceMap() {
         if (isShiftHeld && selection.isSelecting) {
           endSelection();
           // If rect selection had an area, the pixels come from getSelectedPixels
+        } else if (interactionMode === 'drag' && dragDistance < 5 && dragStartRef.current) {
+          // HAND/EXPLORE MODE: open inspector regardless of game mode
+          const { x, y } = dragStartRef.current;
+          setInspectedPixel({ x, y });
+          playSound('pixel_select');
         } else if (mode !== 'paint' && dragDistance < 5 && dragStartRef.current) {
-          // Single click in non-PAINT mode - select single pixel for action
+          // Single click in non-PAINT mode (DRAW) - select single pixel for action
           const { x, y } = dragStartRef.current;
           setPendingPixels([{ x, y }]);
           playSound('pixel_select');
