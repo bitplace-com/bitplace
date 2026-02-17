@@ -289,7 +289,7 @@ export function ActionTray({
               size="sm"
               onClick={handleToggleExpand}
               onMouseDown={e => e.preventDefault()}
-              className="rounded-md"
+              className="rounded-md !backdrop-blur-none !backdrop-saturate-100"
             >
               {isExpanded ? (
                 <PixelIcon name="chevronDown" className="h-4 w-4" />

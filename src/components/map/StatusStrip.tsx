@@ -51,7 +51,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
     return (
       <div 
         ref={onHeightChange}
-        className="min-h-12 sm:min-h-11 glass-hud flex items-center justify-center px-4 border-t-0 rounded-none safe-bottom-bar"
+        className="h-12 sm:h-11 glass-hud flex items-center justify-center px-4 py-0 border-t-0 rounded-none"
       >
         <span className="text-sm text-[var(--hud-text-muted)]">Connect your wallet to paint</span>
       </div>
