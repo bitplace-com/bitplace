@@ -13,7 +13,7 @@ import { usePeBalance } from "@/hooks/usePeBalance";
 import { usePixelStats } from "@/hooks/usePixelStats";
 import { ENERGY_ASSET } from "@/config/energy";
 import { cn } from "@/lib/utils";
-import { generateAvatarGradient, getAvatarInitial } from "@/lib/avatar";
+import { getAvatarInitial } from "@/lib/avatar";
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]*$/;
 const USERNAME_MIN = 3;
@@ -110,7 +110,7 @@ const ProfilePage = () => {
 
   // Stats data
   const pixelsPainted = (user as any)?.pixels_painted_total || 0;
-  const avatarGradient = generateAvatarGradient(walletAddress || "default");
+  
   const avatarInitial = getAvatarInitial(user?.display_name, walletAddress);
 
   return (

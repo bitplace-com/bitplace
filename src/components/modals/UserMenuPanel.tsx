@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { useWallet } from "@/contexts/WalletContext";
 import { useSound } from "@/hooks/useSound";
 import { getCountryByCode } from "@/lib/countries";
-import { generateAvatarGradient, getAvatarInitial } from "@/lib/avatar";
+import { AvatarFallback } from "@/components/ui/avatar-fallback-pattern";
 import { cn } from "@/lib/utils";
 import { SettingsModal } from "./SettingsModal";
 import { LeaderboardModal } from "./LeaderboardModal";
@@ -47,8 +47,6 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
   const { enabled: soundEnabled, toggle: toggleSound } = useSound();
 
   const country = getCountryByCode(user?.country_code);
-  const avatarGradient = generateAvatarGradient(walletAddress || "default");
-  const avatarInitial = getAvatarInitial(user?.display_name, walletAddress);
 
   const handleCopyAddress = async () => {
     if (walletAddress) {
@@ -76,12 +74,13 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                 className="h-12 w-12 rounded-full object-cover border-2 border-border"
               />
             ) : (
-              <div
-                className="h-12 w-12 rounded-full flex items-center justify-center text-white font-bold text-lg border-2 border-border"
-                style={{ background: avatarGradient }}
-              >
-                {avatarInitial}
-              </div>
+              <AvatarFallback
+                seed={walletAddress || "default"}
+                name={user?.display_name}
+                wallet={walletAddress}
+                className="h-12 w-12 border-2 border-border"
+                textClassName="text-lg"
+              />
             )}
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-foreground truncate">
