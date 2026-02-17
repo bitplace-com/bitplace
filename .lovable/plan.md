@@ -1,24 +1,39 @@
 
 
-## Fix: ERASE Network Error on Large Selections
+## Fix: RPC Call Format in game-commit
+
+### Problem
+
+The `fetchPixelsByCoords` function in `game-commit` passes `JSON.stringify(coords)` to the RPC, which sends a string instead of a JSONB array. The database function expects an actual JSONB array, causing the error: `cannot call jsonb_to_recordset on a non-array`.
 
 ### Root Cause
 
-The `game-commit` edge function uses `.in("pixel_id", pixelIds)` to fetch pixel data. With 1650 pixels, this generates a URL query string that exceeds PostgREST's URL length limit, resulting in a **400 Bad Request** error that surfaces as "Network error" in the UI.
+In `game-validate`, the RPC is called correctly:
+```typescript
+coords: coords  // passes the array directly
+```
 
-The `game-validate` function already solved this problem by using an RPC function (`fetch_pixels_by_coords`) that passes coordinates as JSONB -- no URL limit issue.
+But in `game-commit`, the previous edit incorrectly used:
+```typescript
+coords: JSON.stringify(coords)  // passes a string - WRONG
+```
 
 ### Fix
 
-Replace `fetchPixelsByIds` in `game-commit/index.ts` with `fetchPixelsByCoords` using the same RPC approach as `game-validate`.
+**File: `supabase/functions/game-commit/index.ts`** (line 138)
 
-### Technical Details
+Remove `JSON.stringify()` and pass `coords` directly, matching how `game-validate` does it:
 
-**File: `supabase/functions/game-commit/index.ts`**
+```typescript
+// Before (broken):
+const { data, error } = await supabase.rpc('fetch_pixels_by_coords', {
+  coords: JSON.stringify(coords),
+});
 
-1. Replace the `fetchPixelsByIds` function (lines 117-150) with a `fetchPixelsByCoords` function that calls the existing `fetch_pixels_by_coords` RPC (same as game-validate)
-2. Update both call sites (streaming handler ~line 669, non-streaming handler) to use the new function
-3. Remove the `computePixelId` helper since it won't be needed for the fetch anymore (keep it if used elsewhere for pixelMap keys)
+// After (fixed):
+const { data, error } = await supabase.rpc('fetch_pixels_by_coords', {
+  coords: coords,
+});
+```
 
-The RPC function already exists in the database -- no schema changes needed. The function accepts a JSONB array of `{x, y}` coordinates and returns matching pixel rows, bypassing PostgREST's URL length limit entirely.
-
+One-line change, then redeploy the edge function.
