@@ -10,7 +10,7 @@ import { usePixelDetails } from '@/hooks/usePixelDetails';
 import { useWithdrawContribution } from '@/hooks/useWithdrawContribution';
 import { AvatarFallback } from '@/components/ui/avatar-fallback-pattern';
 import { getCountryByCode } from '@/lib/countries';
-import { copyPixelCoords, copyPixelLink } from '@/lib/shareLink';
+import { copyPixelCoords, sharePixel } from '@/lib/shareLink';
 import { cn } from '@/lib/utils';
 import type { GameMode } from '@/hooks/useGameActions';
 
@@ -60,9 +60,9 @@ export function PixelInspectorCard({
   };
 
   const handleShare = async () => {
-    const success = await copyPixelLink(x, y);
+    const success = await sharePixel(x, y);
     if (success) toast.success('Link copied!');
-    else toast.error('Failed to copy');
+    else toast.error('Failed to share');
   };
 
   const handlePaint = () => {

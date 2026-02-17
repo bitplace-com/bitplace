@@ -17,6 +17,7 @@ import { AvatarFallback } from "@/components/ui/avatar-fallback-pattern";
 import { getCountryByCode } from "@/lib/countries";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { shareArtwork } from "@/lib/shareLink";
 import { gridIntToLngLat } from "@/lib/pixelGrid";
 
 interface PlayerProfileModalProps {
@@ -346,13 +347,22 @@ export function PlayerProfileModal({ open, onOpenChange, playerId, onJumpToPixel
                   Paints
                 </h4>
                 {profile.pixels.length > 0 && (
-                  <button
-                    onClick={() => setArtworkModalOpen(true)}
-                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition-colors"
-                  >
-                    <PixelIcon name="expand" className="h-3 w-3" />
-                    Expand
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => shareArtwork(profile.id, profile.displayName).then(ok => ok && toast({ title: 'Link copied!' }))}
+                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition-colors"
+                    >
+                      <PixelIcon name="share" className="h-3 w-3" />
+                      Share
+                    </button>
+                    <button
+                      onClick={() => setArtworkModalOpen(true)}
+                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition-colors"
+                    >
+                      <PixelIcon name="expand" className="h-3 w-3" />
+                      Expand
+                    </button>
+                  </div>
                 )}
               </div>
               <PixelMiniMap

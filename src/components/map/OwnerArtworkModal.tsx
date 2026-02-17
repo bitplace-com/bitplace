@@ -6,6 +6,8 @@ import { PixelIcon } from '@/components/icons/PixelIcon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { gridIntToLngLat } from '@/lib/pixelGrid';
+import { sharePixel, shareArtwork } from '@/lib/shareLink';
+import { toast } from 'sonner';
 
 interface PixelData {
   x: number;
@@ -232,7 +234,13 @@ export function OwnerArtworkModal({
               </div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>{pixels.length.toLocaleString()} pixels</span>
-                <span>Click to jump to location</span>
+                <button
+                  onClick={() => sharePixel(clusters[0].centerX, clusters[0].centerY).then(ok => ok && toast.success('Link copied!'))}
+                  className="flex items-center gap-0.5 hover:text-foreground transition-colors"
+                >
+                  <PixelIcon name="share" className="w-3 h-3" />
+                  Share
+                </button>
               </div>
             </>
           ) : (
@@ -250,9 +258,15 @@ export function OwnerArtworkModal({
                         onClick={() => handleClusterClick(cluster)}
                         size={160}
                       />
-                      <span className="text-[10px] text-muted-foreground">
-                        {cluster.pixels.length.toLocaleString()} px
-                      </span>
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                        <span>{cluster.pixels.length.toLocaleString()} px</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); sharePixel(cluster.centerX, cluster.centerY).then(ok => ok && toast.success('Link copied!')); }}
+                          className="hover:text-foreground transition-colors"
+                        >
+                          <PixelIcon name="share" className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -260,7 +274,15 @@ export function OwnerArtworkModal({
             </>
           )}
 
-          <div className="flex justify-end pt-2">
+          <div className="flex items-center justify-between pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => shareArtwork(userId, ownerName).then(ok => ok && toast.success('Link copied!'))}
+            >
+              <PixelIcon name="share" className="w-3.5 h-3.5 mr-1.5" />
+              Share All Paints
+            </Button>
             <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
               Close
             </Button>
