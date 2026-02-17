@@ -183,31 +183,15 @@ Deno.serve(async (req) => {
 
     const totalRefund = validPixels.reduce((sum, p) => sum + p.amount, 0);
 
-    // Get current PE status
+    // Get current PE status using denormalized pe_used_pe (maintained by triggers)
     const { data: userData } = await supabase
       .from("users")
-      .select("pe_total_pe")
+      .select("pe_total_pe, pe_used_pe")
       .eq("id", userId)
       .single();
 
     const peTotalPe = Number(userData?.pe_total_pe ?? 0);
-
-    // Calculate PE used (stake + contributions)
-    const { data: stakeData } = await supabase
-      .from("pixels")
-      .select("owner_stake_pe")
-      .eq("owner_user_id", userId);
-
-    const pixelStakeTotal = stakeData?.reduce((sum, p) => sum + Number(p.owner_stake_pe), 0) ?? 0;
-
-    const { data: allContribData } = await supabase
-      .from("pixel_contributions")
-      .select("amount_pe")
-      .eq("user_id", userId);
-
-    const contributionTotal = allContribData?.reduce((sum, c) => sum + Number(c.amount_pe), 0) ?? 0;
-
-    const peUsed = pixelStakeTotal + contributionTotal;
+    const peUsed = Number(userData?.pe_used_pe ?? 0);
     const peAvailable = peTotalPe - peUsed;
 
     if (action === "validate") {
