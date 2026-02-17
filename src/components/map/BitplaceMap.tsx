@@ -26,6 +26,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { PixelIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { WalletButton } from '@/components/wallet/WalletButton';
+import { MobileWalletButton } from '@/components/wallet/MobileWalletButton';
 import { WalletSelectModal } from '@/components/modals/WalletSelectModal';
 import { usePixelStore, pixelKey, parsePixelKey } from './hooks/usePixelStore';
 import { useSelection } from './hooks/useSelection';
@@ -1682,7 +1683,7 @@ export function BitplaceMap() {
             <MapToolbar mode={mode} onModeChange={setMode} />
           </HudSlot>
           <HudSlot position="top-right">
-            <WalletButton />
+            {isMobile ? <MobileWalletButton /> : <WalletButton />}
           </HudSlot>
           <HudSlot position="bottom-right">
             <ZoomControls onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} artOpacity={artOpacity} onToggleArtOpacity={toggleArtOpacity} />
