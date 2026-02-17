@@ -31,6 +31,7 @@ export function InspectSelectionPanel({
 }: InspectSelectionPanelProps) {
   const [aggregatedStats, setAggregatedStats] = useState<AggregatedStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [withdrawingSide, setWithdrawingSide] = useState<'DEF' | 'ATK' | null>(null);
   const { commit, isCommitting } = useWithdrawContribution();
 
@@ -38,22 +39,22 @@ export function InspectSelectionPanel({
   const fetchAggregatedStats = useCallback(async () => {
     if (!currentUserId || selectedPixels.length === 0) {
       setAggregatedStats(null);
+      setError(null);
       return;
     }
 
     setIsLoading(true);
+    setError(null);
     try {
-      const orCondition = selectedPixels
-        .map(p => `and(x.eq.${p.x},y.eq.${p.y})`)
-        .join(',');
-
-      const { data: pixels, error: pixelError } = await supabase
-        .from('pixels')
-        .select('id, x, y, owner_user_id, owner_stake_pe')
-        .or(orCondition);
+      // Use RPC to avoid URL length limits with large selections
+      const coords = selectedPixels.map(p => ({ x: p.x, y: p.y }));
+      const { data: pixels, error: pixelError } = await supabase.rpc('fetch_pixels_by_coords', {
+        coords: coords,
+      });
 
       if (pixelError) {
         console.error('[InspectSelectionPanel] Error fetching pixels:', pixelError);
+        setError('Failed to load pixel data');
         return;
       }
 
@@ -67,15 +68,24 @@ export function InspectSelectionPanel({
         return;
       }
 
-      const { data: contributions, error: contribError } = await supabase
-        .from('pixel_contributions')
-        .select('pixel_id, amount_pe, side')
-        .eq('user_id', currentUserId)
-        .in('pixel_id', pixelIds);
+      // Paginated contributions fetch to handle >1000 rows
+      const PAGE_SIZE = 1000;
+      const allContributions: { pixel_id: number; amount_pe: number; side: string }[] = [];
+      for (let offset = 0; ; offset += PAGE_SIZE) {
+        const { data: batch, error: contribError } = await supabase
+          .from('pixel_contributions')
+          .select('pixel_id, amount_pe, side')
+          .eq('user_id', currentUserId)
+          .in('pixel_id', pixelIds)
+          .range(offset, offset + PAGE_SIZE - 1);
 
-      if (contribError) {
-        console.error('[InspectSelectionPanel] Error fetching contributions:', contribError);
-        return;
+        if (contribError) {
+          console.error('[InspectSelectionPanel] Error fetching contributions:', contribError);
+          setError('Failed to load contribution data');
+          return;
+        }
+        if (batch) allContributions.push(...batch);
+        if (!batch || batch.length < PAGE_SIZE) break;
       }
 
       let myDefTotal = 0;
@@ -85,7 +95,7 @@ export function InspectSelectionPanel({
       const defPixelIds = new Set<number>();
       const atkPixelIds = new Set<number>();
 
-      contributions?.forEach(c => {
+      allContributions.forEach(c => {
         if (c.side === 'DEF') {
           myDefTotal += Number(c.amount_pe);
           defPixelIds.add(c.pixel_id);
@@ -106,8 +116,9 @@ export function InspectSelectionPanel({
         myDefTotal, myAtkTotal, myOwnedCount, myOwnerStake,
         defPixelCount: defPixelIds.size, atkPixelCount: atkPixelIds.size,
       });
-    } catch (error) {
-      console.error('[InspectSelectionPanel] Error:', error);
+    } catch (err) {
+      console.error('[InspectSelectionPanel] Error:', err);
+      setError('Unexpected error loading data');
     } finally {
       setIsLoading(false);
     }
@@ -160,6 +171,15 @@ export function InspectSelectionPanel({
         {isLoading ? (
           <div className="flex items-center justify-center py-6">
             <PixelIcon name="loader" size="md" className="animate-spin text-muted-foreground" />
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center gap-2 py-4">
+            <PixelIcon name="alert" size="md" className="text-destructive" />
+            <span className="text-sm text-destructive">{error}</span>
+            <Button variant="outline" size="sm" onClick={fetchAggregatedStats}>
+              <PixelIcon name="refresh" size="xs" className="mr-1.5" />
+              Retry
+            </Button>
           </div>
         ) : aggregatedStats ? (
           <>
