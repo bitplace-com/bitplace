@@ -405,6 +405,10 @@ export function BitplaceMap() {
       const { lat, lng, zoom: targetZoom, pixelX, pixelY } = detail;
       const finalZoom = targetZoom || Math.max(8, mapRef.current.getZoom());
       
+      // Reset to explore mode and close inspector
+      setInteractionMode('drag');
+      setInspectedPixel(null);
+      
       mapRef.current.flyTo({ 
         center: [lng, lat], 
         zoom: finalZoom,
@@ -436,7 +440,7 @@ export function BitplaceMap() {
       window.removeEventListener('bitplace:navigate', handleNavigate);
       window.removeEventListener('bitplace:inspect', handleInspect);
     };
-  }, [setUrlPosition]);
+  }, [setUrlPosition, setInteractionMode]);
 
   // Pin placement mode
   useEffect(() => {

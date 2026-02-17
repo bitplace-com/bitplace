@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { PixelIcon } from '@/components/icons/PixelIcon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { gridIntToLngLat } from '@/lib/pixelGrid';
 
 interface PixelData {
   x: number;
@@ -195,9 +196,12 @@ export function OwnerArtworkModal({
   const clusters = useMemo(() => clusterPixels(pixels, 5), [pixels]);
 
   const handleClusterClick = useCallback((cluster: Cluster) => {
-    onJumpToPixel(cluster.centerX, cluster.centerY);
+    const { lng, lat } = gridIntToLngLat(cluster.centerX, cluster.centerY);
+    window.dispatchEvent(new CustomEvent('bitplace:navigate', {
+      detail: { lat, lng, zoom: 18, pixelX: cluster.centerX, pixelY: cluster.centerY }
+    }));
     onOpenChange(false);
-  }, [onJumpToPixel, onOpenChange]);
+  }, [onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

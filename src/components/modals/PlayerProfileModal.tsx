@@ -17,6 +17,7 @@ import { AvatarFallback } from "@/components/ui/avatar-fallback-pattern";
 import { getCountryByCode } from "@/lib/countries";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { gridIntToLngLat } from "@/lib/pixelGrid";
 
 interface PlayerProfileModalProps {
   open: boolean;
@@ -171,10 +172,11 @@ export function PlayerProfileModal({ open, onOpenChange, playerId, onJumpToPixel
   };
 
   const handleJumpToPixel = (x: number, y: number) => {
-    if (onJumpToPixel) {
-      onJumpToPixel(x, y);
-      onOpenChange(false);
-    }
+    const { lng, lat } = gridIntToLngLat(x, y);
+    window.dispatchEvent(new CustomEvent('bitplace:navigate', {
+      detail: { lat, lng, zoom: 18, pixelX: x, pixelY: y }
+    }));
+    onOpenChange(false);
   };
 
   

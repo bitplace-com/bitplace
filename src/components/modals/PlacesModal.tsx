@@ -182,7 +182,6 @@ export function PlacesModal({
       open={open}
       onOpenChange={onOpenChange}
       title="Pinned Locations"
-      description="Discover and save interesting places"
       icon={<PixelIcon name="locationPin" className="h-5 w-5" />}
       size="md"
     >
