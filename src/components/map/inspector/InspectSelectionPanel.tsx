@@ -50,12 +50,15 @@ export function InspectSelectionPanel({
       // Batch in groups of 900 to stay under server's 1000-row limit
       const BATCH_SIZE = 900;
       const coords = selectedPixels.map(p => ({ x: p.x, y: p.y }));
-      const pixels: any[] = [];
+      // Launch all batch RPCs in parallel for speed
+      const batchPromises = [];
       for (let i = 0; i < coords.length; i += BATCH_SIZE) {
         const batch = coords.slice(i, i + BATCH_SIZE);
-        const { data, error: pixelError } = await supabase.rpc('fetch_pixels_by_coords', {
-          coords: batch,
-        });
+        batchPromises.push(supabase.rpc('fetch_pixels_by_coords', { coords: batch }));
+      }
+      const batchResults = await Promise.all(batchPromises);
+      const pixels: any[] = [];
+      for (const { data, error: pixelError } of batchResults) {
         if (pixelError) {
           console.error('[InspectSelectionPanel] Error fetching pixels:', pixelError);
           setError('Failed to load pixel data');
