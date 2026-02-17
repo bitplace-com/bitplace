@@ -7,6 +7,7 @@ import { ProBadge } from '@/components/ui/pro-badge';
 import { AdminBadge } from '@/components/ui/admin-badge';
 import { getProTier, isAdmin } from '@/lib/userBadges';
 import { toast } from 'sonner';
+import { sharePixel, shareArtwork } from '@/lib/shareLink';
 
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { Button } from '@/components/ui/button';
@@ -239,6 +240,15 @@ export function PixelInfoPanel({
                   1 <PEIcon size="xs" /> <span className="text-muted-foreground/60">({peToUsd(1)})</span>
                 </span>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => sharePixel(x, y).then(ok => ok && toast.success('Link copied!'))}
+              >
+                <PixelIcon name="share" className="w-3.5 h-3.5 mr-1.5" />
+                Share Pixel
+              </Button>
             </div>
           ) : (
             /* Owned Pixel */
@@ -457,13 +467,22 @@ export function PixelInfoPanel({
                       <PixelIcon name="brush" className="w-3 h-3" />
                        Paints
                     </span>
-                    <button
-                      onClick={() => setArtworkModalOpen(true)}
-                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition-colors"
-                    >
-                      <Expand className="w-3 h-3" />
-                      Expand
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => shareArtwork(pixel.owner!.id!, pixel.owner!.display_name).then(ok => ok && toast.success('Link copied!'))}
+                        className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition-colors"
+                      >
+                        <PixelIcon name="share" className="w-3 h-3" />
+                        Share
+                      </button>
+                      <button
+                        onClick={() => setArtworkModalOpen(true)}
+                        className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition-colors"
+                      >
+                        <Expand className="w-3 h-3" />
+                        Expand
+                      </button>
+                    </div>
                   </div>
                   <UserMinimap
                     userId={pixel.owner.id}
@@ -473,6 +492,17 @@ export function PixelInfoPanel({
                   />
                 </div>
               )}
+
+              {/* ── Share Pixel ── */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => sharePixel(x, y).then(ok => ok && toast.success('Link copied!'))}
+              >
+                <PixelIcon name="share" className="w-3.5 h-3.5 mr-1.5" />
+                Share Pixel
+              </Button>
             </>
           )}
         </div>
