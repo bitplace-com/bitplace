@@ -583,6 +583,15 @@ async function executeCommit(
       .eq("id", userId);
   }
 
+  // Decrement pixels_painted_total on ERASE to prevent leaderboard inflation
+  if (mode === "ERASE" && affectedPixels > 0) {
+    newPixelsPaintedTotal = Math.max(0, (user.pixels_painted_total || 0) - affectedPixels);
+    await supabase
+      .from("users")
+      .update({ pixels_painted_total: newPixelsPaintedTotal })
+      .eq("id", userId);
+  }
+
   // Log paint event
   const { data: eventData } = await supabase
     .from("paint_events")
