@@ -387,9 +387,9 @@ export function ActionTray({
                   (isEraser || interactionMode === 'drag') && "opacity-40 pointer-events-none"
                 )}>
 
-                <div className="max-h-48 overflow-y-auto overflow-x-hidden py-1 px-1 w-full">
+                <div className="max-h-48 overflow-auto py-1 px-1 w-full">
                   {paletteTab === 'colors' ? (
-                    <div className="grid grid-cols-10 gap-1">
+                    <div className="grid grid-cols-[repeat(10,1fr)] gap-0.5 sm:gap-1">
                       {displayColors.map((color, index) => {
                         const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
                         return (
@@ -417,7 +417,7 @@ export function ActionTray({
                           <span className="text-[9px] w-10 text-muted-foreground shrink-0 text-right">
                             {row.label}
                           </span>
-                          <div className="flex gap-1 flex-1">
+                          <div className="flex gap-0.5 sm:gap-1 overflow-x-auto flex-nowrap">
                             {row.colors.map((color) => {
                               const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
                               return (
@@ -426,7 +426,7 @@ export function ActionTray({
                                   onClick={() => handleColorClick(color)}
                                   disabled={!canPaint}
                                   className={cn(
-                                    "w-7 h-7 sm:w-[22px] sm:h-[22px] rounded-md transition-all duration-100 focus:outline-none touch-target",
+                                    "w-7 h-7 sm:w-[22px] sm:h-[22px] shrink-0 rounded-md transition-all duration-100 focus:outline-none touch-target",
                                     canPaint && "hover:ring-1 hover:ring-foreground/30",
                                     isSelected && "ring-2 ring-foreground scale-105 z-10",
                                     !canPaint && "opacity-40 cursor-not-allowed"

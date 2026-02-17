@@ -57,7 +57,7 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
               isExpanded ? "grid-cols-[1fr]" : "grid-cols-[0fr]"
             )}
           >
-            <div className="overflow-hidden">
+            <div className="overflow-x-auto scrollbar-hide">
               <ToggleGroup
                 type="single"
                 value={mode}
