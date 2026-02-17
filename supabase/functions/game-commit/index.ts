@@ -135,7 +135,7 @@ async function fetchPixelsByCoords(
   const coords = pixels.map(p => ({ x: p.x, y: p.y }));
   
   const { data, error } = await supabase.rpc('fetch_pixels_by_coords', {
-    coords: JSON.stringify(coords),
+    coords: coords,
   });
   
   console.log(`[game-commit] fetchPixelsByCoords: ${Date.now() - t0}ms, input: ${pixels.length}, found: ${data?.length || 0}`);
