@@ -1,72 +1,39 @@
 
-# Fix: RPC `fetch_pixels_by_coords` restituisce solo 1000 righe nonostante `.limit(10000)`
 
-## Problema
-Il `.limit(10000)` aggiunto alle chiamate RPC non ha effetto perche' il progetto ha un'impostazione PostgREST `max_rows = 1000` a livello server che sovrascrive qualsiasi limite richiesto dal client. I log confermano: `fetchPixelsByCoords: found 1000` per 1681 pixel inviati.
+# Ottimizzazione velocita' REINFORCE per aree grandi
+
+## Problema identificato
+Il REINFORCE su 1681 pixel e' lento perche' la funzione `game-commit` esegue **1681 query UPDATE individuali in sequenza** (una per pixel, linee 310-325). Ogni query richiede ~5-10ms di round-trip al database, quindi 1681 query = ~10-15 secondi solo per gli update, piu' il tempo di fetch.
 
 ## Soluzione
-Invece di tentare di alzare il limite (che non funziona), **dividere le coordinate in batch da 900** prima di inviarle alla RPC. Ogni batch restituira' al massimo 900 righe (ben sotto il limite di 1000), e i risultati vengono combinati.
+Sostituire il loop sequenziale con due ottimizzazioni:
+
+### 1. Batch UPDATE parallelo per REINFORCE (game-commit)
+Invece di aggiornare un pixel alla volta, raggruppare i pixel in batch da 100 e processarli in parallelo (fino a 5 batch contemporaneamente), usando lo stesso pattern gia' implementato per PAINT.
+
+```text
+PRIMA:  1681 query sequenziali (~15s)
+DOPO:   17 batch da 100, 5 in parallelo (~0.6s)
+```
+
+### 2. Fetch batches in parallelo (game-validate + game-commit)
+Le chiamate RPC `fetch_pixels_by_coords` in batch da 900 sono attualmente sequenziali. Per 1681 pixel servono 2 batch -- eseguirli in parallelo con `Promise.all` dimezza il tempo di fetch.
 
 ## File da modificare
 
-### 1. `supabase/functions/game-validate/index.ts` (righe 236-266)
-Sostituire la singola chiamata RPC con un loop di batch:
+### `supabase/functions/game-commit/index.ts` (righe 310-325)
+Sostituire il loop sequenziale REINFORCE con batch paralleli. Ogni batch usa una singola query SQL con `.in()` per aggiornare tutti i pixel del batch, e i batch vengono eseguiti in parallelo con `Promise.all`.
 
-```typescript
-const BATCH_SIZE = 900;
-const coords = pixels.map(p => ({ 
-  x: Math.floor(p.x), 
-  y: Math.floor(p.y) 
-}));
+Stessa funzione: modificare anche `fetchPixelsByCoords` (righe 139-149) per eseguire i batch RPC in parallelo con `Promise.all` invece che sequenzialmente.
 
-const allData: any[] = [];
-for (let i = 0; i < coords.length; i += BATCH_SIZE) {
-  const batch = coords.slice(i, i + BATCH_SIZE);
-  const { data, error } = await supabase.rpc("fetch_pixels_by_coords", { 
-    coords: batch 
-  });
-  if (error) throw error;
-  if (data) allData.push(...data);
-}
-```
+### `supabase/functions/game-validate/index.ts`
+Modificare `fetchPixelsByCoords` per eseguire i batch RPC in parallelo con `Promise.all`.
 
-### 2. `supabase/functions/game-commit/index.ts` (righe 135-147)
-Stessa modifica a batch:
+### `src/components/map/inspector/InspectSelectionPanel.tsx`
+Modificare il fetch dei pixel per eseguire i batch RPC in parallelo con `Promise.all`.
 
-```typescript
-const BATCH_SIZE = 900;
-const coords = pixels.map(p => ({ x: p.x, y: p.y }));
+## Risultato atteso
+- REINFORCE su 1681 pixel: da ~15-20 secondi a ~2-3 secondi
+- Fetch pixel: da ~500ms (sequenziale) a ~300ms (parallelo)
+- Nessun cambio nel comportamento o nei risultati, solo molto piu' veloce
 
-const allData: any[] = [];
-for (let i = 0; i < coords.length; i += BATCH_SIZE) {
-  const batch = coords.slice(i, i + BATCH_SIZE);
-  const { data, error } = await supabase.rpc('fetch_pixels_by_coords', {
-    coords: batch,
-  });
-  if (error) throw error;
-  if (data) allData.push(...data);
-}
-```
-
-### 3. `src/components/map/inspector/InspectSelectionPanel.tsx` (riga 49-55)
-Stessa modifica a batch per il pannello ispettore:
-
-```typescript
-const BATCH_SIZE = 900;
-const coords = selectedPixels.map(p => ({ x: p.x, y: p.y }));
-const allPixels: any[] = [];
-for (let i = 0; i < coords.length; i += BATCH_SIZE) {
-  const batch = coords.slice(i, i + BATCH_SIZE);
-  const { data, error } = await supabase.rpc('fetch_pixels_by_coords', {
-    coords: batch,
-  });
-  if (error) { /* handle */ }
-  if (data) allPixels.push(...data);
-}
-```
-
-## Perche' funziona
-Ogni batch contiene al massimo 900 coordinate, quindi la risposta RPC avra' al massimo 900 righe -- sempre sotto il limite di 1000 imposto dal server. Per 1681 pixel servono 2 batch (900 + 781). I risultati vengono combinati e il resto del codice funziona senza modifiche.
-
-## Dopo le modifiche
-Le edge functions `game-validate` e `game-commit` verranno ridistribuite automaticamente.
