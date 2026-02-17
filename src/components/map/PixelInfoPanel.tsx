@@ -171,7 +171,7 @@ export function PixelInfoPanel({
             </span>
           )}
           {pixel && isOwned && !isOwnPixel && !pixel.myContribution && (
-            <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground truncate flex-1">
+            <span className="text-xs font-medium text-muted-foreground truncate">
               Owned by {pixel.owner?.display_name || pixel.owner?.wallet_short || 'someone'}
             </span>
           )}
