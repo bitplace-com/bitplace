@@ -244,7 +244,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
       icon={<PixelIcon name="globe" className="h-5 w-5" />}
       size="sm"
     >
-      <div className="space-y-3">
+      <div className="space-y-2">
         {/* Search input */}
         <div className="relative">
           <Input
@@ -455,7 +455,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
 
         {/* Empty state */}
         {!parsedType && !searchResults.length && !pinnedPlaces.length && !filteredRecents.length && !isSearching && (
-          <div className="text-center py-4 text-muted-foreground">
+          <div className="text-center py-3 text-muted-foreground">
             <PixelIcon name="search" className="h-6 w-6 mx-auto mb-1.5 opacity-40" />
             <p className="text-sm">Enter coordinates or a place name</p>
             <p className="text-xs mt-1 opacity-70">
