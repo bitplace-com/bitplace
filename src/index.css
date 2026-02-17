@@ -265,6 +265,28 @@
   color: hsl(var(--background)) !important;
 }
 
+/* Toolbar horizontal scroll – thin visible scrollbar */
+.toolbar-scroll::-webkit-scrollbar {
+  height: 3px;
+}
+.toolbar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.toolbar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+:root .toolbar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+}
+.toolbar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+:root .toolbar-scroll {
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
 /* Premium Shine Animation for Special Materials */
 @keyframes premium-shine {
   0% {
