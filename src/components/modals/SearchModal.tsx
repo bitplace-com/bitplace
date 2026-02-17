@@ -244,7 +244,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
       icon={<PixelIcon name="globe" className="h-5 w-5" />}
       size="sm"
     >
-      <div className="space-y-4">
+      <div className="space-y-3">
         {/* Search input */}
         <div className="relative">
           <Input
@@ -253,7 +253,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search for a place..."
-            className="bg-background/50 border-border/50 pr-20"
+            className="bg-background/50 border-border/50 pr-10"
           />
           {inputValue && (
             <Button
@@ -306,7 +306,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                 {pinnedPlaces.map((pin) => (
                   <div
                     key={pin.id}
-                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group"
+                    className="flex items-center gap-1.5 p-1.5 rounded-lg hover:bg-muted/50 transition-colors group"
                   >
                     <PixelIcon name="star" className="h-4 w-4 text-primary shrink-0" />
                     
@@ -374,7 +374,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                   return (
                     <div
                       key={i}
-                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group"
+                      className="flex items-center gap-1.5 p-1.5 rounded-lg hover:bg-muted/50 transition-colors group"
                     >
                       <PixelIcon name="pin" className="h-4 w-4 text-primary shrink-0" />
                       <button
@@ -426,7 +426,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                 {filteredRecents.map((recent) => (
                   <div
                     key={recent.id}
-                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group"
+                    className="flex items-center gap-1.5 p-1.5 rounded-lg hover:bg-muted/50 transition-colors group"
                   >
                     <PixelIcon name="clock" className="h-4 w-4 text-muted-foreground shrink-0" />
                     <button
@@ -455,8 +455,8 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
 
         {/* Empty state */}
         {!parsedType && !searchResults.length && !pinnedPlaces.length && !filteredRecents.length && !isSearching && (
-          <div className="text-center py-6 text-muted-foreground">
-            <PixelIcon name="search" className="h-8 w-8 mx-auto mb-2 opacity-40" />
+          <div className="text-center py-4 text-muted-foreground">
+            <PixelIcon name="search" className="h-6 w-6 mx-auto mb-1.5 opacity-40" />
             <p className="text-sm">Enter coordinates or a place name</p>
             <p className="text-xs mt-1 opacity-70">
               Examples: 41.9028, 12.4964 · 12345:67890 · Tokyo
