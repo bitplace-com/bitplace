@@ -235,22 +235,27 @@ async function fetchPixelsByCoords(
   
   // Use the existing RPC function fetch_pixels_by_coords with JSONB
   // This bypasses the client-side .or() string building which is O(n²) slow
+  const BATCH_SIZE = 900;
   const coords = pixels.map(p => ({ 
     x: Math.floor(p.x), 
     y: Math.floor(p.y) 
   }));
   
-  const { data, error } = await supabase.rpc("fetch_pixels_by_coords", { 
-    coords: coords 
-  }).limit(10000);
-  
-  if (error) {
-    console.error('[game-validate] fetchPixelsByCoords RPC error:', error);
-    throw error;
+  const allData: any[] = [];
+  for (let i = 0; i < coords.length; i += BATCH_SIZE) {
+    const batch = coords.slice(i, i + BATCH_SIZE);
+    const { data, error } = await supabase.rpc("fetch_pixels_by_coords", { 
+      coords: batch 
+    });
+    if (error) {
+      console.error('[game-validate] fetchPixelsByCoords RPC error:', error);
+      throw error;
+    }
+    if (data) allData.push(...data);
   }
   
   // Convert RPC response to expected format (pixel_id is bigint in DB)
-  const result = (data || []).map((p: { id: number; x: number; y: number; pixel_id: bigint; owner_user_id: string | null; owner_stake_pe: number; color: string; def_total: number; atk_total: number }) => ({
+  const result = allData.map((p: { id: number; x: number; y: number; pixel_id: bigint; owner_user_id: string | null; owner_stake_pe: number; color: string; def_total: number; atk_total: number }) => ({
     id: p.id,
     x: Number(p.x),
     y: Number(p.y),

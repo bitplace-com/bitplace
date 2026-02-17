@@ -132,19 +132,24 @@ async function fetchPixelsByCoords(
   
   const t0 = Date.now();
   
+  const BATCH_SIZE = 900;
   const coords = pixels.map(p => ({ x: p.x, y: p.y }));
   
-  const { data, error } = await supabase.rpc('fetch_pixels_by_coords', {
-    coords: coords,
-  }).limit(10000);
-  
-  console.log(`[game-commit] fetchPixelsByCoords: ${Date.now() - t0}ms, input: ${pixels.length}, found: ${data?.length || 0}`);
-  
-  if (error) {
-    console.error('[game-commit] fetchPixelsByCoords error:', error);
-    throw error;
+  const allData: any[] = [];
+  for (let i = 0; i < coords.length; i += BATCH_SIZE) {
+    const batch = coords.slice(i, i + BATCH_SIZE);
+    const { data, error } = await supabase.rpc('fetch_pixels_by_coords', {
+      coords: batch,
+    });
+    if (error) {
+      console.error('[game-commit] fetchPixelsByCoords error:', error);
+      throw error;
+    }
+    if (data) allData.push(...data);
   }
-  return data || [];
+  
+  console.log(`[game-commit] fetchPixelsByCoords: ${Date.now() - t0}ms, input: ${pixels.length}, found: ${allData.length}`);
+  return allData;
 }
 
 const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000;
