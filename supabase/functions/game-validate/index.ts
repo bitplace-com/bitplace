@@ -242,7 +242,7 @@ async function fetchPixelsByCoords(
   
   const { data, error } = await supabase.rpc("fetch_pixels_by_coords", { 
     coords: coords 
-  });
+  }).limit(10000);
   
   if (error) {
     console.error('[game-validate] fetchPixelsByCoords RPC error:', error);
