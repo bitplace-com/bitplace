@@ -90,6 +90,7 @@ export function PixelInspectorDrawer({
         currentUserId={currentUserId}
         actionSelectionCount={actionSelectionCount}
         onJumpToPixel={onJumpToPixel}
+        inDrawer={isMobile}
       />
     </InspectorErrorBoundary>
   );

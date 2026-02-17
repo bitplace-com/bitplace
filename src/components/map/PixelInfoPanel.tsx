@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { X, RefreshCw, AlertTriangle, Globe, Expand, Loader2 } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +27,7 @@ interface PixelInfoPanelProps {
   currentUserId?: string;
   actionSelectionCount?: number;
   onJumpToPixel?: (x: number, y: number) => void;
+  inDrawer?: boolean;
 }
 
 function formatTimeUntil(targetTime: Date): string {
@@ -125,6 +126,7 @@ export function PixelInfoPanel({
   currentUserId,
   actionSelectionCount = 0,
   onJumpToPixel,
+  inDrawer = false,
 }: PixelInfoPanelProps) {
   const { pixel, isLoading, refetch } = usePixelDetails(x, y, currentUserId);
   const [artworkModalOpen, setArtworkModalOpen] = useState(false);
@@ -140,13 +142,8 @@ export function PixelInfoPanel({
   // Takeover cost
   const takeoverCost = pixel ? (isOwnPixel ? 0 : pixel.isFloorBased ? pixel.thresholdWithFloor : pixel.threshold) : 1;
 
-  return (
+  const wrapperContent = (
     <>
-      <GlassPanel
-        variant="hud-strong"
-        className="w-80 max-w-[calc(100vw-1.5rem)] max-h-[70vh] overflow-hidden flex flex-col"
-        padding="none"
-      >
         {/* Header — color dot + status + close */}
         <div className="px-3 py-2.5 border-b border-border/50 shrink-0 flex items-center gap-2">
           <div
@@ -230,9 +227,9 @@ export function PixelInfoPanel({
             </div>
           ) : !isOwned ? (
             /* Unclaimed Pixel */
-            <div className="flex flex-col items-center py-8 gap-4">
-              <div className="w-14 h-14 rounded-xl border-2 border-dashed border-muted-foreground/30 flex items-center justify-center bg-muted/50">
-                <PixelIcon name="plus" className="w-6 h-6 text-muted-foreground" />
+            <div className={cn("flex flex-col items-center gap-4", inDrawer ? "py-4" : "py-8")}>
+              <div className={cn("rounded-xl border-2 border-dashed border-muted-foreground/30 flex items-center justify-center bg-muted/50", inDrawer ? "w-12 h-12" : "w-14 h-14")}>
+                <PixelIcon name="plus" className={cn("text-muted-foreground", inDrawer ? "w-5 h-5" : "w-6 h-6")} />
               </div>
               <div className="text-center space-y-1">
                 <span className="text-sm font-medium block">Available to paint</span>
@@ -506,8 +503,18 @@ export function PixelInfoPanel({
             </>
           )}
         </div>
-      </GlassPanel>
+    </>
+  );
 
+  return (
+    <>
+      {inDrawer ? (
+        <div className="flex flex-col overflow-hidden">{wrapperContent}</div>
+      ) : (
+        <GlassPanel variant="hud-strong" className="w-80 max-w-[calc(100vw-1.5rem)] max-h-[70vh] overflow-hidden flex flex-col" padding="none">
+          {wrapperContent}
+        </GlassPanel>
+      )}
       {/* Artwork Modal */}
       {pixel?.owner?.id && (
         <OwnerArtworkModal
