@@ -1,29 +1,37 @@
 
-## Fix: Effetto shine che segue la forma dell'icona Admin
 
-### Problema attuale
-L'effetto shine usa un pseudo-elemento CSS `::before` rettangolare sopra l'icona. Questo crea un quadrato luminoso che si muove sopra l'icona, invece di brillare seguendo la forma del badge.
+## Fix: Animazione shine del badge Admin
+
+### Problema
+Il gradiente attuale ha una banda luminosa troppo stretta (solo 10% della larghezza, tra 45%-55%) e si muove orizzontalmente in modo piatto e lento. L'effetto risulta come una linea sottile che passa al centro.
 
 ### Soluzione
-Sostituire l'approccio CSS con un **gradiente SVG animato** direttamente dentro l'icona. In questo modo la luce si muove solo lungo il path dell'icona, rispettandone la forma esatta.
+Modificare il gradiente SVG in `src/components/icons/custom/PixelBadgeCheck.tsx`:
 
-### Dettagli tecnici
+1. **Usare `gradientUnits="userSpaceOnUse"`** con coordinate reali del viewBox (0-24px) per controllare meglio la distribuzione
+2. **Angolo diagonale** (da top-left a bottom-right) per un effetto piu naturale e dinamico
+3. **Banda luminosa piu ampia** (~30% della larghezza) con transizioni morbide
+4. **Velocita piu fluida**: 2s invece di 3s, con movimento che copre tutto il viewBox
+5. **Gradiente piu ricco**: aggiungere un secondo tono chiaro per dare profondita al riflesso
 
-**File 1: `src/components/ui/admin-badge.tsx`**
-- Rimuovere il wrapper `<span className="animate-shine">` attorno all'icona
-- Passare una prop `shine` al componente PixelBadgeCheck per attivare l'animazione SVG interna
+### Dettaglio tecnico
 
-**File 2: `src/components/icons/custom/PixelBadgeCheck.tsx`**
-- Aggiungere un `<defs>` con un `<linearGradient>` animato (oro base + riflesso bianco che scorre)
-- Usare `<animate>` SVG nativo per muovere il gradiente lungo l'icona
-- Il gradiente viene applicato come `fill` del path, quindi brilla solo la forma reale dell'icona
+Il gradiente passera da coordinate fisse nel viewBox (es. da -12 a 36 px) con una banda centrale bianca/dorata chiara larga circa 8px su 24px totali. L'animazione `<animate>` spostera x1/y1 e x2/y2 in diagonale attraverso l'intera icona.
 
-**File 3: `src/index.css`** (pulizia opzionale)
-- La classe `.animate-shine` resta invariata perche usata anche dai badge Pro
+```
+Gradiente stops:
+  0%   -> #b8960a (oro scuro)
+  25%  -> #eab308 (oro base)  
+  40%  -> #fde68a (oro chiaro)
+  50%  -> #ffffff (bianco, opacita 0.8)
+  60%  -> #fde68a (oro chiaro)
+  75%  -> #eab308 (oro base)
+  100% -> #b8960a (oro scuro)
+```
 
-### Come funziona
+### File coinvolto: 1
+- `src/components/icons/custom/PixelBadgeCheck.tsx`
 
-Il gradiente SVG ha 3 stop: colore oro, bianco luminoso, colore oro. L'elemento `<animate>` sposta i punti x1/x2 del gradiente da sinistra a destra in loop, creando un riflesso che scorre lungo la forma esatta del badge check. Nessun quadrato visibile perche il gradiente e applicato direttamente al fill del path SVG.
+### Rischio rottura: Zero
+Modifica solo l'aspetto visivo dell'animazione shine del badge admin.
 
-### File coinvolti: 2 (admin-badge.tsx, PixelBadgeCheck.tsx)
-### Rischio rottura: Zero. Modifica solo la resa visiva del badge admin.
