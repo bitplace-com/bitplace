@@ -74,11 +74,9 @@ export function useMapState() {
     setState((prev) => ({
       ...prev,
       interactionMode,
-      // Reset to BRUSH 1x when switching to draw mode
+      // Restore selectedColor based on current tool, keep tool & brush size
       ...(interactionMode === 'draw' ? {
-        paintTool: 'BRUSH' as PaintTool,
-        brushSize: '1x' as BrushSize,
-        selectedColor: prev.lastBrushColor,
+        selectedColor: prev.paintTool === 'ERASER' ? null : prev.lastBrushColor,
       } : {}),
     }));
   }, []);
