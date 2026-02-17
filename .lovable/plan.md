@@ -1,39 +1,33 @@
 
+## Mantenere l'ultimo strumento attivo quando si passa da Esplora a Crea
 
-## Fix: RPC Call Format in game-commit
+### Problema
+Quando passi da modalita Crea a Esplora e poi torni su Crea, il sistema resetta sempre lo strumento a Pennello 1x, perdendo la selezione precedente (es. Gomma o Pennello 2x2).
 
-### Problem
+### Causa
+In `useMapState.ts` (riga 73-84), la funzione `setInteractionMode` forza `paintTool: 'BRUSH'` e `brushSize: '1x'` ogni volta che si entra in modalita `draw`.
 
-The `fetchPixelsByCoords` function in `game-commit` passes `JSON.stringify(coords)` to the RPC, which sends a string instead of a JSONB array. The database function expects an actual JSONB array, causing the error: `cannot call jsonb_to_recordset on a non-array`.
+### Soluzione
+Rimuovere il reset forzato del tool e del brush size quando si passa a `draw`. Lo stato precedente (`paintTool`, `brushSize`, `selectedColor`) verra semplicemente mantenuto com'era.
 
-### Root Cause
+### Dettagli tecnici
 
-In `game-validate`, the RPC is called correctly:
-```typescript
-coords: coords  // passes the array directly
-```
+**File: `src/components/map/hooks/useMapState.ts`**
 
-But in `game-commit`, the previous edit incorrectly used:
-```typescript
-coords: JSON.stringify(coords)  // passes a string - WRONG
-```
-
-### Fix
-
-**File: `supabase/functions/game-commit/index.ts`** (line 138)
-
-Remove `JSON.stringify()` and pass `coords` directly, matching how `game-validate` does it:
+Modificare `setInteractionMode` (righe 73-84): rimuovere il blocco che resetta `paintTool`, `brushSize` e `selectedColor` quando `interactionMode === 'draw'`. Invece, ripristinare solo il `selectedColor` in base al tool corrente (se era ERASER rimane null, se era BRUSH rimane il lastBrushColor).
 
 ```typescript
-// Before (broken):
-const { data, error } = await supabase.rpc('fetch_pixels_by_coords', {
-  coords: JSON.stringify(coords),
-});
+// Prima (resetta tutto):
+...(interactionMode === 'draw' ? {
+  paintTool: 'BRUSH',
+  brushSize: '1x',
+  selectedColor: prev.lastBrushColor,
+} : {}),
 
-// After (fixed):
-const { data, error } = await supabase.rpc('fetch_pixels_by_coords', {
-  coords: coords,
-});
+// Dopo (mantiene lo stato precedente):
+...(interactionMode === 'draw' ? {
+  selectedColor: prev.paintTool === 'ERASER' ? null : prev.lastBrushColor,
+} : {}),
 ```
 
-One-line change, then redeploy the edge function.
+Questo garantisce che tornando in modalita Crea, lo strumento attivo (Pennello o Gomma) e la dimensione del pennello restino invariati.
