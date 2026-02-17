@@ -21,17 +21,12 @@ const modes: { value: MapMode; icon: React.ReactNode; label: string }[] = [
 
 export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
   const isMobile = useIsMobile();
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Desktop: sync expansion state
+  // Auto-scroll to active mode when expanded
   useEffect(() => {
-    if (!isMobile) setIsExpanded(true);
-  }, [isMobile]);
-
-  // Auto-scroll to active mode on mobile
-  useEffect(() => {
-    if (isMobile && scrollRef.current) {
+    if (isExpanded && scrollRef.current) {
       const activeBtn = scrollRef.current.querySelector('[data-state="on"]') as HTMLElement;
       if (activeBtn) {
         requestAnimationFrame(() => {
@@ -39,7 +34,7 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
         });
       }
     }
-  }, [mode, isMobile]);
+  }, [mode, isExpanded]);
 
   const currentMode = modes.find((m) => m.value === mode);
 
@@ -49,35 +44,63 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
     onModeChange(value as MapMode);
   };
 
-  // Mobile: always visible, horizontally scrollable, no collapse
   if (isMobile) {
     return (
-      <GlassPanel variant="hud" padding="sm" className="shadow-lg max-w-[calc(100vw-2rem)]">
-        <div ref={scrollRef} className="overflow-x-auto toolbar-scroll">
-          <ToggleGroup
-            type="single"
-            value={mode}
-            onValueChange={handleModeChange}
-            className="gap-0.5 flex-nowrap w-max"
+      <GlassPanel variant="hud" padding="sm" className="shadow-lg">
+        <div className="flex items-center gap-0.5">
+          <div
+            className={cn(
+              "transition-all duration-300 ease-out overflow-hidden",
+              isExpanded ? "max-w-[240px] opacity-100" : "max-w-0 opacity-0"
+            )}
           >
-            {modes.map(({ value, icon, label }) => (
-              <ToggleGroupItem
-                key={value}
-                value={value}
-                aria-label={label}
-                className="map-toolbar-btn flex items-center gap-1.5 px-2.5 py-2 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10 whitespace-nowrap shrink-0"
+            <div ref={scrollRef} className="overflow-x-auto toolbar-scroll">
+              <ToggleGroup
+                type="single"
+                value={mode}
+                onValueChange={handleModeChange}
+                className="gap-0.5 flex-nowrap w-max"
               >
-                {icon}
-                <span className="text-xs font-medium">{label}</span>
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
+                {modes.map(({ value, icon, label }) => (
+                  <ToggleGroupItem
+                    key={value}
+                    value={value}
+                    aria-label={label}
+                    className="map-toolbar-btn flex items-center gap-1.5 px-2.5 py-2 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10 whitespace-nowrap shrink-0"
+                  >
+                    {icon}
+                    <span className="text-xs font-medium">{label}</span>
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              hapticsEngine.trigger('light');
+              setIsExpanded(!isExpanded);
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10 shrink-0"
+            aria-label={isExpanded ? "Collapse toolbar" : "Expand toolbar"}
+          >
+            {!isExpanded && (
+              <>
+                {currentMode?.icon}
+                <span className="text-xs font-medium">{currentMode?.label}</span>
+              </>
+            )}
+            <PixelIcon
+              name={isExpanded ? "chevronLeft" : "chevronRight"}
+              className="h-4 w-4 text-muted-foreground transition-transform duration-300"
+            />
+          </button>
         </div>
       </GlassPanel>
     );
   }
 
-  // Desktop: collapsible
+  // Desktop: collapsible, starts expanded
   return (
     <GlassPanel variant="hud" padding="sm" className="shadow-lg">
       <div className="flex items-center gap-0.5">
