@@ -13,7 +13,7 @@ import { usePlayerProfile, PlayerPixel } from "@/hooks/usePlayerProfile";
 import { useFollows, useFollowerCount } from "@/hooks/useFollows";
 import { useWallet } from "@/contexts/WalletContext";
 import { OwnerArtworkModal } from "@/components/map/OwnerArtworkModal";
-import { generateAvatarGradient } from "@/lib/avatar";
+import { AvatarFallback } from "@/components/ui/avatar-fallback-pattern";
 import { getCountryByCode } from "@/lib/countries";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -177,7 +177,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId, onJumpToPixel
     }
   };
 
-  const avatarGradient = generateAvatarGradient(profile?.id || playerId || '');
+  
   const country = profile?.countryCode ? getCountryByCode(profile.countryCode) : null;
   const hasSocials = profile?.socialX || profile?.socialInstagram || profile?.socialDiscord || profile?.socialWebsite;
 
@@ -215,12 +215,13 @@ export function PlayerProfileModal({ open, onOpenChange, playerId, onJumpToPixel
                   className="w-16 h-16 rounded-full object-cover ring-2 ring-border"
                 />
               ) : (
-                <div
-                  className="w-16 h-16 rounded-full ring-2 ring-border flex items-center justify-center text-white text-xl font-bold"
-                  style={{ background: avatarGradient }}
-                >
-                  {(profile.displayName?.[0] || profile.walletShort?.[0] || '?').toUpperCase()}
-                </div>
+                <AvatarFallback
+                  seed={profile?.id || playerId || ''}
+                  name={profile.displayName}
+                  wallet={profile.walletShort}
+                  className="w-16 h-16 ring-2 ring-border"
+                  textClassName="text-xl"
+                />
               )}
               
               <div className="flex-1 min-w-0">

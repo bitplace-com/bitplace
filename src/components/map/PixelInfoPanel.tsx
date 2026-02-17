@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { UserMinimap } from '@/components/UserMinimap';
 import { OwnerArtworkModal } from './OwnerArtworkModal';
 import { usePixelDetails } from '@/hooks/usePixelDetails';
-import { generateAvatarGradient, getAvatarInitial } from '@/lib/avatar';
+import { AvatarFallback } from '@/components/ui/avatar-fallback-pattern';
 import { getCountryByCode } from '@/lib/countries';
 import { cn } from '@/lib/utils';
 import { PixelIcon } from '@/components/icons/PixelIcon';
@@ -254,12 +254,13 @@ export function PixelInfoPanel({
                       className="w-10 h-10 rounded-lg object-cover shrink-0"
                     />
                   ) : (
-                    <div
-                      className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold text-sm shrink-0"
-                      style={{ background: generateAvatarGradient(pixel.owner?.id || 'unknown') }}
-                    >
-                      {getAvatarInitial(pixel.owner?.display_name, pixel.owner?.wallet_short)}
-                    </div>
+                    <AvatarFallback
+                      seed={pixel.owner?.id || 'unknown'}
+                      name={pixel.owner?.display_name}
+                      wallet={pixel.owner?.wallet_short}
+                      className="w-10 h-10 rounded-lg shrink-0"
+                      textClassName="text-sm"
+                    />
                   )}
 
                   <div className="min-w-0 flex-1 space-y-1">

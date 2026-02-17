@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { CountryPicker } from "@/components/ui/country-picker";
 import { useSettings } from "@/hooks/useSettings";
 import { useWallet } from "@/contexts/WalletContext";
-import { generateAvatarGradient } from "@/lib/avatar";
+import { AvatarFallback } from "@/components/ui/avatar-fallback-pattern";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -161,8 +161,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   };
 
   // Avatar display
-  const avatarGradient = generateAvatarGradient(user?.wallet_address || '');
-  const avatarInitial = (displayName?.[0] || user?.wallet_address?.[0] || '?').toUpperCase();
   const displayAvatarUrl = avatarPreview || avatarUrl || settings.avatar_url;
 
   return (
@@ -183,10 +181,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           
           {/* Avatar */}
           <div className="flex items-center gap-4">
-            <div 
-              className="relative w-16 h-16 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-border"
-              style={!displayAvatarUrl ? { background: avatarGradient } : undefined}
-            >
+            <div className="relative w-16 h-16 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-border">
               {displayAvatarUrl ? (
                 <img 
                   src={displayAvatarUrl} 
@@ -194,9 +189,13 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-white font-bold text-xl">
-                  {avatarInitial}
-                </div>
+                <AvatarFallback
+                  seed={user?.wallet_address || ''}
+                  name={displayName}
+                  wallet={user?.wallet_address}
+                  className="w-full h-full"
+                  textClassName="text-xl"
+                />
               )}
               {isUploading && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
