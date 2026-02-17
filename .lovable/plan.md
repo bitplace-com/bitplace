@@ -1,116 +1,83 @@
 
 
-## Condivisione Pixel e Disegni
+## Fix Mobile Proportions: Pixel Info Panel and Search Panel
 
-### Panoramica
+### Problemi identificati
 
-Migliorare il sistema di condivisione pixel esistente (`shareLink.ts`) e aggiungere bottoni "Share" in tutte le aree rilevanti. Ottimizzare anche i meta tag Open Graph per una preview di qualita quando il link viene condiviso su social/chat.
+**Pixel Info Panel (in Drawer su mobile)**:
+- Il `GlassPanel` con `w-80 max-w-[calc(100vw-1.5rem)]` crea un contenitore con bordi e sfondo *dentro* il Drawer, causando un effetto doppio-contenitore con bordi ridondanti e spazio sprecato ai lati.
+- Il pixel non posseduto ha padding verticale eccessivo (`py-8`) che rende la scheda sproporzionata.
+- Il contenitore interno non si espande a tutta la larghezza del Drawer.
 
----
-
-### 1. Migliorare `index.html` con meta tag Bitplace
-
-**File: `index.html`**
-
-Aggiornare title, description e og:image con branding Bitplace:
-- `<title>Bitplace</title>`
-- `<meta name="description" content="Paint pixels on the world map. Claim, defend, and build pixel art with others.">`
-- og:title, og:description, og:image (usare un'immagine di preview di Bitplace, per ora un placeholder appropriato)
-- twitter:card, twitter:site aggiornati
+**Search Modal**:
+- Usa `GlassSheet` che su mobile rende come Drawer -- funziona ma lo spacing interno potrebbe essere piu compatto.
 
 ---
 
-### 2. Migliorare `shareLink.ts` con Web Share API
+### Modifiche
 
-**File: `src/lib/shareLink.ts`**
+#### 1. `src/components/map/PixelInspectorDrawer.tsx`
+- Passare una prop `inDrawer` al `PixelInfoPanel` quando renderizzato dentro il Drawer mobile, cosi il pannello sa di non applicare il proprio GlassPanel wrapper.
 
-Aggiungere una funzione `sharePixel(x, y)` che:
-1. Genera il link con `generatePixelShareLink`
-2. Prova `navigator.share()` (Web Share API nativa, ottima su mobile) con titolo e testo descrittivo
-3. Se non disponibile (desktop), fallback a copia in clipboard
+#### 2. `src/components/map/PixelInfoPanel.tsx`
+- Aggiungere prop opzionale `inDrawer?: boolean`.
+- Quando `inDrawer` e true: rimuovere il wrapper `GlassPanel` (niente bordi, sfondo, border-radius, larghezza fissa) e renderizzare il contenuto direttamente con un semplice `div`. Il Drawer gia fornisce il contenitore visivo.
+- Quando `inDrawer` e false (desktop): mantenere il `GlassPanel` attuale.
+- Ridurre `py-8` a `py-4` nello stato "Available to paint" per mobile, e ridurre la dimensione dell'icona dashed box.
 
-Aggiungere anche `shareArtwork(userId, displayName)` per condividere il profilo/disegni di un utente con link al profilo.
-
-```typescript
-export async function sharePixel(x: number, y: number): Promise<boolean> {
-  const link = generatePixelShareLink(x, y);
-  const shareData = {
-    title: `Pixel ${x}:${y} on Bitplace`,
-    text: `Check out this pixel on Bitplace!`,
-    url: link,
-  };
-  
-  if (navigator.share) {
-    try {
-      await navigator.share(shareData);
-      return true;
-    } catch { /* user cancelled */ }
-  }
-  // Fallback: copy to clipboard
-  return copyPixelLink(x, y);
-}
-```
+#### 3. `src/components/modals/SearchModal.tsx`
+- Ridurre padding e spacing interni per mobile: `space-y-2` invece di `space-y-3`, e ridurre il padding dell'empty state (`py-3` invece di `py-4`).
 
 ---
 
-### 3. Aggiungere bottone "Share" al PixelInfoPanel
+### Dettagli tecnici
 
-**File: `src/components/map/PixelInfoPanel.tsx`**
-
-Aggiungere un bottone "Share" nel footer/bottom del pannello, visibile per tutti i pixel (claimed e unclaimed). Posizionarlo come riga separata sotto l'artwork section:
+**PixelInfoPanel.tsx** -- cambio wrapper condizionale:
 
 ```tsx
-{/* Share */}
-<Button
-  variant="outline"
-  size="sm"
-  className="w-full"
-  onClick={() => sharePixel(x, y).then(ok => ok && toast.success('Link copied!'))}
->
-  <PixelIcon name="share" className="w-3.5 h-3.5 mr-1.5" />
-  Share Pixel
-</Button>
+// Props
+interface PixelInfoPanelProps {
+  // ... existing props
+  inDrawer?: boolean;
+}
+
+// Nel render, sostituire:
+// <GlassPanel variant="hud-strong" className="w-80 max-w-[calc(100vw-1.5rem)] max-h-[70vh] overflow-hidden flex flex-col" padding="none">
+// con:
+const Wrapper = inDrawer ? 'div' : GlassPanel;
+const wrapperProps = inDrawer
+  ? { className: "flex flex-col overflow-hidden" }
+  : { variant: "hud-strong" as const, className: "w-80 max-w-[calc(100vw-1.5rem)] max-h-[70vh] overflow-hidden flex flex-col", padding: "none" as const };
+```
+
+**PixelInspectorDrawer.tsx** -- passare `inDrawer`:
+
+```tsx
+// Mobile branch:
+<PixelInfoPanel
+  // ... existing props
+  inDrawer
+/>
+```
+
+**Unclaimed pixel state** -- ridurre padding:
+
+```tsx
+// Da: py-8
+// A: py-4
+<div className="flex flex-col items-center py-4 gap-3">
+  <div className="w-12 h-12 rounded-xl ...">
 ```
 
 ---
 
-### 4. Aggiungere bottone "Share" all'OwnerArtworkModal
-
-**File: `src/components/map/OwnerArtworkModal.tsx`**
-
-Per ogni cluster nella griglia, aggiungere un piccolo bottone share accanto al "click to jump". Inoltre aggiungere un bottone "Share All Paints" nel footer che condivide il link al profilo dell'utente.
-
-Per i singoli cluster: bottone share che condivide il link al pixel centrale del cluster.
-
----
-
-### 5. Aggiungere bottone "Share" nella sezione Paints del PlayerProfileModal
-
-**File: `src/components/modals/PlayerProfileModal.tsx`**
-
-Nella sezione "Paints" (riga ~342), aggiungere un bottone share accanto a "Expand" che condivide il link al profilo dell'utente con i suoi disegni.
-
----
-
-### 6. Aggiornare PixelInspectorCard (floating card)
-
-**File: `src/components/map/PixelInspectorCard.tsx`**
-
-Il bottone Share gia esiste qui ma usa solo `copyPixelLink`. Aggiornarlo per usare la nuova `sharePixel()` con Web Share API su mobile.
-
----
-
-### Riepilogo modifiche
+### Riepilogo
 
 | File | Modifica |
 |------|----------|
-| `index.html` | Meta tag OG aggiornati per Bitplace |
-| `src/lib/shareLink.ts` | Nuova funzione `sharePixel()` con Web Share API |
-| `src/components/map/PixelInfoPanel.tsx` | Bottone "Share Pixel" in fondo al pannello |
-| `src/components/map/OwnerArtworkModal.tsx` | Bottone share per cluster + share all paints |
-| `src/components/modals/PlayerProfileModal.tsx` | Bottone share nella sezione Paints |
-| `src/components/map/PixelInspectorCard.tsx` | Aggiornare a `sharePixel()` con Web Share API |
+| `src/components/map/PixelInfoPanel.tsx` | Prop `inDrawer`, wrapper condizionale, padding ridotto |
+| `src/components/map/PixelInspectorDrawer.tsx` | Passare `inDrawer` nella branch mobile |
+| `src/components/modals/SearchModal.tsx` | Spacing compatto per mobile |
 
 ### Rischio: Basso
-Tutte le modifiche sono additive. Il Web Share API ha fallback su clipboard quindi funziona ovunque.
-
+Modifiche solo CSS/layout. Nessuna logica di business toccata.
