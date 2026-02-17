@@ -5,9 +5,35 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Simple in-memory rate limiting per IP
-const rateLimitMap = new Map<string, number>();
+// Rate limiting maps: per-IP and per-user
+const ipRateLimitMap = new Map<string, number>();
+const userRateLimitMap = new Map<string, number>();
 const RATE_LIMIT_MS = 1100; // Nominatim requires 1 request/second
+const ANON_RATE_LIMIT_MS = 2000; // Stricter for unauthenticated requests
+
+// Simple JWT verification for optional auth
+async function tryVerifyToken(authHeader: string | null): Promise<string | null> {
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  try {
+    const token = authHeader.slice(7);
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1]));
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
+    // Verify signature using AUTH_SECRET
+    const secret = Deno.env.get('AUTH_SECRET');
+    if (!secret) return null;
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const data = encoder.encode(`${parts[0]}.${parts[1]}`);
+    const sig = await crypto.subtle.sign('HMAC', key, data);
+    const expectedSig = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    if (parts[2] !== expectedSig) return null;
+    return payload.userId || payload.sub || null;
+  } catch {
+    return null;
+  }
+}
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -37,7 +63,6 @@ serve(async (req) => {
     }
 
     // Character whitelist - allow international characters with unicode letter class
-    // Allows: letters (any language), numbers, spaces, common punctuation
     if (!/^[\p{L}\p{N}\s,.\-'"()]+$/u.test(trimmed)) {
       return new Response(
         JSON.stringify({ error: 'Query contains invalid characters' }),
@@ -45,19 +70,33 @@ serve(async (req) => {
       );
     }
 
-    // Rate limit check (simple per-instance, resets on cold start)
+    // Try to authenticate user (optional)
+    const userId = await tryVerifyToken(req.headers.get('Authorization'));
     const clientIp = req.headers.get('x-forwarded-for') || 'unknown';
-    const lastRequest = rateLimitMap.get(clientIp) || 0;
     const now = Date.now();
-    
-    if (now - lastRequest < RATE_LIMIT_MS) {
-      console.log(`[geocode] Rate limited: ${clientIp}`);
-      return new Response(
-        JSON.stringify({ error: 'Rate limited. Please wait a moment.' }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+
+    // Rate limit check: authenticated users get lighter limits, anon gets stricter
+    if (userId) {
+      const lastRequest = userRateLimitMap.get(userId) || 0;
+      if (now - lastRequest < RATE_LIMIT_MS) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limited. Please wait a moment.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      userRateLimitMap.set(userId, now);
+    } else {
+      const lastRequest = ipRateLimitMap.get(clientIp) || 0;
+      if (now - lastRequest < ANON_RATE_LIMIT_MS) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limited. Please wait a moment.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      ipRateLimitMap.set(clientIp, now);
     }
-    rateLimitMap.set(clientIp, now);
+    
+    console.log(`[geocode] Searching for: ${trimmed} (user: ${userId || 'anon'})`);
 
     console.log(`[geocode] Searching for: ${trimmed}`);
 

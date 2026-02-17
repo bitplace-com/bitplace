@@ -317,11 +317,14 @@ Deno.serve(async (req) => {
 
       const query = searchQuery.trim();
 
+      // Escape SQL wildcard characters to prevent injection
+      const escaped = query.replace(/[%_\\]/g, '\\$&');
+
       // Search by display_name or wallet_address (partial match)
       const { data: foundUsers } = await supabase
         .from("users")
         .select("id, display_name, level, wallet_address")
-        .or(`display_name.ilike.%${query}%,wallet_address.ilike.%${query}%`)
+        .or(`display_name.ilike.%${escaped}%,wallet_address.ilike.%${escaped}%`)
         .neq("id", userId)
         .limit(10);
 
