@@ -253,7 +253,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search for a place..."
-            className="bg-background border-border/50 pr-10 focus-visible:ring-offset-0"
+            className="bg-background border-border/50 pr-10 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-foreground"
           />
           {inputValue && (
             <Button
