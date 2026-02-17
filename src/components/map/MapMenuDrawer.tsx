@@ -71,7 +71,7 @@ export function MapMenuDrawer() {
               Bitplace
             </SheetTitle>
           </SheetHeader>
-          <nav className="mt-6 space-y-4 flex-1">
+          <nav className="mt-3 space-y-4 flex-1">
             {/* HOME section */}
             <div>
               <p className="px-3 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
