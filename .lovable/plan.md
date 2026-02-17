@@ -1,40 +1,41 @@
 
-# Fix: Info pixel non mostrate per selezioni grandi
+
+# Fix: Limite 1000 righe sulle chiamate RPC `fetch_pixels_by_coords`
 
 ## Problema
-Quando selezioni piu' di circa 500-700 pixel con la spacebar in modalita' esplora, il pannello mostra "Select pixels to view stats" invece delle informazioni reali. Questo succede perche' la query costruisce una stringa `.or()` enorme con tutte le coordinate dei pixel (es. `and(x.eq.100,y.eq.200),and(x.eq.101,y.eq.200),...`) che supera il limite di lunghezza URL di PostgREST, causando un errore silenzioso.
+Il client Supabase impone un limite di **1000 righe** di default su tutte le risposte, comprese le chiamate RPC. Quando selezioni 1681 pixel, la funzione `fetch_pixels_by_coords` restituisce solo 1000 righe. I restanti 681 pixel non vengono trovati nella mappa e il sistema li classifica erroneamente come "empty" (vuoti), generando il messaggio "681 pixels can't be reinforced -- they are empty".
+
+Quando selezioni solo 600 pixel, tutti rientrano nel limite di 1000 e tutto funziona correttamente.
 
 ## Soluzione
-Modificare `InspectSelectionPanel.tsx` per:
+Aggiungere `.limit(10000)` a tutte le chiamate `supabase.rpc('fetch_pixels_by_coords', ...)` per alzare il limite di righe restituito. Il valore 10000 corrisponde al limite massimo di selezione gia' definito in `MAX_SELECTION_PIXELS`.
 
-1. **Usare l'RPC `fetch_pixels_by_coords`** gia' esistente nel database, che accetta coordinate come JSONB nel body (nessun limite URL). Questo e' lo stesso approccio gia' usato da game-validate e game-commit.
+## File da modificare
 
-2. **Paginare la query delle contributions** usando `.range()` per gestire selezioni con piu' di 1000 pixel che hanno contributions.
-
-3. **Gestire errori visivamente** - mostrare un messaggio di errore nel pannello invece di fallire silenziosamente.
-
-## Dettagli tecnici
-
-### File: `src/components/map/inspector/InspectSelectionPanel.tsx`
-
-Sostituire la query pixels (righe 46-53):
+### 1. `supabase/functions/game-validate/index.ts` (riga ~243)
+Aggiungere `.limit(10000)` alla chiamata RPC nella funzione `fetchPixelsByCoords`:
 ```typescript
-// PRIMA (problematico per grandi selezioni):
-const orCondition = selectedPixels
-  .map(p => `and(x.eq.${p.x},y.eq.${p.y})`)
-  .join(',');
-const { data: pixels } = await supabase
-  .from('pixels')
-  .select('id, x, y, owner_user_id, owner_stake_pe')
-  .or(orCondition);
-
-// DOPO (usa RPC, nessun limite):
-const coords = selectedPixels.map(p => ({ x: p.x, y: p.y }));
-const { data: pixels } = await supabase.rpc('fetch_pixels_by_coords', {
-  coords: coords,
-});
+const { data, error } = await supabase.rpc("fetch_pixels_by_coords", { 
+  coords: coords 
+}).limit(10000);
 ```
 
-Per le contributions, aggiungere paginazione con `.range()` in batch da 1000 per gestire selezioni con molti pixel che hanno contributions nel database.
+### 2. `supabase/functions/game-commit/index.ts` (riga ~137)
+Stessa modifica:
+```typescript
+const { data, error } = await supabase.rpc('fetch_pixels_by_coords', {
+  coords: coords,
+}).limit(10000);
+```
 
-Aggiungere anche un messaggio di errore visibile nel pannello nel caso la query fallisca, invece di restituire silenziosamente nessun dato.
+### 3. `src/components/map/inspector/InspectSelectionPanel.tsx` (riga ~51)
+Stessa modifica per il pannello ispettore di area:
+```typescript
+const { data: pixels, error: pixelError } = await supabase.rpc('fetch_pixels_by_coords', {
+  coords: coords,
+}).limit(10000);
+```
+
+## Perche' funziona
+La funzione SQL `fetch_pixels_by_coords` non ha un limite interno -- restituisce tutte le righe trovate. Il limite viene applicato dal client SDK di Supabase, che di default tronca a 1000 righe. Aggiungendo `.limit(10000)` esplicitamente, il client richiede fino a 10000 righe, coprendo qualsiasi selezione possibile nel gioco.
+
