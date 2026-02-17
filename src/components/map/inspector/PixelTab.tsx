@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { User, Users, Shield, Swords, RefreshCw, AlertTriangle, ArrowUpFromLine, Loader2 } from 'lucide-react';
+import { User, Shield, Swords, RefreshCw, AlertTriangle, ArrowUpFromLine, Loader2 } from 'lucide-react';
+import { PixelIcon } from '@/components/icons';
 import { getCountryByCode } from '@/lib/countries';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -142,7 +143,7 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
               })()}
               {pixel.owner?.alliance_tag && (
                 <div className="flex items-center gap-1">
-                  <Users className="h-3 w-3" />
+                  <PixelIcon name="usersCrown" size="xs" />
                   <span>[{pixel.owner.alliance_tag}]</span>
                 </div>
               )}
@@ -277,24 +278,6 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
         </div>
       )}
 
-      {/* Takeover Threshold */}
-      <div className="bg-muted/70 border border-border rounded-lg p-3">
-        <div className="text-xs text-foreground mb-1">
-          {isEmpty ? 'Claim Cost' : 'Takeover Threshold'}
-        </div>
-        <div className="text-xl font-bold text-foreground">
-          {pixel.thresholdWithFloor.toLocaleString()}
-          <span className="text-sm font-normal ml-1">PE</span>
-        </div>
-        <div className="text-xs text-muted-foreground mt-1">
-          {isEmpty 
-            ? 'PE required to claim this pixel'
-            : pixel.isFloorBased
-              ? 'Floor-based threshold (owner rebalancing)'
-              : 'PE required to take over this pixel'
-          }
-        </div>
-      </div>
     </div>
   );
 }
