@@ -1,4 +1,4 @@
-import { PixelIcon } from '@/components/icons';
+import { PixelBadgeCheck } from '@/components/icons/custom/PixelBadgeCheck';
 import { cn } from '@/lib/utils';
 
 interface AdminBadgeProps {
@@ -15,9 +15,7 @@ export function AdminBadge({ size = 'sm', className }: AdminBadgeProps) {
       )}
       title="Admin"
     >
-      <span className="animate-shine inline-flex">
-        <PixelIcon name="badgeCheck" size={size === 'md' ? 'md' : 'sm'} />
-      </span>
+      <PixelBadgeCheck shine className={size === 'md' ? 'w-5 h-5' : 'w-4 h-4'} />
       <span className="text-[10px] font-semibold">Admin</span>
     </span>
   );
