@@ -235,22 +235,13 @@ export function ActionBox({
         </div>
       )}
 
-      {/* Partial valid warning for ERASE - show "Exclude Invalid" option */}
-      {mode === 'ERASE' && validationResult?.partialValid && validationResult.invalidPixels?.length > 0 && onExcludeInvalid && (
+      {/* Partial valid warning for ERASE */}
+      {mode === 'ERASE' && validationResult?.partialValid && validationResult.invalidPixels?.length > 0 && (
         <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-amber-500/10 text-amber-600 text-[11px]">
           <AlertCircle className="h-3 w-3 flex-shrink-0" />
-          <span className="flex-1">
-            {validationResult.invalidPixels.length} pixel{validationResult.invalidPixels.length > 1 ? 's' : ''} cannot be erased
+          <span>
+            {validationResult.invalidPixels.length} pixel{validationResult.invalidPixels.length > 1 ? 's' : ''} can't be erased — you don't own {validationResult.invalidPixels.length > 1 ? 'them' : 'it'}
           </span>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="h-6 px-2 text-[10px] text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
-            onClick={onExcludeInvalid}
-          >
-            Exclude
-          </Button>
         </div>
       )}
 
