@@ -1,33 +1,116 @@
 
 
-## Fix: Ottimizzazione Search panel per mobile
+## Condivisione Pixel e Disegni
 
-### Problema
-Dallo screenshot, il pannello Search su mobile ha:
-- Spaziatura eccessiva tra gli elementi (`space-y-4`)
-- L'empty state con icona e testo occupa troppo spazio verticale (`py-6`, icona `h-8 w-8`)
-- Il campo input ha un padding destro eccessivo (`pr-20`)
-- Il contenuto generale potrebbe essere piu compatto
+### Panoramica
 
-### Soluzione
+Migliorare il sistema di condivisione pixel esistente (`shareLink.ts`) e aggiungere bottoni "Share" in tutte le aree rilevanti. Ottimizzare anche i meta tag Open Graph per una preview di qualita quando il link viene condiviso su social/chat.
 
-**File: `src/components/modals/SearchModal.tsx`**
+---
 
-1. **Ridurre spaziatura generale**: `space-y-4` diventa `space-y-3` per compattare gli elementi su mobile
+### 1. Migliorare `index.html` con meta tag Bitplace
 
-2. **Input field**: ridurre `pr-20` a `pr-10` - il bottone clear e piccolo (`h-7 px-2`) e non servono 80px di padding destro
+**File: `index.html`**
 
-3. **Empty state piu compatto**: ridurre `py-6` a `py-4`, icona da `h-8 w-8` a `h-6 w-6`, ridurre `mb-2` a `mb-1.5`
+Aggiornare title, description e og:image con branding Bitplace:
+- `<title>Bitplace</title>`
+- `<meta name="description" content="Paint pixels on the world map. Claim, defend, and build pixel art with others.">`
+- og:title, og:description, og:image (usare un'immagine di preview di Bitplace, per ora un placeholder appropriato)
+- twitter:card, twitter:site aggiornati
 
-4. **Rows delle liste (pinned, results, recent)**: ridurre `p-2` a `p-1.5` e `gap-2` a `gap-1.5` per rendere le righe piu compatte su mobile
+---
 
-### Dettaglio tecnico
+### 2. Migliorare `shareLink.ts` con Web Share API
 
-- **Riga 247**: `space-y-4` -> `space-y-3`
-- **Riga 256**: `pr-20` -> `pr-10`
-- **Riga 458**: `py-6` -> `py-4`
-- **Riga 459**: `h-8 w-8` -> `h-6 w-6`, `mb-2` -> `mb-1.5`
-- **Righe 309, 377, 429**: `gap-2 p-2` -> `gap-1.5 p-1.5` per le righe delle liste
+**File: `src/lib/shareLink.ts`**
 
-### Rischio: Zero
-Solo modifiche CSS di spaziatura.
+Aggiungere una funzione `sharePixel(x, y)` che:
+1. Genera il link con `generatePixelShareLink`
+2. Prova `navigator.share()` (Web Share API nativa, ottima su mobile) con titolo e testo descrittivo
+3. Se non disponibile (desktop), fallback a copia in clipboard
+
+Aggiungere anche `shareArtwork(userId, displayName)` per condividere il profilo/disegni di un utente con link al profilo.
+
+```typescript
+export async function sharePixel(x: number, y: number): Promise<boolean> {
+  const link = generatePixelShareLink(x, y);
+  const shareData = {
+    title: `Pixel ${x}:${y} on Bitplace`,
+    text: `Check out this pixel on Bitplace!`,
+    url: link,
+  };
+  
+  if (navigator.share) {
+    try {
+      await navigator.share(shareData);
+      return true;
+    } catch { /* user cancelled */ }
+  }
+  // Fallback: copy to clipboard
+  return copyPixelLink(x, y);
+}
+```
+
+---
+
+### 3. Aggiungere bottone "Share" al PixelInfoPanel
+
+**File: `src/components/map/PixelInfoPanel.tsx`**
+
+Aggiungere un bottone "Share" nel footer/bottom del pannello, visibile per tutti i pixel (claimed e unclaimed). Posizionarlo come riga separata sotto l'artwork section:
+
+```tsx
+{/* Share */}
+<Button
+  variant="outline"
+  size="sm"
+  className="w-full"
+  onClick={() => sharePixel(x, y).then(ok => ok && toast.success('Link copied!'))}
+>
+  <PixelIcon name="share" className="w-3.5 h-3.5 mr-1.5" />
+  Share Pixel
+</Button>
+```
+
+---
+
+### 4. Aggiungere bottone "Share" all'OwnerArtworkModal
+
+**File: `src/components/map/OwnerArtworkModal.tsx`**
+
+Per ogni cluster nella griglia, aggiungere un piccolo bottone share accanto al "click to jump". Inoltre aggiungere un bottone "Share All Paints" nel footer che condivide il link al profilo dell'utente.
+
+Per i singoli cluster: bottone share che condivide il link al pixel centrale del cluster.
+
+---
+
+### 5. Aggiungere bottone "Share" nella sezione Paints del PlayerProfileModal
+
+**File: `src/components/modals/PlayerProfileModal.tsx`**
+
+Nella sezione "Paints" (riga ~342), aggiungere un bottone share accanto a "Expand" che condivide il link al profilo dell'utente con i suoi disegni.
+
+---
+
+### 6. Aggiornare PixelInspectorCard (floating card)
+
+**File: `src/components/map/PixelInspectorCard.tsx`**
+
+Il bottone Share gia esiste qui ma usa solo `copyPixelLink`. Aggiornarlo per usare la nuova `sharePixel()` con Web Share API su mobile.
+
+---
+
+### Riepilogo modifiche
+
+| File | Modifica |
+|------|----------|
+| `index.html` | Meta tag OG aggiornati per Bitplace |
+| `src/lib/shareLink.ts` | Nuova funzione `sharePixel()` con Web Share API |
+| `src/components/map/PixelInfoPanel.tsx` | Bottone "Share Pixel" in fondo al pannello |
+| `src/components/map/OwnerArtworkModal.tsx` | Bottone share per cluster + share all paints |
+| `src/components/modals/PlayerProfileModal.tsx` | Bottone share nella sezione Paints |
+| `src/components/map/PixelInspectorCard.tsx` | Aggiornare a `sharePixel()` con Web Share API |
+
+### Rischio: Basso
+Tutte le modifiche sono additive. Il Web Share API ha fallback su clipboard quindi funziona ovunque.
+
