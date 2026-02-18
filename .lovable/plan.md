@@ -1,50 +1,58 @@
 
 
-# Fix: Withdraw button not updating after validation
+# Fix: Withdraw button click does nothing after validation
 
 ## Root Cause
 
-The backend response puts `withdrawRefund` inside `breakdown.pePerType`, not directly on `breakdown`:
+In `handleConfirm` (BitplaceMap.tsx, line 1448), there's a gate:
 
-```text
-Backend returns:
-  breakdown: {
-    pixelCount: 1681,
-    pePerType: { withdrawRefund: 1612 }   <-- here
-  }
-
-Frontend checks:
-  validationResult.breakdown?.withdrawRefund  <-- always undefined!
+```typescript
+if (!validationResult?.ok && !frozenPayload?.snapshotHash) {
+  if (gameMode === 'PAINT') { ... }
+  else if (gameMode === 'ERASE') { ... }
+  return;  // <-- WITHDRAW hits this and exits silently
+}
 ```
 
-So the `isValidated` condition for Withdraw never evaluates to true from a fresh Withdraw validation. The reason it "works" after first doing a Deposit validation is that the old validation result with `ok: true` persists in state, making the button appear validated regardless.
+For WITHDRAW modes, the backend returns `ok: false` (because some pixels have MIN_STAKE violations), so the code enters this branch. But only PAINT and ERASE are handled inside -- there's no WITHDRAW case. The function exits on `return;` without ever calling `commit()`.
+
+Additionally, the success handler (lines 1550-1559) is missing cases for `WITHDRAW_DEF`, `WITHDRAW_ATK`, and `WITHDRAW_REINFORCE`.
 
 ## Fix
 
-**File: `src/components/map/inspector/ActionBox.tsx`**
+**File: `src/components/map/BitplaceMap.tsx`**
 
-Two places reference `breakdown.withdrawRefund` and need to be changed to `breakdown.pePerType?.withdrawRefund`:
+### Change 1: Allow WITHDRAW modes to bypass the `ok: false` gate
 
-1. **Line 101** (cost display): `validationResult?.breakdown?.withdrawRefund` should be `validationResult?.breakdown?.pePerType?.withdrawRefund`
+The `isValidated` logic in ActionBox already correctly considers a withdraw validated when `withdrawRefund > 0`. The `handleConfirm` function needs to match this logic. We need to modify the condition on line 1448 to let withdraw modes (which have valid pixels despite `ok: false`) pass through to the commit path below.
 
-2. **Line 116** (isValidated check): `validationResult.breakdown?.withdrawRefund` should be `validationResult.breakdown?.pePerType?.withdrawRefund`
+Add a check: if it's a withdraw mode and the validation has a positive `withdrawRefund`, skip the early-return branch and proceed to the commit code.
 
-### Before
 ```typescript
-// Line 101
-return validationResult?.breakdown?.withdrawRefund ?? pePerPixel * pixelCount;
+const isWithdrawMode = gameMode.startsWith('WITHDRAW_');
+const hasWithdrawRefund = isWithdrawMode && validationResult && 
+  (validationResult.breakdown?.pePerType?.withdrawRefund ?? 0) > 0;
 
-// Line 116
-(isWithdraw && validationResult && (validationResult.breakdown?.withdrawRefund ?? 0) > 0)
+if (!validationResult?.ok && !frozenPayload?.snapshotHash && !hasWithdrawRefund) {
+  // existing PAINT/ERASE handling...
+}
 ```
 
-### After
-```typescript
-// Line 101
-return validationResult?.breakdown?.pePerType?.withdrawRefund ?? pePerPixel * pixelCount;
+### Change 2: Add WITHDRAW success handlers
 
-// Line 116
-(isWithdraw && validationResult && (validationResult.breakdown?.pePerType?.withdrawRefund ?? 0) > 0)
+After lines 1556-1558 (the REINFORCE case), add handlers for the three withdraw modes:
+
+```typescript
+} else if (gameMode === 'WITHDRAW_DEF' || gameMode === 'WITHDRAW_ATK' || gameMode === 'WITHDRAW_REINFORCE') {
+  if (success.peStatus) updatePeStatus(success.peStatus);
+  playSound('reinforce_success'); // reuse sound
+}
 ```
 
-This is a two-line change that fixes both the "validated" state detection and the refund amount display for all withdraw modes (WITHDRAW_DEF, WITHDRAW_ATK, WITHDRAW_REINFORCE).
+### Change 3: Handle missing snapshotHash for withdraw commits
+
+The commit call on line 1516 uses `snapshotHash: snapshotHashToUse!` which may be undefined for WITHDRAW (the backend might not return a snapshotHash with `ok: false`). We need to pass it as optional or handle the case.
+
+## Files Changed
+- `src/components/map/BitplaceMap.tsx` -- 3 targeted changes in the `handleConfirm` function
+
