@@ -17,6 +17,8 @@ const reasonLabels: Record<string, string> = {
   EMPTY_PIXEL: 'Pixel is empty',
   INSUFFICIENT_PE: 'Not enough PE',
   INVALID_COLOR: 'Invalid color',
+  MIN_STAKE: 'Minimum 1 PE stake required',
+  NO_CONTRIBUTION: 'No contribution found',
 };
 
 const modeVerbs: Record<string, string> = {
@@ -25,6 +27,9 @@ const modeVerbs: Record<string, string> = {
   DEFEND: 'defended',
   ATTACK: 'attacked',
   PAINT: 'painted',
+  WITHDRAW_DEF: 'withdrawn',
+  WITHDRAW_ATK: 'withdrawn',
+  WITHDRAW_REINFORCE: 'withdrawn',
 };
 
 const reasonSuffixes: Record<string, string> = {
@@ -32,6 +37,8 @@ const reasonSuffixes: Record<string, string> = {
   NOT_OWNER: "you don't own them",
   IS_OWNER: 'they belong to you',
   OPPOSITE_SIDE: 'opposite contribution exists',
+  NO_CONTRIBUTION: 'no contribution found',
+  MIN_STAKE: 'minimum stake not met',
 };
 
 export function InvalidPixelList({ invalidPixels, onExcludeInvalid, isPartialValid, mode }: InvalidPixelListProps) {
@@ -57,15 +64,15 @@ export function InvalidPixelList({ invalidPixels, onExcludeInvalid, isPartialVal
     : '';
 
   return (
-    <div className={`border-t ${colorClass} p-3`}>
-      <div className="flex items-center gap-2 text-xs font-medium mb-2">
+    <div className={`border-t ${colorClass} p-3 space-y-2`}>
+      <div className="flex items-center gap-2 text-xs font-medium">
         <AlertCircle className={`h-3 w-3 ${iconColorClass}`} />
         <span className={textColorClass}>
           {invalidPixels.length} pixel{invalidPixels.length > 1 ? 's' : ''} can't be {verb}{suffix}
         </span>
       </div>
       
-      {/* Show grouped summary by reason */}
+      {/* Grouped summary by reason */}
       <div className="space-y-1">
         {Object.entries(groupedByReason).map(([reason, pixels]) => (
           <div key={reason} className="flex items-center justify-between text-xs">
@@ -78,6 +85,23 @@ export function InvalidPixelList({ invalidPixels, onExcludeInvalid, isPartialVal
           </div>
         ))}
       </div>
+
+      {/* Contextual explanation */}
+      <p className="text-[10px] text-muted-foreground leading-relaxed">
+        These pixels don't meet the requirements for this action and will be skipped.
+      </p>
+
+      {/* Exclude button */}
+      {isPartialValid && onExcludeInvalid && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full h-8 text-xs"
+          onClick={onExcludeInvalid}
+        >
+          Exclude {invalidPixels.length} invalid pixel{invalidPixels.length > 1 ? 's' : ''}
+        </Button>
+      )}
     </div>
   );
 }

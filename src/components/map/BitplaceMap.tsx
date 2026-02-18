@@ -1828,7 +1828,7 @@ export function BitplaceMap() {
                 onConfirm={handleConfirm} 
                 onClearSelection={draftCount > 0 ? clearDraft : handleClearSelection} 
                 onBack={validationResult?.ok ? clearValidation : undefined}
-                onExcludeInvalid={(mode === 'paint' && selectedColor === null) ? handleExcludeInvalid : undefined}
+onExcludeInvalid={handleExcludeInvalid}
                 isValidating={isValidating} 
                 isCommitting={isCommitting}
                 isDraftMode={draftCount > 0}
@@ -1862,7 +1862,7 @@ export function BitplaceMap() {
             onConfirm={handleConfirm}
             onClearSelection={draftCount > 0 ? clearDraft : handleClearSelection}
             onBack={validationResult?.ok ? clearValidation : undefined}
-            onExcludeInvalid={(mode === 'paint' && selectedColor === null) ? handleExcludeInvalid : undefined}
+            onExcludeInvalid={handleExcludeInvalid}
             clearValidation={clearValidation}
             isValidating={isValidating}
             isCommitting={isCommitting}
