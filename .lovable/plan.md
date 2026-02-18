@@ -1,17 +1,29 @@
 
 
-# Remove Duplicate PE Input from Right Panel
+# Fix: Withdraw Refund Shows 0 PE
 
-## Problem
-The PE per-pixel input (number field + preset buttons 1, 2, 5, 10) is shown twice: once in the bottom ActionTray and again in the right sidebar's ActionBox. This creates visual clutter.
+## Root Cause
 
-## Change
+The backend (game-validate) correctly calculates the refund amount for WITHDRAW modes but stores it in `breakdown.withdrawRefund`, while keeping `requiredPeTotal = 0` (because withdrawals have no cost). The ActionBox reads `requiredPeTotal` for the "Refund" display, which is always 0.
 
-**File: `src/components/map/inspector/ActionBox.tsx`**
+## Fix
 
-Remove lines 173-180 -- the `PeInput` component block that renders for DEF/ATK/REINFORCE/WITHDRAW modes. The ActionTray already provides this input, so the sidebar only needs to show the cost summary, alerts, and action buttons.
+**File: `src/components/map/inspector/ActionBox.tsx`** (lines 90-105)
 
-The `PeInput` import (line 5) can also be removed since it will no longer be used in this file.
+Update the `requiredPe` calculation for withdraw modes to read from `breakdown.withdrawRefund` when a validation result exists:
 
-No other files need changes -- the ActionTray continues to provide the PE input as before.
+```typescript
+if (isWithdraw) {
+  return validationResult?.breakdown?.withdrawRefund ?? pePerPixel * pixelCount;
+}
+```
+
+This way:
+- Before validation: shows the estimate (`pePerPixel * pixelCount`)
+- After validation: shows the actual refund from the backend (`breakdown.withdrawRefund`)
+
+The "After action" line (line 226) already handles withdraw math correctly (`availablePe + Math.abs(requiredPe)`), so once `requiredPe` is correct, the post-action balance will also be correct.
+
+## Files Changed
+- `src/components/map/inspector/ActionBox.tsx` -- 1 line change in the `requiredPe` calculation
 
