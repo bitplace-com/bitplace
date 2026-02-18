@@ -43,6 +43,9 @@ const modeConfig: Record<GameMode, { icon: React.ReactNode; label: string }> = {
   ATTACK: { icon: <PixelIcon name="swords" className="h-3.5 w-3.5" />, label: 'Attack' },
   REINFORCE: { icon: <PEIcon size="sm" />, label: 'Reinforce' },
   ERASE: { icon: <PixelIcon name="trash" className="h-3.5 w-3.5" />, label: 'Erase' },
+  WITHDRAW_DEF: { icon: <PixelIcon name="shield" className="h-3.5 w-3.5" />, label: 'Withdraw DEF' },
+  WITHDRAW_ATK: { icon: <PixelIcon name="swords" className="h-3.5 w-3.5" />, label: 'Withdraw ATK' },
+  WITHDRAW_REINFORCE: { icon: <PEIcon size="sm" />, label: 'Withdraw Stake' },
 };
 
 export function ActionBox({
@@ -75,13 +78,16 @@ export function ActionBox({
   // Get effective count first (draft for paint, selection for others)
   const effectiveCount = mode === 'PAINT' ? draftCount : pixelCount;
   
+  // Check if this is a withdraw mode
+  const isWithdraw = mode === 'WITHDRAW_DEF' || mode === 'WITHDRAW_ATK' || mode === 'WITHDRAW_REINFORCE';
+  
   // Determine if validation is required:
   // - Always for ERASE (even single pixel)
-  // - Always for non-PAINT modes (DEFEND/ATTACK/REINFORCE)
+  // - Always for non-PAINT modes (DEFEND/ATTACK/REINFORCE/WITHDRAW_*)
   // - For PAINT: only if more than 1 pixel
   const needsValidation = mode === 'ERASE' || mode !== 'PAINT' || effectiveCount > 1;
 
-  // Calculate PE values - always use live calculation for DEF/ATK/REINFORCE
+  // Calculate PE values - always use live calculation for DEF/ATK/REINFORCE/WITHDRAW_*
   const requiredPe = (() => {
     // For ERASE, use validation result only
     if (mode === 'ERASE') {
@@ -90,6 +96,10 @@ export function ActionBox({
     // For PAINT, use draft count or validation
     if (mode === 'PAINT') {
       return validationResult?.requiredPeTotal ?? draftCount;
+    }
+    // For withdraw modes, show as refund (positive number = PE returned)
+    if (isWithdraw) {
+      return validationResult?.requiredPeTotal ?? pePerPixel * pixelCount;
     }
     // For DEF/ATK/REINFORCE, always compute live from pePerPixel
     return pePerPixel * pixelCount;
@@ -159,7 +169,7 @@ export function ActionBox({
         </div>
       )}
 
-      {/* PE Input for DEF/ATK/REINFORCE modes */}
+      {/* PE Input for DEF/ATK/REINFORCE/WITHDRAW_* modes */}
       {mode !== 'PAINT' && mode !== 'ERASE' && pixelCount > 0 && (
         <PeInput 
           value={pePerPixel} 
@@ -175,10 +185,10 @@ export function ActionBox({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <PEIcon size="xs" />
-              <span>Required</span>
+              <span>{isWithdraw ? 'Refund' : 'Required'}</span>
             </div>
-            <span className="text-base font-semibold tabular-nums">
-              {requiredPe.toLocaleString()}
+            <span className={cn("text-base font-semibold tabular-nums", isWithdraw && "text-emerald-500")}>
+              {isWithdraw ? '+' : ''}{Math.abs(requiredPe).toLocaleString()}
             </span>
           </div>
 
@@ -217,9 +227,11 @@ export function ActionBox({
                 <span className="text-[11px] text-muted-foreground">After action</span>
                 <span className={cn(
                   "text-sm font-medium tabular-nums",
-                  hasSufficientPe ? "text-emerald-500" : "text-destructive"
+                  isWithdraw ? "text-emerald-500" : (hasSufficientPe ? "text-emerald-500" : "text-destructive")
                 )}>
-                  {(availablePe - requiredPe).toLocaleString()}
+                  {isWithdraw 
+                    ? (availablePe + Math.abs(requiredPe)).toLocaleString() 
+                    : (availablePe - requiredPe).toLocaleString()}
                 </span>
               </div>
             </>

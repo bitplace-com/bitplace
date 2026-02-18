@@ -20,6 +20,9 @@ const modeConfig: Record<GameMode, { iconName: 'brush' | 'shield' | 'swords' | '
   ATTACK: { iconName: 'swords', label: 'Attack', color: 'text-rose-500' },
   REINFORCE: { iconName: 'shield', label: 'Reinforce', color: 'text-amber-500' },
   ERASE: { iconName: 'eraser', label: 'Erase', color: 'text-muted-foreground' },
+  WITHDRAW_DEF: { iconName: 'shield', label: 'Withdraw DEF', color: 'text-emerald-500' },
+  WITHDRAW_ATK: { iconName: 'swords', label: 'Withdraw ATK', color: 'text-rose-500' },
+  WITHDRAW_REINFORCE: { iconName: 'shield', label: 'Withdraw Stake', color: 'text-amber-500' },
 };
 
 export function CollapsedActionBar({

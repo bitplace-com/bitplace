@@ -50,7 +50,7 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
   }
 }
 
-type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE" | "PING";
+type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE" | "WITHDRAW_DEF" | "WITHDRAW_ATK" | "WITHDRAW_REINFORCE" | "PING";
 
 // Paint-specific limits
 const MAX_PAINT_PIXELS = 300;
@@ -747,13 +747,41 @@ async function handleLegacyValidate(
                 continue;
               }
               requiredPeTotal += pePerPixel!;
+            } else if (mode === "WITHDRAW_REINFORCE") {
+              if (isEmpty) {
+                invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
+                continue;
+              }
+              if (!isOwnedByUser) {
+                invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "NOT_OWNER" });
+                continue;
+              }
+              const currentStake = pixel.owner_stake_pe || 0;
+              if (currentStake - pePerPixel! < 1) {
+                invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "MIN_STAKE" });
+                continue;
+              }
+              // Withdraw = refund, so requiredPeTotal stays 0 (no cost)
+              breakdown["withdrawRefund"] = (breakdown["withdrawRefund"] || 0) + pePerPixel!;
+            } else if (mode === "WITHDRAW_DEF" || mode === "WITHDRAW_ATK") {
+              if (isEmpty) {
+                invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
+                continue;
+              }
+              // User must have a contribution on this pixel on the matching side
+              const expectedSide = mode === "WITHDRAW_DEF" ? "DEF" : "ATK";
+              if (pixel.userContributionSide !== expectedSide) {
+                invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "NO_CONTRIBUTION" });
+                continue;
+              }
+              breakdown["withdrawRefund"] = (breakdown["withdrawRefund"] || 0) + pePerPixel!;
             }
           }
 
           emit({ type: "progress", phase: "validate", processed: Math.floor(total * 0.9), total });
 
           // Check PE availability
-          if (mode !== "ERASE" && invalidPixels.length === 0 && requiredPeTotal > peFree) {
+          if (mode !== "ERASE" && !mode.startsWith("WITHDRAW") && invalidPixels.length === 0 && requiredPeTotal > peFree) {
             emit({
               type: "done",
               result: {
@@ -934,11 +962,37 @@ async function handleLegacyValidate(
         continue;
       }
       requiredPeTotal += pePerPixel!;
+    } else if (mode === "WITHDRAW_REINFORCE") {
+      if (isEmpty) {
+        invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
+        continue;
+      }
+      if (!isOwnedByUser) {
+        invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "NOT_OWNER" });
+        continue;
+      }
+      const currentStake = pixel.owner_stake_pe || 0;
+      if (currentStake - pePerPixel! < 1) {
+        invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "MIN_STAKE" });
+        continue;
+      }
+      breakdown["withdrawRefund"] = (breakdown["withdrawRefund"] || 0) + pePerPixel!;
+    } else if (mode === "WITHDRAW_DEF" || mode === "WITHDRAW_ATK") {
+      if (isEmpty) {
+        invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "EMPTY_PIXEL" });
+        continue;
+      }
+      const expectedSide = mode === "WITHDRAW_DEF" ? "DEF" : "ATK";
+      if (pixel.userContributionSide !== expectedSide) {
+        invalidPixels.push({ x: pixel.x, y: pixel.y, reason: "NO_CONTRIBUTION" });
+        continue;
+      }
+      breakdown["withdrawRefund"] = (breakdown["withdrawRefund"] || 0) + pePerPixel!;
     }
   }
 
   // Check PE availability
-  if (mode !== "ERASE" && invalidPixels.length === 0 && requiredPeTotal > peFree) {
+  if (mode !== "ERASE" && !mode.startsWith("WITHDRAW") && invalidPixels.length === 0 && requiredPeTotal > peFree) {
     return new Response(JSON.stringify({
       ok: false,
       error: "INSUFFICIENT_PE",
@@ -1117,7 +1171,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!["PAINT", "DEFEND", "ATTACK", "REINFORCE", "ERASE"].includes(mode)) {
+    if (!["PAINT", "DEFEND", "ATTACK", "REINFORCE", "ERASE", "WITHDRAW_DEF", "WITHDRAW_ATK", "WITHDRAW_REINFORCE"].includes(mode)) {
       return new Response(JSON.stringify({ ok: false, error: "INVALID_MODE", requestId }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1138,7 +1192,17 @@ Deno.serve(async (req) => {
     }
     
     // === LEGACY PATH for DEFEND, ATTACK, REINFORCE, ERASE ===
-    if (mode !== "ERASE") {
+    if (mode !== "ERASE" && !mode.startsWith("WITHDRAW")) {
+      if (!pePerPixel || pePerPixel < 1 || !Number.isInteger(pePerPixel)) {
+        return new Response(JSON.stringify({ ok: false, error: "INVALID_PE", message: `${mode} requires positive integer pePerPixel`, requestId }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+    
+    // WITHDRAW modes also require pePerPixel
+    if (mode.startsWith("WITHDRAW")) {
       if (!pePerPixel || pePerPixel < 1 || !Number.isInteger(pePerPixel)) {
         return new Response(JSON.stringify({ ok: false, error: "INVALID_PE", message: `${mode} requires positive integer pePerPixel`, requestId }), {
           status: 400,

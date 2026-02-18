@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { Input } from '@/components/ui/input';
 import { PlacesModal } from '@/components/modals/PlacesModal';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { MapMode, InteractionMode, PaintTool, BrushSize } from './hooks/useMapState';
 
 interface ActionTrayProps {
@@ -46,6 +47,10 @@ interface ActionTrayProps {
   // Template palette filtering
   templateGuideColors?: string[];  // Colors used in active template
   filterToGuideColors?: boolean;   // Whether to filter palette
+  
+  // Deposit/Withdraw direction for action modes
+  actionDirection?: 'deposit' | 'withdraw';
+  onActionDirectionChange?: (direction: 'deposit' | 'withdraw') => void;
   
   // Callbacks
   onColorSelect: (color: string | null) => void;
@@ -92,6 +97,8 @@ export function ActionTray({
   statusStripHeight = 48,
   templateGuideColors = [],
   filterToGuideColors = false,
+  actionDirection = 'deposit',
+  onActionDirectionChange,
   onColorSelect,
   onPaintToolChange,
   onBrushSizeChange,
@@ -452,6 +459,48 @@ export function ActionTray({
             ) : (
               /* ACTION MODE (Defend/Attack/Reinforce): Stake controls */
               <div className="space-y-3">
+                {/* Deposit / Withdraw Toggle */}
+                <TooltipProvider delayDuration={300}>
+                  <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => onActionDirectionChange?.('deposit')}
+                          className={cn(
+                            "flex-1 h-10 sm:h-7 rounded-md flex items-center justify-center gap-1.5 text-xs font-medium transition-colors touch-target",
+                            actionDirection === 'deposit'
+                              ? "bg-foreground text-background"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <PixelIcon name="plus" className="h-3.5 w-3.5" />
+                          <span>Deposit</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">Add PE to selected pixels</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => onActionDirectionChange?.('withdraw')}
+                          className={cn(
+                            "flex-1 h-10 sm:h-7 rounded-md flex items-center justify-center gap-1.5 text-xs font-medium transition-colors touch-target",
+                            actionDirection === 'withdraw'
+                              ? "bg-foreground text-background"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <PixelIcon name="minus" className="h-3.5 w-3.5" />
+                          <span>Withdraw</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">Remove PE from selected pixels</TooltipContent>
+                    </Tooltip>
+                  </div>
+                </TooltipProvider>
+
                 {/* PE Per Pixel Input */}
                 <div className="flex items-center gap-3 sm:gap-2">
                   <PEIcon size="md" className="sm:hidden" />
