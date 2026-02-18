@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
     let data: unknown[] = [];
 
     if (scope === "players") {
-      let query = supabase.from("paint_events").select("user_id, pixel_count, created_at");
+      let query = supabase.from("paint_events").select("user_id, pixel_count, action_type, created_at").in("action_type", ["PAINT", "ERASE"]);
       if (timeFilter) query = query.gte("created_at", timeFilter);
       const { data: events, error: eventsError } = await query;
       if (eventsError) throw eventsError;
@@ -79,8 +79,13 @@ Deno.serve(async (req) => {
       const userTotals = new Map<string, number>();
       for (const event of events || []) {
         if (event.user_id) {
-          userTotals.set(event.user_id, (userTotals.get(event.user_id) || 0) + (event.pixel_count || 0));
+          const delta = event.action_type === "ERASE" ? -(event.pixel_count || 0) : (event.pixel_count || 0);
+          userTotals.set(event.user_id, (userTotals.get(event.user_id) || 0) + delta);
         }
+      }
+      // Ensure no negative totals
+      for (const [uid, val] of userTotals) {
+        if (val < 0) userTotals.set(uid, 0);
       }
 
       // Get all user IDs from events
@@ -120,7 +125,7 @@ Deno.serve(async (req) => {
         data = entries.slice(0, 50).map((e, i) => ({ ...e, rank: i + 1 }));
       }
     } else if (scope === "countries") {
-      let query = supabase.from("paint_events").select("user_id, pixel_count, created_at");
+      let query = supabase.from("paint_events").select("user_id, pixel_count, action_type, created_at").in("action_type", ["PAINT", "ERASE"]);
       if (timeFilter) query = query.gte("created_at", timeFilter);
       const { data: events, error: eventsError } = await query;
       if (eventsError) throw eventsError;
@@ -140,7 +145,8 @@ Deno.serve(async (req) => {
           const countryCode = userCountryMap.get(event.user_id);
           if (countryCode) {
             const current = countryTotals.get(countryCode) || { pixels: 0, peStaked: 0, players: new Set() };
-            current.pixels += event.pixel_count || 0;
+            const delta = event.action_type === "ERASE" ? -(event.pixel_count || 0) : (event.pixel_count || 0);
+            current.pixels += delta;
             current.players.add(event.user_id);
             countryTotals.set(countryCode, current);
           }
@@ -170,16 +176,10 @@ Deno.serve(async (req) => {
           totalPeStaked: stats.peStaked,
         }));
     } else if (scope === "alliances") {
-      let query = supabase.from("paint_events").select("user_id, pixel_count, created_at");
+      let query = supabase.from("paint_events").select("user_id, pixel_count, action_type, created_at").in("action_type", ["PAINT", "ERASE"]);
       if (timeFilter) query = query.gte("created_at", timeFilter);
       const { data: events, error: eventsError } = await query;
       if (eventsError) throw eventsError;
-
-      const { data: users, error: usersError } = await supabase
-        .from("users")
-        .select("id, alliance_tag, pe_used_pe")
-        .not("alliance_tag", "is", null);
-      if (usersError) throw usersError;
 
       const userAllianceMap = new Map((users || []).map((u) => [u.id, u.alliance_tag]));
 
@@ -196,7 +196,8 @@ Deno.serve(async (req) => {
           const allianceTag = userAllianceMap.get(event.user_id);
           if (allianceTag) {
             const current = allianceTotals.get(allianceTag) || { pixels: 0, peStaked: 0, players: new Set() };
-            current.pixels += event.pixel_count || 0;
+            const delta = event.action_type === "ERASE" ? -(event.pixel_count || 0) : (event.pixel_count || 0);
+            current.pixels += delta;
             current.players.add(event.user_id);
             allianceTotals.set(allianceTag, current);
           }
