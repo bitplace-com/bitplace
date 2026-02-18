@@ -98,7 +98,7 @@ export function ActionBox({
     }
     // For withdraw modes, show as refund (positive number = PE returned)
     if (isWithdraw) {
-      return validationResult?.breakdown?.withdrawRefund ?? pePerPixel * pixelCount;
+      return validationResult?.breakdown?.pePerType?.withdrawRefund ?? pePerPixel * pixelCount;
     }
     // For DEF/ATK/REINFORCE, always compute live from pePerPixel
     return pePerPixel * pixelCount;
@@ -113,7 +113,7 @@ export function ActionBox({
   const isValidated = (
     validationResult?.ok === true || 
     validationResult?.partialValid === true ||
-    (isWithdraw && validationResult && (validationResult.breakdown?.withdrawRefund ?? 0) > 0)
+    (isWithdraw && validationResult && (validationResult.breakdown?.pePerType?.withdrawRefund ?? 0) > 0)
   ) && !isValidationStale;
   const canConfirm = isValidated && !isCommitting;
 
