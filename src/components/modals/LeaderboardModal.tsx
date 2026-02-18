@@ -16,11 +16,15 @@ import { cn } from "@/lib/utils";
 import {
   useLeaderboard,
   LeaderboardScope,
+  LeaderboardSubCategory,
   LeaderboardPeriod,
-  LeaderboardMetric,
-  PlayerEntry,
-  CountryEntry,
-  AllianceEntry,
+  PlayerPainterEntry,
+  PlayerPeEntry,
+  CountryPainterEntry,
+  CountryPeEntry,
+  AlliancePainterEntry,
+  AlliancePeEntry,
+  LeaderboardEntry,
 } from "@/hooks/useLeaderboard";
 import { getCountryByCode } from "@/lib/countries";
 import { PlayerProfileModal } from "./PlayerProfileModal";
@@ -39,6 +43,13 @@ const PERIODS: { value: LeaderboardPeriod; label: string }[] = [
   { value: "all", label: "All time" },
 ];
 
+const SUB_CATEGORIES: { value: LeaderboardSubCategory; label: string; icon: string }[] = [
+  { value: "painters", label: "Top Painters", icon: "brush" },
+  { value: "investors", label: "Top Investors", icon: "bolt" },
+  { value: "defenders", label: "Top Defenders", icon: "shield" },
+  { value: "attackers", label: "Top Attackers", icon: "swords" },
+];
+
 function formatNumber(num: number): string {
   return num.toLocaleString();
 }
@@ -47,7 +58,6 @@ function peToUsd(pe: number): string {
   return (pe / PE_PER_USD).toFixed(2);
 }
 
-// Podium row highlight classes
 function getPodiumRowClass(rank: number): string {
   if (rank === 1) return "bg-yellow-500/5";
   if (rank === 2) return "bg-slate-300/5";
@@ -55,18 +65,19 @@ function getPodiumRowClass(rank: number): string {
   return "";
 }
 
-function MetricValue({ metric, totalPixels, totalPeStaked }: { metric: LeaderboardMetric; totalPixels: number; totalPeStaked: number }) {
-  if (metric === "pixels") {
+function MetricDisplay({ subCategory, entry }: { subCategory: LeaderboardSubCategory; entry: LeaderboardEntry }) {
+  if (subCategory === "painters") {
+    const totalPixels = (entry as PlayerPainterEntry).totalPixels ?? (entry as CountryPainterEntry).totalPixels ?? (entry as AlliancePainterEntry).totalPixels ?? 0;
     return (
       <div className="text-right shrink-0">
         <div className="text-sm font-medium tabular-nums">{formatNumber(totalPixels)} <span className="text-muted-foreground text-xs">px</span></div>
-        <div className="text-xs tabular-nums">{formatNumber(totalPeStaked)} PE <span className="text-emerald-500">(${peToUsd(totalPeStaked)})</span></div>
       </div>
     );
   }
+  const totalPe = (entry as PlayerPeEntry).totalPe ?? (entry as CountryPeEntry).totalPe ?? (entry as AlliancePeEntry).totalPe ?? 0;
   return (
     <div className="text-right shrink-0">
-      <div className="text-sm font-medium tabular-nums">{formatNumber(totalPeStaked)} <span className="text-muted-foreground text-xs">PE</span> <span className="text-xs text-emerald-500">(${peToUsd(totalPeStaked)})</span></div>
+      <div className="text-sm font-medium tabular-nums">{formatNumber(totalPe)} <span className="text-muted-foreground text-xs">PE</span> <span className="text-xs text-emerald-500">(${peToUsd(totalPe)})</span></div>
     </div>
   );
 }
@@ -90,9 +101,10 @@ function RankBadge({ rank }: { rank: number }) {
   return <div className="w-6 h-6 flex items-center justify-center text-xs text-muted-foreground">{rank}</div>;
 }
 
-function PlayerRow({ entry, metric, onPlayerClick }: { entry: PlayerEntry; metric: LeaderboardMetric; onPlayerClick: (id: string) => void }) {
+function PlayerRow({ entry, subCategory, onPlayerClick }: { entry: PlayerPainterEntry | PlayerPeEntry; subCategory: LeaderboardSubCategory; onPlayerClick: (id: string) => void }) {
   const country = entry.countryCode ? getCountryByCode(entry.countryCode) : null;
   const displayName = entry.displayName || "Unknown";
+  const totalPeForBadge = subCategory !== "painters" ? (entry as PlayerPeEntry).totalPe : 0;
   
   const hasSocials = entry.socialX || entry.socialInstagram || entry.socialWebsite;
   const hasProfileInfo = entry.bio || hasSocials;
@@ -109,12 +121,12 @@ function PlayerRow({ entry, metric, onPlayerClick }: { entry: PlayerEntry; metri
         <div className="flex items-center gap-1.5">
           <span className="font-medium text-sm truncate">{displayName}</span>
           {isAdmin(entry.walletAddress) && <AdminBadge />}
-          {(() => { const tier = getProTier(entry.totalPeStaked); return tier ? <ProBadge tier={tier} /> : null; })()}
+          {(() => { const tier = getProTier(totalPeForBadge); return tier ? <ProBadge tier={tier} /> : null; })()}
           {entry.allianceTag && <span className="text-xs text-primary font-medium">[{entry.allianceTag}]</span>}
           {country && <span className="text-sm">{country.flag}</span>}
         </div>
       </div>
-      <MetricValue metric={metric} totalPixels={entry.totalPixels} totalPeStaked={entry.totalPeStaked} />
+      <MetricDisplay subCategory={subCategory} entry={entry} />
     </div>
   );
 
@@ -147,17 +159,13 @@ function PlayerRow({ entry, metric, onPlayerClick }: { entry: PlayerEntry; metri
               {entry.socialWebsite && <a href={entry.socialWebsite} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors" onClick={(e) => e.stopPropagation()}><PixelIcon name="globe" size="sm" /></a>}
             </div>
           )}
-          <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border">
-            <span>{formatNumber(entry.totalPixels)} pixels</span>
-            <span>{formatNumber(entry.totalPeStaked)} PE <span className="text-emerald-500">(${peToUsd(entry.totalPeStaked)})</span></span>
-          </div>
         </div>
       </HoverCardContent>
     </HoverCard>
   );
 }
 
-function CountryRow({ entry, metric }: { entry: CountryEntry; metric: LeaderboardMetric }) {
+function CountryRow({ entry, subCategory }: { entry: CountryPainterEntry | CountryPeEntry; subCategory: LeaderboardSubCategory }) {
   const country = getCountryByCode(entry.countryCode);
   return (
     <div className={cn("flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-foreground/5 transition-colors", getPodiumRowClass(entry.rank))}>
@@ -167,12 +175,12 @@ function CountryRow({ entry, metric }: { entry: CountryEntry; metric: Leaderboar
         <div className="font-medium text-sm truncate">{country?.name || entry.countryCode}</div>
         <div className="text-xs text-muted-foreground">{entry.playerCount} player{entry.playerCount !== 1 ? "s" : ""}</div>
       </div>
-      <MetricValue metric={metric} totalPixels={entry.totalPixels} totalPeStaked={entry.totalPeStaked} />
+      <MetricDisplay subCategory={subCategory} entry={entry} />
     </div>
   );
 }
 
-function AllianceRow({ entry, metric }: { entry: AllianceEntry; metric: LeaderboardMetric }) {
+function AllianceRow({ entry, subCategory }: { entry: AlliancePainterEntry | AlliancePeEntry; subCategory: LeaderboardSubCategory }) {
   return (
     <div className={cn("flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-foreground/5 transition-colors", getPodiumRowClass(entry.rank))}>
       <RankBadge rank={entry.rank} />
@@ -186,7 +194,7 @@ function AllianceRow({ entry, metric }: { entry: AllianceEntry; metric: Leaderbo
         </div>
         <div className="text-xs text-muted-foreground">{entry.playerCount} member{entry.playerCount !== 1 ? "s" : ""}</div>
       </div>
-      <MetricValue metric={metric} totalPixels={entry.totalPixels} totalPeStaked={entry.totalPeStaked} />
+      <MetricDisplay subCategory={subCategory} entry={entry} />
     </div>
   );
 }
@@ -224,18 +232,40 @@ function EmptyState({ scope }: { scope: LeaderboardScope }) {
   );
 }
 
+export function SubCategoryToggle({ subCategory, onChange }: { subCategory: LeaderboardSubCategory; onChange: (s: LeaderboardSubCategory) => void }) {
+  return (
+    <div className="flex gap-1 p-0.5 bg-foreground/5 rounded-lg overflow-x-auto">
+      {SUB_CATEGORIES.map((s) => (
+        <button
+          key={s.value}
+          onClick={() => onChange(s.value)}
+          className={cn(
+            "flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap",
+            subCategory === s.value
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <PixelIcon name={s.icon as any} size="xs" />
+          {s.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function LeaderboardList({
   scope,
+  subCategory,
   period,
-  metric,
   onPlayerClick,
 }: {
   scope: LeaderboardScope;
+  subCategory: LeaderboardSubCategory;
   period: LeaderboardPeriod;
-  metric: LeaderboardMetric;
   onPlayerClick: (id: string) => void;
 }) {
-  const { data, isLoading, error } = useLeaderboard(scope, period, metric);
+  const { data, isLoading, error } = useLeaderboard(scope, subCategory, period);
 
   if (isLoading) return <LoadingSkeleton />;
   if (error) return <div className="text-center py-8 text-muted-foreground text-sm">Failed to load leaderboard</div>;
@@ -244,49 +274,18 @@ export function LeaderboardList({
   return (
     <div className="space-y-1">
       {data.map((entry) => {
-        if (scope === "players") return <PlayerRow key={(entry as PlayerEntry).id} entry={entry as PlayerEntry} metric={metric} onPlayerClick={onPlayerClick} />;
-        if (scope === "countries") return <CountryRow key={(entry as CountryEntry).countryCode} entry={entry as CountryEntry} metric={metric} />;
-        return <AllianceRow key={(entry as AllianceEntry).allianceTag} entry={entry as AllianceEntry} metric={metric} />;
+        if (scope === "players") return <PlayerRow key={(entry as PlayerPainterEntry).id || (entry as PlayerPeEntry).id} entry={entry as PlayerPainterEntry | PlayerPeEntry} subCategory={subCategory} onPlayerClick={onPlayerClick} />;
+        if (scope === "countries") return <CountryRow key={(entry as CountryPainterEntry).countryCode || (entry as CountryPeEntry).countryCode} entry={entry as CountryPainterEntry | CountryPeEntry} subCategory={subCategory} />;
+        return <AllianceRow key={(entry as AlliancePainterEntry).allianceTag || (entry as AlliancePeEntry).allianceTag} entry={entry as AlliancePainterEntry | AlliancePeEntry} subCategory={subCategory} />;
       })}
-    </div>
-  );
-}
-
-export function MetricToggle({ metric, onChange }: { metric: LeaderboardMetric; onChange: (m: LeaderboardMetric) => void }) {
-  return (
-    <div className="flex gap-1 p-0.5 bg-foreground/5 rounded-lg">
-      <button
-        onClick={() => onChange("pixels")}
-        className={cn(
-          "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all",
-          metric === "pixels"
-            ? "bg-background text-foreground shadow-sm"
-            : "text-muted-foreground hover:text-foreground"
-        )}
-      >
-        <PixelIcon name="brush" size="xs" />
-        Pixels Painted
-      </button>
-      <button
-        onClick={() => onChange("pe_staked")}
-        className={cn(
-          "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all",
-          metric === "pe_staked"
-            ? "bg-background text-foreground shadow-sm"
-            : "text-muted-foreground hover:text-foreground"
-        )}
-      >
-        <PixelIcon name="bolt" size="xs" />
-        PE Staked
-      </button>
     </div>
   );
 }
 
 export function LeaderboardModal({ open, onOpenChange }: LeaderboardModalProps) {
   const [scope, setScope] = useState<LeaderboardScope>("players");
+  const [subCategory, setSubCategory] = useState<LeaderboardSubCategory>("painters");
   const [period, setPeriod] = useState<LeaderboardPeriod>("all");
-  const [metric, setMetric] = useState<LeaderboardMetric>("pixels");
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -305,38 +304,40 @@ export function LeaderboardModal({ open, onOpenChange }: LeaderboardModalProps) 
             <TabsTrigger value="alliances" className="flex-1 gap-1.5"><PixelIcon name="users" size="xs" />Alliances</TabsTrigger>
           </TabsList>
 
-          {/* Metric toggle - centered */}
-          <div className="mt-3 flex justify-center">
-            <MetricToggle metric={metric} onChange={setMetric} />
+          {/* Sub-category toggle */}
+          <div className="mt-3">
+            <SubCategoryToggle subCategory={subCategory} onChange={setSubCategory} />
           </div>
 
-          {/* Time period pills - centered */}
-          <div className="flex gap-1.5 mt-2 justify-center">
-            {PERIODS.map((p) => (
-              <button
-                key={p.value}
-                onClick={() => setPeriod(p.value)}
-                className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-full transition-colors",
-                  period === p.value
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+          {/* Time period pills - only for painters */}
+          {subCategory === "painters" && (
+            <div className="flex gap-1.5 mt-2 justify-center">
+              {PERIODS.map((p) => (
+                <button
+                  key={p.value}
+                  onClick={() => setPeriod(p.value)}
+                  className={cn(
+                    "px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                    period === p.value
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
+                  )}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <ScrollArea className="h-[400px] mt-3 -mx-1 px-1">
             <TabsContent value="players" className="mt-0">
-              <LeaderboardList scope="players" period={period} metric={metric} onPlayerClick={handlePlayerClick} />
+              <LeaderboardList scope="players" subCategory={subCategory} period={period} onPlayerClick={handlePlayerClick} />
             </TabsContent>
             <TabsContent value="countries" className="mt-0">
-              <LeaderboardList scope="countries" period={period} metric={metric} onPlayerClick={handlePlayerClick} />
+              <LeaderboardList scope="countries" subCategory={subCategory} period={period} onPlayerClick={handlePlayerClick} />
             </TabsContent>
             <TabsContent value="alliances" className="mt-0">
-              <LeaderboardList scope="alliances" period={period} metric={metric} onPlayerClick={handlePlayerClick} />
+              <LeaderboardList scope="alliances" subCategory={subCategory} period={period} onPlayerClick={handlePlayerClick} />
             </TabsContent>
           </ScrollArea>
         </Tabs>

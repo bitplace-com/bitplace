@@ -6,10 +6,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import {
   LeaderboardScope,
+  LeaderboardSubCategory,
   LeaderboardPeriod,
-  LeaderboardMetric,
 } from "@/hooks/useLeaderboard";
-import { LeaderboardList, MetricToggle } from "@/components/modals/LeaderboardModal";
+import { LeaderboardList, SubCategoryToggle } from "@/components/modals/LeaderboardModal";
 import { PlayerProfileModal } from "@/components/modals/PlayerProfileModal";
 
 const PERIODS: { value: LeaderboardPeriod; label: string }[] = [
@@ -21,8 +21,8 @@ const PERIODS: { value: LeaderboardPeriod; label: string }[] = [
 
 const LeaderboardPage = () => {
   const [scope, setScope] = useState<LeaderboardScope>("players");
+  const [subCategory, setSubCategory] = useState<LeaderboardSubCategory>("painters");
   const [period, setPeriod] = useState<LeaderboardPeriod>("all");
-  const [metric, setMetric] = useState<LeaderboardMetric>("pixels");
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -47,38 +47,40 @@ const LeaderboardPage = () => {
             <TabsTrigger value="alliances" className="flex-1 gap-1.5"><PixelIcon name="users" size="xs" />Alliances</TabsTrigger>
           </TabsList>
 
-          {/* Metric toggle */}
+          {/* Sub-category toggle */}
           <div className="mt-3">
-            <MetricToggle metric={metric} onChange={setMetric} />
+            <SubCategoryToggle subCategory={subCategory} onChange={setSubCategory} />
           </div>
 
-          {/* Time period pills */}
-          <div className="flex gap-1.5 mt-2">
-            {PERIODS.map((p) => (
-              <button
-                key={p.value}
-                onClick={() => setPeriod(p.value)}
-                className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-full transition-colors",
-                  period === p.value
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+          {/* Time period pills - only for painters */}
+          {subCategory === "painters" && (
+            <div className="flex gap-1.5 mt-2">
+              {PERIODS.map((p) => (
+                <button
+                  key={p.value}
+                  onClick={() => setPeriod(p.value)}
+                  className={cn(
+                    "px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                    period === p.value
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
+                  )}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <ScrollArea className="h-[calc(100vh-320px)] mt-4 -mx-1 px-1">
             <TabsContent value="players" className="mt-0">
-              <LeaderboardList scope="players" period={period} metric={metric} onPlayerClick={handlePlayerClick} />
+              <LeaderboardList scope="players" subCategory={subCategory} period={period} onPlayerClick={handlePlayerClick} />
             </TabsContent>
             <TabsContent value="countries" className="mt-0">
-              <LeaderboardList scope="countries" period={period} metric={metric} onPlayerClick={handlePlayerClick} />
+              <LeaderboardList scope="countries" subCategory={subCategory} period={period} onPlayerClick={handlePlayerClick} />
             </TabsContent>
             <TabsContent value="alliances" className="mt-0">
-              <LeaderboardList scope="alliances" period={period} metric={metric} onPlayerClick={handlePlayerClick} />
+              <LeaderboardList scope="alliances" subCategory={subCategory} period={period} onPlayerClick={handlePlayerClick} />
             </TabsContent>
           </ScrollArea>
         </Tabs>
