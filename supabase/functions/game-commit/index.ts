@@ -344,6 +344,13 @@ async function executeCommit(
         })
       );
       affectedPixels += results.reduce((a, b) => a + b, 0);
+      
+      // Send SSE progress after each parallel group
+      if (onProgress) {
+        const batchesDone = Math.min(i + MAX_PARALLEL, reinforceBatches.length);
+        const pixelsDone = Math.min(batchesDone * REINFORCE_BATCH, ownedPixels.length);
+        onProgress(pixelsDone, ownedPixels.length);
+      }
     }
   } else if (mode === "DEFEND" || mode === "ATTACK") {
     const side = mode === "DEFEND" ? "DEF" : "ATK";
