@@ -46,8 +46,8 @@ const PERIODS: { value: LeaderboardPeriod; label: string }[] = [
 const SUB_CATEGORIES: { value: LeaderboardSubCategory; label: string; icon: string }[] = [
   { value: "painters", label: "Top Painters", icon: "brush" },
   { value: "investors", label: "Top Investors", icon: "bolt" },
-  { value: "defenders", label: "Top Defenders", icon: "shield" },
-  { value: "attackers", label: "Top Attackers", icon: "swords" },
+  { value: "defenders", label: "Top Defenders", icon: "cybersecurity" },
+  { value: "attackers", label: "Top Attackers", icon: "fire" },
 ];
 
 function formatNumber(num: number): string {
@@ -217,24 +217,31 @@ function LoadingSkeleton() {
   );
 }
 
-function EmptyState({ scope }: { scope: LeaderboardScope }) {
-  const messages: Record<LeaderboardScope, string> = {
-    players: "No players have painted yet",
-    countries: "No country activity yet",
-    alliances: "No alliance activity yet",
+function EmptyState({ scope, subCategory }: { scope: LeaderboardScope; subCategory: LeaderboardSubCategory }) {
+  const titles: Record<LeaderboardSubCategory, Record<LeaderboardScope, string>> = {
+    painters: { players: "No players have painted yet", countries: "No country activity yet", alliances: "No alliance activity yet" },
+    investors: { players: "No investors yet", countries: "No country investors yet", alliances: "No alliance investors yet" },
+    defenders: { players: "No defenders yet", countries: "No country defenders yet", alliances: "No alliance defenders yet" },
+    attackers: { players: "No attackers yet", countries: "No country attackers yet", alliances: "No alliance attackers yet" },
+  };
+  const subtitles: Record<LeaderboardSubCategory, string> = {
+    painters: "Start painting to climb the ranks!",
+    investors: "Stake PE in your pixels to climb the ranks!",
+    defenders: "Defend pixels to climb the ranks!",
+    attackers: "Attack pixels to climb the ranks!",
   };
   return (
     <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
       <PixelIcon name="trophy" size="lg" className="mb-3 opacity-50" />
-      <p className="text-sm">{messages[scope]}</p>
-      <p className="text-xs mt-1">Start painting to climb the ranks!</p>
+      <p className="text-sm">{titles[subCategory][scope]}</p>
+      <p className="text-xs mt-1">{subtitles[subCategory]}</p>
     </div>
   );
 }
 
 export function SubCategoryToggle({ subCategory, onChange }: { subCategory: LeaderboardSubCategory; onChange: (s: LeaderboardSubCategory) => void }) {
   return (
-    <div className="flex gap-1 p-0.5 bg-foreground/5 rounded-lg overflow-x-auto">
+    <div className="flex justify-center gap-1 p-0.5 bg-foreground/5 rounded-lg overflow-x-auto">
       {SUB_CATEGORIES.map((s) => (
         <button
           key={s.value}
@@ -269,7 +276,7 @@ export function LeaderboardList({
 
   if (isLoading) return <LoadingSkeleton />;
   if (error) return <div className="text-center py-8 text-muted-foreground text-sm">Failed to load leaderboard</div>;
-  if (data.length === 0) return <EmptyState scope={scope} />;
+  if (data.length === 0) return <EmptyState scope={scope} subCategory={subCategory} />;
 
   return (
     <div className="space-y-1">

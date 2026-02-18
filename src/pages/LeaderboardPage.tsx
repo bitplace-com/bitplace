@@ -54,7 +54,7 @@ const LeaderboardPage = () => {
 
           {/* Time period pills - only for painters */}
           {subCategory === "painters" && (
-            <div className="flex gap-1.5 mt-2">
+            <div className="flex justify-center gap-1.5 mt-2">
               {PERIODS.map((p) => (
                 <button
                   key={p.value}

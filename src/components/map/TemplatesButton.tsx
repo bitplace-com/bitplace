@@ -19,7 +19,7 @@ export function TemplatesButton({ isOpen, onToggle, hasActiveTemplate }: Templat
         isOpen && "ring-2 ring-primary/50"
       )}
     >
-      <PixelIcon name="image" size="md" />
+      <PixelIcon name="media" size="md" />
       {/* Active indicator dot */}
       {hasActiveTemplate && (
         <span 
