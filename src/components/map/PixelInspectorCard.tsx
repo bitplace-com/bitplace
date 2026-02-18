@@ -165,10 +165,7 @@ export function PixelInspectorCard({
               ) : (
                 <AvatarFallback
                   seed={pixel.owner?.id || 'unknown'}
-                  name={pixel.owner?.display_name}
-                  wallet={pixel.owner?.wallet_short}
                   className="w-10 h-10 rounded-lg shrink-0"
-                  textClassName="text-sm"
                 />
               )}
               <div className="min-w-0 flex-1">

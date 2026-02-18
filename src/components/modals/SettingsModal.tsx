@@ -191,10 +191,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               ) : (
                 <AvatarFallback
                   seed={user?.wallet_address || ''}
-                  name={displayName}
-                  wallet={user?.wallet_address}
                   className="w-full h-full"
-                  textClassName="text-xl"
                 />
               )}
               {isUploading && (
