@@ -1,47 +1,53 @@
 
 
-# Fix: Withdraw mode button stuck on "Validate"
+# Fix: Incorrect button texts and loading labels
 
-## Root Cause
+## Problems Found
 
-Looking at the actual backend response for WITHDRAW_REINFORCE:
+### 1. ActionBox.tsx -- confirm button loading text (line 340)
+The pattern `${actionLabel}ing ${effectiveCount} px...` has two issues:
+- **Wrong unit**: For Deposit/Withdraw, the operation is about PE, not pixels. Saying "Depositing 50 px..." is misleading.
+- **Grammar**: While "Deposit" -> "Depositing" and "Withdraw" -> "Withdrawing" work, the fallback to `config.label` for PAINT/ERASE means "Erase" -> "Eraseing" (wrong, should be "Erasing"). This path isn't currently hit for Erase since actionLabel handles it, but it's fragile.
 
-```json
-{
-  "ok": false,
-  "partialValid": false,
-  "invalidPixels": [... 69 pixels with "MIN_STAKE" ...],
-  "breakdown": {
-    "pixelCount": 1681,
-    "pePerType": { "withdrawRefund": 1612 }
-  }
-}
-```
+**Fix**: Use a proper gerund map instead of naive `${label}ing` concatenation, and remove `px` from Deposit/Withdraw loading text (or replace with "PE").
 
-The backend returns `ok: false` AND `partialValid: false`, even though 1612 out of 1681 pixels are valid for withdrawal (withdrawRefund = 1612). This means the frontend's `isValidated` check -- which requires `ok === true || partialValid === true` -- always fails for withdrawals that have any invalid pixels.
+### 2. OperationProgress.tsx -- missing withdraw modes (lines 8-17)
+The `STATUS_MESSAGES.commit` map only includes PAINT, DEFEND, ATTACK, REINFORCE, ERASE. The three withdraw modes (WITHDRAW_DEF, WITHDRAW_ATK, WITHDRAW_REINFORCE) are missing, causing them to fall back to the generic "Processing" label.
 
-For Deposit (REINFORCE), the backend correctly returns `ok: true` or `partialValid: true`, so the button transitions correctly. But for WITHDRAW modes, the backend doesn't set `partialValid` even when most pixels are valid.
+**Fix**: Add entries for all three withdraw modes with label "Withdrawing".
 
-## Fix
+## Changes
 
-**File: `src/components/map/inspector/ActionBox.tsx`** (line 113)
+### File: `src/components/map/inspector/ActionBox.tsx`
 
-Extend the `isValidated` condition to also consider a withdraw validated when the backend returned a positive `withdrawRefund`, meaning there are processable pixels:
+Replace the naive `${actionLabel}ing` pattern (line 340) with a proper gerund mapping:
 
 ```typescript
-const isValidated = (
-  validationResult?.ok === true || 
-  validationResult?.partialValid === true ||
-  // Withdraw: backend may return ok=false/partialValid=false but still have valid pixels
-  (isWithdraw && validationResult && (validationResult.breakdown?.withdrawRefund ?? 0) > 0)
-) && !isValidationStale;
+const actionLabel = isWithdraw ? 'Withdraw' : (['DEFEND','ATTACK','REINFORCE'].includes(mode) ? 'Deposit' : config.label);
+const actionGerund = isWithdraw ? 'Withdrawing' : (['DEFEND','ATTACK','REINFORCE'].includes(mode) ? 'Depositing' : { PAINT: 'Painting', ERASE: 'Erasing' }[mode] || 'Processing');
+
+if (isCommitting) return effectiveCount > 50 ? `${actionGerund}...` : `${actionGerund}...`;
 ```
 
-This is safe because:
-- The `withdrawRefund` value comes directly from the backend's validation
-- If the refund is > 0, there are valid pixels the backend can process
-- This only applies to withdraw modes, not deposit/paint/erase
+Remove the `${effectiveCount} px` from the committing label entirely -- it adds clutter and uses the wrong unit for Deposit/Withdraw. The progress bar already shows real-time progress below.
 
-## Files Changed
-- `src/components/map/inspector/ActionBox.tsx` -- 1 line change to `isValidated` condition
+### File: `src/components/map/OperationProgress.tsx`
+
+Add the missing withdraw modes to `STATUS_MESSAGES.commit`:
+
+```typescript
+const STATUS_MESSAGES = {
+  validate: 'Validating',
+  commit: {
+    PAINT: 'Painting',
+    DEFEND: 'Defending',
+    ATTACK: 'Attacking',
+    REINFORCE: 'Reinforcing',
+    ERASE: 'Erasing',
+    WITHDRAW_DEF: 'Withdrawing',
+    WITHDRAW_ATK: 'Withdrawing',
+    WITHDRAW_REINFORCE: 'Withdrawing',
+  },
+};
+```
 
