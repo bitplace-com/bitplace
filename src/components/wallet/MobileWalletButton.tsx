@@ -28,7 +28,11 @@ export function MobileWalletButton() {
     const handler = (e: PointerEvent) => {
       const target = e.target as Element;
       // Don't collapse if clicking inside a Radix portal (popover, dialog, etc.)
-      if (target.closest?.('[data-radix-popper-content-wrapper]') || target.closest?.('[data-radix-dialog-overlay]')) {
+      if (
+        target.closest?.('[data-radix-popper-content-wrapper]') ||
+        target.closest?.('[data-radix-dialog-overlay]') ||
+        target.closest?.('[role="dialog"]')
+      ) {
         // Reset auto-collapse timer on interaction
         clearTimeout(autoCollapseTimer.current);
         autoCollapseTimer.current = setTimeout(() => setCollapsed(true), 15000);
