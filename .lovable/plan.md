@@ -1,29 +1,28 @@
 
 
-# Fix: Withdraw Refund Shows 0 PE
+# Fix: Validate button not transitioning to Deposit/Withdraw
 
 ## Root Cause
 
-The backend (game-validate) correctly calculates the refund amount for WITHDRAW modes but stores it in `breakdown.withdrawRefund`, while keeping `requiredPeTotal = 0` (because withdrawals have no cost). The ActionBox reads `requiredPeTotal` for the "Refund" display, which is always 0.
+`isValidated` on line 117 only checks `validationResult?.ok === true`. For withdraw (and deposit) operations with mixed selections, the backend returns `{ ok: false, partialValid: true }` -- meaning some pixels are valid. Since `ok` is false, `isValidated` stays false and the UI keeps showing the "Validate" button endlessly.
 
-## Fix
+## Changes
 
-**File: `src/components/map/inspector/ActionBox.tsx`** (lines 90-105)
+**File: `src/components/map/inspector/ActionBox.tsx`**
 
-Update the `requiredPe` calculation for withdraw modes to read from `breakdown.withdrawRefund` when a validation result exists:
+1. **Fix `isValidated` to include `partialValid`** (line 117):
+   ```typescript
+   const isValidated = (validationResult?.ok === true || validationResult?.partialValid === true) && !isValidationStale;
+   ```
+   This allows the user to proceed with valid pixels even when some are invalid.
 
-```typescript
-if (isWithdraw) {
-  return validationResult?.breakdown?.withdrawRefund ?? pePerPixel * pixelCount;
-}
-```
+2. **Update confirm button labels for Deposit/Withdraw** (lines 338-350):
+   Replace the generic `config.label` with context-aware labels:
+   - DEFEND/ATTACK/REINFORCE -> "Deposit"
+   - WITHDRAW_DEF/WITHDRAW_ATK/WITHDRAW_REINFORCE -> "Withdraw"
+   - PAINT/ERASE -> keep existing labels ("Paint"/"Erase")
 
-This way:
-- Before validation: shows the estimate (`pePerPixel * pixelCount`)
-- After validation: shows the actual refund from the backend (`breakdown.withdrawRefund`)
+   The committing state text will also use "Depositing..." / "Withdrawing..." accordingly.
 
-The "After action" line (line 226) already handles withdraw math correctly (`availablePe + Math.abs(requiredPe)`), so once `requiredPe` is correct, the post-action balance will also be correct.
-
-## Files Changed
-- `src/components/map/inspector/ActionBox.tsx` -- 1 line change in the `requiredPe` calculation
+## No other files need changes
 
