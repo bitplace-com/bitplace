@@ -14,19 +14,27 @@ export function MobileWalletButton() {
   const containerRef = useRef<HTMLDivElement>(null);
   const autoCollapseTimer = useRef<ReturnType<typeof setTimeout>>();
 
-  // Auto-collapse after 5s of inactivity when expanded
+  // Auto-collapse after 15s of inactivity when expanded
   useEffect(() => {
     if (!collapsed) {
-      autoCollapseTimer.current = setTimeout(() => setCollapsed(true), 5000);
+      autoCollapseTimer.current = setTimeout(() => setCollapsed(true), 15000);
       return () => clearTimeout(autoCollapseTimer.current);
     }
   }, [collapsed]);
 
-  // Click outside to collapse
+  // Click outside to collapse (but not when clicking inside Radix portals)
   useEffect(() => {
     if (collapsed) return;
     const handler = (e: PointerEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Element;
+      // Don't collapse if clicking inside a Radix portal (popover, dialog, etc.)
+      if (target.closest?.('[data-radix-popper-content-wrapper]') || target.closest?.('[data-radix-dialog-overlay]')) {
+        // Reset auto-collapse timer on interaction
+        clearTimeout(autoCollapseTimer.current);
+        autoCollapseTimer.current = setTimeout(() => setCollapsed(true), 15000);
+        return;
+      }
+      if (containerRef.current && !containerRef.current.contains(target as Node)) {
         setCollapsed(true);
       }
     };

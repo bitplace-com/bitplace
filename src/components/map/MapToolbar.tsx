@@ -66,6 +66,7 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
                     key={value}
                     value={value}
                     aria-label={label}
+                    onMouseDown={(e) => e.preventDefault()}
                     className="map-toolbar-btn flex items-center gap-1.5 px-2.5 py-2 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10 whitespace-nowrap shrink-0"
                   >
                     {icon}
@@ -81,6 +82,7 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
               hapticsEngine.trigger('light');
               setIsExpanded(!isExpanded);
             }}
+            onMouseDown={(e) => e.preventDefault()}
             className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10 shrink-0"
             aria-label={isExpanded ? "Collapse toolbar" : "Expand toolbar"}
           >
@@ -121,6 +123,7 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
                 key={value}
                 value={value}
                 aria-label={label}
+                onMouseDown={(e) => e.preventDefault()}
                 className="map-toolbar-btn flex items-center gap-1.5 px-4 py-2.5 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10 whitespace-nowrap shrink-0"
               >
                 {icon}
@@ -135,6 +138,7 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
             hapticsEngine.trigger('light');
             setIsExpanded(!isExpanded);
           }}
+          onMouseDown={(e) => e.preventDefault()}
           className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl transition-all duration-200 text-[var(--hud-text)] hover:bg-black/5 dark:hover:bg-white/10 shrink-0"
           aria-label={isExpanded ? "Collapse toolbar" : "Expand toolbar"}
         >

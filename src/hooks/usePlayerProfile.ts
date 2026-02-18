@@ -45,10 +45,10 @@ export function usePlayerProfile(playerId: string | null) {
     setError(null);
 
     try {
-      // Fetch user profile from public view
+      // Fetch user profile from public view (includes created_at, pe_used_pe, wallet_address)
       const { data: userData, error: userError } = await supabase
         .from('public_user_profiles' as any)
-        .select('id, display_name, wallet_short, avatar_url, country_code, alliance_tag, pixels_painted_total')
+        .select('id, display_name, wallet_short, wallet_address, avatar_url, country_code, alliance_tag, pixels_painted_total, created_at, pe_used_pe')
         .eq('id', playerId)
         .maybeSingle();
 
@@ -96,13 +96,6 @@ export function usePlayerProfile(playerId: string | null) {
         0
       );
 
-      // Get user creation date and pe_used_pe
-      const { data: userExtra } = await supabase
-        .from('users')
-        .select('created_at, pe_used_pe, wallet_address')
-        .eq('id', playerId)
-        .maybeSingle();
-
       const user = userData as Record<string, any>;
       const profile = profileData as Record<string, any> | null;
 
@@ -110,11 +103,11 @@ export function usePlayerProfile(playerId: string | null) {
         id: user.id,
         displayName: user.display_name,
         walletShort: user.wallet_short,
-        walletAddress: (userExtra as any)?.wallet_address || null,
+        walletAddress: user.wallet_address || null,
         avatarUrl: user.avatar_url,
         countryCode: user.country_code,
         allianceTag: user.alliance_tag,
-        peUsed: Number((userExtra as any)?.pe_used_pe) || 0,
+        peUsed: Number(user.pe_used_pe) || 0,
         bio: profile?.bio || null,
         socialX: profile?.social_x || null,
         socialInstagram: profile?.social_instagram || null,
@@ -123,7 +116,7 @@ export function usePlayerProfile(playerId: string | null) {
         totalPixelsOwned: pixels.length,
         totalStaked,
         pixelsPaintedTotal: Number(user.pixels_painted_total) || 0,
-        joinedAt: (userExtra as any)?.created_at || new Date().toISOString(),
+        joinedAt: user.created_at || new Date().toISOString(),
         pixels,
       });
     } catch (err) {
