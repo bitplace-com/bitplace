@@ -1,7 +1,7 @@
 import { SVGProps } from 'react';
 import { cn } from '@/lib/utils';
 
-// X/Twitter brand icon from HackerNoon pixel library
+// X brand icon from HackerNoon pixel library
 // Uses auto shape-rendering to avoid crispEdges artifacts on diagonal paths
 export function PixelTwitter(props: SVGProps<SVGSVGElement> & { className?: string }) {
   const { className, ...rest } = props;

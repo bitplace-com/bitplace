@@ -209,7 +209,7 @@ export function PixelInspectorCard({
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-muted-foreground hover:text-foreground transition-colors"
-                        title="X / Twitter"
+                        title="X"
                       >
                         <Twitter className="w-3.5 h-3.5" />
                       </a>
