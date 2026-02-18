@@ -1,92 +1,54 @@
 
 
-# Deposit/Withdraw Toggle + Persistent Selection Rect
+# Code Review: Issues Found Before Deploying
 
-## Overview
-Three changes: (1) keep the selection rectangle visible after releasing Space, (2) add a Deposit/Withdraw toggle to the ActionTray and InspectorPanel for DEFEND, ATTACK, and REINFORCE modes, and (3) create a backend withdraw flow for REINFORCE (reducing owner_stake, with a minimum of 1 PE remaining).
+## Critical Bugs to Fix
 
-## Current State
-- DEFEND, ATTACK, REINFORCE already share the same area selection and validate/confirm UX flow -- no changes needed there.
-- The purple dashed selection rectangle disappears immediately on Space release because `setRectPreview(null)` is called at that point.
-- Withdraw exists only as a batch "remove all contributions" button in the inspector. There is no per-pixel PE amount control for withdrawals, and REINFORCE has no withdraw support at all (owner_stake cannot be reduced).
+### 1. WITHDRAW_DEF/ATK validation broken -- contributions never fetched
+**Files:** `supabase/functions/game-validate/index.ts` (lines 653 and 868-883)
 
-## Changes
+Both the streaming and non-streaming validate paths only fetch user contributions when `mode === "DEFEND" || mode === "ATTACK"`. For `WITHDRAW_DEF` and `WITHDRAW_ATK`, the `userContribSides` map is empty, so every pixel will be flagged as `"NO_CONTRIBUTION"` -- making withdrawal impossible.
 
-### 1. Persistent Selection Rectangle
+**Fix:** Change the condition to also include WITHDRAW modes:
+```typescript
+if (mode === "DEFEND" || mode === "ATTACK" || mode === "WITHDRAW_DEF" || mode === "WITHDRAW_ATK") {
+```
+This must be applied in both locations (streaming path ~line 653 and non-streaming path ~line 870).
 
-**File: `src/components/map/BitplaceMap.tsx`**
+### 2. `formatMode()` missing WITHDRAW_* cases
+**File:** `src/hooks/useGameActions.ts` (lines 696-703)
 
-When Space is released in draw mode for non-PAINT actions (lines 748-752), instead of immediately clearing rectPreview, store the bounds in a new state `selectionRectBounds` that persists until the selection is cleared. The CanvasOverlay already renders `rectPreview` -- we reuse that prop, just stop nullifying it on Space release.
+The `formatMode` function has no cases for `WITHDRAW_DEF`, `WITHDRAW_ATK`, or `WITHDRAW_REINFORCE`. TypeScript may not catch this because the switch is non-exhaustive. When a withdraw commit succeeds, the toast will display `"undefined 5 pixel(s)"`.
 
-- On Space release: keep `rectPreview` set (do NOT call `setRectPreview(null)`)
-- On `handleClearSelection` / mode change / ESC: clear `rectPreview` along with everything else
-- Same for Hand mode inspect selections
+**Fix:** Add the missing cases:
+```typescript
+case 'WITHDRAW_DEF': return 'Withdrew DEF from';
+case 'WITHDRAW_ATK': return 'Withdrew ATK from';
+case 'WITHDRAW_REINFORCE': return 'Withdrew stake from';
+```
 
-### 2. Deposit/Withdraw Toggle in ActionTray and InspectorPanel
+### 3. ActionTray summary label says "Required" for withdraw mode
+**File:** `src/components/map/ActionTray.tsx` (lines 538-543)
 
-**New state: `actionDirection`** -- either `'deposit'` or `'withdraw'`
+The expanded ActionTray summary section always shows "Required:" even when `actionDirection === 'withdraw'`. It should show "Refund:" in withdraw mode to match the ActionBox behavior.
 
-**File: `src/components/map/BitplaceMap.tsx`**
-- Add `const [actionDirection, setActionDirection] = useState<'deposit' | 'withdraw'>('deposit');`
-- Reset to `'deposit'` when mode changes
-- Pass `actionDirection` and `onActionDirectionChange` to ActionTray, InspectorPanel, ActionBox
+**Fix:** Conditionally display "Refund" vs "Required" based on `actionDirection`.
 
-**File: `src/components/map/ActionTray.tsx`**
-- In the action mode section (non-paint expanded), add a segmented toggle above the PE input:
-  - Two buttons: "Deposit" (with a small down-arrow or plus icon) and "Withdraw" (with an up-arrow or minus icon)
-  - Tooltip on Deposit: "Add PE to selected pixels"
-  - Tooltip on Withdraw: "Remove PE from selected pixels"
-- The PE per pixel input and chips remain the same for both directions
+## Non-Critical but Worth Noting
 
-**File: `src/components/map/inspector/ActionBox.tsx`**
-- Update labels based on direction: "Defend" vs "Withdraw DEF", "Reinforce" vs "Withdraw Stake"
-- Update cost display: Required shows negative (refund) for withdraw
-- Update button text accordingly
+### 4. DEFEND/ATTACK commit -- sequential updates for `toUpdate` array
+**File:** `supabase/functions/game-commit/index.ts` (lines 384-389)
 
-**File: `src/components/map/inspector/InspectorPanel.tsx`**
-- Remove the separate "Withdraw Contributions" section (it will be unified into the main flow)
-- Show the Deposit/Withdraw toggle in the panel header area
+The DEFEND/ATTACK commit path still processes contribution updates sequentially (one `await` per pixel). For large selections this will be slow, similar to the old REINFORCE issue. Not blocking, but could be parallelized in a future pass.
 
-### 3. Backend: Withdraw via game-validate and game-commit
+## Summary of Required Changes
 
-Instead of using the separate `contribution-withdraw` edge function, extend the existing game-validate and game-commit with new modes. This keeps the validate-then-commit flow consistent.
+| File | Change | Severity |
+|------|--------|----------|
+| `game-validate/index.ts` (line ~653) | Add WITHDRAW_DEF/ATK to contribution fetch condition (streaming) | Critical |
+| `game-validate/index.ts` (line ~870) | Add WITHDRAW_DEF/ATK to contribution fetch condition (non-streaming) | Critical |
+| `useGameActions.ts` (line ~696) | Add WITHDRAW_* cases to `formatMode()` | Critical |
+| `ActionTray.tsx` (line ~539) | Show "Refund" label in withdraw mode | Minor |
 
-**New modes:** `WITHDRAW_DEF`, `WITHDRAW_ATK`, `WITHDRAW_REINFORCE`
-
-**File: `supabase/functions/game-validate/index.ts`**
-- Add three new modes to the GameMode type
-- For WITHDRAW_DEF/WITHDRAW_ATK: validate that user has contributions on those pixels, compute refund amounts (min: if withdrawing all, that is ok). If `pePerPixel` would reduce contribution below 0, cap at the available amount.
-- For WITHDRAW_REINFORCE: validate that user owns the pixels, compute how much owner_stake can be reduced. **Enforce minimum 1 PE remaining** -- if owner_stake - pePerPixel < 1, mark as invalid with reason "MIN_STAKE" (user should use Eraser to fully remove the pixel).
-- Return `requiredPeTotal` as a NEGATIVE number (refund), or a new field `refundPeTotal`
-
-**File: `supabase/functions/game-commit/index.ts`**
-- Handle WITHDRAW_DEF/WITHDRAW_ATK: reduce or delete pixel_contributions rows
-- Handle WITHDRAW_REINFORCE: reduce owner_stake_pe on pixels table (min 1 PE)
-- Use same parallel batching pattern as REINFORCE deposit
-- Send SSE progress events
-
-**File: `src/hooks/useGameActions.ts`**
-- Add `WITHDRAW_DEF`, `WITHDRAW_ATK`, `WITHDRAW_REINFORCE` to the GameMode type
-- The validate/commit functions already support any mode -- just need the type added
-
-**Frontend integration in `BitplaceMap.tsx`:**
-- When `actionDirection === 'withdraw'`, `getGameMode()` returns `WITHDRAW_DEF`, `WITHDRAW_ATK`, or `WITHDRAW_REINFORCE` instead of `DEFEND`, `ATTACK`, `REINFORCE`
-- Everything else (validate button, confirm button, progress bar) works identically
-
-### 4. Minimum Stake Rule
-- When withdrawing REINFORCE, if `owner_stake_pe - pePerPixel < 1`, the pixel is flagged as invalid with reason "Minimum 1 PE stake required (use Eraser to remove pixel)"
-- For DEF/ATK withdraw, withdrawing the full amount is allowed (contribution row is deleted)
-
-## Files to Modify
-1. `src/components/map/BitplaceMap.tsx` -- persistent rect, actionDirection state, getGameMode logic
-2. `src/components/map/ActionTray.tsx` -- Deposit/Withdraw toggle with tooltips
-3. `src/components/map/inspector/ActionBox.tsx` -- direction-aware labels and cost display
-4. `src/components/map/inspector/InspectorPanel.tsx` -- remove separate withdraw section, pass direction
-5. `src/hooks/useGameActions.ts` -- add WITHDRAW_* modes to types
-6. `supabase/functions/game-validate/index.ts` -- handle WITHDRAW_* validation
-7. `supabase/functions/game-commit/index.ts` -- handle WITHDRAW_* commits
-
-## Files NOT Modified
-- `src/hooks/useWithdrawContribution.ts` -- kept for backward compatibility but no longer primary
-- `supabase/functions/contribution-withdraw/index.ts` -- kept but no longer primary path
+After these fixes, deploy `game-validate` and `game-commit` edge functions.
 
