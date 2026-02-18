@@ -650,7 +650,7 @@ async function handleLegacyValidate(
 
           // Fetch user contribution sides for DEFEND/ATTACK
           const userContribSides = new Map<number, "DEF" | "ATK">();
-          if (mode === "DEFEND" || mode === "ATTACK") {
+          if (mode === "DEFEND" || mode === "ATTACK" || mode === "WITHDRAW_DEF" || mode === "WITHDRAW_ATK") {
             const pixelIds = existingPixels.map((p: typeof existingPixels[0]) => p.id).filter(Boolean);
             if (pixelIds.length > 0) {
               const { data: contribs } = await supabase
@@ -867,7 +867,7 @@ async function handleLegacyValidate(
 
   // Fetch user contribution sides for DEFEND/ATTACK
   const userContribSides = new Map<number, "DEF" | "ATK">();
-  if (mode === "DEFEND" || mode === "ATTACK") {
+  if (mode === "DEFEND" || mode === "ATTACK" || mode === "WITHDRAW_DEF" || mode === "WITHDRAW_ATK") {
     const pixelIds = existingPixels.map((p: typeof existingPixels[0]) => p.id).filter(Boolean);
     if (pixelIds.length > 0) {
       const { data: contribs } = await supabase

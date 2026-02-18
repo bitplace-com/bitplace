@@ -536,7 +536,7 @@ export function ActionTray({
                 {/* Summary */}
                 <div className="space-y-1">
                   <div className="flex justify-between text-[11px]">
-                    <span className="text-muted-foreground">Required:</span>
+                    <span className="text-muted-foreground">{actionDirection === 'withdraw' ? 'Refund:' : 'Required:'}</span>
                     <span className="font-medium tabular-nums">
                       {pendingPE.toLocaleString()} PE
                     </span>
