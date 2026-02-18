@@ -665,6 +665,8 @@ export type Database = {
           social_website: string | null
           social_x: string | null
           sol_cluster: string | null
+          takeover_atk_pe_total: number
+          takeover_def_pe_total: number
           usd_price: number | null
           wallet_address: string | null
           wallet_usd: number | null
@@ -697,6 +699,8 @@ export type Database = {
           social_website?: string | null
           social_x?: string | null
           sol_cluster?: string | null
+          takeover_atk_pe_total?: number
+          takeover_def_pe_total?: number
           usd_price?: number | null
           wallet_address?: string | null
           wallet_usd?: number | null
@@ -729,6 +733,8 @@ export type Database = {
           social_website?: string | null
           social_x?: string | null
           sol_cluster?: string | null
+          takeover_atk_pe_total?: number
+          takeover_def_pe_total?: number
           usd_price?: number | null
           wallet_address?: string | null
           wallet_usd?: number | null
@@ -934,6 +940,54 @@ export type Database = {
         Returns: {
           contribution_total: number
           pixel_stake_total: number
+        }[]
+      }
+      leaderboard_top_attackers: {
+        Args: { lim?: number }
+        Returns: {
+          alliance_tag: string
+          avatar_url: string
+          bio: string
+          country_code: string
+          display_name: string
+          social_instagram: string
+          social_website: string
+          social_x: string
+          total_pe: number
+          user_id: string
+          wallet_address: string
+        }[]
+      }
+      leaderboard_top_defenders: {
+        Args: { lim?: number }
+        Returns: {
+          alliance_tag: string
+          avatar_url: string
+          bio: string
+          country_code: string
+          display_name: string
+          social_instagram: string
+          social_website: string
+          social_x: string
+          total_pe: number
+          user_id: string
+          wallet_address: string
+        }[]
+      }
+      leaderboard_top_investors: {
+        Args: { lim?: number }
+        Returns: {
+          alliance_tag: string
+          avatar_url: string
+          bio: string
+          country_code: string
+          display_name: string
+          social_instagram: string
+          social_website: string
+          social_x: string
+          total_pe: number
+          user_id: string
+          wallet_address: string
         }[]
       }
       recalc_user_pe_used: { Args: { target_user_id: string }; Returns: number }
