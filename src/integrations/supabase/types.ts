@@ -852,10 +852,13 @@ export type Database = {
           alliance_tag: string | null
           avatar_url: string | null
           country_code: string | null
+          created_at: string | null
           display_name: string | null
           id: string | null
           level: number | null
+          pe_used_pe: number | null
           pixels_painted_total: number | null
+          wallet_address: string | null
           wallet_short: string | null
           xp: number | null
         }
@@ -863,10 +866,13 @@ export type Database = {
           alliance_tag?: string | null
           avatar_url?: string | null
           country_code?: string | null
+          created_at?: string | null
           display_name?: string | null
           id?: string | null
           level?: number | null
+          pe_used_pe?: number | null
           pixels_painted_total?: number | null
+          wallet_address?: string | null
           wallet_short?: never
           xp?: number | null
         }
@@ -874,10 +880,13 @@ export type Database = {
           alliance_tag?: string | null
           avatar_url?: string | null
           country_code?: string | null
+          created_at?: string | null
           display_name?: string | null
           id?: string | null
           level?: number | null
+          pe_used_pe?: number | null
           pixels_painted_total?: number | null
+          wallet_address?: string | null
           wallet_short?: never
           xp?: number | null
         }
