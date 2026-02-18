@@ -942,6 +942,14 @@ export type Database = {
           pixel_stake_total: number
         }[]
       }
+      increment_takeover_pe: {
+        Args: {
+          atk_amount?: number
+          def_amount?: number
+          target_user_id: string
+        }
+        Returns: undefined
+      }
       leaderboard_top_attackers: {
         Args: { lim?: number }
         Returns: {
