@@ -2,17 +2,16 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export type LeaderboardScope = "players" | "countries" | "alliances";
+export type LeaderboardSubCategory = "painters" | "investors" | "defenders" | "attackers";
 export type LeaderboardPeriod = "today" | "week" | "month" | "all";
-export type LeaderboardMetric = "pixels" | "pe_staked";
 
-export interface PlayerEntry {
+export interface PlayerPainterEntry {
   rank: number;
   id: string;
   displayName: string | null;
   countryCode: string | null;
   allianceTag: string | null;
   totalPixels: number;
-  totalPeStaked: number;
   avatarUrl: string | null;
   bio: string | null;
   socialX: string | null;
@@ -21,24 +20,55 @@ export interface PlayerEntry {
   walletAddress: string | null;
 }
 
-export interface CountryEntry {
+export interface PlayerPeEntry {
+  rank: number;
+  id: string;
+  displayName: string | null;
+  countryCode: string | null;
+  allianceTag: string | null;
+  totalPe: number;
+  avatarUrl: string | null;
+  bio: string | null;
+  socialX: string | null;
+  socialInstagram: string | null;
+  socialWebsite: string | null;
+  walletAddress: string | null;
+}
+
+export interface CountryPainterEntry {
   rank: number;
   countryCode: string;
   playerCount: number;
   totalPixels: number;
-  totalPeStaked: number;
 }
 
-export interface AllianceEntry {
+export interface CountryPeEntry {
+  rank: number;
+  countryCode: string;
+  playerCount: number;
+  totalPe: number;
+}
+
+export interface AlliancePainterEntry {
   rank: number;
   allianceTag: string;
   allianceName: string;
   playerCount: number;
   totalPixels: number;
-  totalPeStaked: number;
 }
 
-export type LeaderboardEntry = PlayerEntry | CountryEntry | AllianceEntry;
+export interface AlliancePeEntry {
+  rank: number;
+  allianceTag: string;
+  allianceName: string;
+  playerCount: number;
+  totalPe: number;
+}
+
+export type LeaderboardEntry = 
+  | PlayerPainterEntry | PlayerPeEntry 
+  | CountryPainterEntry | CountryPeEntry 
+  | AlliancePainterEntry | AlliancePeEntry;
 
 interface UseLeaderboardResult {
   data: LeaderboardEntry[];
@@ -49,8 +79,8 @@ interface UseLeaderboardResult {
 
 export function useLeaderboard(
   scope: LeaderboardScope,
+  subCategory: LeaderboardSubCategory,
   period: LeaderboardPeriod,
-  metric: LeaderboardMetric = "pixels"
 ): UseLeaderboardResult {
   const [data, setData] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -63,7 +93,7 @@ export function useLeaderboard(
     try {
       const { data: result, error: fnError } = await supabase.functions.invoke(
         "leaderboard-get",
-        { body: { scope, period, metric } }
+        { body: { scope, subCategory, period } }
       );
 
       if (fnError) {
@@ -85,7 +115,7 @@ export function useLeaderboard(
     } finally {
       setIsLoading(false);
     }
-  }, [scope, period, metric]);
+  }, [scope, subCategory, period]);
 
   useEffect(() => {
     fetchLeaderboard();

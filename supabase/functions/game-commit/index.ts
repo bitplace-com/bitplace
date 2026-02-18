@@ -537,6 +537,40 @@ async function executeCommit(
 
     // Handle DEF/ATK contribution cleanup for takeovers BEFORE upsert
     if (takeoverPixelIds.length > 0) {
+      // Track PE involved in takeover for leaderboard history
+      const { data: takeoverContribs } = await supabase
+        .from("pixel_contributions")
+        .select("user_id, amount_pe, side")
+        .in("pixel_id", takeoverPixelIds);
+      
+      if (takeoverContribs && takeoverContribs.length > 0) {
+        const defTotals = new Map<string, number>();
+        const atkTotals = new Map<string, number>();
+        for (const c of takeoverContribs) {
+          if (c.side === "DEF") {
+            defTotals.set(c.user_id, (defTotals.get(c.user_id) || 0) + c.amount_pe);
+          } else if (c.side === "ATK") {
+            atkTotals.set(c.user_id, (atkTotals.get(c.user_id) || 0) + c.amount_pe);
+          }
+        }
+        // Increment historical takeover counters
+        const updatePromises: Promise<unknown>[] = [];
+        for (const [uid, amount] of defTotals) {
+          updatePromises.push(
+            supabase.rpc("increment_takeover_pe", { target_user_id: uid, def_amount: amount, atk_amount: 0 })
+              .then(({ error }: { error: unknown }) => { if (error) console.error("[game-commit] takeover def increment error:", error); })
+          );
+        }
+        for (const [uid, amount] of atkTotals) {
+          updatePromises.push(
+            supabase.rpc("increment_takeover_pe", { target_user_id: uid, def_amount: 0, atk_amount: amount })
+              .then(({ error }: { error: unknown }) => { if (error) console.error("[game-commit] takeover atk increment error:", error); })
+          );
+        }
+        await Promise.all(updatePromises);
+        console.log(`[game-commit] Takeover PE tracked: ${defTotals.size} defenders, ${atkTotals.size} attackers`);
+      }
+      
       // Batch: Delete DEF contributions
       await supabase.from("pixel_contributions").delete()
         .in("pixel_id", takeoverPixelIds).eq("side", "DEF");
