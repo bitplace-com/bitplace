@@ -1,39 +1,47 @@
 
 
-# Ottimizzazione velocita' REINFORCE per aree grandi
+# Fix: Barra di progresso REINFORCE bloccata al 29%
 
-## Problema identificato
-Il REINFORCE su 1681 pixel e' lento perche' la funzione `game-commit` esegue **1681 query UPDATE individuali in sequenza** (una per pixel, linee 310-325). Ogni query richiede ~5-10ms di round-trip al database, quindi 1681 query = ~10-15 secondi solo per gli update, piu' il tempo di fetch.
+## Problema
+La barra di progresso durante il REINFORCE si ferma al ~29% e poi salta al 100%. Questo succede perche' la edge function `game-commit` invia eventi di progresso SSE solo durante la fase di **fetch dei pixel** (che e' veloce e finisce presto), ma non durante la fase di **update dei pixel** (che e' la parte piu' lunga). Quindi il frontend vede il progresso arrivare a ~29% (fine fetch), poi non riceve piu' aggiornamenti fino al completamento.
 
 ## Soluzione
-Sostituire il loop sequenziale con due ottimizzazioni:
-
-### 1. Batch UPDATE parallelo per REINFORCE (game-commit)
-Invece di aggiornare un pixel alla volta, raggruppare i pixel in batch da 100 e processarli in parallelo (fino a 5 batch contemporaneamente), usando lo stesso pattern gia' implementato per PAINT.
-
-```text
-PRIMA:  1681 query sequenziali (~15s)
-DOPO:   17 batch da 100, 5 in parallelo (~0.6s)
-```
-
-### 2. Fetch batches in parallelo (game-validate + game-commit)
-Le chiamate RPC `fetch_pixels_by_coords` in batch da 900 sono attualmente sequenziali. Per 1681 pixel servono 2 batch -- eseguirli in parallelo con `Promise.all` dimezza il tempo di fetch.
+Aggiungere eventi di progresso SSE anche durante la fase di update REINFORCE nel `game-commit`. Dopo ogni batch di update completato, inviare un evento `progress` al frontend, cosi' la barra avanza in modo continuo e coerente con il lavoro effettivo.
 
 ## File da modificare
 
-### `supabase/functions/game-commit/index.ts` (righe 310-325)
-Sostituire il loop sequenziale REINFORCE con batch paralleli. Ogni batch usa una singola query SQL con `.in()` per aggiornare tutti i pixel del batch, e i batch vengono eseguiti in parallelo con `Promise.all`.
+### 1. `supabase/functions/game-commit/index.ts`
+Nella sezione REINFORCE (righe ~311-345), dopo ogni gruppo parallelo di batch update completato, inviare un evento SSE di progresso:
 
-Stessa funzione: modificare anche `fetchPixelsByCoords` (righe 139-149) per eseguire i batch RPC in parallelo con `Promise.all` invece che sequenzialmente.
+```typescript
+// Dentro il loop REINFORCE, dopo ogni Promise.all di batch
+for (let i = 0; i < reinforceBatches.length; i += MAX_PARALLEL) {
+  const parallelGroup = reinforceBatches.slice(i, i + MAX_PARALLEL);
+  const results = await Promise.all(
+    parallelGroup.map(async (batch) => {
+      // ... update logic esistente ...
+    })
+  );
+  affectedPixels += results.reduce((a, b) => a + b, 0);
+  
+  // NUOVO: Inviare progresso SSE dopo ogni gruppo parallelo
+  const processedSoFar = Math.min(i + MAX_PARALLEL, reinforceBatches.length);
+  sendSSE(encoder, controller, {
+    type: 'progress',
+    phase: 'commit',
+    processed: processedSoFar * REINFORCE_BATCH,
+    total: ownedPixels.length
+  });
+}
+```
 
-### `supabase/functions/game-validate/index.ts`
-Modificare `fetchPixelsByCoords` per eseguire i batch RPC in parallelo con `Promise.all`.
+Questo richiede che la funzione `sendSSE` (o equivalente gia' presente nel file) sia accessibile nella sezione REINFORCE, e che il `controller` dello stream SSE sia in scope.
 
-### `src/components/map/inspector/InspectSelectionPanel.tsx`
-Modificare il fetch dei pixel per eseguire i batch RPC in parallelo con `Promise.all`.
+### 2. `src/components/map/OperationProgress.tsx`
+Nessuna modifica necessaria -- il componente gia' gestisce correttamente gli eventi `progress` con fase `commit`. Quando riceve `processed/total`, la barra avanza automaticamente.
 
 ## Risultato atteso
-- REINFORCE su 1681 pixel: da ~15-20 secondi a ~2-3 secondi
-- Fetch pixel: da ~500ms (sequenziale) a ~300ms (parallelo)
-- Nessun cambio nel comportamento o nei risultati, solo molto piu' veloce
+- La barra di progresso avanza in modo continuo durante tutto il REINFORCE
+- Per 1681 pixel con batch da 100 e 5 paralleli: circa 4 aggiornamenti di progresso (17 batch / 5 paralleli = ~4 gruppi)
+- Nessun salto improvviso da 29% a 100%
 
