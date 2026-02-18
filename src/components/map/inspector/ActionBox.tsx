@@ -2,7 +2,6 @@ import { Undo2, Trash2, AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 import { PixelIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { PEIcon } from '@/components/ui/pe-icon';
-import { PeInput } from '../PeInput';
 import { OperationProgress } from '../OperationProgress';
 import type { GameMode, ValidateResult, ActionError } from '@/hooks/useGameActions';
 import { cn } from '@/lib/utils';
@@ -170,14 +169,8 @@ export function ActionBox({
         </div>
       )}
 
-      {/* PE Input for DEF/ATK/REINFORCE/WITHDRAW_* modes */}
-      {mode !== 'PAINT' && mode !== 'ERASE' && pixelCount > 0 && (
-        <PeInput 
-          value={pePerPixel} 
-          onChange={onPePerPixelChange} 
-          pixelCount={pixelCount}
-        />
-      )}
+
+
 
       {/* Cost Summary - single block */}
       {(validationResult || (mode === 'PAINT' && draftCount > 0) || (mode !== 'PAINT' && mode !== 'ERASE' && pixelCount > 0)) && (
