@@ -13,6 +13,9 @@ const STATUS_MESSAGES = {
     ATTACK: 'Attacking',
     REINFORCE: 'Reinforcing',
     ERASE: 'Erasing',
+    WITHDRAW_DEF: 'Withdrawing',
+    WITHDRAW_ATK: 'Withdrawing',
+    WITHDRAW_REINFORCE: 'Withdrawing',
   },
 };
 
