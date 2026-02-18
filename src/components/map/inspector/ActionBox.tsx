@@ -107,12 +107,8 @@ export function ActionBox({
   const availablePe = validationResult?.availablePe ?? 0;
   const hasSufficientPe = validationResult ? availablePe >= requiredPe : true;
   
-  // Check if PE per pixel changed after validation (requires re-validate)
-  const isValidationStale = validationResult && 
-    mode !== 'PAINT' && 
-    mode !== 'ERASE' && 
-    !isWithdraw &&
-    validationResult.requiredPeTotal !== pePerPixel * pixelCount;
+  // PE staleness is tracked by parent via isSelectionChanged prop
+  const isValidationStale = false;
 
   const isValidated = (validationResult?.ok === true || validationResult?.partialValid === true) && !isValidationStale;
   const canConfirm = isValidated && !isCommitting;
