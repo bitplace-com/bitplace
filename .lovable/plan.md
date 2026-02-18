@@ -1,36 +1,43 @@
 
 
-# Fix: Modal chiusa al click su mobile
+# Fix: Creazione Alliance fallisce con errore 400
 
-## Problema
+## Problema identificato
 
-In `MobileWalletButton.tsx`, il gestore `pointerdown` per il "click outside to collapse" controlla solo `data-radix-popper-content-wrapper` e `data-radix-dialog-overlay`, ma non controlla il **contenuto** del dialog/sheet. Quindi cliccando dentro un modale aperto dal menu utente, il wallet si collassa, smontando tutto.
+La chiamata di creazione dell'alleanza restituisce HTTP 400. Analizzando i log e il codice, il problema piu' probabile e' la **validazione del nome**: la regex `^[a-zA-Z0-9 ]+$` accetta solo lettere ASCII, numeri e spazi. Qualsiasi carattere accentato, speciale o unicode viene rifiutato silenziosamente con "Name can only contain letters, numbers, and spaces".
+
+C'e' anche un **bug nella verifica dell'expiry del token** (riga 59): `Date.now()` restituisce millisecondi, ma `payload.exp` e' in secondi. Questo puo' causare che token validi vengano considerati scaduti. Attualmente non blocca perche' il valore exp potrebbe essere gia' in millisecondi nel JWT custom, ma va corretto per sicurezza.
 
 ## Soluzione
 
-Aggiornare il check nel `pointerdown` handler di `MobileWalletButton.tsx` (righe 31-32) per escludere anche i click dentro qualsiasi dialog/sheet di Radix. Basta aggiungere il check per `[role="dialog"]` che copre sia Dialog che Sheet content.
+### 1. Ampliare la regex del nome alliance
+Permettere caratteri Unicode (lettere accentate, ecc.) oltre a numeri e spazi nel nome. Cambiare la regex da:
+```
+/^[a-zA-Z0-9 ]+$/
+```
+a:
+```
+/^[\p{L}\p{N} ]+$/u
+```
+Questo accetta qualsiasi lettera Unicode, numeri e spazi.
+
+### 2. Correggere il check dell'expiry del token
+Riga 59, cambiare:
+```ts
+if (payload.exp && Date.now() > payload.exp) {
+```
+in:
+```ts
+if (payload.exp && Date.now() > payload.exp * 1000) {
+```
+Cosi' il confronto tra millisecondi e' corretto.
+
+### 3. Aggiungere log dell'errore specifico
+Per rendere piu' facile il debug futuro, loggare il motivo esatto del rifiuto prima di restituire il 400 (ad esempio il messaggio di validazione fallita).
 
 ## File modificato
 
 | File | Modifica |
 |------|----------|
-| `src/components/wallet/MobileWalletButton.tsx` | Aggiungere `target.closest('[role="dialog"]')` al check di esclusione nel pointerdown handler (riga 31) |
-
-## Dettaglio tecnico
-
-Nella riga 31, il check attuale:
-```ts
-if (target.closest?.('[data-radix-popper-content-wrapper]') || target.closest?.('[data-radix-dialog-overlay]')) {
-```
-
-Diventa:
-```ts
-if (
-  target.closest?.('[data-radix-popper-content-wrapper]') ||
-  target.closest?.('[data-radix-dialog-overlay]') ||
-  target.closest?.('[role="dialog"]')
-) {
-```
-
-Questo copre i click su qualsiasi contenuto modale Radix (Dialog, Sheet, AlertDialog), impedendo il collapse del wallet quando l'utente interagisce con modali aperti dal menu.
+| `supabase/functions/alliance-manage/index.ts` | Regex nome Unicode, fix expiry check, log errori di validazione |
 
