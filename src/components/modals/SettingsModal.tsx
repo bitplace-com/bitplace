@@ -294,11 +294,11 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             Links
           </h3>
           
-          {/* X/Twitter */}
+          {/* X */}
           <div className="space-y-2.5">
             <Label htmlFor="social-x" className="flex items-center gap-2">
               <PixelIcon name="twitter" className="h-4 w-4" />
-              X / Twitter
+              X
             </Label>
             <Input
               id="social-x"
