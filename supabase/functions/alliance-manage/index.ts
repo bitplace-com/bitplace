@@ -77,8 +77,8 @@ function validateName(name: string): { valid: boolean; error?: string } {
   if (trimmed.length < 3 || trimmed.length > 30) {
     return { valid: false, error: "Name must be 3-30 characters" };
   }
-  if (!/^[\p{L}\p{N} ]+$/u.test(trimmed)) {
-    return { valid: false, error: "Name can only contain letters, numbers, and spaces" };
+  if (!/^[\p{L}\p{N} _\-.]+$/u.test(trimmed)) {
+    return { valid: false, error: "Name can only contain letters, numbers, spaces, underscores, hyphens, and dots" };
   }
   return { valid: true };
 }
