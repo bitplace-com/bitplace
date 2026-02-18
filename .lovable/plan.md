@@ -1,43 +1,62 @@
 
 
-# Integrazione Logo Bitplace come Avatar Fallback
+# Fix: Tre Bug da Correggere
 
-## Cosa cambia
+## Bug 1: Spacebar riattiva il bottone nella MapToolbar
 
-Sostituire la **lettera iniziale** attualmente mostrata negli avatar fallback con il **logo Bitplace**, mantenendo lo sfondo con gradiente in scala di grigio e i pattern geometrici casuali gia esistenti. Il colore del logo si adattera automaticamente al tema (bianco in dark mode, nero in light mode).
+**Causa**: Quando clicchi su un bottone della toolbar (Paint, Defend, Attack, Reinforce), il browser sposta il focus su quel bottone. Premendo la spacebar, il browser "clicca" automaticamente l'elemento con focus -- comportamento standard HTML.
 
-## Dove appare il logo
+**Soluzione**: Aggiungere `onMouseDown={(e) => e.preventDefault()}` sui `ToggleGroupItem` nella `MapToolbar`, come gia fatto nell'`ActionTray`. Questo impedisce al click di spostare il focus sul bottone.
 
-- Avatar utenti senza foto profilo (profilo, settings, user menu, inspector card, pixel info panel)
-- Righe della leaderboard (avatar fallback per giocatori senza immagine)
-- Hover card della leaderboard
-- Place card (avatar creatore)
+**File**: `src/components/map/MapToolbar.tsx`
+- Aggiungere `onMouseDown={(e) => e.preventDefault()}` a tutti i `ToggleGroupItem` (sia mobile che desktop)
+- Aggiungere lo stesso anche al bottone di expand/collapse
 
-## Dettagli tecnici
+---
 
-### 1. Nuovo componente: `src/components/icons/BitplaceLogo.tsx`
+## Bug 2: Data di iscrizione sempre uguale a "oggi"
 
-Componente React che renderizza il logo SVG inline. Accetta `className` per controllare dimensione e colore via Tailwind. Il colore di default usa `currentColor` cosi si adatta automaticamente al contesto (bianco su sfondo scuro, nero su sfondo chiaro).
+**Causa**: Il hook `usePlayerProfile` cerca `created_at` dalla tabella `users`, ma questa tabella ha la sicurezza attiva (RLS) senza alcuna policy di lettura. Risultato: la query dal browser ritorna `null`. Il codice ha un fallback:
 
-### 2. Modifica: `src/components/ui/avatar-fallback-pattern.tsx`
+```text
+joinedAt: (userExtra as any)?.created_at || new Date().toISOString()
+```
 
-- Rimuovere la prop `name`, `wallet` e `textClassName` (non servono piu per l'iniziale)
-- Sostituire lo `<span>` con la lettera iniziale con il componente `<BitplaceLogo />` centrato
-- Il logo sara bianco (`text-white`) poiche lo sfondo e sempre scuro (gradiente grigio 10-45%)
-- Mantenere pattern geometrici e gradiente invariati
+Siccome `userExtra` e sempre `null`, la data diventa sempre quella di oggi.
 
-### 3. Modifica: `src/components/modals/LeaderboardModal.tsx`
+**Soluzione**: Eliminare la query diretta alla tabella `users` e ottenere `created_at` dalla view `public_user_profiles`, aggiungendo la colonna `created_at` a questa view tramite migrazione DB. In alternativa, possiamo aggiungere `created_at` alla view `public_pixel_owner_info`.
 
-- Nelle `PlayerRow` e nella `HoverCard`, sostituire il `<div>` fallback con la lettera con il componente `<AvatarFallback>` (quello da avatar-fallback-pattern) oppure con il logo Bitplace direttamente
-- Mantiene il gradiente di sfondo gia presente
+**File e modifiche**:
+1. **Migrazione DB**: Ricreare la view `public_user_profiles` includendo `created_at`
+2. **`src/hooks/usePlayerProfile.ts`**: Rimuovere la query separata a `users`, prendere `created_at` dalla prima query su `public_user_profiles`, e prendere `wallet_address` e `pe_used_pe` dalla view `public_pixel_owner_info` (che gia espone bio/socials). In questo modo si eliminano query inutili e si evita il problema RLS.
 
-### 4. Modifica: `src/components/places/PlaceCard.tsx`
+---
 
-- Nel fallback avatar del creatore, mostrare il logo Bitplace al posto dell'iniziale
+## Bug 3: Card utente su mobile si chiude da sola
 
-### File coinvolti
-- `src/components/icons/BitplaceLogo.tsx` (nuovo)
-- `src/components/ui/avatar-fallback-pattern.tsx` (modifica)
-- `src/components/modals/LeaderboardModal.tsx` (modifica)
-- `src/components/places/PlaceCard.tsx` (modifica)
+**Causa**: Il `MobileWalletButton` ha due meccanismi di chiusura che interferiscono:
+
+1. **Timer di 5 secondi**: appena si espande, parte un countdown che lo richiude
+2. **Click outside**: un listener su `pointerdown` chiude il pannello se il click avviene fuori dal `containerRef`
+
+Il problema principale: quando clicchi sul `WalletButton` espanso, si apre il `UserMenuPanel` (un Popover di Radix). Il contenuto del Popover viene renderizzato in un **portale** fuori dal DOM del `containerRef`. Quindi qualsiasi click dentro il popover viene rilevato come "click esterno" e chiude tutto.
+
+Inoltre il timer di 5 secondi non viene resettato quando l'utente interagisce con il contenuto.
+
+**Soluzione**:
+- Nel listener `pointerdown` del `MobileWalletButton`, verificare che il click non sia dentro un elemento con `[data-radix-popper-content-wrapper]` (il portale del Popover), cosi il popover non chiude il pannello
+- Rimuovere o allungare significativamente il timer auto-collapse (o disattivarlo quando il popover e aperto)
+
+**File**: `src/components/wallet/MobileWalletButton.tsx`
+
+---
+
+## Riepilogo file coinvolti
+
+| File | Modifica |
+|------|----------|
+| `src/components/map/MapToolbar.tsx` | `onMouseDown preventDefault` sui bottoni |
+| `src/hooks/usePlayerProfile.ts` | Rimuovere query a `users`, usare le view pubbliche |
+| Migrazione DB | Aggiungere `created_at` alla view `public_user_profiles` |
+| `src/components/wallet/MobileWalletButton.tsx` | Fix click-outside e auto-collapse timer |
 
