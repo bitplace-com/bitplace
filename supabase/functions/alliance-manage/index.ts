@@ -56,7 +56,7 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
     const payload = JSON.parse(atob(payloadFixed));
     
     // exp is in SECONDS (Unix timestamp), Date.now() is in milliseconds
-    if (payload.exp && Date.now() > payload.exp) {
+    if (payload.exp && Date.now() > payload.exp * 1000) {
       console.error("[alliance-manage] Token expired");
       return null;
     }
@@ -77,7 +77,7 @@ function validateName(name: string): { valid: boolean; error?: string } {
   if (trimmed.length < 3 || trimmed.length > 30) {
     return { valid: false, error: "Name must be 3-30 characters" };
   }
-  if (!/^[a-zA-Z0-9 ]+$/.test(trimmed)) {
+  if (!/^[\p{L}\p{N} ]+$/u.test(trimmed)) {
     return { valid: false, error: "Name can only contain letters, numbers, and spaces" };
   }
   return { valid: true };
@@ -222,6 +222,7 @@ Deno.serve(async (req) => {
 
       const nameCheck = validateName(name);
       if (!nameCheck.valid) {
+        console.error(`[alliance-manage] Name validation failed: ${nameCheck.error} (input: "${name}")`);
         return new Response(JSON.stringify({ error: nameCheck.error }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -230,6 +231,7 @@ Deno.serve(async (req) => {
 
       const tagCheck = validateTag(tag);
       if (!tagCheck.valid) {
+        console.error(`[alliance-manage] Tag validation failed: ${tagCheck.error} (input: "${tag}")`);
         return new Response(JSON.stringify({ error: tagCheck.error }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
