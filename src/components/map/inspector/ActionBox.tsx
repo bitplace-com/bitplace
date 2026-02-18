@@ -98,7 +98,7 @@ export function ActionBox({
     }
     // For withdraw modes, show as refund (positive number = PE returned)
     if (isWithdraw) {
-      return validationResult?.requiredPeTotal ?? pePerPixel * pixelCount;
+      return validationResult?.breakdown?.withdrawRefund ?? pePerPixel * pixelCount;
     }
     // For DEF/ATK/REINFORCE, always compute live from pePerPixel
     return pePerPixel * pixelCount;

@@ -40,6 +40,7 @@ export interface Breakdown {
   ownedByOthers: number;
   empty: number;
   pePerType: { [key: string]: number };
+  withdrawRefund?: number;
 }
 
 export interface ValidateResult {
