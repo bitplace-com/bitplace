@@ -1,49 +1,36 @@
 
-# Fix Leaderboard UI: Allineamento, Testi, Icone + Icona Templates
 
-## 1. Sub-categorie: allineamento centrato
+# Fix: Modal chiusa al click su mobile
 
-Il `SubCategoryToggle` attualmente usa `flex` senza `justify-center`. Aggiungere `justify-center` al container delle pills per centrare le sub-categorie.
+## Problema
 
-## 2. Empty state: testi contestuali per sub-categoria
+In `MobileWalletButton.tsx`, il gestore `pointerdown` per il "click outside to collapse" controlla solo `data-radix-popper-content-wrapper` e `data-radix-dialog-overlay`, ma non controlla il **contenuto** del dialog/sheet. Quindi cliccando dentro un modale aperto dal menu utente, il wallet si collassa, smontando tutto.
 
-Attualmente `EmptyState` accetta solo `scope` e mostra sempre "No players have painted yet" / "Start painting to climb the ranks!". Va aggiornato per accettare anche `subCategory` e mostrare messaggi diversi:
+## Soluzione
 
-- **painters**: "No players have painted yet" / "Start painting to climb the ranks!"
-- **investors**: "No investors yet" / "Stake PE in your pixels to climb the ranks!"
-- **defenders**: "No defenders yet" / "Defend pixels to climb the ranks!"
-- **attackers**: "No attackers yet" / "Attack pixels to climb the ranks!"
+Aggiornare il check nel `pointerdown` handler di `MobileWalletButton.tsx` (righe 31-32) per escludere anche i click dentro qualsiasi dialog/sheet di Radix. Basta aggiungere il check per `[role="dialog"]` che copre sia Dialog che Sheet content.
 
-Per Countries e Alliances, stessa logica contestuale.
-
-## 3. Nuove icone: cybersecurity (Defenders) e fire (Attackers)
-
-Creare due nuovi componenti SVG custom seguendo il pattern esistente (PixelSVG base):
-
-- `src/components/icons/custom/PixelCybersecurity.tsx` -- dal SVG `cybersecurity.svg` della libreria HackerNoon
-- `src/components/icons/custom/PixelFire.tsx` -- dal SVG `fire.svg` (regular) della libreria HackerNoon
-
-Registrarli in `iconRegistry.ts` come `'cybersecurity'` e `'fire'`.
-
-Aggiornare `SUB_CATEGORIES` in `LeaderboardModal.tsx`:
-- `defenders`: icona da `"shield"` a `"cybersecurity"`
-- `attackers`: icona da `"swords"` a `"fire"`
-
-## 4. Icona Templates: media
-
-Creare `src/components/icons/custom/PixelMedia.tsx` dal SVG `media.svg` della libreria HackerNoon.
-
-Registrarlo in `iconRegistry.ts` come `'media'`.
-
-Aggiornare `TemplatesButton.tsx`: cambiare `name="image"` a `name="media"`.
-
-## Dettaglio tecnico -- File modificati
+## File modificato
 
 | File | Modifica |
 |------|----------|
-| `src/components/icons/custom/PixelCybersecurity.tsx` | Nuovo componente SVG |
-| `src/components/icons/custom/PixelFire.tsx` | Nuovo componente SVG |
-| `src/components/icons/custom/PixelMedia.tsx` | Nuovo componente SVG |
-| `src/components/icons/iconRegistry.ts` | Aggiungere 3 nuove icone al tipo e alla mappa |
-| `src/components/modals/LeaderboardModal.tsx` | Centrare sub-categorie, aggiornare icone defenders/attackers, aggiornare EmptyState con subCategory |
-| `src/components/map/TemplatesButton.tsx` | Cambiare icona da `image` a `media` |
+| `src/components/wallet/MobileWalletButton.tsx` | Aggiungere `target.closest('[role="dialog"]')` al check di esclusione nel pointerdown handler (riga 31) |
+
+## Dettaglio tecnico
+
+Nella riga 31, il check attuale:
+```ts
+if (target.closest?.('[data-radix-popper-content-wrapper]') || target.closest?.('[data-radix-dialog-overlay]')) {
+```
+
+Diventa:
+```ts
+if (
+  target.closest?.('[data-radix-popper-content-wrapper]') ||
+  target.closest?.('[data-radix-dialog-overlay]') ||
+  target.closest?.('[role="dialog"]')
+) {
+```
+
+Questo copre i click su qualsiasi contenuto modale Radix (Dialog, Sheet, AlertDialog), impedendo il collapse del wallet quando l'utente interagisce con modali aperti dal menu.
+
