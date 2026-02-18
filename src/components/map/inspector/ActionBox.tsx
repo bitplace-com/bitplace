@@ -112,6 +112,7 @@ export function ActionBox({
   const isValidationStale = validationResult && 
     mode !== 'PAINT' && 
     mode !== 'ERASE' && 
+    !isWithdraw &&
     validationResult.requiredPeTotal !== pePerPixel * pixelCount;
 
   const isValidated = validationResult?.ok === true && !isValidationStale;
@@ -247,27 +248,15 @@ export function ActionBox({
         </div>
       )}
 
-      {/* Partial valid warning for ERASE */}
-      {mode === 'ERASE' && validationResult?.partialValid && validationResult.invalidPixels?.length > 0 && (
-        <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-amber-500/10 text-amber-600 text-[11px]">
-          <AlertCircle className="h-3 w-3 flex-shrink-0" />
-          <span>
-            {validationResult.invalidPixels.length} pixel{validationResult.invalidPixels.length > 1 ? 's' : ''} can't be erased — you don't own {validationResult.invalidPixels.length > 1 ? 'them' : 'it'}
-          </span>
-        </div>
-      )}
-
-      {/* Inline error area - exact backend reason (only for non-partial failures) */}
-      {validationResult && !validationResult.ok && !validationResult.partialValid && (
+      {/* Inline error area - only shown when InvalidPixelList is NOT handling it */}
+      {validationResult && !validationResult.ok && !validationResult.partialValid && !(validationResult.invalidPixels?.length > 0) && (
         <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-destructive/10 text-destructive text-[11px]">
           <AlertCircle className="h-3 w-3 flex-shrink-0" />
           <span className="truncate">
             {validationResult.message || validationResult.error || 
-             (validationResult.invalidPixels?.length > 0 
-               ? `${validationResult.invalidPixels.length} invalid pixel(s)`
-               : !hasSufficientPe 
-                 ? 'Insufficient PE'
-                 : 'Validation failed')}
+             (!hasSufficientPe 
+               ? 'Insufficient PE'
+               : 'Validation failed')}
           </span>
         </div>
       )}
