@@ -1,47 +1,92 @@
 
 
-# Fix: Barra di progresso REINFORCE bloccata al 29%
+# Deposit/Withdraw Toggle + Persistent Selection Rect
 
-## Problema
-La barra di progresso durante il REINFORCE si ferma al ~29% e poi salta al 100%. Questo succede perche' la edge function `game-commit` invia eventi di progresso SSE solo durante la fase di **fetch dei pixel** (che e' veloce e finisce presto), ma non durante la fase di **update dei pixel** (che e' la parte piu' lunga). Quindi il frontend vede il progresso arrivare a ~29% (fine fetch), poi non riceve piu' aggiornamenti fino al completamento.
+## Overview
+Three changes: (1) keep the selection rectangle visible after releasing Space, (2) add a Deposit/Withdraw toggle to the ActionTray and InspectorPanel for DEFEND, ATTACK, and REINFORCE modes, and (3) create a backend withdraw flow for REINFORCE (reducing owner_stake, with a minimum of 1 PE remaining).
 
-## Soluzione
-Aggiungere eventi di progresso SSE anche durante la fase di update REINFORCE nel `game-commit`. Dopo ogni batch di update completato, inviare un evento `progress` al frontend, cosi' la barra avanza in modo continuo e coerente con il lavoro effettivo.
+## Current State
+- DEFEND, ATTACK, REINFORCE already share the same area selection and validate/confirm UX flow -- no changes needed there.
+- The purple dashed selection rectangle disappears immediately on Space release because `setRectPreview(null)` is called at that point.
+- Withdraw exists only as a batch "remove all contributions" button in the inspector. There is no per-pixel PE amount control for withdrawals, and REINFORCE has no withdraw support at all (owner_stake cannot be reduced).
 
-## File da modificare
+## Changes
 
-### 1. `supabase/functions/game-commit/index.ts`
-Nella sezione REINFORCE (righe ~311-345), dopo ogni gruppo parallelo di batch update completato, inviare un evento SSE di progresso:
+### 1. Persistent Selection Rectangle
 
-```typescript
-// Dentro il loop REINFORCE, dopo ogni Promise.all di batch
-for (let i = 0; i < reinforceBatches.length; i += MAX_PARALLEL) {
-  const parallelGroup = reinforceBatches.slice(i, i + MAX_PARALLEL);
-  const results = await Promise.all(
-    parallelGroup.map(async (batch) => {
-      // ... update logic esistente ...
-    })
-  );
-  affectedPixels += results.reduce((a, b) => a + b, 0);
-  
-  // NUOVO: Inviare progresso SSE dopo ogni gruppo parallelo
-  const processedSoFar = Math.min(i + MAX_PARALLEL, reinforceBatches.length);
-  sendSSE(encoder, controller, {
-    type: 'progress',
-    phase: 'commit',
-    processed: processedSoFar * REINFORCE_BATCH,
-    total: ownedPixels.length
-  });
-}
-```
+**File: `src/components/map/BitplaceMap.tsx`**
 
-Questo richiede che la funzione `sendSSE` (o equivalente gia' presente nel file) sia accessibile nella sezione REINFORCE, e che il `controller` dello stream SSE sia in scope.
+When Space is released in draw mode for non-PAINT actions (lines 748-752), instead of immediately clearing rectPreview, store the bounds in a new state `selectionRectBounds` that persists until the selection is cleared. The CanvasOverlay already renders `rectPreview` -- we reuse that prop, just stop nullifying it on Space release.
 
-### 2. `src/components/map/OperationProgress.tsx`
-Nessuna modifica necessaria -- il componente gia' gestisce correttamente gli eventi `progress` con fase `commit`. Quando riceve `processed/total`, la barra avanza automaticamente.
+- On Space release: keep `rectPreview` set (do NOT call `setRectPreview(null)`)
+- On `handleClearSelection` / mode change / ESC: clear `rectPreview` along with everything else
+- Same for Hand mode inspect selections
 
-## Risultato atteso
-- La barra di progresso avanza in modo continuo durante tutto il REINFORCE
-- Per 1681 pixel con batch da 100 e 5 paralleli: circa 4 aggiornamenti di progresso (17 batch / 5 paralleli = ~4 gruppi)
-- Nessun salto improvviso da 29% a 100%
+### 2. Deposit/Withdraw Toggle in ActionTray and InspectorPanel
+
+**New state: `actionDirection`** -- either `'deposit'` or `'withdraw'`
+
+**File: `src/components/map/BitplaceMap.tsx`**
+- Add `const [actionDirection, setActionDirection] = useState<'deposit' | 'withdraw'>('deposit');`
+- Reset to `'deposit'` when mode changes
+- Pass `actionDirection` and `onActionDirectionChange` to ActionTray, InspectorPanel, ActionBox
+
+**File: `src/components/map/ActionTray.tsx`**
+- In the action mode section (non-paint expanded), add a segmented toggle above the PE input:
+  - Two buttons: "Deposit" (with a small down-arrow or plus icon) and "Withdraw" (with an up-arrow or minus icon)
+  - Tooltip on Deposit: "Add PE to selected pixels"
+  - Tooltip on Withdraw: "Remove PE from selected pixels"
+- The PE per pixel input and chips remain the same for both directions
+
+**File: `src/components/map/inspector/ActionBox.tsx`**
+- Update labels based on direction: "Defend" vs "Withdraw DEF", "Reinforce" vs "Withdraw Stake"
+- Update cost display: Required shows negative (refund) for withdraw
+- Update button text accordingly
+
+**File: `src/components/map/inspector/InspectorPanel.tsx`**
+- Remove the separate "Withdraw Contributions" section (it will be unified into the main flow)
+- Show the Deposit/Withdraw toggle in the panel header area
+
+### 3. Backend: Withdraw via game-validate and game-commit
+
+Instead of using the separate `contribution-withdraw` edge function, extend the existing game-validate and game-commit with new modes. This keeps the validate-then-commit flow consistent.
+
+**New modes:** `WITHDRAW_DEF`, `WITHDRAW_ATK`, `WITHDRAW_REINFORCE`
+
+**File: `supabase/functions/game-validate/index.ts`**
+- Add three new modes to the GameMode type
+- For WITHDRAW_DEF/WITHDRAW_ATK: validate that user has contributions on those pixels, compute refund amounts (min: if withdrawing all, that is ok). If `pePerPixel` would reduce contribution below 0, cap at the available amount.
+- For WITHDRAW_REINFORCE: validate that user owns the pixels, compute how much owner_stake can be reduced. **Enforce minimum 1 PE remaining** -- if owner_stake - pePerPixel < 1, mark as invalid with reason "MIN_STAKE" (user should use Eraser to fully remove the pixel).
+- Return `requiredPeTotal` as a NEGATIVE number (refund), or a new field `refundPeTotal`
+
+**File: `supabase/functions/game-commit/index.ts`**
+- Handle WITHDRAW_DEF/WITHDRAW_ATK: reduce or delete pixel_contributions rows
+- Handle WITHDRAW_REINFORCE: reduce owner_stake_pe on pixels table (min 1 PE)
+- Use same parallel batching pattern as REINFORCE deposit
+- Send SSE progress events
+
+**File: `src/hooks/useGameActions.ts`**
+- Add `WITHDRAW_DEF`, `WITHDRAW_ATK`, `WITHDRAW_REINFORCE` to the GameMode type
+- The validate/commit functions already support any mode -- just need the type added
+
+**Frontend integration in `BitplaceMap.tsx`:**
+- When `actionDirection === 'withdraw'`, `getGameMode()` returns `WITHDRAW_DEF`, `WITHDRAW_ATK`, or `WITHDRAW_REINFORCE` instead of `DEFEND`, `ATTACK`, `REINFORCE`
+- Everything else (validate button, confirm button, progress bar) works identically
+
+### 4. Minimum Stake Rule
+- When withdrawing REINFORCE, if `owner_stake_pe - pePerPixel < 1`, the pixel is flagged as invalid with reason "Minimum 1 PE stake required (use Eraser to remove pixel)"
+- For DEF/ATK withdraw, withdrawing the full amount is allowed (contribution row is deleted)
+
+## Files to Modify
+1. `src/components/map/BitplaceMap.tsx` -- persistent rect, actionDirection state, getGameMode logic
+2. `src/components/map/ActionTray.tsx` -- Deposit/Withdraw toggle with tooltips
+3. `src/components/map/inspector/ActionBox.tsx` -- direction-aware labels and cost display
+4. `src/components/map/inspector/InspectorPanel.tsx` -- remove separate withdraw section, pass direction
+5. `src/hooks/useGameActions.ts` -- add WITHDRAW_* modes to types
+6. `supabase/functions/game-validate/index.ts` -- handle WITHDRAW_* validation
+7. `supabase/functions/game-commit/index.ts` -- handle WITHDRAW_* commits
+
+## Files NOT Modified
+- `src/hooks/useWithdrawContribution.ts` -- kept for backward compatibility but no longer primary
+- `supabase/functions/contribution-withdraw/index.ts` -- kept but no longer primary path
 
