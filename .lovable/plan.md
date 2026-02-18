@@ -1,53 +1,50 @@
 
 
-# Fix: Incorrect button texts and loading labels
+# Fix: Withdraw button not updating after validation
 
-## Problems Found
+## Root Cause
 
-### 1. ActionBox.tsx -- confirm button loading text (line 340)
-The pattern `${actionLabel}ing ${effectiveCount} px...` has two issues:
-- **Wrong unit**: For Deposit/Withdraw, the operation is about PE, not pixels. Saying "Depositing 50 px..." is misleading.
-- **Grammar**: While "Deposit" -> "Depositing" and "Withdraw" -> "Withdrawing" work, the fallback to `config.label` for PAINT/ERASE means "Erase" -> "Eraseing" (wrong, should be "Erasing"). This path isn't currently hit for Erase since actionLabel handles it, but it's fragile.
+The backend response puts `withdrawRefund` inside `breakdown.pePerType`, not directly on `breakdown`:
 
-**Fix**: Use a proper gerund map instead of naive `${label}ing` concatenation, and remove `px` from Deposit/Withdraw loading text (or replace with "PE").
+```text
+Backend returns:
+  breakdown: {
+    pixelCount: 1681,
+    pePerType: { withdrawRefund: 1612 }   <-- here
+  }
 
-### 2. OperationProgress.tsx -- missing withdraw modes (lines 8-17)
-The `STATUS_MESSAGES.commit` map only includes PAINT, DEFEND, ATTACK, REINFORCE, ERASE. The three withdraw modes (WITHDRAW_DEF, WITHDRAW_ATK, WITHDRAW_REINFORCE) are missing, causing them to fall back to the generic "Processing" label.
-
-**Fix**: Add entries for all three withdraw modes with label "Withdrawing".
-
-## Changes
-
-### File: `src/components/map/inspector/ActionBox.tsx`
-
-Replace the naive `${actionLabel}ing` pattern (line 340) with a proper gerund mapping:
-
-```typescript
-const actionLabel = isWithdraw ? 'Withdraw' : (['DEFEND','ATTACK','REINFORCE'].includes(mode) ? 'Deposit' : config.label);
-const actionGerund = isWithdraw ? 'Withdrawing' : (['DEFEND','ATTACK','REINFORCE'].includes(mode) ? 'Depositing' : { PAINT: 'Painting', ERASE: 'Erasing' }[mode] || 'Processing');
-
-if (isCommitting) return effectiveCount > 50 ? `${actionGerund}...` : `${actionGerund}...`;
+Frontend checks:
+  validationResult.breakdown?.withdrawRefund  <-- always undefined!
 ```
 
-Remove the `${effectiveCount} px` from the committing label entirely -- it adds clutter and uses the wrong unit for Deposit/Withdraw. The progress bar already shows real-time progress below.
+So the `isValidated` condition for Withdraw never evaluates to true from a fresh Withdraw validation. The reason it "works" after first doing a Deposit validation is that the old validation result with `ok: true` persists in state, making the button appear validated regardless.
 
-### File: `src/components/map/OperationProgress.tsx`
+## Fix
 
-Add the missing withdraw modes to `STATUS_MESSAGES.commit`:
+**File: `src/components/map/inspector/ActionBox.tsx`**
 
+Two places reference `breakdown.withdrawRefund` and need to be changed to `breakdown.pePerType?.withdrawRefund`:
+
+1. **Line 101** (cost display): `validationResult?.breakdown?.withdrawRefund` should be `validationResult?.breakdown?.pePerType?.withdrawRefund`
+
+2. **Line 116** (isValidated check): `validationResult.breakdown?.withdrawRefund` should be `validationResult.breakdown?.pePerType?.withdrawRefund`
+
+### Before
 ```typescript
-const STATUS_MESSAGES = {
-  validate: 'Validating',
-  commit: {
-    PAINT: 'Painting',
-    DEFEND: 'Defending',
-    ATTACK: 'Attacking',
-    REINFORCE: 'Reinforcing',
-    ERASE: 'Erasing',
-    WITHDRAW_DEF: 'Withdrawing',
-    WITHDRAW_ATK: 'Withdrawing',
-    WITHDRAW_REINFORCE: 'Withdrawing',
-  },
-};
+// Line 101
+return validationResult?.breakdown?.withdrawRefund ?? pePerPixel * pixelCount;
+
+// Line 116
+(isWithdraw && validationResult && (validationResult.breakdown?.withdrawRefund ?? 0) > 0)
 ```
 
+### After
+```typescript
+// Line 101
+return validationResult?.breakdown?.pePerType?.withdrawRefund ?? pePerPixel * pixelCount;
+
+// Line 116
+(isWithdraw && validationResult && (validationResult.breakdown?.pePerType?.withdrawRefund ?? 0) > 0)
+```
+
+This is a two-line change that fixes both the "validated" state detection and the refund amount display for all withdraw modes (WITHDRAW_DEF, WITHDRAW_ATK, WITHDRAW_REINFORCE).
