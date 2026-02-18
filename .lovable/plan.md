@@ -1,40 +1,47 @@
 
 
-# Fix: Validate button stuck for Defend/Attack/Reinforce
+# Fix: Withdraw mode button stuck on "Validate"
 
 ## Root Cause
 
-The `isValidationStale` check in ActionBox.tsx (line 111-115) compares the backend's `requiredPeTotal` against a naive client-side estimate (`pePerPixel * pixelCount`). These values almost never match because the backend calculates the actual cost per pixel based on existing contributions and ownership state. Since `isValidationStale` is always truthy, `isValidated` stays false and the button remains "Validate" forever.
+Looking at the actual backend response for WITHDRAW_REINFORCE:
+
+```json
+{
+  "ok": false,
+  "partialValid": false,
+  "invalidPixels": [... 69 pixels with "MIN_STAKE" ...],
+  "breakdown": {
+    "pixelCount": 1681,
+    "pePerType": { "withdrawRefund": 1612 }
+  }
+}
+```
+
+The backend returns `ok: false` AND `partialValid: false`, even though 1612 out of 1681 pixels are valid for withdrawal (withdrawRefund = 1612). This means the frontend's `isValidated` check -- which requires `ok === true || partialValid === true` -- always fails for withdrawals that have any invalid pixels.
+
+For Deposit (REINFORCE), the backend correctly returns `ok: true` or `partialValid: true`, so the button transitions correctly. But for WITHDRAW modes, the backend doesn't set `partialValid` even when most pixels are valid.
 
 ## Fix
 
-**File: `src/components/map/inspector/ActionBox.tsx`** (lines 110-115)
+**File: `src/components/map/inspector/ActionBox.tsx`** (line 113)
 
-Replace the naive comparison with a proper staleness check: track whether `pePerPixel` actually changed after validation by comparing against the per-pixel value stored in the validation result's breakdown.
-
-The backend returns `breakdown.pePerType` or the total divided by pixel count. The simplest reliable fix is to remove the staleness check entirely for the `requiredPeTotal` comparison and instead only mark stale when `pePerPixel` differs from the value used during validation. Since the validation result doesn't currently store the input `pePerPixel`, the cleanest approach is:
+Extend the `isValidated` condition to also consider a withdraw validated when the backend returned a positive `withdrawRefund`, meaning there are processable pixels:
 
 ```typescript
-// Check if PE per pixel changed after validation (requires re-validate)
-// Compare against the pePerPixel that was embedded in the validation request,
-// not against the backend's computed total (which accounts for existing state)
-const isValidationStale = validationResult && 
-  mode !== 'PAINT' && 
-  mode !== 'ERASE' && 
-  !isWithdraw &&
-  validationResult._inputPePerPixel !== undefined &&
-  validationResult._inputPePerPixel !== pePerPixel;
+const isValidated = (
+  validationResult?.ok === true || 
+  validationResult?.partialValid === true ||
+  // Withdraw: backend may return ok=false/partialValid=false but still have valid pixels
+  (isWithdraw && validationResult && (validationResult.breakdown?.withdrawRefund ?? 0) > 0)
+) && !isValidationStale;
 ```
 
-However, since `_inputPePerPixel` isn't currently stored, the simpler approach is to remove the comparison that always fails:
+This is safe because:
+- The `withdrawRefund` value comes directly from the backend's validation
+- If the refund is > 0, there are valid pixels the backend can process
+- This only applies to withdraw modes, not deposit/paint/erase
 
-```typescript
-const isValidationStale = false; // PE staleness tracked by parent via isSelectionChanged
-```
-
-The parent component already provides `isSelectionChanged` for this purpose, and the ActionBox already renders a "Selection changed -- re-validate" hint when that flag is true. So we can safely remove the redundant (and broken) staleness check.
-
-## Summary of Changes
-
-1. **`src/components/map/inspector/ActionBox.tsx`** -- Set `isValidationStale` to `false` (or remove the broken comparison). The existing `isSelectionChanged` prop already covers the re-validate hint.
+## Files Changed
+- `src/components/map/inspector/ActionBox.tsx` -- 1 line change to `isValidated` condition
 
