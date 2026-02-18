@@ -114,7 +114,7 @@ export function ActionBox({
     !isWithdraw &&
     validationResult.requiredPeTotal !== pePerPixel * pixelCount;
 
-  const isValidated = validationResult?.ok === true && !isValidationStale;
+  const isValidated = (validationResult?.ok === true || validationResult?.partialValid === true) && !isValidationStale;
   const canConfirm = isValidated && !isCommitting;
 
   return (
@@ -335,19 +335,12 @@ export function ActionBox({
             onClick={onConfirm}
             disabled={isValidating || isCommitting || (!canConfirm && needsValidation)}
           >
-          {isCommitting ? (
-              effectiveCount > 50 ? `${config.label}ing ${effectiveCount} px...` : `${config.label}ing...`
-            ) : lastCommitFailed ? (
-              <>
-                <RefreshCw className="h-4 w-4 sm:h-3.5 sm:w-3.5 mr-1.5" />
-                <span>Retry {config.label}</span>
-              </>
-            ) : (
-              <>
-                {config.icon}
-                <span className="ml-1.5">{config.label}</span>
-              </>
-            )}
+          {(() => {
+              const actionLabel = isWithdraw ? 'Withdraw' : (['DEFEND','ATTACK','REINFORCE'].includes(mode) ? 'Deposit' : config.label);
+              if (isCommitting) return effectiveCount > 50 ? `${actionLabel}ing ${effectiveCount} px...` : `${actionLabel}ing...`;
+              if (lastCommitFailed) return (<><RefreshCw className="h-4 w-4 sm:h-3.5 sm:w-3.5 mr-1.5" /><span>Retry {actionLabel}</span></>);
+              return (<>{config.icon}<span className="ml-1.5">{actionLabel}</span></>);
+            })()}
           </Button>
         )}
       </div>
