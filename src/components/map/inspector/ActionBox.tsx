@@ -110,7 +110,11 @@ export function ActionBox({
   // PE staleness is tracked by parent via isSelectionChanged prop
   const isValidationStale = false;
 
-  const isValidated = (validationResult?.ok === true || validationResult?.partialValid === true) && !isValidationStale;
+  const isValidated = (
+    validationResult?.ok === true || 
+    validationResult?.partialValid === true ||
+    (isWithdraw && validationResult && (validationResult.breakdown?.withdrawRefund ?? 0) > 0)
+  ) && !isValidationStale;
   const canConfirm = isValidated && !isCommitting;
 
   return (
