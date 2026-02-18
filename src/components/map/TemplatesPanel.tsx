@@ -69,7 +69,7 @@ function TemplateListView({
       {templates.length === 0 && (
         <div className="flex flex-col items-center justify-center py-8 text-center">
           <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
-            <PixelIcon name="image" size="xl" className="text-muted-foreground" />
+            <PixelIcon name="media" size="xl" className="text-muted-foreground" />
           </div>
           <p className="text-sm text-muted-foreground max-w-[220px]">
             Add an overlay image to use as a guide to draw.
@@ -174,7 +174,7 @@ export function TemplatesPanel({
         onOpenChange={onOpenChange}
         title="Templates"
         description="Overlay images as drawing guides"
-        icon={<PixelIcon name="image" size="md" />}
+        icon={<PixelIcon name="media" size="md" />}
         size="md"
       >
         <TemplatesPanelContent {...contentProps} />
@@ -190,7 +190,7 @@ export function TemplatesPanel({
       <GlassPanel variant="hud" padding="md" className="w-[320px] max-h-[calc(100vh-120px)] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <PixelIcon name="image" size="md" className="text-primary" />
+            <PixelIcon name="media" size="md" className="text-primary" />
             <h3 className="font-semibold">Templates</h3>
           </div>
           <button
