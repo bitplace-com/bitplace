@@ -220,10 +220,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId, onJumpToPixel
               ) : (
                 <AvatarFallback
                   seed={profile?.id || playerId || ''}
-                  name={profile.displayName}
-                  wallet={profile.walletShort}
                   className="w-16 h-16 ring-2 ring-border"
-                  textClassName="text-xl"
                 />
               )}
               

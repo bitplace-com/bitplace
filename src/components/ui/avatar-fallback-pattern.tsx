@@ -1,12 +1,10 @@
-import { generateAvatarGradient, generateAvatarPattern, getAvatarInitial, type AvatarPattern } from "@/lib/avatar";
+import { generateAvatarGradient, generateAvatarPattern, type AvatarPattern } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
+import { BitplaceLogo } from "@/components/icons/BitplaceLogo";
 
 interface AvatarFallbackProps {
   seed: string;
-  name?: string | null;
-  wallet?: string | null;
   className?: string;
-  textClassName?: string;
 }
 
 function PatternSvg({ pattern, opacity }: { pattern: AvatarPattern; opacity: number }) {
@@ -71,10 +69,9 @@ function PatternSvg({ pattern, opacity }: { pattern: AvatarPattern; opacity: num
   }
 }
 
-export function AvatarFallback({ seed, name, wallet, className, textClassName }: AvatarFallbackProps) {
+export function AvatarFallback({ seed, className }: AvatarFallbackProps) {
   const gradient = generateAvatarGradient(seed);
   const { pattern, opacity } = generateAvatarPattern(seed);
-  const initial = getAvatarInitial(name, wallet);
 
   return (
     <div
@@ -85,9 +82,7 @@ export function AvatarFallback({ seed, name, wallet, className, textClassName }:
       style={{ background: gradient }}
     >
       <PatternSvg pattern={pattern} opacity={opacity} />
-      <span className={cn("relative z-10 text-white font-bold select-none", textClassName)}>
-        {initial}
-      </span>
+      <BitplaceLogo className="relative z-10 w-1/2 h-1/2 text-white/90" />
     </div>
   );
 }

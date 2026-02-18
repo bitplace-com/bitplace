@@ -76,10 +76,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             ) : (
               <AvatarFallback
                 seed={walletAddress || "default"}
-                name={user?.display_name}
-                wallet={walletAddress}
                 className="h-12 w-12 border-2 border-border"
-                textClassName="text-lg"
               />
             )}
             <div className="flex-1 min-w-0">

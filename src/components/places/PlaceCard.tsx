@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Place } from "@/hooks/usePlaces";
 import { getCountryByCode } from "@/lib/countries";
-import { getAvatarInitial } from "@/lib/avatar";
+import { BitplaceLogo } from "@/components/icons/BitplaceLogo";
 import { PlaceThumbnail } from "./PlaceThumbnail";
 import { PEIcon } from "@/components/ui/pe-icon";
 import { PE_PER_USD } from "@/config/energy";
@@ -106,8 +106,8 @@ export function PlaceCard({
         <div className="flex items-center gap-1.5">
           <Avatar className="h-5 w-5">
             <AvatarImage src={creator?.avatar_url || undefined} />
-            <AvatarFallback className="text-[10px] bg-muted">
-              {getAvatarInitial(creator?.display_name, null)}
+            <AvatarFallback className="bg-muted flex items-center justify-center">
+              <BitplaceLogo className="w-3 h-3 text-muted-foreground" />
             </AvatarFallback>
           </Avatar>
           <span className="text-xs font-medium truncate max-w-20">

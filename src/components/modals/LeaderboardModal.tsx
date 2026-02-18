@@ -23,8 +23,8 @@ import {
   AllianceEntry,
 } from "@/hooks/useLeaderboard";
 import { getCountryByCode } from "@/lib/countries";
-import { generateAvatarGradient } from "@/lib/avatar";
 import { PlayerProfileModal } from "./PlayerProfileModal";
+import { AvatarFallback as AvatarFallbackPattern } from "@/components/ui/avatar-fallback-pattern";
 import { PE_PER_USD } from "@/config/energy";
 
 interface LeaderboardModalProps {
@@ -93,7 +93,7 @@ function RankBadge({ rank }: { rank: number }) {
 function PlayerRow({ entry, metric, onPlayerClick }: { entry: PlayerEntry; metric: LeaderboardMetric; onPlayerClick: (id: string) => void }) {
   const country = entry.countryCode ? getCountryByCode(entry.countryCode) : null;
   const displayName = entry.displayName || "Unknown";
-  const gradient = generateAvatarGradient(entry.id);
+  
   const hasSocials = entry.socialX || entry.socialInstagram || entry.socialWebsite;
   const hasProfileInfo = entry.bio || hasSocials;
 
@@ -103,9 +103,7 @@ function PlayerRow({ entry, metric, onPlayerClick }: { entry: PlayerEntry; metri
       {entry.avatarUrl ? (
         <img src={entry.avatarUrl} alt="" className="w-8 h-8 rounded-full flex-shrink-0 object-cover" />
       ) : (
-        <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-sm" style={{ background: gradient }}>
-          {(entry.displayName?.[0] || '?').toUpperCase()}
-        </div>
+        <AvatarFallbackPattern seed={entry.id} className="w-8 h-8 flex-shrink-0" />
       )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
@@ -131,9 +129,7 @@ function PlayerRow({ entry, metric, onPlayerClick }: { entry: PlayerEntry; metri
             {entry.avatarUrl ? (
               <img src={entry.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
             ) : (
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-base" style={{ background: gradient }}>
-                {(entry.displayName?.[0] || '?').toUpperCase()}
-              </div>
+              <AvatarFallbackPattern seed={entry.id} className="w-10 h-10" />
             )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
