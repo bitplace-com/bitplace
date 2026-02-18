@@ -26,7 +26,7 @@ export function warmupFunction(functionName: string): void {
   }).catch(() => {});
 }
 
-export type GameMode = 'PAINT' | 'DEFEND' | 'ATTACK' | 'REINFORCE' | 'ERASE';
+export type GameMode = 'PAINT' | 'DEFEND' | 'ATTACK' | 'REINFORCE' | 'ERASE' | 'WITHDRAW_DEF' | 'WITHDRAW_ATK' | 'WITHDRAW_REINFORCE';
 
 export interface InvalidPixel {
   x: number;

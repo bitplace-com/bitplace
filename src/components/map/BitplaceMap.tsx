@@ -82,6 +82,7 @@ export function BitplaceMap() {
   const [pendingPixels, setPendingPixels] = useState<{ x: number; y: number }[]>([]);
   const [inspectSelection, setInspectSelection] = useState<{ x: number; y: number }[]>([]);
   const [pePerPixel, setPePerPixel] = useState(1);
+  const [actionDirection, setActionDirection] = useState<'deposit' | 'withdraw'>('deposit');
   const [previewHiddenPixels, setPreviewHiddenPixels] = useState<Set<string>>(new Set());
   const [validatedActionPixels, setValidatedActionPixels] = useState<Set<string> | null>(null);
   const [isPinPlacementMode, setIsPinPlacementMode] = useState(false);
@@ -165,8 +166,15 @@ export function BitplaceMap() {
   }, [setZoom, updateViewport]);
 
   const getGameMode = useCallback((mapMode: string): GameMode => {
-    return mapMode.toUpperCase() as GameMode;
-  }, []);
+    const baseMode = mapMode.toUpperCase() as GameMode;
+    // Map to withdraw modes when direction is 'withdraw'
+    if (actionDirection === 'withdraw') {
+      if (baseMode === 'DEFEND') return 'WITHDRAW_DEF';
+      if (baseMode === 'ATTACK') return 'WITHDRAW_ATK';
+      if (baseMode === 'REINFORCE') return 'WITHDRAW_REINFORCE';
+    }
+    return baseMode;
+  }, [actionDirection]);
 
   // Touch/Pointer handling callbacks for mobile support
   const handleTouchPaintStart = useCallback((x: number, y: number) => {
@@ -722,11 +730,11 @@ export function BitplaceMap() {
               // Use setFromRectSelection on inspect brush to show the filled area
             }
           }
-          rectAnchorRef.current = null;
-          setRectPreview(null);
-          map.dragPan.enable();
-          map.getCanvas().style.cursor = '';
-          return;
+            rectAnchorRef.current = null;
+            // Keep rectPreview visible for inspect selection
+            map.dragPan.enable();
+            map.getCanvas().style.cursor = '';
+            return;
         }
         
         // DRAW MODE: Check if we were in brush selection mode (non-PAINT or ERASER)
@@ -748,7 +756,7 @@ export function BitplaceMap() {
               }
             }
             rectAnchorRef.current = null;
-            setRectPreview(null);
+            // Keep rectPreview visible until selection is cleared
             map.dragPan.enable();
           } else {
             endBrushSelection();
@@ -868,6 +876,11 @@ export function BitplaceMap() {
       clearValidation();
       setPreviewHiddenPixels(new Set());
       setValidatedActionPixels(null);
+      setRectPreview(null);
+      // Reset actionDirection to deposit on mode change
+      if (modeChanged) {
+        setActionDirection('deposit');
+      }
       // Also close inspect selection when switching to HAND
       if (interactionChanged && interactionMode === 'drag') {
         setInspectSelection([]);
@@ -1389,6 +1402,7 @@ export function BitplaceMap() {
     clearSelection(); 
     clearValidation(); 
     setPendingPixels([]); 
+    setRectPreview(null);
     resetPaintState();
     playSound('pixel_deselect'); 
   }, [clearSelection, clearValidation, playSound, resetPaintState]);
@@ -1763,10 +1777,10 @@ export function BitplaceMap() {
             mapRef.current.flyTo({
               center: mapRef.current.getCenter(),
               zoom: Z_SHOW_PAINTS,
-              duration: 2500, // Slower animation
+              duration: 2500,
               easing: (t) => t < 0.5 
                 ? 4 * t * t * t 
-                : 1 - Math.pow(-2 * t + 2, 3) / 2 // ease-in-out-cubic
+                : 1 - Math.pow(-2 * t + 2, 3) / 2
             });
           }}
           onColorSelect={setSelectedColor}
@@ -1776,6 +1790,8 @@ export function BitplaceMap() {
           onPePerPixelChange={setPePerPixel}
           templateGuideColors={templateGuideColors}
           filterToGuideColors={activeTemplate?.mode === 'pixelGuide' && activeTemplate?.filterPaletteColors}
+          actionDirection={actionDirection}
+          onActionDirectionChange={setActionDirection}
         />
 
         {/* Pixel Info Panel (read-only) */}

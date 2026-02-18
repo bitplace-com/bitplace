@@ -49,7 +49,7 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
   }
 }
 
-type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE" | "PING";
+type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE" | "WITHDRAW_DEF" | "WITHDRAW_ATK" | "WITHDRAW_REINFORCE" | "PING";
 
 // Paint-specific limits
 const MAX_PAINT_PIXELS = 300;
@@ -356,7 +356,6 @@ async function executeCommit(
     const side = mode === "DEFEND" ? "DEF" : "ATK";
     const pixelsToProcess = pixelStates.filter(p => p.id);
     
-    // Fetch existing contributions in batch
     const pixelIds = pixelsToProcess.map(p => p.id!);
     const { data: existingContribs } = await supabase
       .from("pixel_contributions")
@@ -370,7 +369,6 @@ async function executeCommit(
       existingMap.set(c.pixel_id, { id: c.id, amount_pe: c.amount_pe });
     });
     
-    // Separate updates from inserts
     const toUpdate: Array<{ id: number; newAmount: number }> = [];
     const toInsert: Array<{ pixel_id: number; user_id: string; side: string; amount_pe: number }> = [];
     
@@ -379,16 +377,10 @@ async function executeCommit(
       if (existing) {
         toUpdate.push({ id: existing.id, newAmount: existing.amount_pe + pePerPixel! });
       } else {
-        toInsert.push({
-          pixel_id: pixel.id!,
-          user_id: userId,
-          side,
-          amount_pe: pePerPixel!
-        });
+        toInsert.push({ pixel_id: pixel.id!, user_id: userId, side, amount_pe: pePerPixel! });
       }
     }
     
-    // Batch update existing contributions
     for (const u of toUpdate) {
       const { error } = await supabase
         .from("pixel_contributions")
@@ -397,7 +389,6 @@ async function executeCommit(
       if (!error) affectedPixels++;
     }
     
-    // Batch insert new contributions
     if (toInsert.length > 0) {
       const { data: inserted } = await supabase
         .from("pixel_contributions")
@@ -406,7 +397,6 @@ async function executeCommit(
       affectedPixels += inserted?.length || 0;
     }
     
-    // Batch notifications for owners
     const ownersToNotify = pixelsToProcess
       .filter(p => p.owner_user_id && p.owner_user_id !== userId)
       .map(p => ({
@@ -421,6 +411,83 @@ async function executeCommit(
     
     if (ownersToNotify.length > 0) {
       await supabase.from("notifications").insert(ownersToNotify);
+    }
+  } else if (mode === "WITHDRAW_DEF" || mode === "WITHDRAW_ATK") {
+    // Withdraw contributions: reduce or delete pixel_contributions rows
+    const side = mode === "WITHDRAW_DEF" ? "DEF" : "ATK";
+    const pixelsToProcess = pixelStates.filter(p => p.id);
+    const pixelIds = pixelsToProcess.map(p => p.id!);
+    
+    const { data: existingContribs } = await supabase
+      .from("pixel_contributions")
+      .select("id, pixel_id, amount_pe")
+      .in("pixel_id", pixelIds)
+      .eq("user_id", userId)
+      .eq("side", side);
+    
+    const existingMap = new Map<number, { id: number; amount_pe: number }>();
+    (existingContribs || []).forEach((c: { id: number; pixel_id: number; amount_pe: number }) => {
+      existingMap.set(c.pixel_id, { id: c.id, amount_pe: c.amount_pe });
+    });
+    
+    for (const pixel of pixelsToProcess) {
+      const existing = existingMap.get(pixel.id!);
+      if (!existing) continue;
+      
+      const newAmount = existing.amount_pe - pePerPixel!;
+      if (newAmount <= 0) {
+        // Delete the contribution entirely
+        const { error } = await supabase
+          .from("pixel_contributions")
+          .delete()
+          .eq("id", existing.id);
+        if (!error) affectedPixels++;
+      } else {
+        // Reduce the contribution
+        const { error } = await supabase
+          .from("pixel_contributions")
+          .update({ amount_pe: newAmount })
+          .eq("id", existing.id);
+        if (!error) affectedPixels++;
+      }
+    }
+  } else if (mode === "WITHDRAW_REINFORCE") {
+    // Withdraw stake: reduce owner_stake_pe (min 1 PE remaining)
+    const ownedPixels = pixelStates.filter(p => p.id && p.owner_user_id === userId);
+    
+    const REINFORCE_BATCH = 100;
+    const MAX_PARALLEL = 5;
+    const batches: typeof ownedPixels[] = [];
+    for (let i = 0; i < ownedPixels.length; i += REINFORCE_BATCH) {
+      batches.push(ownedPixels.slice(i, i + REINFORCE_BATCH));
+    }
+    
+    for (let i = 0; i < batches.length; i += MAX_PARALLEL) {
+      const parallelGroup = batches.slice(i, i + MAX_PARALLEL);
+      const results = await Promise.all(
+        parallelGroup.map(async (batch) => {
+          let count = 0;
+          for (const pixel of batch) {
+            const currentStake = pixel.owner_stake_pe || 0;
+            const newStake = Math.max(1, currentStake - pePerPixel!);
+            if (newStake === currentStake) continue; // No change
+            const { error } = await supabase
+              .from("pixels")
+              .update({ owner_stake_pe: newStake, updated_at: now })
+              .eq("id", pixel.id)
+              .eq("owner_user_id", userId);
+            if (!error) count++;
+          }
+          return count;
+        })
+      );
+      affectedPixels += results.reduce((a, b) => a + b, 0);
+      
+      if (onProgress) {
+        const batchesDone = Math.min(i + MAX_PARALLEL, batches.length);
+        const pixelsDone = Math.min(batchesDone * REINFORCE_BATCH, ownedPixels.length);
+        onProgress(pixelsDone, ownedPixels.length);
+      }
     }
   } else if (mode === "PAINT") {
     // PROMPT 54+56: Batch UPSERT for all PAINT pixels with chunking for large operations
