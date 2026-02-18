@@ -10,10 +10,11 @@ interface TemplatesButtonProps {
 
 export function TemplatesButton({ isOpen, onToggle, hasActiveTemplate }: TemplatesButtonProps) {
   return (
-    <GlassIconButton
-      onClick={onToggle}
-      aria-label="Templates"
-      aria-pressed={isOpen}
+      <GlassIconButton
+        onClick={onToggle}
+        onMouseDown={(e) => e.preventDefault()}
+        aria-label="Templates"
+        aria-pressed={isOpen}
       className={cn(
         "relative",
         isOpen && "ring-2 ring-primary/50"
