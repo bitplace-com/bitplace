@@ -337,7 +337,8 @@ export function ActionBox({
           >
           {(() => {
               const actionLabel = isWithdraw ? 'Withdraw' : (['DEFEND','ATTACK','REINFORCE'].includes(mode) ? 'Deposit' : config.label);
-              if (isCommitting) return effectiveCount > 50 ? `${actionLabel}ing ${effectiveCount} px...` : `${actionLabel}ing...`;
+              const actionGerund = isWithdraw ? 'Withdrawing' : (['DEFEND','ATTACK','REINFORCE'].includes(mode) ? 'Depositing' : ({ PAINT: 'Painting', ERASE: 'Erasing' } as Record<string, string>)[mode] || 'Processing');
+              if (isCommitting) return `${actionGerund}...`;
               if (lastCommitFailed) return (<><RefreshCw className="h-4 w-4 sm:h-3.5 sm:w-3.5 mr-1.5" /><span>Retry {actionLabel}</span></>);
               return (<>{config.icon}<span className="ml-1.5">{actionLabel}</span></>);
             })()}
