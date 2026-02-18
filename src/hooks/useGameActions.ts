@@ -700,5 +700,8 @@ function formatMode(mode: GameMode): string {
     case 'ATTACK': return 'Attacked';
     case 'REINFORCE': return 'Reinforced';
     case 'ERASE': return 'Erased';
+    case 'WITHDRAW_DEF': return 'Withdrew DEF from';
+    case 'WITHDRAW_ATK': return 'Withdrew ATK from';
+    case 'WITHDRAW_REINFORCE': return 'Withdrew stake from';
   }
 }
