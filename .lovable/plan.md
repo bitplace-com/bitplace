@@ -1,54 +1,60 @@
 
+# Fix: "PE value has changed" loop + Exclude Invalid Pixels button
 
-# Code Review: Issues Found Before Deploying
+## Problem 1: Withdraw validation always shows "PE changed"
+The `isValidationStale` check in `ActionBox.tsx` compares `validationResult.requiredPeTotal !== pePerPixel * pixelCount`. For WITHDRAW modes, the backend sets `requiredPeTotal = 0` (since it's a refund, not a cost), and stores the refund amount in `breakdown.withdrawRefund` instead. So `0 !== pePerPixel * pixelCount` is always true, making the yellow "PE changed -- re-validate required" message appear endlessly.
 
-## Critical Bugs to Fix
+**Fix**: Skip the staleness check for WITHDRAW modes, since the refund amount is computed entirely server-side and doesn't depend on the client's `pePerPixel * pixelCount` matching `requiredPeTotal`.
 
-### 1. WITHDRAW_DEF/ATK validation broken -- contributions never fetched
-**Files:** `supabase/functions/game-validate/index.ts` (lines 653 and 868-883)
+**File**: `src/components/map/inspector/ActionBox.tsx` (lines 112-115)
 
-Both the streaming and non-streaming validate paths only fetch user contributions when `mode === "DEFEND" || mode === "ATTACK"`. For `WITHDRAW_DEF` and `WITHDRAW_ATK`, the `userContribSides` map is empty, so every pixel will be flagged as `"NO_CONTRIBUTION"` -- making withdrawal impossible.
-
-**Fix:** Change the condition to also include WITHDRAW modes:
+Change the condition to:
 ```typescript
-if (mode === "DEFEND" || mode === "ATTACK" || mode === "WITHDRAW_DEF" || mode === "WITHDRAW_ATK") {
-```
-This must be applied in both locations (streaming path ~line 653 and non-streaming path ~line 870).
-
-### 2. `formatMode()` missing WITHDRAW_* cases
-**File:** `src/hooks/useGameActions.ts` (lines 696-703)
-
-The `formatMode` function has no cases for `WITHDRAW_DEF`, `WITHDRAW_ATK`, or `WITHDRAW_REINFORCE`. TypeScript may not catch this because the switch is non-exhaustive. When a withdraw commit succeeds, the toast will display `"undefined 5 pixel(s)"`.
-
-**Fix:** Add the missing cases:
-```typescript
-case 'WITHDRAW_DEF': return 'Withdrew DEF from';
-case 'WITHDRAW_ATK': return 'Withdrew ATK from';
-case 'WITHDRAW_REINFORCE': return 'Withdrew stake from';
+const isValidationStale = validationResult && 
+  mode !== 'PAINT' && 
+  mode !== 'ERASE' && 
+  !isWithdraw &&
+  validationResult.requiredPeTotal !== pePerPixel * pixelCount;
 ```
 
-### 3. ActionTray summary label says "Required" for withdraw mode
-**File:** `src/components/map/ActionTray.tsx` (lines 538-543)
+## Problem 2: "Exclude invalid pixels" only available in Eraser mode
+Currently `onExcludeInvalid` is only passed when `mode === 'paint' && selectedColor === null` (i.e. Eraser). It should be available for ALL modes that can produce partial-valid results: DEFEND, ATTACK, REINFORCE, WITHDRAW_*, and ERASE.
 
-The expanded ActionTray summary section always shows "Required:" even when `actionDirection === 'withdraw'`. It should show "Refund:" in withdraw mode to match the ActionBox behavior.
+**File**: `src/components/map/BitplaceMap.tsx` (lines 1831 and 1865)
 
-**Fix:** Conditionally display "Refund" vs "Required" based on `actionDirection`.
+Change the condition from:
+```
+onExcludeInvalid={(mode === 'paint' && selectedColor === null) ? handleExcludeInvalid : undefined}
+```
+To always pass the handler:
+```
+onExcludeInvalid={handleExcludeInvalid}
+```
 
-## Non-Critical but Worth Noting
+## Problem 3: InvalidPixelList has no "Exclude" button in the UI
+The `InvalidPixelList` component receives `onExcludeInvalid` as a prop but never renders a button. Users have no way to click "exclude invalid pixels".
 
-### 4. DEFEND/ATTACK commit -- sequential updates for `toUpdate` array
-**File:** `supabase/functions/game-commit/index.ts` (lines 384-389)
+**File**: `src/components/map/inspector/InvalidPixelList.tsx`
 
-The DEFEND/ATTACK commit path still processes contribution updates sequentially (one `await` per pixel). For large selections this will be slow, similar to the old REINFORCE issue. Not blocking, but could be parallelized in a future pass.
+Add:
+- A brief contextual explanation below the reason summary (e.g. "These pixels were skipped because they don't meet the requirements for this action")
+- An "Exclude invalid pixels" button at the bottom of the component, only shown when `onExcludeInvalid` is provided and `isPartialValid` is true
 
-## Summary of Required Changes
+Also add missing reason labels and mode verbs for the WITHDRAW_* modes:
+```
+WITHDRAW_DEF: 'withdrawn'
+WITHDRAW_ATK: 'withdrawn'
+WITHDRAW_REINFORCE: 'withdrawn'
+MIN_STAKE: 'Minimum 1 PE stake required'
+NO_CONTRIBUTION: 'No contribution found'
+```
 
-| File | Change | Severity |
-|------|--------|----------|
-| `game-validate/index.ts` (line ~653) | Add WITHDRAW_DEF/ATK to contribution fetch condition (streaming) | Critical |
-| `game-validate/index.ts` (line ~870) | Add WITHDRAW_DEF/ATK to contribution fetch condition (non-streaming) | Critical |
-| `useGameActions.ts` (line ~696) | Add WITHDRAW_* cases to `formatMode()` | Critical |
-| `ActionTray.tsx` (line ~539) | Show "Refund" label in withdraw mode | Minor |
+## Problem 4: Duplicate invalid pixel messages in ActionBox
+The `ActionBox` already shows its own "partial valid" and "inline error" warnings (lines 250-273). With the `InvalidPixelList` rendered separately above it in the `InspectorPanel`, the invalid pixel info appears twice.
 
-After these fixes, deploy `game-validate` and `game-commit` edge functions.
+**Fix**: Remove the inline partial-valid / error messages from `ActionBox` when `InvalidPixelList` is handling the display (i.e., when `invalidPixels.length > 0`). The `InvalidPixelList` will be the single source of truth for invalid pixel information with its contextual explanation and exclude button.
 
+## Files to modify
+1. `src/components/map/inspector/ActionBox.tsx` -- fix `isValidationStale` for withdrawals, remove duplicate invalid pixel display
+2. `src/components/map/BitplaceMap.tsx` -- pass `onExcludeInvalid` for all modes
+3. `src/components/map/inspector/InvalidPixelList.tsx` -- add exclude button + contextual explanation + WITHDRAW reason labels
