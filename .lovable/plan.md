@@ -1,43 +1,45 @@
 
 
-# Fix: Creazione Alliance fallisce con errore 400
+# Fix: Alliance name validation rejects underscores
 
-## Problema identificato
+## Problema
 
-La chiamata di creazione dell'alleanza restituisce HTTP 400. Analizzando i log e il codice, il problema piu' probabile e' la **validazione del nome**: la regex `^[a-zA-Z0-9 ]+$` accetta solo lettere ASCII, numeri e spazi. Qualsiasi carattere accentato, speciale o unicode viene rifiutato silenziosamente con "Name can only contain letters, numbers, and spaces".
+I log mostrano chiaramente l'errore:
+```
+Name validation failed: Name can only contain letters, numbers, and spaces (input: "Bitplace_Team")
+```
 
-C'e' anche un **bug nella verifica dell'expiry del token** (riga 59): `Date.now()` restituisce millisecondi, ma `payload.exp` e' in secondi. Questo puo' causare che token validi vengano considerati scaduti. Attualmente non blocca perche' il valore exp potrebbe essere gia' in millisecondi nel JWT custom, ma va corretto per sicurezza.
+La regex `/^[\p{L}\p{N} ]+$/u` permette solo lettere, numeri e spazi. Il carattere underscore `_` non e' incluso e viene rifiutato.
 
 ## Soluzione
 
-### 1. Ampliare la regex del nome alliance
-Permettere caratteri Unicode (lettere accentate, ecc.) oltre a numeri e spazi nel nome. Cambiare la regex da:
-```
-/^[a-zA-Z0-9 ]+$/
-```
-a:
-```
-/^[\p{L}\p{N} ]+$/u
-```
-Questo accetta qualsiasi lettera Unicode, numeri e spazi.
+Aggiornare la regex nella funzione `validateName` (riga 80) per accettare anche underscore, trattini e punti -- caratteri comuni nei nomi:
 
-### 2. Correggere il check dell'expiry del token
-Riga 59, cambiare:
-```ts
-if (payload.exp && Date.now() > payload.exp) {
 ```
-in:
-```ts
-if (payload.exp && Date.now() > payload.exp * 1000) {
+/^[\p{L}\p{N} _\-\.]+$/u
 ```
-Cosi' il confronto tra millisecondi e' corretto.
 
-### 3. Aggiungere log dell'errore specifico
-Per rendere piu' facile il debug futuro, loggare il motivo esatto del rifiuto prima di restituire il 400 (ad esempio il messaggio di validazione fallita).
+Aggiornare anche il messaggio di errore per riflettere i caratteri permessi.
 
 ## File modificato
 
 | File | Modifica |
 |------|----------|
-| `supabase/functions/alliance-manage/index.ts` | Regex nome Unicode, fix expiry check, log errori di validazione |
+| `supabase/functions/alliance-manage/index.ts` | Riga 80-81: aggiungere `_`, `-`, `.` alla regex e aggiornare messaggio errore |
+
+## Dettaglio
+
+Riga 80-81 attuale:
+```ts
+if (!/^[\p{L}\p{N} ]+$/u.test(trimmed)) {
+  return { valid: false, error: "Name can only contain letters, numbers, and spaces" };
+}
+```
+
+Diventa:
+```ts
+if (!/^[\p{L}\p{N} _\-.]+$/u.test(trimmed)) {
+  return { valid: false, error: "Name can only contain letters, numbers, spaces, underscores, hyphens, and dots" };
+}
+```
 
