@@ -1,62 +1,60 @@
 
+# Fix: Conteggio Pixel Totali Disegnati
 
-# Fix: Tre Bug da Correggere
+## Il Problema
 
-## Bug 1: Spacebar riattiva il bottone nella MapToolbar
+Ci sono due errori nel calcolo dei "pixel totali disegnati":
 
-**Causa**: Quando clicchi su un bottone della toolbar (Paint, Defend, Attack, Reinforce), il browser sposta il focus su quel bottone. Premendo la spacebar, il browser "clicca" automaticamente l'elemento con focus -- comportamento standard HTML.
+### 1. Leaderboard somma TUTTI gli eventi
+La funzione `leaderboard-get` somma `pixel_count` da TUTTI i `paint_events` senza distinguere il tipo di azione. Questo significa che REINFORCE, WITHDRAW, ERASE vengono tutti sommati come se fossero pixel disegnati.
 
-**Soluzione**: Aggiungere `onMouseDown={(e) => e.preventDefault()}` sui `ToggleGroupItem` nella `MapToolbar`, come gia fatto nell'`ActionTray`. Questo impedisce al click di spostare il focus sul bottone.
+Per il tuo account:
+- PAINT: 4.413
+- ERASE: 2.383
+- REINFORCE: 5.598
+- WITHDRAW: 5.486
+- **Totale mostrato**: ~17.880 (sbagliato)
+- **Totale corretto**: 4.413 - 2.383 = **2.030**
 
-**File**: `src/components/map/MapToolbar.tsx`
-- Aggiungere `onMouseDown={(e) => e.preventDefault()}` a tutti i `ToggleGroupItem` (sia mobile che desktop)
-- Aggiungere lo stesso anche al bottone di expand/collapse
+### 2. Contatore `pixels_painted_total` nel DB non sincronizzato
+Il valore nel database e 3.157, ma dovrebbe essere 2.030 (PAINT - ERASE). Il decremento per ERASE e stato aggiunto dopo che alcune cancellazioni erano gia avvenute, quindi il contatore e sfasato.
 
----
+## Soluzione
 
-## Bug 2: Data di iscrizione sempre uguale a "oggi"
+### File 1: `supabase/functions/leaderboard-get/index.ts`
 
-**Causa**: Il hook `usePlayerProfile` cerca `created_at` dalla tabella `users`, ma questa tabella ha la sicurezza attiva (RLS) senza alcuna policy di lettura. Risultato: la query dal browser ritorna `null`. Il codice ha un fallback:
+Filtrare i `paint_events` per considerare solo `PAINT` e `ERASE`:
+- Sommare `pixel_count` per eventi `PAINT`
+- Sottrarre `pixel_count` per eventi `ERASE`
+- Usare il risultato netto come metrica "pixels" nella classifica
+- Applicare lo stesso filtro per tutti gli scope (players, countries, alliances)
+
+Cambiamento specifico: nella query `paint_events`, aggiungere `.in("action_type", ["PAINT", "ERASE"])`, poi nel loop di aggregazione, sommare per PAINT e sottrarre per ERASE.
+
+### File 2: Ricalcolo dati nel DB
+
+Eseguire una query di aggiornamento per ricalcolare `pixels_painted_total` per TUTTI gli utenti basandosi sui `paint_events` reali (SUM dei PAINT - SUM degli ERASE). Questo corregge i contatori sfasati.
 
 ```text
-joinedAt: (userExtra as any)?.created_at || new Date().toISOString()
+UPDATE users SET pixels_painted_total = subquery.net_pixels
+FROM (
+  SELECT user_id,
+    GREATEST(0,
+      COALESCE(SUM(CASE WHEN action_type = 'PAINT' THEN pixel_count ELSE 0 END), 0) -
+      COALESCE(SUM(CASE WHEN action_type = 'ERASE' THEN pixel_count ELSE 0 END), 0)
+    ) as net_pixels
+  FROM paint_events
+  WHERE action_type IN ('PAINT', 'ERASE')
+  GROUP BY user_id
+) AS subquery
+WHERE users.id = subquery.user_id;
 ```
 
-Siccome `userExtra` e sempre `null`, la data diventa sempre quella di oggi.
+### Riepilogo
 
-**Soluzione**: Eliminare la query diretta alla tabella `users` e ottenere `created_at` dalla view `public_user_profiles`, aggiungendo la colonna `created_at` a questa view tramite migrazione DB. In alternativa, possiamo aggiungere `created_at` alla view `public_pixel_owner_info`.
-
-**File e modifiche**:
-1. **Migrazione DB**: Ricreare la view `public_user_profiles` includendo `created_at`
-2. **`src/hooks/usePlayerProfile.ts`**: Rimuovere la query separata a `users`, prendere `created_at` dalla prima query su `public_user_profiles`, e prendere `wallet_address` e `pe_used_pe` dalla view `public_pixel_owner_info` (che gia espone bio/socials). In questo modo si eliminano query inutili e si evita il problema RLS.
-
----
-
-## Bug 3: Card utente su mobile si chiude da sola
-
-**Causa**: Il `MobileWalletButton` ha due meccanismi di chiusura che interferiscono:
-
-1. **Timer di 5 secondi**: appena si espande, parte un countdown che lo richiude
-2. **Click outside**: un listener su `pointerdown` chiude il pannello se il click avviene fuori dal `containerRef`
-
-Il problema principale: quando clicchi sul `WalletButton` espanso, si apre il `UserMenuPanel` (un Popover di Radix). Il contenuto del Popover viene renderizzato in un **portale** fuori dal DOM del `containerRef`. Quindi qualsiasi click dentro il popover viene rilevato come "click esterno" e chiude tutto.
-
-Inoltre il timer di 5 secondi non viene resettato quando l'utente interagisce con il contenuto.
-
-**Soluzione**:
-- Nel listener `pointerdown` del `MobileWalletButton`, verificare che il click non sia dentro un elemento con `[data-radix-popper-content-wrapper]` (il portale del Popover), cosi il popover non chiude il pannello
-- Rimuovere o allungare significativamente il timer auto-collapse (o disattivarlo quando il popover e aperto)
-
-**File**: `src/components/wallet/MobileWalletButton.tsx`
-
----
-
-## Riepilogo file coinvolti
-
-| File | Modifica |
+| Cosa | Modifica |
 |------|----------|
-| `src/components/map/MapToolbar.tsx` | `onMouseDown preventDefault` sui bottoni |
-| `src/hooks/usePlayerProfile.ts` | Rimuovere query a `users`, usare le view pubbliche |
-| Migrazione DB | Aggiungere `created_at` alla view `public_user_profiles` |
-| `src/components/wallet/MobileWalletButton.tsx` | Fix click-outside e auto-collapse timer |
+| `leaderboard-get/index.ts` | Filtrare solo PAINT/ERASE, sottrarre ERASE dal totale |
+| DB data fix | Ricalcolare `pixels_painted_total` per tutti gli utenti |
 
+Nessuna modifica necessaria al frontend: il profilo e l'inspector leggono gia `pixels_painted_total` dal DB, e la leaderboard legge dalla edge function. Correggendo queste due sorgenti, tutti i dati saranno consistenti ovunque.
