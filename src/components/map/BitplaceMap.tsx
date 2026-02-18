@@ -1445,7 +1445,12 @@ export function BitplaceMap() {
       startPaintCommit();
     }
     
-    if (!validationResult?.ok && !frozenPayload?.snapshotHash) {
+    // Allow withdraw modes to bypass ok:false gate when they have valid refund pixels
+    const isWithdrawMode = gameMode.startsWith('WITHDRAW_');
+    const hasWithdrawRefund = isWithdrawMode && validationResult && 
+      (validationResult.breakdown?.pePerType?.withdrawRefund ?? 0) > 0;
+
+    if (!validationResult?.ok && !frozenPayload?.snapshotHash && !hasWithdrawRefund) {
       // No valid validation - need to validate first
       if (gameMode === 'PAINT') {
         freezePayload(pixelsToCommit, colorToCommit!);
@@ -1513,7 +1518,7 @@ export function BitplaceMap() {
       pixels: pixelsToCommit, 
       color: gameMode === 'PAINT' ? colorToCommit : undefined, 
       pePerPixel: gameMode !== 'PAINT' && gameMode !== 'ERASE' ? pePerPixel : undefined, 
-      snapshotHash: snapshotHashToUse! 
+      snapshotHash: snapshotHashToUse ?? undefined 
     });
     
     if (success) {
@@ -1554,6 +1559,9 @@ export function BitplaceMap() {
         if (success.peStatus) updatePeStatus(success.peStatus);
         playSound('attack_success');
       } else if (gameMode === 'REINFORCE') {
+        if (success.peStatus) updatePeStatus(success.peStatus);
+        playSound('reinforce_success');
+      } else if (gameMode === 'WITHDRAW_DEF' || gameMode === 'WITHDRAW_ATK' || gameMode === 'WITHDRAW_REINFORCE') {
         if (success.peStatus) updatePeStatus(success.peStatus);
         playSound('reinforce_success');
       }
