@@ -275,7 +275,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
             </span>
             {canJump && (
               <Button size="sm" onClick={handleJump} className="gap-1">
-                <PixelIcon name="navigation" className="h-3 w-3" />
+                <PixelIcon name="startups" className="h-3 w-3" />
                 Jump
               </Button>
             )}
@@ -351,7 +351,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                         className="h-6 w-6 p-0"
                         onClick={() => handlePinnedClick(pin)}
                       >
-                        <PixelIcon name="navigation" className="h-3 w-3" />
+                        <PixelIcon name="startups" className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>
