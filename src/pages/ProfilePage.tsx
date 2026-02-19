@@ -12,7 +12,7 @@ import { useWallet } from "@/contexts/WalletContext";
 import { usePeBalance } from "@/hooks/usePeBalance";
 import { usePixelStats } from "@/hooks/usePixelStats";
 import { ENERGY_ASSET } from "@/config/energy";
-import { cn } from "@/lib/utils";
+import { cn, formatUsd, formatNumber } from "@/lib/utils";
 import { getAvatarInitial } from "@/lib/avatar";
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]*$/;
@@ -205,17 +205,17 @@ const ProfilePage = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <StatCard
                   label={`${energy.nativeSymbol} Balance`}
-                  value={energy.nativeBalance.toFixed(4)}
+                  value={formatNumber(energy.nativeBalance, 4)}
                   icon={(props) => <PixelIcon name="wallet" {...props} />}
                   helper={
                     energy.usdPrice > 0
-                      ? `$${energy.usdPrice.toFixed(2)}/SOL`
+                      ? `$${formatUsd(energy.usdPrice)}/SOL`
                       : undefined
                   }
                 />
                 <StatCard
                   label="Wallet USD"
-                  value={`$${energy.walletUsd.toFixed(2)}`}
+                  value={`$${formatUsd(energy.walletUsd)}`}
                   icon={(props) => <PixelIcon name="coins" {...props} />}
                   variant="muted"
                 />

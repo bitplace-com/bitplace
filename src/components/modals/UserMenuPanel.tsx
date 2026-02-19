@@ -13,7 +13,7 @@ import { useWallet } from "@/contexts/WalletContext";
 import { useSound } from "@/hooks/useSound";
 import { getCountryByCode } from "@/lib/countries";
 import { AvatarFallback } from "@/components/ui/avatar-fallback-pattern";
-import { cn } from "@/lib/utils";
+import { cn, formatUsd, formatNumber } from "@/lib/utils";
 import { SettingsModal } from "./SettingsModal";
 import { LeaderboardModal } from "./LeaderboardModal";
 import { ShopModal } from "./ShopModal";
@@ -125,10 +125,10 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm font-mono font-semibold text-foreground">
-              {energy.nativeBalance.toFixed(4)} {energy.nativeSymbol}
+              {formatNumber(energy.nativeBalance, 4)} {energy.nativeSymbol}
             </span>
             <span className="text-sm text-muted-foreground">
-              ${energy.walletUsd.toFixed(2)}
+              ${formatUsd(energy.walletUsd)}
             </span>
           </div>
           <p className="text-[10px] text-muted-foreground">

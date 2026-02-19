@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PixelIcon } from '@/components/icons';
 import { GlassIconButton } from '@/components/ui/glass-icon-button';
@@ -108,6 +108,7 @@ export function ActionTray({
   const [isExpanded, setIsExpanded] = useState(false);
   const [paletteTab, setPaletteTab] = useState<'colors' | 'gradients'>('colors');
   const [placesOpen, setPlacesOpen] = useState(false);
+  const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const { play } = useSound();
   const isMobile = useIsMobile();
   
@@ -258,14 +259,11 @@ export function ActionTray({
               isPaintMode ? (
                 /* Paint mode: show color swatch + hex/label */
                 selectedColor ? (
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                     <div 
                       className="w-5 h-5 rounded-md border border-border/50 shrink-0" 
                       style={{ background: selectedColor }}
                     />
-                    <span className="text-xs font-mono text-muted-foreground truncate max-w-24">
-                      {selectedColor.toUpperCase()}
-                    </span>
                   </div>
               ) : (
                   <div className="flex items-center gap-2">
@@ -358,8 +356,24 @@ export function ActionTray({
                     </button>
                 </div>
 
-                {/* Tab switch - always visible when expanded */}
-                <div className="flex gap-1 justify-end mb-2">
+                {/* Active color hex display - between tools and tabs */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    {(hoveredColor || selectedColor) && (
+                      <>
+                        <div 
+                          className="w-4 h-4 rounded border border-border/50 shrink-0" 
+                          style={{ background: hoveredColor || selectedColor || undefined }}
+                        />
+                        <span className="text-xs font-mono text-muted-foreground">
+                          {(hoveredColor || selectedColor || '').toUpperCase()}
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Tab switch */}
+                  <div className="flex gap-1">
                   <button
                     onMouseDown={e => e.preventDefault()}
                     onClick={() => setPaletteTab('colors')}
@@ -384,6 +398,7 @@ export function ActionTray({
                   >
                     Gradients
                   </button>
+                  </div>
                 </div>
 
                 {/* Palette grid - disabled only when eraser is active */}
@@ -401,6 +416,8 @@ export function ActionTray({
                           <button
                             key={`${color}-${index}`}
                             onClick={() => handleColorClick(color)}
+                            onMouseEnter={() => setHoveredColor(color)}
+                            onMouseLeave={() => setHoveredColor(null)}
                             disabled={!canPaint}
                             className={cn(
                               "w-full aspect-square rounded-md transition-all duration-100 focus:outline-none touch-target",
@@ -429,6 +446,8 @@ export function ActionTray({
                                 <button
                                   key={color}
                                   onClick={() => handleColorClick(color)}
+                                  onMouseEnter={() => setHoveredColor(color)}
+                                  onMouseLeave={() => setHoveredColor(null)}
                                   disabled={!canPaint}
                                   className={cn(
                                     "w-6 h-6 sm:w-[22px] sm:h-[22px] shrink-0 rounded-md transition-all duration-100 focus:outline-none touch-target",

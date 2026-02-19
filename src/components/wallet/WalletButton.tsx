@@ -5,6 +5,7 @@ import { GlassPanel } from '@/components/ui/glass-panel';
 import { UserMenuPanel } from '@/components/modals/UserMenuPanel';
 import { WalletSelectModal } from '@/components/modals/WalletSelectModal';
 import { useWallet } from '@/contexts/WalletContext';
+import { formatNumber } from '@/lib/utils';
 
 function shortenAddress(address: string): string {
   return `${address.slice(0, 4)}...${address.slice(-4)}`;
@@ -76,7 +77,7 @@ export function WalletButton() {
           </span>
           <span className="text-xs text-muted-foreground">•</span>
           <span className="text-xs font-medium text-foreground">
-            {energy.nativeBalance.toFixed(2)} {energy.nativeSymbol}
+            {formatNumber(energy.nativeBalance, 2)} {energy.nativeSymbol}
           </span>
           <PixelIcon name="chevronDown" size="xs" className="text-muted-foreground" />
         </GlassPanel>

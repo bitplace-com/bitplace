@@ -93,13 +93,13 @@ export function getCellSize(mapZoom: number): number {
  * Minimum cell size in CSS pixels for interaction (painting, selecting)
  * At 8px cells are large enough to click/tap reliably
  */
-export const MIN_CELL_SIZE_INTERACT = 4;
+export const MIN_CELL_SIZE_INTERACT = 2;
 
 /**
  * Minimum zoom level where paints become visible/interactive
- * At z14, cell size = 4px (MIN_CELL_SIZE_INTERACT)
+ * At z13, cell size = 2px (MIN_CELL_SIZE_INTERACT)
  */
-export const Z_SHOW_PAINTS = 14;
+export const Z_SHOW_PAINTS = 13;
 
 /**
  * Check if painting/interaction is allowed at current zoom
