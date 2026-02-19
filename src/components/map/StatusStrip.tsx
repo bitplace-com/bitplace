@@ -3,7 +3,7 @@ import { PEIcon } from '@/components/ui/pe-icon';
 import { usePeBalance } from '@/hooks/usePeBalance';
 import { useWallet } from '@/contexts/WalletContext';
 import { usePaintCooldown } from '@/hooks/usePaintCooldown';
-import { cn } from '@/lib/utils';
+import { cn, formatUsd, formatNumber } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { StatusAlerts } from './StatusAlerts';
@@ -135,7 +135,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             </span>
             {energy.walletUsd > 0 && (
               <span className="text-xs text-muted-foreground">
-                ≈ ${energy.walletUsd.toFixed(2)}
+                ≈ ${formatUsd(energy.walletUsd)}
               </span>
             )}
           </div>
@@ -204,18 +204,18 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
                 <div className="space-y-1 tabular-nums text-muted-foreground">
                   <div className="flex justify-between gap-4">
                     <span>Wallet</span>
-                    <span className="text-foreground">{energy.peTotal.toLocaleString()} PE <span className="text-muted-foreground">(${(energy.peTotal * 0.01).toFixed(2)})</span></span>
+                    <span className="text-foreground">{energy.peTotal.toLocaleString()} PE <span className="text-muted-foreground">(${formatUsd(energy.peTotal * 0.01)})</span></span>
                   </div>
                   <div className="flex justify-between gap-4">
                     <span>Staked in {energy.pixelsOwned} px</span>
-                    <span className="text-foreground">{energy.pixelStakeTotal.toLocaleString()} PE <span className="text-muted-foreground">(${(energy.pixelStakeTotal * 0.01).toFixed(2)})</span></span>
+                    <span className="text-foreground">{energy.pixelStakeTotal.toLocaleString()} PE <span className="text-muted-foreground">(${formatUsd(energy.pixelStakeTotal * 0.01)})</span></span>
                   </div>
                   {energy.pixelStakeTotal > energy.peTotal && (
                     <>
                       <div className="border-t border-border my-1" />
                       <div className="flex justify-between gap-4">
                         <span className="text-destructive font-medium">Deficit</span>
-                        <span className="text-destructive font-medium">{(energy.pixelStakeTotal - energy.peTotal).toLocaleString()} PE <span className="font-normal">(${((energy.pixelStakeTotal - energy.peTotal) * 0.01).toFixed(2)})</span></span>
+                        <span className="text-destructive font-medium">{(energy.pixelStakeTotal - energy.peTotal).toLocaleString()} PE <span className="font-normal">(${formatUsd((energy.pixelStakeTotal - energy.peTotal) * 0.01)})</span></span>
                       </div>
                     </>
                   )}
