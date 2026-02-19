@@ -14,6 +14,7 @@ interface WalletSelectModalProps {
   onOpenChange: (open: boolean) => void;
   onSelectPhantom: () => void;
   isConnecting: boolean;
+  onActivateTrial?: () => void;
 }
 
 // Detect if Phantom is installed (extension or in-app browser)
@@ -48,6 +49,7 @@ export function WalletSelectModal({
   onOpenChange,
   onSelectPhantom,
   isConnecting,
+  onActivateTrial,
 }: WalletSelectModalProps) {
   const [phantomInstalled, setPhantomInstalled] = useState<boolean | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -182,6 +184,30 @@ export function WalletSelectModal({
             <p className="text-xs text-muted-foreground text-center px-4">
               Click above to install the Phantom browser extension, then refresh this page.
             </p>
+          )}
+
+          {/* Trial mode option */}
+          {onActivateTrial && (
+            <div className="px-4 py-3 rounded-lg border border-dashed border-border/50 text-center">
+              <p className="text-xs text-muted-foreground mb-2">
+                No wallet? <span className="font-medium text-foreground">Try without one.</span>
+              </p>
+              <p className="text-[11px] text-muted-foreground mb-3">
+                Paint with 1,000 free test PE. Nothing is saved — it's just a preview of the experience.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onActivateTrial();
+                  onOpenChange(false);
+                }}
+                className="gap-2"
+              >
+                <PixelIcon name="sparkles" size="sm" />
+                Try Test Wallet
+              </Button>
+            </div>
           )}
         </div>
 

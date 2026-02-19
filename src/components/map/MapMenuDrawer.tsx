@@ -57,7 +57,7 @@ export function MapMenuDrawer() {
     <>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
-          <GlassIconButton size="lg" aria-label="Open menu">
+          <GlassIconButton size="lg" aria-label="Open menu" data-tour="menu">
             <PixelIcon name="menu" size="md" />
           </GlassIconButton>
         </SheetTrigger>

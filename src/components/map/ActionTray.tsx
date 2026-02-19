@@ -181,6 +181,7 @@ export function ActionTray({
 
   return (
     <div 
+      data-tour="action-tray"
       className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none max-w-[calc(100vw-2rem)] sm:max-w-[540px] flex flex-col items-center"
       style={{ 
         width: isExpanded ? '100%' : 'auto',

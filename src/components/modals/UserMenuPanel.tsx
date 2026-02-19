@@ -39,7 +39,7 @@ function formatRelativeTime(date: Date | null): string {
 }
 
 export function UserMenuPanel({ children }: UserMenuPanelProps) {
-  const { user, walletAddress, disconnect, energy } = useWallet();
+  const { user, walletAddress, disconnect, energy, isTrialMode, connect } = useWallet();
   const [copied, setCopied] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
@@ -80,11 +80,18 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               />
             )}
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-foreground truncate">
-                {user?.display_name || "Anonymous"}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-foreground truncate">
+                  {user?.display_name || "Anonymous"}
+                </p>
+                {isTrialMode && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0">
+                    TRIAL
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-1.5">
-                {walletAddress && (
+                {walletAddress && !isTrialMode && (
                   <button
                     onClick={handleCopyAddress}
                     className="flex items-center gap-1 text-xs text-muted-foreground font-mono hover:text-foreground transition-colors"
@@ -97,13 +104,16 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                     )}
                   </button>
                 )}
+                {isTrialMode && (
+                  <span className="text-xs text-muted-foreground">Test session — nothing is saved</span>
+                )}
               </div>
-              {country && (
+              {country && !isTrialMode && (
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {country.flag} {country.name}
                 </p>
               )}
-              {user?.alliance_tag && (
+              {user?.alliance_tag && !isTrialMode && (
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <PixelIcon name="usersCrown" className="h-3 w-3 text-foreground" />
                   <span className="text-xs font-medium font-mono text-foreground">
@@ -222,16 +232,41 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
 
         <Separator className="bg-border" />
 
-        {/* Disconnect */}
+        {/* Disconnect / Connect Real Wallet */}
         <div className="p-2">
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 h-10 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
-            onClick={disconnect}
-          >
-            <PixelIcon name="logout" className="h-4 w-4" />
-            Disconnect
-          </Button>
+          {isTrialMode ? (
+            <>
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3 h-10 rounded-xl text-foreground hover:bg-accent"
+                onClick={() => {
+                  disconnect();
+                  // Small delay then open connect flow
+                  // User needs to click connect wallet after
+                }}
+              >
+                <PixelIcon name="wallet" className="h-4 w-4" />
+                Connect Real Wallet
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3 h-10 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={disconnect}
+              >
+                <PixelIcon name="logout" className="h-4 w-4" />
+                Exit Trial
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 h-10 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={disconnect}
+            >
+              <PixelIcon name="logout" className="h-4 w-4" />
+              Disconnect
+            </Button>
+          )}
         </div>
       </PopoverContent>
       
