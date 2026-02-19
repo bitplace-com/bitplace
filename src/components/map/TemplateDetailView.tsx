@@ -108,7 +108,7 @@ export function TemplateDetailView({
         onClick={onRecenter}
         className="w-full gap-2"
       >
-        <PixelIcon name="navigation" size="sm" />
+        <PixelIcon name="startups" size="sm" />
         Recenter
       </Button>
 

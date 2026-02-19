@@ -203,7 +203,7 @@ export function PlaceCard({
               handleNavigate();
             }}
           >
-            <PixelIcon name="navigation" size="sm" className="mr-1" />
+            <PixelIcon name="startups" size="sm" className="mr-1" />
             Go
           </Button>
         </div>

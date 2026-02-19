@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { PixelIcon } from '@/components/icons';
+import { BitplaceLogo } from '@/components/icons/BitplaceLogo';
 import { useGuidedTour, TOUR_STEPS } from '@/hooks/useGuidedTour';
 import { cn } from '@/lib/utils';
 
@@ -114,7 +115,7 @@ export function GuidedTour() {
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
         <div className="bg-popover/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl p-6 max-w-sm mx-4 text-center animate-in zoom-in-95 duration-300">
           <div className="mb-4">
-            <PixelIcon name="globe" size="lg" className="mx-auto text-foreground" />
+            <BitplaceLogo className="w-6 h-6 mx-auto text-foreground" />
           </div>
           <h2 className="text-xl font-bold text-foreground mb-2">
             Welcome to Bitplace!
@@ -127,7 +128,7 @@ export function GuidedTour() {
               Skip
             </Button>
             <Button onClick={startTour} className="gap-2">
-              <PixelIcon name="navigation" size="sm" />
+              <PixelIcon name="startups" size="sm" />
               Take a Tour
             </Button>
           </div>

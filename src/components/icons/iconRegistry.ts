@@ -90,6 +90,7 @@ import { PixelSparkles } from './custom/PixelSparkles';
 import { PixelCybersecurity } from './custom/PixelCybersecurity';
 import { PixelFire } from './custom/PixelFire';
 import { PixelMedia } from './custom/PixelMedia';
+import { PixelStartups } from './custom/PixelStartups';
 
 export type IconName =
   | 'hand'
@@ -180,7 +181,8 @@ export type IconName =
   | 'sparkles'
   | 'cybersecurity'
   | 'fire'
-  | 'media';
+  | 'media'
+  | 'startups';
 
 type PixelIconComponent = ComponentType<SVGProps<SVGSVGElement> & { className?: string }>;
 
@@ -274,4 +276,5 @@ export const icons: Record<IconName, PixelIconComponent> = {
   cybersecurity: PixelCybersecurity,
   fire: PixelFire,
   media: PixelMedia,
+  startups: PixelStartups,
 };
