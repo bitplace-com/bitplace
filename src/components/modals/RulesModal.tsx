@@ -11,7 +11,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
     <GamePanel
       open={open}
       onOpenChange={onOpenChange}
-      title="Glossary"
+      title="Rules"
       icon={<PixelIcon name="info" size="md" />}
       size="md"
     >
