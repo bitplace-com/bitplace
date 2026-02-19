@@ -46,7 +46,7 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
 
   if (isMobile) {
     return (
-      <GlassPanel variant="hud" padding="sm" className="shadow-lg">
+      <GlassPanel variant="hud" padding="sm" className="shadow-lg" data-tour="toolbar">
         <div className="flex items-center gap-0.5">
           <div
             className={cn(
@@ -104,7 +104,7 @@ export function MapToolbar({ mode, onModeChange }: MapToolbarProps) {
 
   // Desktop: collapsible, starts expanded
   return (
-    <GlassPanel variant="hud" padding="sm" className="shadow-lg">
+    <GlassPanel variant="hud" padding="sm" className="shadow-lg" data-tour="toolbar">
       <div className="flex items-center gap-0.5">
         <div
           className={cn(

@@ -21,7 +21,7 @@ export function QuickActions() {
 
   return (
     <>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2" data-tour="quick-actions">
         <Tooltip>
           <TooltipTrigger asChild>
             <GlassIconButton

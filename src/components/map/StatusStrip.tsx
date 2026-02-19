@@ -43,7 +43,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
   // Use usePeBalance for rebalance status only
   const { isLoading, rebalanceActive, healthMultiplier, rebalanceEndsAt } = usePeBalance(userId);
   // Use WalletContext for PE totals (server truth)
-  const { energy, refreshEnergy, needsSignature, signIn } = useWallet();
+  const { energy, refreshEnergy, needsSignature, signIn, isTrialMode } = useWallet();
   // Paint cooldown
   const { isOnCooldown, formatCooldown } = usePaintCooldown(energy.paintCooldownUntil);
 
@@ -149,6 +149,13 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
                 : "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30"
             )}>
               {energy.cluster === 'mainnet' ? 'LIVE' : energy.cluster}
+            </span>
+          )}
+
+          {/* Trial Badge */}
+          {isTrialMode && (
+            <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30" title="Test session — nothing is saved">
+              TRIAL
             </span>
           )}
         </div>

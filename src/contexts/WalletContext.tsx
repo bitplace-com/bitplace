@@ -98,6 +98,11 @@ interface WalletContextType {
   // NEW: Explicit gameplay gating flags
   isWalletConnected: boolean;
   isAuthenticated: boolean;
+  
+  // Trial mode
+  isTrialMode: boolean;
+  activateTrialMode: () => void;
+  exitTrialMode: () => void;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
@@ -139,8 +144,32 @@ const getPhantom = (): PhantomProvider | null => {
 const SESSION_TOKEN_KEY = 'bitplace_session_token';
 const WALLET_ADDRESS_KEY = 'bitplace_wallet_address';
 const USER_DATA_KEY = 'bitplace_user_data';
+const TRIAL_MODE_KEY = 'bitplace_trial_mode';
 const ENERGY_STALE_THRESHOLD_MS = 60 * 1000; // 60 seconds
 const COOLDOWN_MS = 10000; // 10 second cooldown after failure
+
+const TRIAL_WALLET_ADDRESS = 'TRIAL...MODE';
+const TRIAL_PE_TOTAL = 1000;
+const TRIAL_SOL_BALANCE = 0.5;
+const TRIAL_SOL_PRICE = 150; // fake price
+
+const trialEnergyState: EnergyState = {
+  energyAsset: 'SOL',
+  nativeSymbol: 'SOL',
+  nativeBalance: TRIAL_SOL_BALANCE,
+  usdPrice: TRIAL_SOL_PRICE,
+  walletUsd: TRIAL_SOL_BALANCE * TRIAL_SOL_PRICE,
+  peTotal: TRIAL_PE_TOTAL,
+  peUsed: 0,
+  peAvailable: TRIAL_PE_TOTAL,
+  pixelsOwned: 0,
+  pixelStakeTotal: 0,
+  cluster: 'devnet',
+  lastSyncAt: new Date(),
+  isRefreshing: false,
+  isStale: false,
+  paintCooldownUntil: null,
+};
 
 const defaultEnergyState: EnergyState = {
   energyAsset: ENERGY_ASSET,
@@ -198,19 +227,72 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const lastConnectAttemptRef = useRef<number>(0);
   const lastSignAttemptRef = useRef<number>(0);
 
+  // Trial mode state
+  const [isTrialMode, setIsTrialMode] = useState<boolean>(() => {
+    return sessionStorage.getItem(TRIAL_MODE_KEY) === '1';
+  });
+
   // Derived state for backward compatibility and explicit auth checks
-  const isConnected = walletState === 'AUTHENTICATED';
+  const isConnected = walletState === 'AUTHENTICATED' || isTrialMode;
   const isConnecting = walletState === 'CONNECTING' || walletState === 'AUTHENTICATING';
-  const needsSignature = walletState === 'AUTH_REQUIRED';
+  const needsSignature = walletState === 'AUTH_REQUIRED' && !isTrialMode;
   
   // NEW: Explicit flags for gameplay gating
-  const isWalletConnected = ['CONNECTED', 'AUTH_REQUIRED', 'AUTHENTICATING', 'AUTHENTICATED'].includes(walletState) && !!walletAddress;
-  const isAuthenticated = walletState === 'AUTHENTICATED' && !!user;
+  const isWalletConnected = isTrialMode || (['CONNECTED', 'AUTH_REQUIRED', 'AUTHENTICATING', 'AUTHENTICATED'].includes(walletState) && !!walletAddress);
+  const isAuthenticated = isTrialMode || (walletState === 'AUTHENTICATED' && !!user);
+
+  // Trial mode: activate
+  const activateTrialMode = useCallback(() => {
+    const trialUser: User = {
+      id: crypto.randomUUID(),
+      wallet_address: TRIAL_WALLET_ADDRESS,
+      display_name: 'Test Player',
+      country_code: null,
+      alliance_tag: null,
+      avatar_url: null,
+      pe_total_pe: TRIAL_PE_TOTAL,
+      created_at: new Date().toISOString(),
+      energy_asset: 'SOL',
+      native_symbol: 'SOL',
+      native_balance: TRIAL_SOL_BALANCE,
+      usd_price: TRIAL_SOL_PRICE,
+      wallet_usd: TRIAL_SOL_BALANCE * TRIAL_SOL_PRICE,
+      sol_cluster: 'devnet',
+    };
+
+    setIsTrialMode(true);
+    setWalletState('AUTHENTICATED');
+    setWalletAddress(TRIAL_WALLET_ADDRESS);
+    setUser(trialUser);
+    setEnergy({ ...trialEnergyState });
+    sessionStorage.setItem(TRIAL_MODE_KEY, '1');
+    toast.success('Test Wallet activated!', { description: '1,000 trial PE ready to use. Nothing is saved.' });
+  }, []);
+
+  // Trial mode: exit
+  const exitTrialMode = useCallback(() => {
+    setIsTrialMode(false);
+    setWalletState('DISCONNECTED');
+    setWalletAddress(null);
+    setUser(null);
+    setEnergy(defaultEnergyState);
+    sessionStorage.removeItem(TRIAL_MODE_KEY);
+  }, []);
+
+  // Trial mode: update PE when painting
+  const updateTrialPe = useCallback((peSpent: number) => {
+    if (!isTrialMode) return;
+    setEnergy(prev => ({
+      ...prev,
+      peUsed: prev.peUsed + peSpent,
+      peAvailable: Math.max(0, prev.peAvailable - peSpent),
+    }));
+  }, [isTrialMode]);
 
   // Use the new balance hook for immediate balance fetching (no auth required)
   const balance = useBalance({ 
     walletAddress, 
-    enabled: walletState === 'AUTHENTICATED' 
+    enabled: walletState === 'AUTHENTICATED' && !isTrialMode 
   });
 
   const getSessionToken = () => localStorage.getItem(SESSION_TOKEN_KEY);
@@ -891,6 +973,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   };
 
   const disconnect = () => {
+    // If in trial mode, just exit trial
+    if (isTrialMode) {
+      exitTrialMode();
+      return;
+    }
+    
     const phantom = getPhantom();
     if (phantom) {
       phantom.disconnect();
@@ -948,6 +1036,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         needsSignature,
         isWalletConnected,
         isAuthenticated,
+        isTrialMode,
+        activateTrialMode,
+        exitTrialMode,
       }}
     >
       {children}

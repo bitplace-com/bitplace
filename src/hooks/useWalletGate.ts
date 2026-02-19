@@ -13,7 +13,7 @@ interface UseWalletGateResult {
 }
 
 export function useWalletGate(): UseWalletGateResult {
-  const { walletState, walletAddress, user, signIn, isAuthenticated } = useWallet();
+  const { walletState, walletAddress, user, signIn, isAuthenticated, isTrialMode } = useWallet();
   const [isWalletModalOpen, setWalletModalOpen] = useState(false);
   
   // Cooldown refs to prevent spam
@@ -23,6 +23,9 @@ export function useWalletGate(): UseWalletGateResult {
   const signInFlightRef = useRef(false);
 
   const requireWallet = useCallback((action = 'paint') => {
+    // Trial mode: always allow
+    if (isTrialMode) return true;
+    
     // Case 1: Fully authenticated - allow action
     if (isAuthenticated && user) return true;
     
@@ -64,7 +67,7 @@ export function useWalletGate(): UseWalletGateResult {
     }
     
     return false;
-  }, [walletState, walletAddress, user, signIn, isAuthenticated]);
+  }, [walletState, walletAddress, user, signIn, isAuthenticated, isTrialMode]);
 
   return {
     isWalletModalOpen,

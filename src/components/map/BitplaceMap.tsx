@@ -21,6 +21,7 @@ import { PerfHud } from './PerfHud';
 import { TemplatesButton } from './TemplatesButton';
 import { TemplatesPanel } from './TemplatesPanel';
 import { TemplateOverlay } from './TemplateOverlay';
+import { GuidedTour } from './GuidedTour';
 
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PixelIcon } from '@/components/icons';
@@ -90,7 +91,7 @@ export function BitplaceMap() {
   const [pinDragEnd, setPinDragEnd] = useState<{ screenX: number; screenY: number } | null>(null);
   const isPinDraggingRef = useRef(false);
   
-  const { user, walletAddress, refreshUser, connect, isConnecting, updatePeStatus } = useWallet();
+  const { user, walletAddress, refreshUser, connect, isConnecting, updatePeStatus, isTrialMode, activateTrialMode } = useWallet();
   const { isWalletModalOpen, setWalletModalOpen, requireWallet } = useWalletGate();
   const { getUrlPosition, setUrlPosition } = useMapUrl();
   const { localPixels, paintPixel, mergePixels, confirmPixel } = usePixelStore();
@@ -1916,7 +1917,14 @@ onExcludeInvalid={handleExcludeInvalid}
           setWalletModalOpen(false);
         }}
         isConnecting={isConnecting}
+        onActivateTrial={() => {
+          activateTrialMode();
+          setWalletModalOpen(false);
+        }}
       />
+      
+      {/* Guided Tour Overlay */}
+      <GuidedTour />
     </div>
   );
 }

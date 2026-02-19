@@ -73,7 +73,7 @@ export function MobileWalletButton() {
   if (!isConnected && !needsSignature) {
     return (
       <>
-        <GlassIconButton size="lg" onClick={handleConnectClick} aria-label="Connect Wallet">
+        <GlassIconButton size="lg" onClick={handleConnectClick} aria-label="Connect Wallet" data-tour="wallet">
           <PixelIcon name="wallet" size="md" />
         </GlassIconButton>
         <WalletSelectModal

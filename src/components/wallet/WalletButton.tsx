@@ -20,7 +20,9 @@ export function WalletButton() {
     signIn,
     isConnected,
     isConnecting,
-    needsSignature 
+    needsSignature,
+    isTrialMode,
+    activateTrialMode,
   } = useWallet();
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -40,7 +42,7 @@ export function WalletButton() {
   // Connecting or Authenticating state
   if (isConnecting) {
     return (
-      <GlassPanel padding="sm" className="flex items-center gap-2">
+      <GlassPanel padding="sm" className="flex items-center gap-2" data-tour="wallet">
         <PixelIcon name="loader" size="sm" className="animate-spin text-muted-foreground" />
         <span className="text-sm text-muted-foreground">
           {walletState === 'AUTHENTICATING' ? 'Signing in...' : 'Connecting...'}
@@ -56,10 +58,36 @@ export function WalletButton() {
         onClick={handleSignIn}
         size="sm"
         className="gap-2 rounded-xl shadow-lg backdrop-blur-md bg-white/90 text-black border border-white/20 hover:bg-white dark:bg-black/80 dark:text-white dark:border-white/10 dark:hover:bg-black/90"
+        data-tour="wallet"
       >
         <PixelIcon name="wallet" size="sm" />
         Connect Wallet
       </Button>
+    );
+  }
+
+  // Trial mode - show trial wallet button
+  if (isTrialMode && walletAddress) {
+    return (
+      <UserMenuPanel>
+        <GlassPanel
+          padding="sm"
+          className="flex items-center gap-2.5 cursor-pointer hover:bg-accent transition-colors"
+          data-tour="wallet"
+        >
+          <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+            TRIAL
+          </span>
+          <span className="text-xs font-medium text-foreground">
+            Test Wallet
+          </span>
+          <span className="text-xs text-muted-foreground">•</span>
+          <span className="text-xs font-medium text-foreground tabular-nums">
+            {energy.peAvailable.toLocaleString()} PE
+          </span>
+          <PixelIcon name="chevronDown" size="xs" className="text-muted-foreground" />
+        </GlassPanel>
+      </UserMenuPanel>
     );
   }
 
@@ -70,6 +98,7 @@ export function WalletButton() {
         <GlassPanel
           padding="sm"
           className="flex items-center gap-2.5 cursor-pointer hover:bg-accent transition-colors"
+          data-tour="wallet"
         >
           <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="font-mono text-xs text-foreground">
@@ -85,9 +114,9 @@ export function WalletButton() {
     );
   }
 
-  // Disconnected state - show connect button
+  // Disconnected state - show connect button + try free link
   return (
-    <>
+    <div className="flex flex-col items-end gap-1" data-tour="wallet">
       <Button
         onClick={handleConnectClick}
         size="sm"
@@ -96,6 +125,12 @@ export function WalletButton() {
         <PixelIcon name="wallet" size="sm" />
         Connect Wallet
       </Button>
+      <button
+        onClick={activateTrialMode}
+        className="text-[10px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+      >
+        or try for free
+      </button>
 
       <WalletSelectModal
         open={modalOpen}
@@ -103,6 +138,6 @@ export function WalletButton() {
         onSelectPhantom={handleSelectPhantom}
         isConnecting={isConnecting}
       />
-    </>
+    </div>
   );
 }
