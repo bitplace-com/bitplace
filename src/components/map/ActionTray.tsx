@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
+import { Hand } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PixelIcon } from '@/components/icons';
 import { GlassIconButton } from '@/components/ui/glass-icon-button';
@@ -233,7 +234,7 @@ export function ActionTray({
                   )}
                   title="Hand mode: Pan map"
                 >
-                  <PixelIcon name="hand" className="h-5 w-5 sm:h-4 sm:w-4" />
+                  <Hand className="h-5 w-5 sm:h-4 sm:w-4" />
                 </button>
                 <button
                   onMouseDown={e => e.preventDefault()}
