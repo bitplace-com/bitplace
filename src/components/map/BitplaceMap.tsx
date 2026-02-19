@@ -98,7 +98,7 @@ export function BitplaceMap() {
   const { selection, startSelection, updateSelection, endSelection, clearSelection, getNormalizedBounds, getSelectedPixels } = useSelection();
   const { mode, selectedColor, paintTool, brushSize, zoom, artOpacity, interactionMode, setMode, setSelectedColor, setZoom, toggleArtOpacity, setInteractionMode, setPaintTool, setBrushSize, canPaint } = useMapState();
   const { dbPixels, updateViewport, removePixels, addPixels, reconcileTiles, realtimeStatus, reconnectAttempts } = useSupabasePixels(zoom);
-  const { validate, commit, validationResult, invalidPixels, isValidating, isCommitting, clearValidation, progress: gameProgress, lastError, isStalled, clearError } = useGameActions();
+  const { validate, commit, validationResult, setValidationResult, invalidPixels, setInvalidPixels, isValidating, isCommitting, clearValidation, progress: gameProgress, lastError, isStalled, clearError } = useGameActions();
   const { 
     state: paintState, 
     frozenPayload, 
@@ -134,6 +134,9 @@ export function BitplaceMap() {
   const { templates, activeTemplateId, activeTemplate, addTemplate, removeTemplate, selectTemplate, updateSettings, isMoveMode, toggleMoveMode, updatePosition } = useTemplates(walletAddress);
   const [templatesPanelOpen, setTemplatesPanelOpen] = useState(false);
   const [templateGuideColors, setTemplateGuideColors] = useState<string[]>([]);
+  
+  // Trial mode: store validation result locally (since we bypass the edge function)
+  const trialValidationRef = useRef<any>(null);
 
   // Track if selection changed after validation (for auto-invalidation hint)
   const isSelectionChangedAfterValidation = useMemo(() => {
@@ -1325,6 +1328,122 @@ export function BitplaceMap() {
   const handleZoomIn = useCallback(() => mapRef.current?.zoomIn(), []);
   const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), []);
 
+  // Trial validation: fetch real pixel data and compute costs locally
+  const trialValidate = useCallback(async (gameMode: string, pixelsToValidate: { x: number; y: number }[]) => {
+    const TRIAL_USER_ID = user?.id || 'trial';
+    
+    // Fetch real pixel data from DB (public RPC, no auth needed)
+    const coords = pixelsToValidate.map(p => ({ x: p.x, y: p.y }));
+    
+    // Batch in groups of 900 to respect row limits
+    const BATCH_SIZE = 900;
+    const batches: { x: number; y: number }[][] = [];
+    for (let i = 0; i < coords.length; i += BATCH_SIZE) {
+      batches.push(coords.slice(i, i + BATCH_SIZE));
+    }
+    
+    type PixelInfo = { x: number; y: number; owner_user_id: string | null; owner_stake_pe: number; def_total: number; atk_total: number };
+    let dbPixelData: PixelInfo[] = [];
+    
+    try {
+      const results = await Promise.all(
+        batches.map(batch => supabase.rpc('fetch_pixels_by_coords', { coords: JSON.stringify(batch) }))
+      );
+      for (const r of results) {
+        if (r.data) dbPixelData = dbPixelData.concat(r.data as PixelInfo[]);
+      }
+    } catch (err) {
+      console.error('[trialValidate] RPC error:', err);
+    }
+    
+    // Build lookup map
+    const pixelMap = new Map<string, PixelInfo>();
+    for (const p of dbPixelData) {
+      pixelMap.set(`${p.x}:${p.y}`, p);
+    }
+    
+    let totalCost = 0;
+    const invalidPixelsList: { x: number; y: number; reason: string }[] = [];
+    
+    if (gameMode === 'PAINT') {
+      for (const px of pixelsToValidate) {
+        const existing = pixelMap.get(`${px.x}:${px.y}`);
+        if (!existing) {
+          // Empty pixel: 1 PE
+          totalCost += 1;
+        } else if (existing.owner_user_id === TRIAL_USER_ID) {
+          // Own pixel: repaint free
+          totalCost += 0;
+        } else {
+          // Takeover: max(0, V) + 1
+          const v = existing.owner_stake_pe + existing.def_total - existing.atk_total;
+          totalCost += Math.max(0, v) + 1;
+        }
+      }
+    } else if (gameMode === 'ERASE') {
+      for (const px of pixelsToValidate) {
+        const existing = pixelMap.get(`${px.x}:${px.y}`);
+        if (!existing || existing.owner_user_id !== TRIAL_USER_ID) {
+          invalidPixelsList.push({ x: px.x, y: px.y, reason: 'Not your pixel' });
+        }
+        // Erase is free (refund)
+      }
+    } else if (gameMode === 'DEFEND') {
+      for (const px of pixelsToValidate) {
+        const existing = pixelMap.get(`${px.x}:${px.y}`);
+        if (!existing || !existing.owner_user_id) {
+          invalidPixelsList.push({ x: px.x, y: px.y, reason: 'Empty pixel' });
+        } else if (existing.owner_user_id === TRIAL_USER_ID) {
+          invalidPixelsList.push({ x: px.x, y: px.y, reason: 'Cannot defend own pixel' });
+        } else {
+          totalCost += pePerPixel;
+        }
+      }
+    } else if (gameMode === 'ATTACK') {
+      for (const px of pixelsToValidate) {
+        const existing = pixelMap.get(`${px.x}:${px.y}`);
+        if (!existing || !existing.owner_user_id) {
+          invalidPixelsList.push({ x: px.x, y: px.y, reason: 'Empty pixel' });
+        } else if (existing.owner_user_id === TRIAL_USER_ID) {
+          invalidPixelsList.push({ x: px.x, y: px.y, reason: 'Cannot attack own pixel' });
+        } else {
+          totalCost += pePerPixel;
+        }
+      }
+    } else if (gameMode === 'REINFORCE') {
+      for (const px of pixelsToValidate) {
+        const existing = pixelMap.get(`${px.x}:${px.y}`);
+        if (!existing || existing.owner_user_id !== TRIAL_USER_ID) {
+          invalidPixelsList.push({ x: px.x, y: px.y, reason: 'Not your pixel' });
+        } else {
+          totalCost += pePerPixel;
+        }
+      }
+    } else if (gameMode === 'WITHDRAW_DEF' || gameMode === 'WITHDRAW_ATK' || gameMode === 'WITHDRAW_REINFORCE') {
+      // Withdrawals give PE back - simulate refund
+      totalCost = -(pePerPixel * pixelsToValidate.length);
+    }
+    
+    const validCount = pixelsToValidate.length - invalidPixelsList.length;
+    const ok = validCount > 0 && invalidPixelsList.length === 0;
+    const partialValid = validCount > 0 && invalidPixelsList.length > 0;
+    
+    return {
+      ok: ok || partialValid,
+      partialValid,
+      requiredPeTotal: totalCost,
+      availablePe: energy.peAvailable,
+      breakdown: {
+        pixelCount: validCount,
+        pePerType: gameMode.startsWith('WITHDRAW_') 
+          ? { withdrawRefund: Math.abs(totalCost) }
+          : { paint: totalCost },
+      },
+      snapshotHash: `trial_${Date.now()}`,
+      invalidPixels: invalidPixelsList,
+    } as any;
+  }, [user?.id, pePerPixel]);
+
   const handleValidate = useCallback(async () => {
     // Clear any previous error before starting new validation
     clearError();
@@ -1343,14 +1462,6 @@ export function BitplaceMap() {
       return; 
     }
     
-    // Session check - gate before proceeding
-    const token = getValidSessionToken();
-    console.log('[handleValidate] Token:', token ? 'present' : 'missing');
-    if (!token) {
-      setWalletModalOpen(true);
-      return;
-    }
-    
     // Check if eraser is active (selectedColor === null) in paint mode
     const isEraseAction = mode === 'paint' && selectedColor === null;
     const gameMode = isEraseAction ? 'ERASE' : getGameMode(mode);
@@ -1360,6 +1471,44 @@ export function BitplaceMap() {
     
     if (pixelsToValidate.length === 0) {
       toast.info('No pixels selected');
+      return;
+    }
+    
+    // TRIAL MODE: validate locally without token
+    if (isTrialMode) {
+      // STATE MACHINE: Freeze payload for PAINT mode
+      if (gameMode === 'PAINT' && selectedColor) {
+        freezePayload(pixelsToValidate, selectedColor);
+        startPaintValidation();
+      }
+      setDraftDirty(false);
+      
+      const result = await trialValidate(gameMode, pixelsToValidate);
+      lastValidationTimeRef.current = Date.now();
+      
+      // Set validation result in the shared state so UI components can read it
+      setValidationResult(result);
+      if (result.invalidPixels?.length > 0) {
+        setInvalidPixels(result.invalidPixels);
+      }
+      
+      if (gameMode === 'PAINT') {
+        if (result.ok || result.partialValid) {
+          completePaintValidation(result);
+        } else {
+          failPaintValidation();
+        }
+      }
+      
+      trialValidationRef.current = result;
+      return;
+    }
+    
+    // Session check - gate before proceeding
+    const token = getValidSessionToken();
+    console.log('[handleValidate] Token:', token ? 'present' : 'missing');
+    if (!token) {
+      setWalletModalOpen(true);
       return;
     }
     
@@ -1397,7 +1546,7 @@ export function BitplaceMap() {
         failPaintValidation();
       }
     }
-  }, [user, mode, pendingPixels, selectedColor, pePerPixel, validate, getGameMode, getDraftPixels, setDraftDirty, setWalletModalOpen, freezePayload, startPaintValidation, completePaintValidation, failPaintValidation, clearError]);
+  }, [user, mode, pendingPixels, selectedColor, pePerPixel, validate, getGameMode, getDraftPixels, setDraftDirty, setWalletModalOpen, freezePayload, startPaintValidation, completePaintValidation, failPaintValidation, clearError, isTrialMode, trialValidate, setValidationResult, setInvalidPixels]);
 
   const handleClearSelection = useCallback(() => { 
     clearSelection(); 
@@ -1414,12 +1563,6 @@ export function BitplaceMap() {
       const isEraseAction = mode === 'paint' && selectedColor === null;
       const gameMode = isEraseAction ? 'ERASE' : getGameMode(mode);
       
-      // Only support PAINT and ERASE in trial mode
-      if (gameMode !== 'PAINT' && gameMode !== 'ERASE') {
-        toast.info('This action is not available in trial mode. Connect your wallet to use all features.');
-        return;
-      }
-      
       const pixelsToCommit = gameMode === 'PAINT' 
         ? (frozenPayload && paintState === 'VALIDATED' ? frozenPayload.pixels : getDraftPixels())
         : pendingPixels;
@@ -1432,29 +1575,56 @@ export function BitplaceMap() {
         return;
       }
       
-      // Check trial PE
-      const peCost = pixelsToCommit.length; // 1 PE per pixel for paint
-      if (energy.peAvailable < peCost) {
+      // Use real cost from trial validation if available, otherwise fallback
+      const trialResult = trialValidationRef.current;
+      const peCost = trialResult?.requiredPeTotal ?? pixelsToCommit.length;
+      const isWithdraw = gameMode.startsWith('WITHDRAW_');
+      
+      // For non-withdraw actions, check PE availability
+      if (!isWithdraw && peCost > 0 && energy.peAvailable < peCost) {
         toast('Trial PE exhausted', { description: 'Connect your wallet for unlimited painting.' });
         return;
       }
       
       if (gameMode === 'PAINT' && colorToCommit) {
-        // Apply pixels locally
         const pixelsForCache = pixelsToCommit.map(({ x, y }) => ({ x, y, color: colorToCommit }));
         addPixels(pixelsForCache);
-        updateTrialPe(peCost);
+        if (peCost > 0) updateTrialPe(peCost);
         clearDraft();
         resetPaintState();
         handleClearSelection();
         playSound('paint_commit');
-        toast.success(`${pixelsToCommit.length} pixels painted`, { description: 'TRIAL — not saved to server' });
+        toast.success(`${pixelsToCommit.length} pixels painted (${peCost} PE)`, { description: 'TRIAL — not saved to server' });
       } else if (gameMode === 'ERASE') {
         removePixels(pixelsToCommit);
         handleClearSelection();
         playSound('erase_success');
         toast.success(`${pixelsToCommit.length} pixels erased`, { description: 'TRIAL — not saved to server' });
+      } else if (gameMode === 'DEFEND') {
+        updateTrialPe(peCost);
+        handleClearSelection();
+        playSound('defend_success');
+        toast.success(`Defended ${pixelsToCommit.length} pixels (${peCost} PE)`, { description: 'TRIAL — not saved to server' });
+      } else if (gameMode === 'ATTACK') {
+        updateTrialPe(peCost);
+        handleClearSelection();
+        playSound('attack_success');
+        toast.success(`Attacked ${pixelsToCommit.length} pixels (${peCost} PE)`, { description: 'TRIAL — not saved to server' });
+      } else if (gameMode === 'REINFORCE') {
+        updateTrialPe(peCost);
+        handleClearSelection();
+        playSound('reinforce_success');
+        toast.success(`Reinforced ${pixelsToCommit.length} pixels (${peCost} PE)`, { description: 'TRIAL — not saved to server' });
+      } else if (isWithdraw) {
+        // Withdraw: add PE back (negative cost = refund)
+        const refund = trialResult?.breakdown?.pePerType?.withdrawRefund ?? (pePerPixel * pixelsToCommit.length);
+        updateTrialPe(-refund); // negative = adds PE back
+        handleClearSelection();
+        playSound('reinforce_success');
+        toast.success(`Withdrew ${refund} PE from ${pixelsToCommit.length} pixels`, { description: 'TRIAL — not saved to server' });
       }
+      
+      trialValidationRef.current = null;
       return;
     }
 
