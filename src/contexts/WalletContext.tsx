@@ -745,6 +745,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const restoreSession = async () => {
       restoreInFlightRef.current = true;
       
+      // Skip session restore if trial mode is active (from sessionStorage)
+      if (isTrialMode) {
+        walletDebug('session_restore_skip', { reason: 'trial_mode_active' });
+        activateTrialMode();
+        restoreInFlightRef.current = false;
+        return;
+      }
+      
       try {
         const token = getSessionToken();
         const storedWallet = localStorage.getItem(WALLET_ADDRESS_KEY);
@@ -849,8 +857,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const handleTokenExpired = () => {
       walletDebug('token_expired_event');
       
-      // Only transition if currently authenticated
-      if (walletState === 'AUTHENTICATED') {
+      // Only transition if currently authenticated and NOT in trial mode
+      if (walletState === 'AUTHENTICATED' && !isTrialMode) {
         setWalletState('AUTH_REQUIRED');
         toast.info('Session expired', { 
           description: 'Please sign in again to continue' 
@@ -860,7 +868,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener(TOKEN_EXPIRED_EVENT, handleTokenExpired);
     return () => window.removeEventListener(TOKEN_EXPIRED_EVENT, handleTokenExpired);
-  }, [walletState]);
+  }, [walletState, isTrialMode]);
 
   // Periodically check if energy is stale
   useEffect(() => {
