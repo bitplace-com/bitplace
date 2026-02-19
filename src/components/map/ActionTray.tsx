@@ -233,7 +233,7 @@ export function ActionTray({
                   )}
                   title="Hand mode: Pan map"
                 >
-                  <PixelIcon name="expand" className="h-5 w-5 sm:h-4 sm:w-4" />
+                  <PixelIcon name="hand" className="h-5 w-5 sm:h-4 sm:w-4" />
                 </button>
                 <button
                   onMouseDown={e => e.preventDefault()}
