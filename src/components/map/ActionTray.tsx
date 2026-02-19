@@ -256,9 +256,7 @@ export function ActionTray({
           <div className="flex-1 flex justify-center min-w-0">
             {!isExpanded ? (
               /* Collapsed summary - mode aware */
-              isPaintMode ? (
-                <span className="text-xs text-muted-foreground">Paint</span>
-              ) : (
+              isPaintMode ? null : (
                 <span className="text-xs font-mono tabular-nums text-muted-foreground">
                   {pendingPE.toLocaleString()} PE
                 </span>
