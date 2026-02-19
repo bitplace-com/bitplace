@@ -72,6 +72,15 @@ export function WhitePaperModal({
             <p className="text-sm text-muted-foreground text-center">
               When the map is active—pixels contested, defended, attacked—$BIT has utility. Utility creates demand.
             </p>
+            <div className="flex gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 mt-0.5">
+                <PixelIcon name="shield" size="md" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                <span className="text-foreground font-medium">Your $BIT is never spent.</span>{" "}
+                Your token balance determines how much Pixel Energy you receive — equal in dollar value to your $BIT holdings. Only PE is consumed when you paint, defend or attack. Your $BIT stays safe in your wallet at all times — Bitplace has no access to it and cannot move or spend your tokens.
+              </p>
+            </div>
           </section>
 
           {/* Your money, your choice */}

@@ -15,6 +15,7 @@ export function TemplatesButton({ isOpen, onToggle, hasActiveTemplate }: Templat
         onMouseDown={(e) => e.preventDefault()}
         aria-label="Templates"
         aria-pressed={isOpen}
+        data-tour="templates"
       className={cn(
         "relative",
         isOpen && "ring-2 ring-primary/50"

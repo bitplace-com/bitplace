@@ -136,7 +136,7 @@ export function MapMenuDrawer() {
                   className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
                 >
                   <PixelIcon name="info" size="md" />
-                  Glossary
+                  Rules
                 </Button>
 
                 {/* Buy $BIT */}
