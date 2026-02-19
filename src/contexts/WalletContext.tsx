@@ -103,6 +103,7 @@ interface WalletContextType {
   isTrialMode: boolean;
   activateTrialMode: () => void;
   exitTrialMode: () => void;
+  updateTrialPe: (peSpent: number) => void;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
@@ -1039,6 +1040,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         isTrialMode,
         activateTrialMode,
         exitTrialMode,
+        updateTrialPe,
       }}
     >
       {children}

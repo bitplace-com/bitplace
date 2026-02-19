@@ -91,7 +91,7 @@ export function BitplaceMap() {
   const [pinDragEnd, setPinDragEnd] = useState<{ screenX: number; screenY: number } | null>(null);
   const isPinDraggingRef = useRef(false);
   
-  const { user, walletAddress, refreshUser, connect, isConnecting, updatePeStatus, isTrialMode, activateTrialMode } = useWallet();
+  const { user, walletAddress, refreshUser, connect, isConnecting, updatePeStatus, isTrialMode, activateTrialMode, updateTrialPe, energy } = useWallet();
   const { isWalletModalOpen, setWalletModalOpen, requireWallet } = useWalletGate();
   const { getUrlPosition, setUrlPosition } = useMapUrl();
   const { localPixels, paintPixel, mergePixels, confirmPixel } = usePixelStore();
@@ -1409,6 +1409,55 @@ export function BitplaceMap() {
   }, [clearSelection, clearValidation, playSound, resetPaintState]);
 
   const handleConfirm = useCallback(async () => {
+    // TRIAL MODE: simulate commit locally without calling edge functions
+    if (isTrialMode) {
+      const isEraseAction = mode === 'paint' && selectedColor === null;
+      const gameMode = isEraseAction ? 'ERASE' : getGameMode(mode);
+      
+      // Only support PAINT and ERASE in trial mode
+      if (gameMode !== 'PAINT' && gameMode !== 'ERASE') {
+        toast.info('This action is not available in trial mode. Connect your wallet to use all features.');
+        return;
+      }
+      
+      const pixelsToCommit = gameMode === 'PAINT' 
+        ? (frozenPayload && paintState === 'VALIDATED' ? frozenPayload.pixels : getDraftPixels())
+        : pendingPixels;
+      const colorToCommit = gameMode === 'PAINT'
+        ? (frozenPayload && paintState === 'VALIDATED' ? frozenPayload.color : selectedColor)
+        : null;
+      
+      if (pixelsToCommit.length === 0) {
+        toast.info('No pixels to commit');
+        return;
+      }
+      
+      // Check trial PE
+      const peCost = pixelsToCommit.length; // 1 PE per pixel for paint
+      if (energy.peAvailable < peCost) {
+        toast('Trial PE exhausted', { description: 'Connect your wallet for unlimited painting.' });
+        return;
+      }
+      
+      if (gameMode === 'PAINT' && colorToCommit) {
+        // Apply pixels locally
+        const pixelsForCache = pixelsToCommit.map(({ x, y }) => ({ x, y, color: colorToCommit }));
+        addPixels(pixelsForCache);
+        updateTrialPe(peCost);
+        clearDraft();
+        resetPaintState();
+        handleClearSelection();
+        playSound('paint_commit');
+        toast.success(`${pixelsToCommit.length} pixels painted`, { description: 'TRIAL — not saved to server' });
+      } else if (gameMode === 'ERASE') {
+        removePixels(pixelsToCommit);
+        handleClearSelection();
+        playSound('erase_success');
+        toast.success(`${pixelsToCommit.length} pixels erased`, { description: 'TRIAL — not saved to server' });
+      }
+      return;
+    }
+
     // Session check - gate before proceeding
     const token = getValidSessionToken();
     if (!token) {
@@ -1573,7 +1622,7 @@ export function BitplaceMap() {
         failPaintCommit();
       }
     }
-  }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, validate, getGameMode, handleClearSelection, playSound, getDraftPixels, clearDraft, removePixels, addPixels, reconcileTiles, frozenPayload, paintState, setWalletModalOpen, freezePayload, startPaintValidation, completePaintValidation, failPaintValidation, startPaintCommit, completePaintCommit, failPaintCommit, updatePeStatus]);
+  }, [validationResult, mode, pendingPixels, selectedColor, pePerPixel, commit, validate, getGameMode, handleClearSelection, playSound, getDraftPixels, clearDraft, removePixels, addPixels, reconcileTiles, frozenPayload, paintState, setWalletModalOpen, freezePayload, startPaintValidation, completePaintValidation, failPaintValidation, startPaintCommit, completePaintCommit, failPaintCommit, updatePeStatus, isTrialMode, updateTrialPe, energy.peAvailable, resetPaintState]);
 
   // Inspector card handlers
   const handleInspectorPaint = useCallback(async (x: number, y: number) => {

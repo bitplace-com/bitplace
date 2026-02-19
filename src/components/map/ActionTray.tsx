@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Hand } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PixelIcon } from '@/components/icons';
@@ -112,6 +112,13 @@ export function ActionTray({
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const { play } = useSound();
   const isMobile = useIsMobile();
+
+  // Listen for tour expand event
+  useEffect(() => {
+    const handleTourExpand = () => setIsExpanded(true);
+    window.addEventListener('bitplace:tour-expand-tray', handleTourExpand);
+    return () => window.removeEventListener('bitplace:tour-expand-tray', handleTourExpand);
+  }, []);
   
   // Use prop for external canPaint control
   const canPaint = canPaintProp;
