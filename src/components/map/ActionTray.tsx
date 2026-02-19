@@ -208,6 +208,7 @@ export function ActionTray({
         className={cn(
           "pointer-events-auto overflow-hidden transition-all duration-200 rounded-2xl shadow-lg",
           "glass-hud-strong",
+          isExpanded && "w-full",
           isEyedropperActive && "ring-2 ring-foreground"
         )}
       >
