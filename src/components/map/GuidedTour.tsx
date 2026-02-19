@@ -42,18 +42,24 @@ function getTooltipPosition(
         top: targetRect.top + targetRect.height + padding,
         transform: 'translateX(-50%)',
       };
-    case 'left':
+    case 'left': {
+      const tooltipH = 160;
+      const rawTop = targetRect.top + targetRect.height / 2 - tooltipH / 2;
+      const clampedTop = Math.min(Math.max(16, rawTop), window.innerHeight - tooltipH - 16);
       return {
         right: window.innerWidth - targetRect.left + padding,
-        top: targetRect.top + targetRect.height / 2,
-        transform: 'translateY(-50%)',
+        top: clampedTop,
       };
-    case 'right':
+    }
+    case 'right': {
+      const tooltipH = 160;
+      const rawTop = targetRect.top + targetRect.height / 2 - tooltipH / 2;
+      const clampedTop = Math.min(Math.max(16, rawTop), window.innerHeight - tooltipH - 16);
       return {
         left: targetRect.left + targetRect.width + padding,
-        top: targetRect.top + targetRect.height / 2,
-        transform: 'translateY(-50%)',
+        top: clampedTop,
       };
+    }
     default:
       return {
         left: targetRect.left + targetRect.width / 2,
