@@ -432,7 +432,7 @@ export function ActionTray({
                           <span className="text-[9px] w-10 text-muted-foreground shrink-0 text-right">
                             {row.label}
                           </span>
-                          <div className="flex gap-0.5 sm:gap-1 overflow-x-auto flex-nowrap">
+                          <div className="flex gap-0.5 sm:gap-1 flex-1">
                             {row.colors.map((color) => {
                               const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
                               return (
@@ -443,7 +443,7 @@ export function ActionTray({
                                   onMouseLeave={() => setHoveredColor(null)}
                                   disabled={!canPaint}
                                   className={cn(
-                                    "w-6 h-6 sm:w-[22px] sm:h-[22px] shrink-0 rounded-md transition-all duration-100 focus:outline-none touch-target",
+                                    "flex-1 aspect-square min-w-0 rounded-md transition-all duration-100 focus:outline-none touch-target",
                                     canPaint && "hover:ring-1 hover:ring-foreground/30",
                                     isSelected && "ring-2 ring-foreground scale-105 z-10",
                                     !canPaint && "opacity-40 cursor-not-allowed"
