@@ -74,7 +74,7 @@ export function WhitePaperModal({
             </p>
             <div className="flex gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20">
               <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 mt-0.5">
-                <PixelIcon name="shield" size="md" />
+                <i className="hn hn-check-circle-solid text-[20px]" />
               </div>
               <p className="text-sm text-muted-foreground">
                 <span className="text-foreground font-medium">Your $BIT is never spent.</span>{" "}
