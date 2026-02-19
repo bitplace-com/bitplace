@@ -257,22 +257,8 @@ export function ActionTray({
             {!isExpanded ? (
               /* Collapsed summary - mode aware */
               isPaintMode ? (
-                /* Paint mode: show color swatch + hex/label */
-                selectedColor ? (
-                <div className="flex items-center gap-2">
-                    <div 
-                      className="w-5 h-5 rounded-md border border-border/50 shrink-0" 
-                      style={{ background: selectedColor }}
-                    />
-                  </div>
+                <span className="text-xs text-muted-foreground">Paint</span>
               ) : (
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-md border-2 border-dashed border-muted-foreground/50 shrink-0" />
-                    <span className="text-xs text-muted-foreground">No color</span>
-                  </div>
-                )
-              ) : (
-              /* Action mode: show pending PE only (no redundant mode icon) */
                 <span className="text-xs font-mono tabular-nums text-muted-foreground">
                   {pendingPE.toLocaleString()} PE
                 </span>
