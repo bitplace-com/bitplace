@@ -186,7 +186,7 @@ export function BitplaceMap() {
   // Apply pending scale after template is added (activeTemplateId changes)
   useEffect(() => {
     if (pendingScaleRef.current !== null && activeTemplateId) {
-      updateSettings(activeTemplateId, { scale: pendingScaleRef.current });
+      updateSettings(activeTemplateId, { scale: pendingScaleRef.current, initialScale: pendingScaleRef.current });
       pendingScaleRef.current = null;
     }
   }, [activeTemplateId, updateSettings]);
@@ -2139,7 +2139,7 @@ export function BitplaceMap() {
           draftCount={draftCount}
           selectionCount={pendingPixels.length}
           pePerPixel={pePerPixel}
-          availablePe={peBalance.free}
+          availablePe={isTrialMode ? energy.peAvailable : peBalance.free}
           isEyedropperActive={isEyedropperActive}
           onEyedropperToggle={setIsEyedropperActive}
           currentLat={mapCenter.lat}

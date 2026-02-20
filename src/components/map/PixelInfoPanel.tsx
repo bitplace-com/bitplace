@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { X, RefreshCw, AlertTriangle, Globe, Expand, Loader2 } from 'lucide-react';
+import { useWallet } from '@/contexts/WalletContext';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { PEIcon } from '@/components/ui/pe-icon';
@@ -128,7 +129,8 @@ export function PixelInfoPanel({
   onJumpToPixel,
   inDrawer = false,
 }: PixelInfoPanelProps) {
-  const { pixel, isLoading, refetch } = usePixelDetails(x, y, currentUserId);
+  const { isTrialMode } = useWallet();
+  const { pixel, isLoading, refetch } = usePixelDetails(x, y, currentUserId, isTrialMode);
   const [artworkModalOpen, setArtworkModalOpen] = useState(false);
 
   const handleJumpToPixel = (targetX: number, targetY: number) => {

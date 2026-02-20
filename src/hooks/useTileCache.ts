@@ -164,11 +164,14 @@ export function useTileCache() {
     return tiles;
   }, []);
 
-  // Check which tiles are missing from cache
+  // Check which tiles are missing from cache (includes optimistic-only tiles)
   const getMissingTiles = useCallback((tiles: TileCoord[]): TileCoord[] => {
     return tiles.filter(t => {
       const key = tileKey(t.tx, t.ty);
-      return !tileCache.has(key) && !pendingFetchRef.current.has(key);
+      if (pendingFetchRef.current.has(key)) return false;
+      const entry = tileCache.get(key);
+      // Fetch if missing OR if only contains local/optimistic data
+      return !entry || entry.status === 'optimistic';
     });
   }, []);
 
@@ -209,10 +212,18 @@ export function useTileCache() {
       
       if (tilesData) {
         Object.entries(tilesData).forEach(([key, pixels]) => {
+          const existingEntry = tileCache.get(key);
           const pixelMap = new Map<string, PixelData>();
+          // Start with server pixels
           pixels.forEach(p => {
             pixelMap.set(pixelKey(p.x, p.y), { color: p.color });
           });
+          // Overlay optimistic pixels (trial/local) on top of server data
+          if (existingEntry && existingEntry.status === 'optimistic') {
+            existingEntry.pixels.forEach((pd, pk) => {
+              pixelMap.set(pk, pd);
+            });
+          }
           setTileCache(key, pixelMap);
         });
       }
