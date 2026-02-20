@@ -1,81 +1,47 @@
 
-## Fix: Trial Mode viene sovrascritta dalla riconnessione Phantom
 
-### Problema identificato
-Ci sono **due bug** che impediscono il disegno in trial mode:
+## Fix: Token check in useDraftPaint blocca il Trial Mode
 
-**Bug 1 - Race condition `restoreSession` vs `activateTrialMode`**
+### Problema trovato
+Il messaggio "Sign in to paint" proviene da `src/components/map/hooks/useDraftPaint.ts` alla riga 52-54. Questo hook controlla `localStorage.getItem('bitplace_session_token')` prima di permettere l'aggiunta di pixel al draft. In trial mode non esiste nessun token, quindi `addToDraft()` ritorna `false` e mostra il toast.
 
-La funzione `restoreSession` in `WalletContext.tsx` e asincrona e cattura `isTrialMode=false` nella sua closure al mount. Quando l'utente clicca "try for free" DURANTE l'attesa del riconnesso Phantom:
-
-1. `restoreSession` parte con `isTrialMode=false`
-2. Fa `await attemptTrustedReconnect()` (asincrono)  
-3. L'utente attiva il trial -> `walletState='AUTHENTICATED'`, `isTrialMode=true`
-4. Phantom ritorna -> `restoreSession` sovrascrive con `walletState='AUTH_REQUIRED'`
-5. Trial mode rotto: `walletState` non e piu `AUTHENTICATED`
-
-Ma anche se il trial viene attivato DOPO che `restoreSession` ha finito, il Phantom disconnect handler (linea 843) non protegge il trial.
-
-**Bug 2 - `usePaintQueue` blocca il painting senza token**
-
-Anche se `requireWallet()` ritorna `true` (trial mode), il flusso per la modalita PAINT passa per `addToQueue()` che controlla `localStorage.getItem('bitplace_session_token')`. In trial mode non esiste nessun token, quindi `addToQueue` ritorna `false` silenziosamente.
+Questa e una **terza** location che controlla il token (le altre due, `usePaintQueue` e `useWalletGate`, sono state gia corrette), ma `useDraftPaint` non e mai stato aggiornato per supportare il trial mode.
 
 ### Soluzione
 
-#### File 1: `src/contexts/WalletContext.tsx`
+#### File: `src/components/map/hooks/useDraftPaint.ts`
 
-**A) Aggiungere un ref per il trial mode**
-Creare `isTrialModeRef = useRef(isTrialMode)` sincronizzato con lo state. Questo permette di leggere il valore aggiornato dentro le closure asincrone.
+Il fix e semplice: il hook deve bypassare il token check quando il trial mode e attivo. Due opzioni:
 
-**B) Guard in `restoreSession`**
-Dopo `await attemptTrustedReconnect()`, ri-controllare `isTrialModeRef.current`. Se `true`, fare `return` immediato senza modificare lo stato.
+**Opzione scelta**: Leggere `isTrialMode` dal `WalletContext` direttamente dentro il hook (il hook gia usa solo React hooks, quindi puo importare `useWallet`).
 
-**C) Guard in `activateTrialMode`**
-Settare `restoreInFlightRef.current = false` e `isTrialModeRef.current = true` per impedire che un restore in corso sovrascriva.
+Modifiche:
+1. Aggiungere `import { useWallet } from '@/contexts/WalletContext';` in cima
+2. Dentro la funzione `useDraftPaint()`, aggiungere `const { isTrialMode } = useWallet();`
+3. Alla riga 52-56, cambiare il check del token:
 
-**D) Guard nel Phantom disconnect handler**
-Aggiungere `if (isTrialModeRef.current) return;` all'inizio di `handleDisconnect` per evitare che Phantom resetti lo stato trial.
+```text
+Prima:
+const token = localStorage.getItem('bitplace_session_token');
+if (!token) {
+  toast.info('Sign in to paint');
+  return false;
+}
 
-#### File 2: `src/components/map/hooks/usePaintQueue.ts`
-
-**A) Ricevere `isTrialMode` come parametro**
-Il hook deve accettare un flag `isTrialMode` per bypassare i controlli del token.
-
-**B) `addToQueue`: skip token check in trial**
-Cambiare il check del token (linea 47-51) per accettare trial mode:
-```
+Dopo:
 if (!isTrialMode) {
   const token = localStorage.getItem('bitplace_session_token');
-  if (!token) { return false; }
+  if (!token) {
+    toast.info('Sign in to paint');
+    return false;
+  }
 }
 ```
 
-**C) `flushQueue`: skip backend in trial**
-In trial mode, `flushQueue` deve solo confermare i pixel localmente senza chiamare `validate`/`commit`:
-```
-if (isTrialMode) {
-  // Confirm locally, no backend
-  pixelsToCommit.forEach(({ x, y }) => confirmPixel(x, y));
-  pendingPixelsRef.current = new Map();
-  setQueue(new Set());
-  return;
-}
-```
-
-#### File 3: `src/components/map/BitplaceMap.tsx`
-
-**Passare `isTrialMode` a `usePaintQueue`**
-Aggiornare la chiamata al hook per passare il flag trial.
-
-### Riepilogo modifiche
+### Riepilogo
 
 | File | Modifica |
 |------|----------|
-| `WalletContext.tsx` | Ref per trial mode + guard nel restore asincrono + guard nel Phantom disconnect |
-| `usePaintQueue.ts` | Accettare `isTrialMode`, skip token check, skip backend flush |
-| `BitplaceMap.tsx` | Passare `isTrialMode` a `usePaintQueue` |
+| `useDraftPaint.ts` | Importare `useWallet`, skip token check se `isTrialMode` |
 
-### Cosa NON cambia
-- La logica di `useWalletGate` e gia corretta (ritorna `true` in trial mode)
-- Il `trialValidate` e `handleConfirm` trial gia implementati restano invariati
-- Nessuna modifica al database o edge functions
+Nessun altro file deve essere modificato. Le correzioni precedenti a `WalletContext`, `usePaintQueue` e `useWalletGate` restano invariate.
