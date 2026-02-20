@@ -13,6 +13,7 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   useLeaderboard,
   LeaderboardScope,
@@ -241,23 +242,24 @@ function EmptyState({ scope, subCategory }: { scope: LeaderboardScope; subCatego
 
 export function SubCategoryToggle({ subCategory, onChange }: { subCategory: LeaderboardSubCategory; onChange: (s: LeaderboardSubCategory) => void }) {
   return (
-    <div className="flex justify-center gap-1 p-0.5 bg-foreground/5 rounded-lg overflow-x-auto">
-      {SUB_CATEGORIES.map((s) => (
-        <button
-          key={s.value}
-          onClick={() => onChange(s.value)}
-          className={cn(
-            "flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap",
-            subCategory === s.value
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <PixelIcon name={s.icon as any} size="xs" />
-          {s.label}
-        </button>
-      ))}
-    </div>
+    <Select value={subCategory} onValueChange={(v) => onChange(v as LeaderboardSubCategory)}>
+      <SelectTrigger className="w-full h-9 text-xs font-medium bg-foreground/5 border-none">
+        <div className="flex items-center gap-1.5">
+          <PixelIcon name={SUB_CATEGORIES.find(s => s.value === subCategory)?.icon as any} size="xs" />
+          <SelectValue />
+        </div>
+      </SelectTrigger>
+      <SelectContent className="z-[200]">
+        {SUB_CATEGORIES.map((s) => (
+          <SelectItem key={s.value} value={s.value}>
+            <div className="flex items-center gap-1.5">
+              <PixelIcon name={s.icon as any} size="xs" />
+              {s.label}
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 

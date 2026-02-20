@@ -178,10 +178,7 @@ export function AllianceModal({ open, onOpenChange }: AllianceModalProps) {
         <div className="space-y-6">
           {/* Create Section */}
           <div className="p-4 rounded-xl bg-muted/30 border border-border/50 space-y-3">
-            <div className="flex items-center gap-2">
-              <Crown className="h-4 w-4 text-primary" />
-              <span className="font-medium text-sm">Create an Alliance</span>
-            </div>
+            <span className="font-medium text-sm">Create an Alliance</span>
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Alliance Name</Label>
