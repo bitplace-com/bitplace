@@ -48,7 +48,7 @@ import { useStatusStripHeight } from '@/hooks/useStatusStripHeight';
 import { useTemplates } from '@/hooks/useTemplates';
 import { getValidSessionToken } from '@/lib/authHelpers';
 import { computePixelHash } from '@/lib/pixelHash';
-import { lngLatToGridInt, gridIntToLngLat, getViewportGridBounds, Z_SHOW_PAINTS, getCellSize } from '@/lib/pixelGrid';
+import { lngLatToGridInt, gridIntToLngLat, getViewportGridBounds, Z_SHOW_PAINTS, getCellSize, canInteractAtZoom } from '@/lib/pixelGrid';
 import { hapticsEngine } from '@/lib/hapticsEngine';
 import { markMapMountStart } from '@/lib/perfMetrics';
 
@@ -241,6 +241,13 @@ export function BitplaceMap() {
     const currentDraftPixels = getDraftPixels();
     return checkSelectionChanged(currentDraftPixels);
   }, [paintState, frozenPayload, getDraftPixels, checkSelectionChanged]);
+
+  // Auto-switch to hand (drag) when zooming out beyond paint threshold
+  useEffect(() => {
+    if (interactionMode === 'draw' && !canInteractAtZoom(zoom)) {
+      setInteractionMode('drag');
+    }
+  }, [zoom, interactionMode, setInteractionMode]);
 
   // Reset to default brush when wallet disconnects (keep BRUSH tool, not ERASER)
   useEffect(() => {
@@ -463,10 +470,15 @@ export function BitplaceMap() {
       maxZoom: 22,
       dragRotate: false,
       touchPitch: false,
-      renderWorldCopies: false,
+      pitchWithRotate: false,
+      renderWorldCopies: true,
+      maxBounds: [[-Infinity, -85], [Infinity, 85]] as any,
       attributionControl: false,
       canvasContextAttributes: { preserveDrawingBuffer: true },
     } as maplibregl.MapOptions);
+
+    // Disable touch rotation while keeping pinch-to-zoom
+    map.touchZoomRotate.disableRotation();
 
     map.on('load', () => {
       mapRef.current = map;
