@@ -91,7 +91,7 @@ export function useDraftPaint(): UseDraftPaintResult {
     hapticsEngine.trigger('light');
     
     return true;
-  }, [draft]);
+  }, [draft, isTrialMode]);
 
   const removeFromDraft = useCallback((x: number, y: number) => {
     const key = `${x}:${y}`;
