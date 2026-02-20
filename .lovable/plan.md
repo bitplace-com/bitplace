@@ -1,38 +1,69 @@
 
 
-## Fix: Trial PE 10.000 + Trial Wallet su Mobile
+## Fix: Default Hand tool, auto-switch su zoom out, mappa loop orizzontale, no rotazione
 
-### 3 problemi
-
-**1. Limite PE trial troppo basso (1.000 invece di 10.000)**
-In `WalletContext.tsx`, la costante `TRIAL_PE_TOTAL` e impostata a 1000. Va cambiata a 10000. Il toast di attivazione va aggiornato.
-
-**2. Tasto Trial Wallet mancante su mobile**
-Il componente `MobileWalletButton` quando lo stato e "disconnected" mostra solo il bottone wallet e apre `WalletSelectModal` senza passargli `onActivateTrial`. Inoltre, non mostra il link "or try for free" che invece esiste nel `WalletButton` desktop. Serve aggiungere entrambe le opzioni.
-
-**3. Trial drawing non funziona su mobile web**
-Questo e una conseguenza del punto 2: se l'utente non puo attivare il trial mode (perche il bottone non esiste), quando prova a disegnare `requireWallet()` restituisce `false` e mostra l'alert "Connect your wallet". Una volta che il trial mode viene attivato correttamente (fix punto 2), il drawing funzionera perche `useWalletGate` gia gestisce `isTrialMode` correttamente (riga 27: `if (isTrialMode) return true`).
+### 4 modifiche richieste
 
 ---
 
-### Modifiche
+### 1. Default sulla Mano (Hand/Explore) a sessione nuova
 
-#### File 1: `src/contexts/WalletContext.tsx`
-- Riga 153: cambiare `TRIAL_PE_TOTAL = 1000` in `TRIAL_PE_TOTAL = 10000`
-- Riga 278: aggiornare toast da `'1,000 trial PE'` a `'10,000 trial PE'`
+**Stato attuale**: `useMapState` inizializza `interactionMode: 'drag'` (che e gia la mano). Pero `selectedColor` parte a `'#ffffff'` e `paintTool` a `'BRUSH'`, il che potrebbe far sembrare che si parta in modalita disegno in alcuni componenti.
 
-#### File 2: `src/components/wallet/MobileWalletButton.tsx`
-- Aggiungere `activateTrialMode` e `isTrialMode` dal `useWallet()` hook
-- Nello stato "Not connected": aggiungere `onActivateTrial={activateTrialMode}` al `WalletSelectModal`
-- Sotto al `GlassIconButton`, aggiungere il link "or try for free" (come nel `WalletButton` desktop) che chiama `activateTrialMode`
+**Soluzione**: Aggiungere persistenza dell'ultimo tool usato in `localStorage` (`bitplace-interaction-mode`). Al caricamento, se esiste un valore salvato lo ripristina, altrimenti parte da `'drag'` (mano). Ogni cambio di `interactionMode` viene salvato.
 
-#### File 3: `src/components/modals/WalletSelectModal.tsx`
-Nessuna modifica necessaria: il componente gia supporta `onActivateTrial` come prop opzionale e mostra il box "Try Test Wallet" quando e presente.
+**File**: `src/components/map/hooks/useMapState.ts`
+- Leggere `localStorage.getItem('bitplace-interaction-mode')` all'init
+- Salvare in `setInteractionMode` callback
 
 ---
 
-### Risultato atteso
-- Trial PE parte da 10.000 invece di 1.000
-- Su mobile, nella finestra wallet e sotto il bottone wallet, appare l'opzione trial
-- Il disegno in trial mode funziona sia su desktop che su mobile
+### 2. Auto-switch sulla Mano quando si fa zoom out oltre la soglia di disegno
+
+**Stato attuale**: `canPaint` viene calcolato ma non causa nessun auto-switch. L'utente resta in modalita disegno anche quando i pixel sono troppo piccoli per interagire.
+
+**Soluzione**: In `BitplaceMap.tsx`, aggiungere un `useEffect` che osserva `zoom` e `interactionMode`. Quando `canInteractAtZoom(zoom)` diventa `false` e l'utente e in `'draw'`, switcha automaticamente a `'drag'` (mano).
+
+**File**: `src/components/map/BitplaceMap.tsx`
+- Nuovo `useEffect` con dipendenze `[zoom, interactionMode, setInteractionMode]`
+- Condizione: `if (interactionMode === 'draw' && !canInteractAtZoom(zoom)) setInteractionMode('drag')`
+
+---
+
+### 3. Mappa loop orizzontale infinito (come Wplace)
+
+**Stato attuale**: `renderWorldCopies: false` impedisce il wrapping orizzontale. A zoom out massimo la mappa mostra un singolo mondo con bordi vuoti.
+
+**Soluzione**: 
+- Cambiare `renderWorldCopies: true` per abilitare il loop orizzontale infinito
+- Aggiungere `maxBounds` per limitare lo scroll verticale: latitudine limitata a [-85, 85] (limiti WebMercator), longitudine illimitata
+- Usare il metodo `map.setMaxBounds()` con solo limiti verticali, oppure gestire con un listener `moveend` che re-clamp la latitudine
+
+**File**: `src/components/map/BitplaceMap.tsx`
+- Nella creazione della mappa: `renderWorldCopies: true`
+- Aggiungere `maxBounds: [[-Infinity, -85], [Infinity, 85]]` per limitare solo verticalmente
+
+---
+
+### 4. Disabilitare rotazione mappa (touch e desktop)
+
+**Stato attuale**: `dragRotate: false` e `touchPitch: false` sono gia impostati. Ma la rotazione via touch (due dita) non e esplicitamente disabilitata perche `touchZoomRotate` include sia zoom che rotazione.
+
+**Soluzione**: Dopo la creazione della mappa, disabilitare solo la componente di rotazione del touch:
+```text
+map.touchZoomRotate.disableRotation()
+```
+Questo mantiene il pinch-to-zoom attivo ma impedisce la rotazione con due dita. Aggiungere anche `pitchWithRotate: false` e `keyboard` per disabilitare Shift+frecce che ruotano.
+
+**File**: `src/components/map/BitplaceMap.tsx`
+- Dopo `new maplibregl.Map(...)`: `map.touchZoomRotate.disableRotation()`
+
+---
+
+### Riepilogo modifiche
+
+| File | Modifica |
+|------|----------|
+| `useMapState.ts` | Persistenza `interactionMode` in localStorage, default `'drag'` |
+| `BitplaceMap.tsx` | Auto-switch a mano su zoom out + `renderWorldCopies: true` + maxBounds verticale + `disableRotation()` |
 
