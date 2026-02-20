@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import type maplibregl from 'maplibre-gl';
 import type { Template } from '@/hooks/useTemplates';
 import { lngLatToGridFloat, lngLatToGridInt, getCellSize } from '@/lib/pixelGrid';
-import { quantizeImage, getGuideColors, type QuantizedPixel } from '@/lib/paletteQuantizer';
+import { quantizeImageAsync, getGuideColors, type QuantizedPixel } from '@/lib/paletteQuantizer';
 import { cn } from '@/lib/utils';
 
 interface TemplateOverlayProps {
@@ -16,6 +16,7 @@ export function TemplateOverlay({ map, template, selectedColor, onGuideColorsCha
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [quantizedPixels, setQuantizedPixels] = useState<QuantizedPixel[]>([]);
 
   // Load image
   useEffect(() => {
@@ -32,12 +33,24 @@ export function TemplateOverlay({ map, template, selectedColor, onGuideColorsCha
     };
   }, [template.objectUrl]);
 
-  // Memoize quantized pixels - only recompute when relevant properties change
-  const quantizedPixels = useMemo<QuantizedPixel[]>(() => {
+  // Async quantization - replaces synchronous useMemo
+  useEffect(() => {
     if (!imageLoaded || !imageRef.current || template.mode !== 'pixelGuide') {
-      return [];
+      setQuantizedPixels([]);
+      return;
     }
-    return quantizeImage(imageRef.current, template.scale);
+
+    let cancelled = false;
+    const img = imageRef.current;
+
+    quantizeImageAsync(img, template.scale)
+      .then(pixels => {
+        if (!cancelled) {
+          setQuantizedPixels(pixels);
+        }
+      });
+
+    return () => { cancelled = true; };
   }, [imageLoaded, template.mode, template.scale]);
 
   // Extract unique colors from quantized pixels and notify parent
