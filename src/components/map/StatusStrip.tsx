@@ -140,8 +140,8 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             )}
           </div>
 
-          {/* Cluster Badge */}
-          {energy.cluster && (
+          {/* Cluster Badge (hidden in trial — TRIAL badge is enough) */}
+          {energy.cluster && !isTrialMode && (
             <span className={cn(
               "px-1.5 py-0.5 text-[10px] font-semibold uppercase rounded",
               energy.cluster === 'mainnet' 
