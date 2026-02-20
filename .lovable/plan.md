@@ -1,33 +1,51 @@
 
-## Fix: Disegno in trial mode su mobile + Aggiornamento testi PE
 
-### 3 modifiche
+## 4 modifiche richieste
+
+### 1. Rimuovere icona corona dal titolo "Create an Alliance"
+
+**File**: `src/components/modals/AllianceModal.tsx` (righe 181-183)
+
+Rimuovere il componente `<Crown>` dalla riga del titolo "Create an Alliance", lasciando solo il testo.
 
 ---
 
-### 1. Bug critico: Disegno bloccato in trial mode (mobile e desktop)
+### 2. Leaderboard: Sub-categorie con dropdown invece di toggle orizzontale
 
-**Causa**: In `useDraftPaint.ts`, la funzione `addToDraft` usa `useCallback` con dipendenza `[draft]` (riga 94), ma legge `isTrialMode` dalla closure. Quando l'utente attiva il trial mode, `isTrialMode` diventa `true` ma il callback ha ancora il valore vecchio (`false`) perche non e nelle dipendenze. Quindi il check alla riga 54 non viene mai skippato e il token non esiste, mostrando "Sign in to paint".
+**File**: `src/components/modals/LeaderboardModal.tsx` (componente `SubCategoryToggle`, righe 242-261)
 
-**Fix**: Aggiungere `isTrialMode` alle dipendenze del `useCallback` a riga 94:
+Sostituire la barra orizzontale con 4 bottoni con un dropdown/select che mostra solo la sub-categoria selezionata. Cliccando si apre un menu a tendina per scegliere le altre. Questo rende la UI piu pulita mostrando solo una sub-categoria alla volta.
+
+Implementazione: usare un `Select` (Radix) con le 4 opzioni (Top Painters, Top Investors, Top Defenders, Top Attackers), ognuna con la propria icona. Il componente viene usato sia in `LeaderboardModal` che in `LeaderboardPage`, quindi la modifica si propaga automaticamente.
+
+---
+
+### 3. Profilo giocatore: tag alleanza a fianco del nome
+
+**File**: `src/components/modals/PlayerProfileModal.tsx` (righe 228-245)
+
+Attualmente il tag alleanza `[TAG]` e sotto il nome, su una riga separata. Spostarlo nella stessa riga del nome, subito dopo il nome (prima dei badge e della bandiera).
+
+Da:
 ```
-}, [draft, isTrialMode]);
+Nome [badge] [bandiera]
+[TAG]
 ```
 
-**File**: `src/components/map/hooks/useDraftPaint.ts` (riga 94)
+A:
+```
+Nome [TAG] [badge] [bandiera]
+```
 
 ---
 
-### 2. Testo toast attivazione trial: "10,000" -> "100,000"
+### 4. Fix allineamento "Owned by" nel pannello pixel info
 
-**File**: `src/contexts/WalletContext.tsx` (riga 278)
-- Da: `'10,000 trial PE ready to use. Nothing is saved.'`
-- A: `'100,000 trial PE ready to use. Nothing is saved.'`
+**File**: `src/components/map/PixelInfoPanel.tsx` (righe 156-179)
 
----
+Il problema: quando il pixel e di un altro giocatore e l'utente non ha contribuzioni, ci sono DUE span nella stessa riga flex:
+1. Righe 156-174: uno span condizionale con `flex-1` che renderizza `null` (nessun match: non e own, non e DEF, non e ATK) ma occupa comunque spazio come `flex-1`
+2. Righe 175-178: lo span "Owned by..." che viene spinto a destra
 
-### 3. Testo modale wallet: "1,000" -> "100,000"
+La fix: aggiungere il caso "owned by someone else without contribution" dentro il primo blocco condizionale (come ultimo ramo), e rimuovere il secondo span separato (righe 175-179). In questo modo c'e un solo span `flex-1` che contiene sempre il testo corretto, allineato a sinistra subito dopo il quadratino colore.
 
-**File**: `src/components/modals/WalletSelectModal.tsx` (riga 196)
-- Da: `Paint with 1,000 free test PE.`
-- A: `Paint with 100,000 free test PE.`
