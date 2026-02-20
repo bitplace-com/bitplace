@@ -150,7 +150,7 @@ const ENERGY_STALE_THRESHOLD_MS = 60 * 1000; // 60 seconds
 const COOLDOWN_MS = 10000; // 10 second cooldown after failure
 
 const TRIAL_WALLET_ADDRESS = 'TRIAL...MODE';
-const TRIAL_PE_TOTAL = 1000;
+const TRIAL_PE_TOTAL = 10000;
 const TRIAL_SOL_BALANCE = 0.5;
 const TRIAL_SOL_PRICE = 150; // fake price
 
@@ -275,7 +275,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setUser(trialUser);
     setEnergy({ ...trialEnergyState });
     sessionStorage.setItem(TRIAL_MODE_KEY, '1');
-    toast.success('Test Wallet activated!', { description: '1,000 trial PE ready to use. Nothing is saved.' });
+    toast.success('Test Wallet activated!', { description: '10,000 trial PE ready to use. Nothing is saved.' });
   }, []);
 
   // Trial mode: exit
