@@ -1,81 +1,81 @@
 
-## Fix: Modalita Trial completa con tutte le azioni di gioco
+## Fix: Trial Mode viene sovrascritta dalla riconnessione Phantom
 
-### Problema
-La modalita Trial ha tre bug critici che impediscono il funzionamento:
+### Problema identificato
+Ci sono **due bug** che impediscono il disegno in trial mode:
 
-1. **Token expired listener rompe il trial**: Il listener `handleTokenExpired` in `WalletContext.tsx` (linea 853) controlla `walletState === 'AUTHENTICATED'` e resetta a `AUTH_REQUIRED`, senza verificare se `isTrialMode` e attivo. Poiche il token del wallet reale e scaduto, l'evento `TOKEN_EXPIRED_EVENT` si attiva ogni 2 minuti e sovrascrive lo stato trial.
+**Bug 1 - Race condition `restoreSession` vs `activateTrialMode`**
 
-2. **Session restore sovrascrive il trial al reload**: Se la pagina viene ricaricata con trial attivo, la session restore imposta `walletState` a `AUTH_REQUIRED` (dal wallet Phantom reale con token scaduto), sovrascrivendo lo stato `AUTHENTICATED` del trial.
+La funzione `restoreSession` in `WalletContext.tsx` e asincrona e cattura `isTrialMode=false` nella sua closure al mount. Quando l'utente clicca "try for free" DURANTE l'attesa del riconnesso Phantom:
 
-3. **Trial mode bloccato per DEFEND/ATTACK/REINFORCE**: `handleConfirm` blocca esplicitamente tutte le azioni non-PAINT/ERASE in trial mode, e `handleValidate` richiede un token di sessione valido.
+1. `restoreSession` parte con `isTrialMode=false`
+2. Fa `await attemptTrustedReconnect()` (asincrono)  
+3. L'utente attiva il trial -> `walletState='AUTHENTICATED'`, `isTrialMode=true`
+4. Phantom ritorna -> `restoreSession` sovrascrive con `walletState='AUTH_REQUIRED'`
+5. Trial mode rotto: `walletState` non e piu `AUTHENTICATED`
 
-4. **Costo PE piatto**: Il trial usa un costo fisso di 1 PE per pixel, senza considerare il valore reale dei pixel occupati.
+Ma anche se il trial viene attivato DOPO che `restoreSession` ha finito, il Phantom disconnect handler (linea 843) non protegge il trial.
+
+**Bug 2 - `usePaintQueue` blocca il painting senza token**
+
+Anche se `requireWallet()` ritorna `true` (trial mode), il flusso per la modalita PAINT passa per `addToQueue()` che controlla `localStorage.getItem('bitplace_session_token')`. In trial mode non esiste nessun token, quindi `addToQueue` ritorna `false` silenziosamente.
 
 ### Soluzione
 
 #### File 1: `src/contexts/WalletContext.tsx`
 
-**A) Token expired listener - proteggere il trial mode**
-Alla linea 853, aggiungere un check `isTrialMode` prima di resettare lo stato:
+**A) Aggiungere un ref per il trial mode**
+Creare `isTrialModeRef = useRef(isTrialMode)` sincronizzato con lo state. Questo permette di leggere il valore aggiornato dentro le closure asincrone.
+
+**B) Guard in `restoreSession`**
+Dopo `await attemptTrustedReconnect()`, ri-controllare `isTrialModeRef.current`. Se `true`, fare `return` immediato senza modificare lo stato.
+
+**C) Guard in `activateTrialMode`**
+Settare `restoreInFlightRef.current = false` e `isTrialModeRef.current = true` per impedire che un restore in corso sovrascriva.
+
+**D) Guard nel Phantom disconnect handler**
+Aggiungere `if (isTrialModeRef.current) return;` all'inizio di `handleDisconnect` per evitare che Phantom resetti lo stato trial.
+
+#### File 2: `src/components/map/hooks/usePaintQueue.ts`
+
+**A) Ricevere `isTrialMode` come parametro**
+Il hook deve accettare un flag `isTrialMode` per bypassare i controlli del token.
+
+**B) `addToQueue`: skip token check in trial**
+Cambiare il check del token (linea 47-51) per accettare trial mode:
 ```
-if (walletState === 'AUTHENTICATED' && !isTrialMode) {
+if (!isTrialMode) {
+  const token = localStorage.getItem('bitplace_session_token');
+  if (!token) { return false; }
+}
 ```
 
-**B) Session restore - saltare se trial mode attivo**
-All'inizio della funzione `restoreSession` (circa linea 745), aggiungere:
+**C) `flushQueue`: skip backend in trial**
+In trial mode, `flushQueue` deve solo confermare i pixel localmente senza chiamare `validate`/`commit`:
 ```
-// Skip session restore if trial mode is active
 if (isTrialMode) {
-  walletDebug('session_restore_skip', { reason: 'trial_mode_active' });
-  // Re-establish trial state
-  activateTrialMode();
-  restoreInFlightRef.current = false;
+  // Confirm locally, no backend
+  pixelsToCommit.forEach(({ x, y }) => confirmPixel(x, y));
+  pendingPixelsRef.current = new Map();
+  setQueue(new Set());
   return;
 }
 ```
-Nota: `isTrialMode` nella closure si riferisce allo state inizializzato da sessionStorage, quindi sara `true` se il trial era attivo prima del reload.
 
-#### File 2: `src/components/map/BitplaceMap.tsx`
+#### File 3: `src/components/map/BitplaceMap.tsx`
 
-**A) handleValidate - branch trial mode**
-All'inizio di `handleValidate` (dopo `clearError()`), aggiungere un branch per trial mode che:
-- Salta il check del token
-- Recupera i dati dei pixel selezionati dal DB (lettura pubblica, no auth)
-- Calcola i costi reali basandosi su ownership e stake
-- Crea un `ValidateResult` simulato e lo imposta tramite `setValidationResult` (riutilizzando il metodo `clearValidation` e il flow esistente)
+**Passare `isTrialMode` a `usePaintQueue`**
+Aggiornare la chiamata al hook per passare il flag trial.
 
-Per il fetch dei dati pixel, usare `supabase.rpc('fetch_pixels_by_coords')` che e `SECURITY DEFINER` e accessibile con la sola anon key.
+### Riepilogo modifiche
 
-Logica di calcolo costi per trial:
-- **PAINT su pixel vuoto**: 1 PE
-- **PAINT su pixel occupato** (takeover): `max(0, owner_stake + def_total - atk_total) + 1` PE
-- **PAINT su pixel proprio** (repaint): 0 PE (gia di proprieta)
-- **ERASE proprio pixel**: 0 PE (refund simulato)
-- **DEFEND**: `pePerPixel * pixelCount` (solo pixel propri)
-- **ATTACK**: `pePerPixel * pixelCount` (solo pixel altrui)
-- **REINFORCE**: `pePerPixel * pixelCount`
-- **WITHDRAW_***: refund simulato
+| File | Modifica |
+|------|----------|
+| `WalletContext.tsx` | Ref per trial mode + guard nel restore asincrono + guard nel Phantom disconnect |
+| `usePaintQueue.ts` | Accettare `isTrialMode`, skip token check, skip backend flush |
+| `BitplaceMap.tsx` | Passare `isTrialMode` a `usePaintQueue` |
 
-La risposta simulata segue la struttura `ValidateResult` con `ok`, `requiredPeTotal`, `breakdown`, `snapshotHash` (hash fittizio), e `invalidPixels`.
-
-**B) handleConfirm - espandere trial mode per tutti i game modes**
-Rimuovere il blocco alle linee 1417-1421 che limita il trial a PAINT e ERASE. Espandere il branch trial per gestire:
-
-- **PAINT**: (gia funzionante) Aggiungere calcolo costi reali basato sui dati pixel fetchati durante la validazione, invece del costo fisso di 1 PE/pixel.
-- **ERASE**: (gia funzionante) Come prima.
-- **DEFEND/ATTACK/REINFORCE**: Detrarre PE dal trial, mostrare toast di successo. I pixel non cambiano visivamente (come nel gioco reale), ma il PE viene detratto.
-- **WITHDRAW_***: Aggiungere PE al trial (refund), mostrare toast di successo.
-
-Per tutti i modi, usare `updateTrialPe()` per aggiornare il bilancio trial.
-
-**C) Trial ownership tracking (opzionale, miglioramento futuro)**
-Aggiungere un `useRef<Map<string, { ownerId: string; stake: number }>>` per tracciare i pixel "posseduti" dal trial user. Quando l'utente dipinge su un pixel in trial mode, aggiornare questa mappa. Questo permette al calcolo dei costi successivi di considerare i pixel gia dipinti nella stessa sessione trial.
-
-### Considerazioni
-
-- **Nessun dato salvato**: Tutte le azioni trial modificano solo lo stato locale (React state, tile cache). Nessuna edge function viene chiamata.
-- **Lettura DB pubblica**: `fetch_pixels_by_coords` e un RPC function SECURITY DEFINER accessibile con anon key, quindi funziona senza auth.
-- **Reload pagina**: Al reload, tutti i pixel trial spariscono (tile cache resettato) ma il trial mode rimane attivo (sessionStorage).
-- **Nessun conflitto con il gioco reale**: I pixel trial non vengono scritti nel DB, quindi non interferiscono con altri giocatori.
-- **PE realistici**: I costi seguono le regole reali del gioco basandosi sullo stato attuale dei pixel nel database.
+### Cosa NON cambia
+- La logica di `useWalletGate` e gia corretta (ritorna `true` in trial mode)
+- Il `trialValidate` e `handleConfirm` trial gia implementati restano invariati
+- Nessuna modifica al database o edge functions
