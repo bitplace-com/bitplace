@@ -13,8 +13,8 @@ import type { ValidateResult } from '@/hooks/useGameActions';
 export type PaintState = 'IDLE' | 'DRAFT' | 'VALIDATING' | 'VALIDATED' | 'COMMITTING';
 
 export interface FrozenPayload {
-  pixels: { x: number; y: number }[];
-  color: string;
+  pixels: { x: number; y: number; color: string }[];
+  color: string; // kept as fallback / display color
   pixelHash: string;
   validatedAt: number;
   snapshotHash: string;
@@ -31,7 +31,7 @@ export interface UsePaintStateMachineResult {
   
   // State transitions
   enterDraft: () => void;
-  freeze: (pixels: { x: number; y: number }[], color: string) => FrozenPayload;
+  freeze: (pixels: { x: number; y: number; color: string }[], color: string) => FrozenPayload;
   startValidation: () => void;
   completeValidation: (result: ValidateResult) => void;
   failValidation: () => void;
@@ -54,7 +54,7 @@ export function usePaintStateMachine(): UsePaintStateMachineResult {
   const frozenHashRef = useRef<string | null>(null);
 
   // Check if current selection differs from frozen payload
-  const checkSelectionChanged = useCallback((currentPixels: { x: number; y: number }[]): boolean => {
+  const checkSelectionChanged = useCallback((currentPixels: { x: number; y: number; color?: string }[]): boolean => {
     if (!frozenHashRef.current || state !== 'VALIDATED') return false;
     const currentHash = computePixelHash(currentPixels);
     return currentHash !== frozenHashRef.current;
@@ -76,7 +76,7 @@ export function usePaintStateMachine(): UsePaintStateMachineResult {
 
   // Freeze current draft into immutable payload
   const freeze = useCallback((
-    pixels: { x: number; y: number }[],
+    pixels: { x: number; y: number; color: string }[],
     color: string
   ): FrozenPayload => {
     const hash = computePixelHash(pixels);

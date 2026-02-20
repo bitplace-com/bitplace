@@ -116,7 +116,7 @@ export function BitplaceMap() {
     checkSelectionChanged,
   } = usePaintStateMachine();
   const { queue: paintQueue, queueSize, isSpacePainting, isFlushing, startSpacePaint, stopSpacePaint, addToQueue, flushQueue } = usePaintQueue(paintPixel, confirmPixel, isTrialMode);
-  const { draft: draftPixels, draftCount, draftColor, isAtLimit: isDraftAtLimit, draftDirty, remainingCapacity: draftRemainingCapacity, addToDraft, removeFromDraft, removeInvalidFromDraft, undoLast: undoDraft, clearDraft, getDraftPixels, setDraftDirty } = useDraftPaint();
+  const { draft: draftPixels, draftCount, draftColor, isAtLimit: isDraftAtLimit, draftDirty, remainingCapacity: draftRemainingCapacity, addToDraft, removeFromDraft, removeInvalidFromDraft, undoLast: undoDraft, clearDraft, getDraftPixels, getDraftPixelsWithColor, setDraftDirty } = useDraftPaint();
   const { brushSelection, selectionCount, isSelectionAtLimit, hasShownLimitToast, startBrushSelection, addToBrushSelection, endBrushSelection, clearBrushSelection, getSelectedPixels: getBrushSelectedPixels, setFromRectSelection } = useBrushSelection();
   const { 
     brushSelection: inspectBrushSelection, 
@@ -1665,7 +1665,7 @@ export function BitplaceMap() {
     const gameMode = isEraseAction ? 'ERASE' : getGameMode(mode);
     
     // Use draftPixels for PAINT mode, pendingPixels for others
-    const pixelsToValidate = gameMode === 'PAINT' ? getDraftPixels() : pendingPixels;
+    const pixelsToValidate = gameMode === 'PAINT' ? getDraftPixelsWithColor() : pendingPixels;
     
     if (pixelsToValidate.length === 0) {
       toast.info('No pixels selected');
@@ -1676,7 +1676,7 @@ export function BitplaceMap() {
     if (isTrialMode) {
       // STATE MACHINE: Freeze payload for PAINT mode
       if (gameMode === 'PAINT' && selectedColor) {
-        freezePayload(pixelsToValidate, selectedColor);
+        freezePayload(pixelsToValidate as { x: number; y: number; color: string }[], selectedColor);
         startPaintValidation();
       }
       setDraftDirty(false);
@@ -1712,7 +1712,7 @@ export function BitplaceMap() {
     
     // STATE MACHINE: Freeze payload for PAINT mode
     if (gameMode === 'PAINT' && selectedColor) {
-      freezePayload(pixelsToValidate, selectedColor);
+      freezePayload(pixelsToValidate as { x: number; y: number; color: string }[], selectedColor);
       startPaintValidation();
     }
     
@@ -1841,7 +1841,7 @@ export function BitplaceMap() {
     
     // STATE MACHINE: For PAINT mode, use frozen payload if available (VALIDATED state)
     // This ensures we commit exactly what was validated, not potentially changed draft
-    let pixelsToCommit: { x: number; y: number }[];
+    let pixelsToCommit: { x: number; y: number; color?: string }[];
     let colorToCommit: string | null = selectedColor;
     let snapshotHashToUse: string | undefined = validationResult?.snapshotHash;
     
@@ -1852,7 +1852,7 @@ export function BitplaceMap() {
       snapshotHashToUse = frozenPayload.snapshotHash;
     } else {
       // Fallback: use current draft/pending
-      pixelsToCommit = gameMode === 'PAINT' ? getDraftPixels() : pendingPixels;
+      pixelsToCommit = gameMode === 'PAINT' ? getDraftPixelsWithColor() : pendingPixels;
     }
     
     if (pixelsToCommit.length === 0) {
@@ -1873,7 +1873,7 @@ export function BitplaceMap() {
     if (!validationResult?.ok && !frozenPayload?.snapshotHash && !hasWithdrawRefund) {
       // No valid validation - need to validate first
       if (gameMode === 'PAINT') {
-        freezePayload(pixelsToCommit, colorToCommit!);
+        freezePayload(pixelsToCommit as { x: number; y: number; color: string }[], colorToCommit!);
         startPaintValidation();
         
         const result = await validate({ mode: 'PAINT', pixels: pixelsToCommit, color: colorToCommit });
