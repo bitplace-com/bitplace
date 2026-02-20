@@ -79,8 +79,8 @@ export function nearestPaletteColor(rgb: RGB): string {
   return nearestHex;
 }
 
-/** Max pixels for guide resolution cap */
-const MAX_GUIDE_PIXELS = 250_000;
+/** Max pixels for guide resolution cap - reduced for performance */
+const MAX_GUIDE_PIXELS = 100_000;
 
 /**
  * Prepare canvas image data for quantization, with resolution cap

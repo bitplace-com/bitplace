@@ -286,6 +286,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setEnergy(defaultEnergyState);
     sessionStorage.removeItem(TRIAL_MODE_KEY);
+    // Clear trial pixel cache
+    try { localStorage.removeItem('bitplace_trial_pixels'); } catch {}
   }, []);
 
   // Trial mode: update PE when painting

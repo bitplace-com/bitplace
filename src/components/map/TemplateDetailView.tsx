@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,31 @@ export function TemplateDetailView({
   onToggleMoveMode,
 }: TemplateDetailViewProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [localScale, setLocalScale] = useState(template.scale);
+  const scaleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync localScale when template.scale changes externally
+  useEffect(() => {
+    setLocalScale(template.scale);
+  }, [template.scale]);
+
+  // Debounced scale update for pixel guide mode
+  const handleScaleChange = useCallback((value: number) => {
+    setLocalScale(value);
+    if (scaleTimerRef.current) clearTimeout(scaleTimerRef.current);
+    if (template.mode === 'pixelGuide') {
+      scaleTimerRef.current = setTimeout(() => {
+        onUpdateSettings({ scale: value });
+      }, 300);
+    } else {
+      onUpdateSettings({ scale: value });
+    }
+  }, [template.mode, onUpdateSettings]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => { if (scaleTimerRef.current) clearTimeout(scaleTimerRef.current); };
+  }, []);
 
   // Calculate guide dimensions
   const guideDimensions = useMemo(() => {
@@ -156,11 +181,11 @@ export function TemplateDetailView({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-xs text-muted-foreground">Scale</label>
-            <span className="text-xs font-mono tabular-nums">{template.scale}%</span>
+            <span className="text-xs font-mono tabular-nums">{localScale}%</span>
           </div>
           <Slider
-            value={[template.scale]}
-            onValueChange={([value]) => onUpdateSettings({ scale: value })}
+            value={[localScale]}
+            onValueChange={([value]) => handleScaleChange(value)}
             min={1}
             max={400}
             step={1}

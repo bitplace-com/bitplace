@@ -194,6 +194,47 @@ export function BitplaceMap() {
   // Trial mode: store validation result locally (since we bypass the edge function)
   const trialValidationRef = useRef<any>(null);
 
+  // Trial pixel localStorage persistence helpers
+  const TRIAL_PIXELS_KEY = 'bitplace_trial_pixels';
+  const MAX_TRIAL_PIXELS = 10_000;
+
+  const saveTrialPixelsToStorage = useCallback((newPixels: { x: number; y: number; color: string }[], erasePixels?: { x: number; y: number }[]) => {
+    try {
+      const raw = localStorage.getItem(TRIAL_PIXELS_KEY);
+      let stored: { x: number; y: number; color: string }[] = raw ? JSON.parse(raw) : [];
+      
+      // Remove erased pixels
+      if (erasePixels?.length) {
+        const eraseSet = new Set(erasePixels.map(p => `${p.x}:${p.y}`));
+        stored = stored.filter(p => !eraseSet.has(`${p.x}:${p.y}`));
+      }
+      
+      // Add new pixels (overwrite existing coords)
+      if (newPixels.length) {
+        const newMap = new Map(newPixels.map(p => [`${p.x}:${p.y}`, p]));
+        stored = stored.filter(p => !newMap.has(`${p.x}:${p.y}`));
+        stored.push(...newPixels);
+      }
+      
+      // Cap at limit
+      if (stored.length > MAX_TRIAL_PIXELS) stored = stored.slice(-MAX_TRIAL_PIXELS);
+      localStorage.setItem(TRIAL_PIXELS_KEY, JSON.stringify(stored));
+    } catch {}
+  }, []);
+
+  // Restore trial pixels from localStorage on mount
+  useEffect(() => {
+    if (!isTrialMode) return;
+    try {
+      const raw = localStorage.getItem(TRIAL_PIXELS_KEY);
+      if (!raw) return;
+      const stored = JSON.parse(raw) as { x: number; y: number; color: string }[];
+      if (stored.length > 0) {
+        addPixels(stored);
+      }
+    } catch {}
+  }, []); // Only on mount
+
   // Track if selection changed after validation (for auto-invalidation hint)
   const isSelectionChangedAfterValidation = useMemo(() => {
     if (paintState !== 'VALIDATED' || !frozenPayload) return false;
@@ -1395,6 +1436,7 @@ export function BitplaceMap() {
   const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), []);
 
   // Trial validation: fetch real pixel data and compute costs locally
+  // Also checks local pixel cache for trial-painted pixels
   const trialValidate = useCallback(async (gameMode: string, pixelsToValidate: { x: number; y: number }[]) => {
     const TRIAL_USER_ID = user?.id || 'trial';
     
@@ -1422,11 +1464,29 @@ export function BitplaceMap() {
       console.error('[trialValidate] RPC error:', err);
     }
     
-    // Build lookup map
+    // Build lookup map from DB
     const pixelMap = new Map<string, PixelInfo>();
     for (const p of dbPixelData) {
       pixelMap.set(`${p.x}:${p.y}`, p);
     }
+
+    // Build lookup set for locally painted trial pixels
+    const trialPixelsRaw = localStorage.getItem('bitplace_trial_pixels');
+    const trialPixelCache = new Set<string>();
+    if (trialPixelsRaw) {
+      try {
+        const parsed = JSON.parse(trialPixelsRaw) as { x: number; y: number; color: string }[];
+        parsed.forEach(p => trialPixelCache.add(`${p.x}:${p.y}`));
+      } catch {}
+    }
+    // Also include pixels from the in-memory localPixels store
+    localPixels.forEach((_, key) => trialPixelCache.add(key));
+    
+    // Helper: check if pixel is "owned by trial user" (in local cache)
+    const isTrialOwned = (x: number, y: number): boolean => {
+      const key = `${x}:${y}`;
+      return trialPixelCache.has(key);
+    };
     
     let totalCost = 0;
     const invalidPixelsList: { x: number; y: number; reason: string }[] = [];
@@ -1434,11 +1494,14 @@ export function BitplaceMap() {
     if (gameMode === 'PAINT') {
       for (const px of pixelsToValidate) {
         const existing = pixelMap.get(`${px.x}:${px.y}`);
-        if (!existing) {
+        if (isTrialOwned(px.x, px.y)) {
+          // Trial-owned pixel: repaint free
+          totalCost += 0;
+        } else if (!existing) {
           // Empty pixel: 1 PE
           totalCost += 1;
         } else if (existing.owner_user_id === TRIAL_USER_ID) {
-          // Own pixel: repaint free
+          // Own pixel in DB: repaint free
           totalCost += 0;
         } else {
           // Takeover: max(0, V) + 1
@@ -1448,8 +1511,14 @@ export function BitplaceMap() {
       }
     } else if (gameMode === 'ERASE') {
       for (const px of pixelsToValidate) {
-        const existing = pixelMap.get(`${px.x}:${px.y}`);
-        if (!existing || existing.owner_user_id !== TRIAL_USER_ID) {
+        const key = `${px.x}:${px.y}`;
+        const existing = pixelMap.get(key);
+        // Trial-owned pixels can be erased
+        if (isTrialOwned(px.x, px.y)) {
+          // Valid - trial owned
+        } else if (existing && existing.owner_user_id === TRIAL_USER_ID) {
+          // Valid - DB owned
+        } else {
           invalidPixelsList.push({ x: px.x, y: px.y, reason: 'Not your pixel' });
         }
         // Erase is free (refund)
@@ -1457,7 +1526,10 @@ export function BitplaceMap() {
     } else if (gameMode === 'DEFEND') {
       for (const px of pixelsToValidate) {
         const existing = pixelMap.get(`${px.x}:${px.y}`);
-        if (!existing || !existing.owner_user_id) {
+        if (isTrialOwned(px.x, px.y)) {
+          // Cannot defend own pixel
+          invalidPixelsList.push({ x: px.x, y: px.y, reason: 'Cannot defend own pixel' });
+        } else if (!existing || !existing.owner_user_id) {
           invalidPixelsList.push({ x: px.x, y: px.y, reason: 'Empty pixel' });
         } else if (existing.owner_user_id === TRIAL_USER_ID) {
           invalidPixelsList.push({ x: px.x, y: px.y, reason: 'Cannot defend own pixel' });
@@ -1468,7 +1540,10 @@ export function BitplaceMap() {
     } else if (gameMode === 'ATTACK') {
       for (const px of pixelsToValidate) {
         const existing = pixelMap.get(`${px.x}:${px.y}`);
-        if (!existing || !existing.owner_user_id) {
+        if (isTrialOwned(px.x, px.y)) {
+          // Cannot attack own pixel
+          invalidPixelsList.push({ x: px.x, y: px.y, reason: 'Cannot attack own pixel' });
+        } else if (!existing || !existing.owner_user_id) {
           invalidPixelsList.push({ x: px.x, y: px.y, reason: 'Empty pixel' });
         } else if (existing.owner_user_id === TRIAL_USER_ID) {
           invalidPixelsList.push({ x: px.x, y: px.y, reason: 'Cannot attack own pixel' });
@@ -1479,10 +1554,13 @@ export function BitplaceMap() {
     } else if (gameMode === 'REINFORCE') {
       for (const px of pixelsToValidate) {
         const existing = pixelMap.get(`${px.x}:${px.y}`);
-        if (!existing || existing.owner_user_id !== TRIAL_USER_ID) {
-          invalidPixelsList.push({ x: px.x, y: px.y, reason: 'Not your pixel' });
-        } else {
+        // Trial-owned pixels can be reinforced
+        if (isTrialOwned(px.x, px.y)) {
           totalCost += pePerPixel;
+        } else if (existing && existing.owner_user_id === TRIAL_USER_ID) {
+          totalCost += pePerPixel;
+        } else {
+          invalidPixelsList.push({ x: px.x, y: px.y, reason: 'Not your pixel' });
         }
       }
     } else if (gameMode === 'WITHDRAW_DEF' || gameMode === 'WITHDRAW_ATK' || gameMode === 'WITHDRAW_REINFORCE') {
@@ -1508,7 +1586,7 @@ export function BitplaceMap() {
       snapshotHash: `trial_${Date.now()}`,
       invalidPixels: invalidPixelsList,
     } as any;
-  }, [user?.id, pePerPixel]);
+  }, [user?.id, pePerPixel, localPixels]);
 
   const handleValidate = useCallback(async () => {
     // Clear any previous error before starting new validation
@@ -1655,6 +1733,7 @@ export function BitplaceMap() {
       if (gameMode === 'PAINT' && colorToCommit) {
         const pixelsForCache = pixelsToCommit.map(({ x, y }) => ({ x, y, color: colorToCommit }));
         addPixels(pixelsForCache);
+        saveTrialPixelsToStorage(pixelsForCache);
         if (peCost > 0) updateTrialPe(peCost);
         clearDraft();
         resetPaintState();
@@ -1663,6 +1742,7 @@ export function BitplaceMap() {
         toast.success(`${pixelsToCommit.length} pixels painted (${peCost} PE)`, { description: 'TRIAL — not saved to server' });
       } else if (gameMode === 'ERASE') {
         removePixels(pixelsToCommit);
+        saveTrialPixelsToStorage([], pixelsToCommit);
         handleClearSelection();
         playSound('erase_success');
         toast.success(`${pixelsToCommit.length} pixels erased`, { description: 'TRIAL — not saved to server' });
