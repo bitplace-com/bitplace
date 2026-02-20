@@ -437,20 +437,44 @@ export function BitplaceMap() {
     interactionLayerRef,
     mapRef.current,
     {
-      enabled: mapReady && canPaint,
-      isHandMode: interactionMode === 'drag',
+      enabled: mapReady && (canPaint || isMoveMode),
+      isHandMode: interactionMode === 'drag' && !isMoveMode,
       callbacks: {
         onPointerStart: (x, y, type) => {
+          // Template move mode: start drag
+          if (isMoveMode && activeTemplateId) {
+            isDraggingRef.current = true;
+            const tmpl = templates.find(t => t.id === activeTemplateId);
+            if (tmpl) {
+              templateDragOffsetRef.current = {
+                dx: x - tmpl.positionX,
+                dy: y - tmpl.positionY,
+              };
+            }
+            return;
+          }
           if (interactionMode === 'drag') return; // Let map handle in HAND mode
           handleTouchPaintStart(x, y);
         },
         onPointerMove: (x, y, type) => {
+          // Template move mode: update position
+          if (isMoveMode && activeTemplateId && isDraggingRef.current) {
+            const offset = templateDragOffsetRef.current || { dx: 0, dy: 0 };
+            updatePosition(activeTemplateId, { x: x - offset.dx, y: y - offset.dy });
+            return;
+          }
           if (interactionMode === 'drag') return;
           if (isTouchPaintingRef.current) {
             handleTouchPaintMove(x, y);
           }
         },
         onPointerEnd: (x, y, type, wasTap) => {
+          // Template move mode: end drag
+          if (isMoveMode && isDraggingRef.current) {
+            isDraggingRef.current = false;
+            templateDragOffsetRef.current = null;
+            return;
+          }
           if (interactionMode === 'drag') {
             if (wasTap) handleTouchTapInspect(x, y);
             return;
