@@ -1,69 +1,49 @@
 
 
-## Fix: Default Hand tool, auto-switch su zoom out, mappa loop orizzontale, no rotazione
+## Fix: Rimuovi badge Devnet in trial + Ripristino automatico modalità Crea dopo zoom-in
 
-### 4 modifiche richieste
+### 1. Rimuovere badge "Devnet" in modalità trial
 
----
+Il badge cluster nella StatusStrip mostra "devnet" quando il trial mode e attivo, perche `WalletContext` imposta `cluster: 'devnet'` per la sessione trial. La soluzione e nascondere il badge cluster quando `isTrialMode` e attivo (il badge TRIAL gia presente e sufficiente).
 
-### 1. Default sulla Mano (Hand/Explore) a sessione nuova
-
-**Stato attuale**: `useMapState` inizializza `interactionMode: 'drag'` (che e gia la mano). Pero `selectedColor` parte a `'#ffffff'` e `paintTool` a `'BRUSH'`, il che potrebbe far sembrare che si parta in modalita disegno in alcuni componenti.
-
-**Soluzione**: Aggiungere persistenza dell'ultimo tool usato in `localStorage` (`bitplace-interaction-mode`). Al caricamento, se esiste un valore salvato lo ripristina, altrimenti parte da `'drag'` (mano). Ogni cambio di `interactionMode` viene salvato.
-
-**File**: `src/components/map/hooks/useMapState.ts`
-- Leggere `localStorage.getItem('bitplace-interaction-mode')` all'init
-- Salvare in `setInteractionMode` callback
+**File**: `src/components/map/StatusStrip.tsx`
+- Aggiungere `isTrialMode` da `useWallet()`
+- Condizione del badge cluster: `{energy.cluster && !isTrialMode && (...)}`
 
 ---
 
-### 2. Auto-switch sulla Mano quando si fa zoom out oltre la soglia di disegno
+### 2. Ripristino automatico della modalita Crea dopo zoom-in
 
-**Stato attuale**: `canPaint` viene calcolato ma non causa nessun auto-switch. L'utente resta in modalita disegno anche quando i pixel sono troppo piccoli per interagire.
+Attualmente, quando si zooma oltre la soglia, il sistema switcha su "drag" (mano). Ma quando si torna dentro la soglia, resta sulla mano. L'utente vuole che torni automaticamente su "draw" (matita) se era in draw prima dello switch automatico.
 
-**Soluzione**: In `BitplaceMap.tsx`, aggiungere un `useEffect` che osserva `zoom` e `interactionMode`. Quando `canInteractAtZoom(zoom)` diventa `false` e l'utente e in `'draw'`, switcha automaticamente a `'drag'` (mano).
+**Soluzione**: Usare un `useRef` (`wasDrawBeforeAutoSwitch`) per ricordare se lo switch e stato automatico (causato dallo zoom) oppure manuale (scelto dall'utente).
+
+- Quando lo zoom esce dalla soglia e il modo e `'draw'`: salvare `wasDrawBeforeAutoSwitch.current = true`, poi switchare a `'drag'`
+- Quando lo zoom rientra nella soglia e `wasDrawBeforeAutoSwitch.current === true`: switchare a `'draw'` e resettare il ref
+- Se l'utente cambia manualmente il modo (cliccando sulla mano/matita), resettare `wasDrawBeforeAutoSwitch.current = false`
 
 **File**: `src/components/map/BitplaceMap.tsx`
-- Nuovo `useEffect` con dipendenze `[zoom, interactionMode, setInteractionMode]`
-- Condizione: `if (interactionMode === 'draw' && !canInteractAtZoom(zoom)) setInteractionMode('drag')`
+- Aggiungere `const wasDrawBeforeAutoSwitch = useRef(false)`
+- Modificare il `useEffect` esistente (riga 245-250) per gestire entrambe le direzioni (uscita e rientro nella soglia)
 
 ---
 
-### 3. Mappa loop orizzontale infinito (come Wplace)
+### Dettagli tecnici
 
-**Stato attuale**: `renderWorldCopies: false` impedisce il wrapping orizzontale. A zoom out massimo la mappa mostra un singolo mondo con bordi vuoti.
-
-**Soluzione**: 
-- Cambiare `renderWorldCopies: true` per abilitare il loop orizzontale infinito
-- Aggiungere `maxBounds` per limitare lo scroll verticale: latitudine limitata a [-85, 85] (limiti WebMercator), longitudine illimitata
-- Usare il metodo `map.setMaxBounds()` con solo limiti verticali, oppure gestire con un listener `moveend` che re-clamp la latitudine
-
-**File**: `src/components/map/BitplaceMap.tsx`
-- Nella creazione della mappa: `renderWorldCopies: true`
-- Aggiungere `maxBounds: [[-Infinity, -85], [Infinity, 85]]` per limitare solo verticalmente
-
----
-
-### 4. Disabilitare rotazione mappa (touch e desktop)
-
-**Stato attuale**: `dragRotate: false` e `touchPitch: false` sono gia impostati. Ma la rotazione via touch (due dita) non e esplicitamente disabilitata perche `touchZoomRotate` include sia zoom che rotazione.
-
-**Soluzione**: Dopo la creazione della mappa, disabilitare solo la componente di rotazione del touch:
 ```text
-map.touchZoomRotate.disableRotation()
+useEffect:
+  if (interactionMode === 'draw' && !canInteract):
+    wasDrawBeforeAutoSwitch.current = true
+    setInteractionMode('drag')
+  
+  if (interactionMode === 'drag' && canInteract && wasDrawBeforeAutoSwitch.current):
+    wasDrawBeforeAutoSwitch.current = false
+    setInteractionMode('draw')
 ```
-Questo mantiene il pinch-to-zoom attivo ma impedisce la rotazione con due dita. Aggiungere anche `pitchWithRotate: false` e `keyboard` per disabilitare Shift+frecce che ruotano.
 
-**File**: `src/components/map/BitplaceMap.tsx`
-- Dopo `new maplibregl.Map(...)`: `map.touchZoomRotate.disableRotation()`
+Per resettare il ref quando l'utente cambia manualmente, bisogna intercettare i cambi manuali. Dato che `setInteractionMode` in `useMapState` viene chiamato sia manualmente (click) sia automaticamente (dal useEffect), la cosa piu semplice e resettare il ref direttamente nel useEffect: se l'utente clicca manualmente su drag mentre e in zona paintabile, il ref viene resettato nel ciclo successivo perche `interactionMode === 'drag'` e `canInteract === true` ma `wasDrawBeforeAutoSwitch === false` (nessuna azione).
 
----
+Se invece l'utente clicca manualmente su draw e poi zooma out, il ciclo funziona normalmente. L'unico caso da gestire e: utente in draw, zoom out (auto-switch a drag), utente clicca manualmente su drag (conferma che vuole stare su drag), zoom in di nuovo. Per questo caso, aggiungiamo un secondo useEffect che resetta il ref quando `interactionMode` cambia e `canInteractAtZoom(zoom)` e true (significa che il cambio e manuale, non automatico).
 
-### Riepilogo modifiche
-
-| File | Modifica |
-|------|----------|
-| `useMapState.ts` | Persistenza `interactionMode` in localStorage, default `'drag'` |
-| `BitplaceMap.tsx` | Auto-switch a mano su zoom out + `renderWorldCopies: true` + maxBounds verticale + `disableRotation()` |
+**Approccio semplificato**: un singolo `useEffect` con un ref booleano. Il ref viene settato a `true` solo dallo zoom-out automatico e resettato quando viene ripristinato il draw o quando l'utente cambia modo manualmente in zona paintabile.
 
