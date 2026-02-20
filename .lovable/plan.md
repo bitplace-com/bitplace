@@ -1,51 +1,44 @@
 
 
-## 4 modifiche richieste
+## Fix: Template Move Mode su Mobile
 
-### 1. Rimuovere icona corona dal titolo "Create an Alliance"
+### Problema
 
-**File**: `src/components/modals/AllianceModal.tsx` (righe 181-183)
+Il template move funziona solo con il mouse (desktop) perche usa gli eventi MapLibre `mousedown`/`mousemove`/`mouseup`, che non si attivano con il tocco su mobile. Su mobile, gli eventi touch passano attraverso `usePointerInteraction`, che:
 
-Rimuovere il componente `<Crown>` dalla riga del titolo "Create an Alliance", lasciando solo il testo.
+1. Non gestisce affatto la modalita Move dei template
+2. Quando `isHandMode` e attivo (drag mode), lascia passare tutti gli eventi touch alla mappa senza intercettarli
+3. L'hook e abilitato solo quando `canPaint` e true, ma in Move mode potrebbe non servire
 
----
+### Soluzione
 
-### 2. Leaderboard: Sub-categorie con dropdown invece di toggle orizzontale
+Modificare 2 punti in `src/components/map/BitplaceMap.tsx`:
 
-**File**: `src/components/modals/LeaderboardModal.tsx` (componente `SubCategoryToggle`, righe 242-261)
+#### 1. Aggiornare `enabled` e `isHandMode` di usePointerInteraction
 
-Sostituire la barra orizzontale con 4 bottoni con un dropdown/select che mostra solo la sub-categoria selezionata. Cliccando si apre un menu a tendina per scegliere le altre. Questo rende la UI piu pulita mostrando solo una sub-categoria alla volta.
-
-Implementazione: usare un `Select` (Radix) con le 4 opzioni (Top Painters, Top Investors, Top Defenders, Top Attackers), ognuna con la propria icona. Il componente viene usato sia in `LeaderboardModal` che in `LeaderboardPage`, quindi la modifica si propaga automaticamente.
-
----
-
-### 3. Profilo giocatore: tag alleanza a fianco del nome
-
-**File**: `src/components/modals/PlayerProfileModal.tsx` (righe 228-245)
-
-Attualmente il tag alleanza `[TAG]` e sotto il nome, su una riga separata. Spostarlo nella stessa riga del nome, subito dopo il nome (prima dei badge e della bandiera).
-
-Da:
-```
-Nome [badge] [bandiera]
-[TAG]
+Attualmente:
+```js
+enabled: mapReady && canPaint,
+isHandMode: interactionMode === 'drag',
 ```
 
-A:
+Nuovo:
+```js
+enabled: mapReady && (canPaint || isMoveMode),
+isHandMode: interactionMode === 'drag' && !isMoveMode,
 ```
-Nome [TAG] [badge] [bandiera]
-```
 
----
+Questo fa si che:
+- L'hook catturi i touch events anche quando siamo in Move mode
+- In Move mode, `isHandMode` e `false` anche se siamo in drag, cosi i touch vengono intercettati invece di passare alla mappa
 
-### 4. Fix allineamento "Owned by" nel pannello pixel info
+#### 2. Aggiungere logica Move nelle callbacks touch
 
-**File**: `src/components/map/PixelInfoPanel.tsx` (righe 156-179)
+Nei tre callback (`onPointerStart`, `onPointerMove`, `onPointerEnd`), aggiungere come PRIMO check la gestione del template move:
 
-Il problema: quando il pixel e di un altro giocatore e l'utente non ha contribuzioni, ci sono DUE span nella stessa riga flex:
-1. Righe 156-174: uno span condizionale con `flex-1` che renderizza `null` (nessun match: non e own, non e DEF, non e ATK) ma occupa comunque spazio come `flex-1`
-2. Righe 175-178: lo span "Owned by..." che viene spinto a destra
+- **onPointerStart**: se `isMoveMode && activeTemplateId`, calcola l'offset tra il punto toccato e la posizione del template, salva in `templateDragOffsetRef`, setta `isDraggingRef.current = true` (come fa gia il mousedown desktop)
+- **onPointerMove**: se `isMoveMode && activeTemplateId && isDraggingRef.current`, aggiorna la posizione del template con l'offset (come fa gia il mousemove desktop)
+- **onPointerEnd**: se `isMoveMode && isDraggingRef.current`, resetta `isDraggingRef`, `templateDragOffsetRef` (come fa gia il mouseup desktop)
 
-La fix: aggiungere il caso "owned by someone else without contribution" dentro il primo blocco condizionale (come ultimo ramo), e rimuovere il secondo span separato (righe 175-179). In questo modo c'e un solo span `flex-1` che contiene sempre il testo corretto, allineato a sinistra subito dopo il quadratino colore.
+Nessun altro file da modificare: la logica Move e gia presente per mouse, basta replicarla nei callback touch.
 
