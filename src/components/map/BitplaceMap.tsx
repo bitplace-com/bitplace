@@ -2050,19 +2050,19 @@ export function BitplaceMap() {
         <div ref={containerRef} className="absolute inset-0" />
 
         {/* Touch/Pointer interaction layer - captures touch events for mobile painting */}
-        {mapReady && canPaint && (
+        {mapReady && (canPaint || isMoveMode) && (
           <div
             ref={interactionLayerRef}
             className={cn(
               "absolute inset-0 z-[5]",
               // Dynamic touch-action based on mode
-              interactionMode === 'draw'
+              (interactionMode === 'draw' || isMoveMode)
                 ? "touch-action-none"
                 : "touch-action-pan-zoom"
             )}
-            // On mobile/touch: capture in DRAW mode for touch painting
+            // On mobile/touch: capture in DRAW or MOVE mode for touch painting/dragging
             // On desktop: always 'none' so mouse clicks reach MapLibre canvas
-            style={{ pointerEvents: interactionMode === 'draw' && isMobile ? 'auto' : 'none' }}
+            style={{ pointerEvents: (interactionMode === 'draw' || isMoveMode) && isMobile ? 'auto' : 'none' }}
           />
         )}
 
