@@ -21,11 +21,18 @@ export const MIN_ZOOM = 2;
 export const MAX_ZOOM = 22;
 
 const ART_OPACITY_KEY = 'bitplace-art-opacity';
+const INTERACTION_MODE_KEY = 'bitplace-interaction-mode';
 
 const getInitialArtOpacity = (): number => {
   if (typeof window === 'undefined') return 1;
   const stored = localStorage.getItem(ART_OPACITY_KEY);
   return stored ? parseFloat(stored) : 1;
+};
+
+const getInitialInteractionMode = (): InteractionMode => {
+  if (typeof window === 'undefined') return 'drag';
+  const stored = localStorage.getItem(INTERACTION_MODE_KEY);
+  return stored === 'draw' ? 'draw' : 'drag';
 };
 
 // Re-export for compatibility
@@ -40,7 +47,7 @@ export function useMapState() {
     brushSize: '1x',
     zoom: 2,
     artOpacity: getInitialArtOpacity(),
-    interactionMode: 'drag',
+    interactionMode: getInitialInteractionMode(),
   });
 
   const setMode = useCallback((mode: MapMode) => {
@@ -79,6 +86,7 @@ export function useMapState() {
         selectedColor: prev.paintTool === 'ERASER' ? null : prev.lastBrushColor,
       } : {}),
     }));
+    localStorage.setItem(INTERACTION_MODE_KEY, interactionMode);
   }, []);
 
   const canPaint = canInteractAtZoom(state.zoom);
