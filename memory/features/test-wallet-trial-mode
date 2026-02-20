@@ -1,0 +1,4 @@
+# Memory: features/test-wallet-trial-mode
+Updated: Now
+
+La modalità Trial (Test Wallet) offre una simulazione completa del gioco (Paint, Erase, Defend, Attack, Reinforce, Withdraw) con 100.000 PE e 0.5 SOL fittizi. Bypassa i controlli del token e le operazioni sono locali e persistite tramite 'localStorage' (max 10.000 pixel) finché non viene connesso un wallet reale. È accessibile sia su desktop che su mobile tramite l'opzione 'Try for free' nel menu wallet. La proprietà è validata prioritariamente sulla cache locale per permettere azioni sui pixel appena dipinti. I pixel reali sono caricati dal server e uniti a quelli trial per mantenere la visibilità dei disegni esistenti sulla mappa. L'ispettore mostra 'You (Trial)' per i pixel locali senza attivare lo stato di caricamento 'Syncing'.
