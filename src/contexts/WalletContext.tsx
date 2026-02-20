@@ -232,6 +232,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [isTrialMode, setIsTrialMode] = useState<boolean>(() => {
     return sessionStorage.getItem(TRIAL_MODE_KEY) === '1';
   });
+  
+  // Ref to read trial mode inside async closures without stale captures
+  const isTrialModeRef = useRef(isTrialMode);
+  useEffect(() => { isTrialModeRef.current = isTrialMode; }, [isTrialMode]);
 
   // Derived state for backward compatibility and explicit auth checks
   const isConnected = walletState === 'AUTHENTICATED' || isTrialMode;
@@ -244,6 +248,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   // Trial mode: activate
   const activateTrialMode = useCallback(() => {
+    // Cancel any in-flight session restore so it won't overwrite trial state
+    restoreInFlightRef.current = false;
+    isTrialModeRef.current = true;
+    
     const trialUser: User = {
       id: crypto.randomUUID(),
       wallet_address: TRIAL_WALLET_ADDRESS,
@@ -764,6 +772,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         // Step 1: Try Phantom trusted reconnect (silent, no popup)
         const phantomWallet = await attemptTrustedReconnect();
         
+        // Re-check trial mode after async - user may have activated trial during reconnect
+        if (isTrialModeRef.current) {
+          walletDebug('session_restore_abort', { reason: 'trial_activated_during_reconnect' });
+          restoreInFlightRef.current = false;
+          return;
+        }
+        
         if (!phantomWallet) {
           // Phantom not available or not trusted - clear and wait for manual connect
           walletDebug('session_restore_no_phantom');
@@ -841,6 +856,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (!phantom) return;
 
     const handleDisconnect = () => {
+      // Don't reset state if trial mode is active
+      if (isTrialModeRef.current) {
+        walletDebug('phantom_disconnect_ignored', { reason: 'trial_mode_active' });
+        return;
+      }
       setWalletState('DISCONNECTED');
       setWalletAddress(null);
       setUser(null);
