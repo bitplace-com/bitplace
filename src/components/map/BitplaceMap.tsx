@@ -242,12 +242,30 @@ export function BitplaceMap() {
     return checkSelectionChanged(currentDraftPixels);
   }, [paintState, frozenPayload, getDraftPixels, checkSelectionChanged]);
 
-  // Auto-switch to hand (drag) when zooming out beyond paint threshold
+  // Remember if draw mode was auto-switched to drag by zoom-out
+  const wasDrawBeforeAutoSwitch = useRef(false);
+
+  // Auto-switch draw↔drag when crossing the paint-zoom threshold
   useEffect(() => {
-    if (interactionMode === 'draw' && !canInteractAtZoom(zoom)) {
+    const canInteract = canInteractAtZoom(zoom);
+    if (interactionMode === 'draw' && !canInteract) {
+      // Zoomed out beyond threshold → auto-switch to drag, remember
+      wasDrawBeforeAutoSwitch.current = true;
       setInteractionMode('drag');
+    } else if (interactionMode === 'drag' && canInteract && wasDrawBeforeAutoSwitch.current) {
+      // Zoomed back in → restore draw
+      wasDrawBeforeAutoSwitch.current = false;
+      setInteractionMode('draw');
     }
   }, [zoom, interactionMode, setInteractionMode]);
+
+  // Reset the auto-switch memory when user manually changes mode in paintable zone
+  useEffect(() => {
+    if (canInteractAtZoom(zoom) && interactionMode === 'drag') {
+      // User is in drag while paintable — if it wasn't auto-switched, clear memory
+      wasDrawBeforeAutoSwitch.current = false;
+    }
+  }, [interactionMode, zoom]);
 
   // Reset to default brush when wallet disconnects (keep BRUSH tool, not ERASER)
   useEffect(() => {
