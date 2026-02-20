@@ -1,15 +1,15 @@
 
 
-## Aggiornamento Favicon per Phantom
+## Correzione Favicon e Logo Phantom
 
-### Cosa fare
-Copiare l'immagine caricata (`Logo_white_back_Bitplace.png`) come nuovo `favicon.png` nella cartella `public/`. Questo file e' gia' referenziato in `index.html` come `<link rel="icon" href="/favicon.png">`, quindi Phantom lo prendera' automaticamente.
+### Situazione
+Il popup di Phantom prende automaticamente la favicon del sito — non c'e' modo di specificare un'immagine diversa solo per Phantom. Quindi usiamo il file **senza sfondo bianco** (`Favicon-2.png`) come unica favicon.
 
-### File coinvolti
+### Modifiche
 
-| Azione | File |
+| Azione | Dettaglio |
 |---|---|
-| Copia | `user-uploads://Logo_white_back_Bitplace.png` -> `public/favicon.png` |
+| Copia | `user-uploads://Favicon-2.png` → `public/favicon.png` |
 
-Nessuna modifica a `index.html` necessaria (il riferimento e' gia' corretto). L'`apple-touch-icon.png` resta invariato come richiesto.
+Nessuna modifica a `index.html` o altri file. Il riferimento `<link rel="icon" href="/favicon.png">` resta invariato. Il file con sfondo bianco non verra' utilizzato.
 
