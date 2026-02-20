@@ -1,35 +1,96 @@
 
+## Fix: Multi-Color Paint Support
 
-## Fix: Template Move su Mobile - Causa Reale
+### Root Cause
 
-### Problema Identificato
+The system was architected to handle **only one color per paint batch**. When the user paints with multiple colors, the following chain breaks:
 
-Il div di interazione touch (`interactionLayerRef`, riga 2053) ha **due problemi** che impediscono il funzionamento su mobile:
+1. `getDraftPixels()` in `useDraftPaint.ts` returns only `{ x, y }` — it **discards the color stored per pixel**.
+2. `freezePayload()` in `usePaintStateMachine.ts` stores a single `color` string (the `selectedColor` at the moment Validate is pressed).
+3. `game-validate` and `game-commit` backend functions accept a single `color?: string` field applied uniformly to all pixels.
+4. At commit time, every pixel in the batch gets painted with `frozenPayload.color` — the **last selected color** — overriding colors painted earlier.
 
-1. **Il div non viene renderizzato in Move mode**: La condizione di rendering e `mapReady && canPaint`, ma in Move mode potremmo non avere `canPaint` true (dipende dallo zoom). Anche se `canPaint` e true, il div non considera `isMoveMode`.
+### Solution
 
-2. **pointerEvents e 'none' in Move mode**: Anche quando il div esiste, lo style `pointerEvents` e impostato su `'auto'` solo quando `interactionMode === 'draw' && isMobile`. In Move mode l'utente potrebbe essere in `interactionMode === 'drag'`, quindi `pointerEvents` diventa `'none'` e i tocchi passano attraverso il div senza essere intercettati dall'hook.
+The fix requires changes in three layers:
 
-### Soluzione
+---
 
-Modificare **solo** il rendering del div di interazione (righe 2053-2066):
+### Layer 1 — `useDraftPaint.ts`
 
-**Condizione di rendering** (riga 2053):
-- Da: `mapReady && canPaint`
-- A: `mapReady && (canPaint || isMoveMode)`
+Add `getDraftPixelsWithColor()` that returns `{ x, y, color }[]` preserving each pixel's individual color from the draft Map.
 
-**pointerEvents** (riga 2065):
-- Da: `interactionMode === 'draw' && isMobile ? 'auto' : 'none'`
-- A: `(interactionMode === 'draw' || isMoveMode) && isMobile ? 'auto' : 'none'`
+```ts
+// NEW helper — returns per-pixel colors
+getDraftPixelsWithColor: () => Array.from(draft.values()).map(({ x, y, color }) => ({ x, y, color }))
+```
 
-**touch-action CSS** (righe 2059-2061):
-- Da: `interactionMode === 'draw' ? "touch-action-none" : "touch-action-pan-zoom"`
-- A: `(interactionMode === 'draw' || isMoveMode) ? "touch-action-none" : "touch-action-pan-zoom"`
+---
 
-Queste 3 modifiche nella stessa riga di codice garantiscono che:
-- Il div esista anche quando siamo in Move mode
-- I tocchi vengano catturati dal div (non passino alla mappa)
-- Il browser non intercetti i gesti touch per pan/zoom nativo
+### Layer 2 — `usePaintStateMachine.ts`
 
-**File**: `src/components/map/BitplaceMap.tsx` (righe 2053-2066)
+Update `FrozenPayload` to store `pixels` as `{ x, y, color }[]` instead of `{ x, y }[]`, and update `freeze()` to accept colored pixels. The single `color` field on `FrozenPayload` becomes optional/deprecated (kept for backward compat).
 
+```ts
+// BEFORE
+pixels: { x: number; y: number }[];
+color: string;
+
+// AFTER
+pixels: { x: number; y: number; color: string }[];
+color: string; // kept as fallback / display color
+```
+
+---
+
+### Layer 3 — `BitplaceMap.tsx` (validate & commit calls)
+
+**In `handleValidate`**: call `getDraftPixelsWithColor()` when in PAINT mode instead of `getDraftPixels()`, and pass colored pixels to `freezePayload`.
+
+**In `handleConfirm`**: when building the commit payload for PAINT, pass `pixels` with per-pixel colors. Since the backend currently expects a single `color`, we need to send per-pixel colors in the pixels array.
+
+---
+
+### Layer 4 — Backend: `game-validate` and `game-commit` edge functions
+
+Update both functions to accept **per-pixel colors**:
+
+**`game-validate/index.ts`**: the pixels array can now include an optional `color` field per pixel. No structural change needed — validate doesn't use color to write to DB, only to compute cost.
+
+**`game-commit/index.ts`**: update the `upsertData` build loop to use `pixel.color` (per-pixel) with a fallback to the top-level `color` field:
+
+```ts
+// BEFORE
+upsertData.push({
+  x: pixel.x,
+  y: pixel.y,
+  color: color!,   // ← same color for every pixel
+  ...
+});
+
+// AFTER
+upsertData.push({
+  x: pixel.x,
+  y: pixel.y,
+  color: pixel.color ?? color!,  // ← per-pixel color, fallback to batch color
+  ...
+});
+```
+
+The `CommitRequest` interface is updated to accept `pixels: { x: number; y: number; color?: string }[]`.
+
+---
+
+### Summary of files changed
+
+| File | Change |
+|---|---|
+| `src/components/map/hooks/useDraftPaint.ts` | Add `getDraftPixelsWithColor()` helper |
+| `src/hooks/usePaintStateMachine.ts` | Update `FrozenPayload.pixels` type to include `color` |
+| `src/components/map/BitplaceMap.tsx` | Use `getDraftPixelsWithColor()` in validate/commit flow |
+| `supabase/functions/game-commit/index.ts` | Use per-pixel color with fallback in upsert loop |
+| `supabase/functions/game-validate/index.ts` | Accept `color?` field on individual pixels in the request type |
+
+### Backward compatibility
+
+The backend change is fully backward compatible: if pixels don't have a per-pixel `color`, it falls back to the top-level `color` field. Existing single-color paint flows continue to work without any change.
