@@ -261,6 +261,7 @@ async function executeCommit(
   pixelStates: PixelData[],
   // deno-lint-ignore no-explicit-any
   user: any,
+  requestedColorMap?: Map<string, string>,
   onProgress?: (processed: number, total: number) => void
 ): Promise<{
   ok: boolean;
@@ -523,10 +524,14 @@ async function executeCommit(
         stake = pixel.owner_stake_pe || 1;
       }
       
+      // Use per-pixel requested color from requestedColorMap, fallback to top-level color
+      const pixelKey = `${pixel.x}:${pixel.y}`;
+      const pixelColor = requestedColorMap?.get(pixelKey) ?? color!;
+      
       upsertData.push({
         x: pixel.x,
         y: pixel.y,
-        color: pixel.color ?? color!,
+        color: pixelColor,
         owner_user_id: userId,
         owner_stake_pe: stake,
         updated_at: now,
@@ -1167,6 +1172,12 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Build requestedColorMap from raw pixels (preserves per-pixel colors sent by frontend)
+    const requestedColorMap = new Map<string, string>();
+    (pixels as Array<{ x: number; y: number; color?: string }>).forEach(p => {
+      if (p.color) requestedColorMap.set(`${p.x}:${p.y}`, p.color);
+    });
+
     // Execute commit
     const result = await executeCommit(
       supabase,
@@ -1176,7 +1187,8 @@ Deno.serve(async (req) => {
       color,
       pePerPixel,
       pixelStates,
-      user
+      user,
+      requestedColorMap
     );
 
     return new Response(JSON.stringify({

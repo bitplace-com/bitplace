@@ -62,9 +62,18 @@ export function useDraftPaint(): UseDraftPaintResult {
     
     const key = `${x}:${y}`;
     
-    // Check if already in draft
+    // Check if already in draft — allow color update if different
     if (draft.has(key)) {
-      return false;
+      const existing = draft.get(key)!;
+      if (existing.color === color) return false; // same color, no change
+      setDraft(prev => {
+        const next = new Map(prev);
+        next.set(key, { x, y, color, createdAt: existing.createdAt });
+        return next;
+      });
+      setDraftDirty(true);
+      hapticsEngine.trigger('light');
+      return true;
     }
     
     // Check limit
