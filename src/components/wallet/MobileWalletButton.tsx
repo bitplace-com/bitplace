@@ -8,7 +8,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { cn } from '@/lib/utils';
 
 export function MobileWalletButton() {
-  const { isConnected, isConnecting, needsSignature, walletAddress, connect } = useWallet();
+  const { isConnected, isConnecting, needsSignature, walletAddress, connect, activateTrialMode, isTrialMode } = useWallet();
   const [collapsed, setCollapsed] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -69,20 +69,27 @@ export function MobileWalletButton() {
     );
   }
 
-  // Not connected: compact wallet icon button
+  // Not connected: compact wallet icon button + try free link
   if (!isConnected && !needsSignature) {
     return (
-      <>
-        <GlassIconButton size="lg" onClick={handleConnectClick} aria-label="Connect Wallet" data-tour="wallet">
+      <div className="flex flex-col items-center gap-1" data-tour="wallet">
+        <GlassIconButton size="lg" onClick={handleConnectClick} aria-label="Connect Wallet">
           <PixelIcon name="wallet" size="md" />
         </GlassIconButton>
+        <button
+          onClick={activateTrialMode}
+          className="text-[10px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+        >
+          or try for free
+        </button>
         <WalletSelectModal
           open={modalOpen}
           onOpenChange={setModalOpen}
           onSelectPhantom={handleSelectPhantom}
           isConnecting={isConnecting}
+          onActivateTrial={activateTrialMode}
         />
-      </>
+      </div>
     );
   }
 
