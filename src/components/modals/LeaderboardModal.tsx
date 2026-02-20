@@ -244,10 +244,7 @@ export function SubCategoryToggle({ subCategory, onChange }: { subCategory: Lead
   return (
     <Select value={subCategory} onValueChange={(v) => onChange(v as LeaderboardSubCategory)}>
       <SelectTrigger className="w-full h-9 text-xs font-medium bg-foreground/5 border-none">
-        <div className="flex items-center gap-1.5">
-          <PixelIcon name={SUB_CATEGORIES.find(s => s.value === subCategory)?.icon as any} size="xs" />
-          <SelectValue />
-        </div>
+        <SelectValue />
       </SelectTrigger>
       <SelectContent className="z-[200]">
         {SUB_CATEGORIES.map((s) => (
