@@ -29,6 +29,7 @@ interface UseDraftPaintResult {
   undoLast: () => void;
   clearDraft: () => void;
   getDraftPixels: () => { x: number; y: number }[];
+  getDraftPixelsWithColor: () => { x: number; y: number; color: string }[];
   setDraftDirty: (dirty: boolean) => void;
 }
 
@@ -151,6 +152,10 @@ export function useDraftPaint(): UseDraftPaintResult {
     return Array.from(draft.values()).map(({ x, y }) => ({ x, y }));
   }, [draft]);
 
+  const getDraftPixelsWithColor = useCallback((): { x: number; y: number; color: string }[] => {
+    return Array.from(draft.values()).map(({ x, y, color }) => ({ x, y, color }));
+  }, [draft]);
+
   return {
     draft,
     draftCount,
@@ -164,6 +169,7 @@ export function useDraftPaint(): UseDraftPaintResult {
     undoLast,
     clearDraft,
     getDraftPixels,
+    getDraftPixelsWithColor,
     setDraftDirty,
   };
 }

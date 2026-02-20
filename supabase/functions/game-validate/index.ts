@@ -60,7 +60,7 @@ const MIN_PIXELS_FOR_STREAMING = 50;
 
 interface ValidateRequest {
   mode: GameMode;
-  pixels: { x: number; y: number }[];
+  pixels: { x: number; y: number; color?: string }[];
   color?: string;
   pePerPixel?: number;
   stream?: boolean;

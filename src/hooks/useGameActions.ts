@@ -63,7 +63,7 @@ export interface ValidateResult {
 
 export interface ValidateParams {
   mode: GameMode;
-  pixels: { x: number; y: number }[];
+  pixels: { x: number; y: number; color?: string }[];
   color?: string;
   pePerPixel?: number;
 }

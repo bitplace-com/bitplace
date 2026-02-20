@@ -61,7 +61,7 @@ const MIN_PIXELS_FOR_STREAMING = 50;
 
 interface CommitRequest {
   mode: GameMode;
-  pixels: { x: number; y: number }[];
+  pixels: { x: number; y: number; color?: string }[];
   color?: string;
   pePerPixel?: number;
   snapshotHash: string;
@@ -526,7 +526,7 @@ async function executeCommit(
       upsertData.push({
         x: pixel.x,
         y: pixel.y,
-        color: color!,
+        color: pixel.color ?? color!,
         owner_user_id: userId,
         owner_stake_pe: stake,
         updated_at: now,
