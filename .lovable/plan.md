@@ -1,143 +1,73 @@
 
 
-## Fix: Template auto-center/scale, drag offset, e performance quantizzazione
+## Fix: Performance Pixel Guide + Trial Mode azioni (Erase/Defend/Attack/Reinforce)
 
-### Problemi identificati
+### Problema 1: Pixel Guide si blocca/crasha quando si cambia scala
 
-**1. Template appare fuori schermo e con dimensioni originali**
-`addTemplate` usa posizione `(0, 0)` e scala `100%` di default. Nessun calcolo viene fatto rispetto alla viewport corrente.
+**Perche succede:**
+Ogni volta che muovi lo slider "Scale", il valore cambia (step=1, range 1-400), e per OGNI singolo valore viene ricalcolata la quantizzazione completa dell'immagine. Anche con il batching asincrono attuale, la quantizzazione di 250.000 pixel x 63 colori palette = ~15M confronti per OGNI tick dello slider. Se muovi lo slider velocemente, si accumulano decine di quantizzazioni in parallelo che competono per il main thread.
 
-**2. Move aggancia l'immagine all'angolo in alto a sinistra**
-In `handleMapMouseDown` (linea 1120-1124), quando inizia il drag in move mode, il codice salva la posizione del cursore ma non calcola l'offset rispetto alla posizione attuale del template. In `handleMapMouseMove` (linea 1055-1058), la posizione del template viene impostata direttamente alle coordinate del cursore, facendo saltare l'angolo in alto a sinistra del template al punto cliccato.
+**Soluzione - 3 interventi:**
 
-**3. Lag/crash nel passaggio Image <-> Pixel Guide**
-`quantizeImage` in `paletteQuantizer.ts` gira **sincrono** sul main thread. Per un'immagine 1000x1000 al 100% di scala, processa 1M pixel ciascuno confrontato con ~100+ colori della palette = ~100M operazioni di distanza. Questo blocca il browser. Immagini grandi causano crash.
+**A) Debounce dello slider Scale in Pixel Guide mode**
+In `TemplateDetailView.tsx`, quando il template e in modalita `pixelGuide`, il cambio di scala viene ritardato (debounced) di 300ms. Lo slider mostra il valore in tempo reale ma la quantizzazione parte solo quando smetti di muoverlo.
 
-**4. Scale non risponde subito**
-Ogni cambio di scala ri-esegue la quantizzazione sincrona (stesso problema del punto 3). In modalita Image, la scala funziona ma il rendering potrebbe avere un delay perche il `useMemo` delle `quantizedPixels` ha `template.scale` come dipendenza.
+**B) Debounce della quantizzazione in TemplateOverlay**
+In `TemplateOverlay.tsx`, aggiungere un debounce di 300ms sull'effect che lancia `quantizeImageAsync`. Se la scala cambia di nuovo entro 300ms, la quantizzazione precedente viene cancellata e riparte. Questo impedisce accumulo di quantizzazioni.
+
+**C) Ridurre MAX_GUIDE_PIXELS**
+In `paletteQuantizer.ts`, ridurre `MAX_GUIDE_PIXELS` da 250.000 a 100.000. Per una guida pixel non serve altissima risoluzione - 316x316 e piu che sufficiente per colorare. Questo riduce il lavoro di ~60%.
 
 ---
 
-### Soluzione
+### Problema 2: Trial Mode - Erase/Defend/Attack/Reinforce non funzionano
 
-#### File 1: `src/components/map/BitplaceMap.tsx`
+**Perche succede:**
+`trialValidate` controlla la proprieta dei pixel interrogando il DATABASE reale (RPC `fetch_pixels_by_coords`). Ma i pixel disegnati in trial mode vengono salvati solo nella cache locale (`addPixels` aggiorna `useSupabasePixels` in memoria), non nel database. Quindi quando fai Erase su un pixel che hai appena disegnato in trial, il DB dice "non esiste" e `trialValidate` lo segna come "Not your pixel".
 
-**A) Auto-center e auto-scale al caricamento**
+**Soluzione:**
+Modificare `trialValidate` per controllare PRIMA la cache locale dei pixel trial. Se un pixel esiste nella cache locale con il colore dell'utente trial, viene considerato "di proprieta dell'utente trial" indipendentemente da cosa dice il database.
 
-Creare una funzione `handleAddTemplate(file: File)` che:
+In `BitplaceMap.tsx`:
+- `trialValidate` ricevera accesso a `localPixels` (dallo `usePixelStore`) e ai `dbPixels` in cache
+- Per ogni pixel, prima controlla se esiste nei `localPixels` (= disegnato in trial) -> lo considera "owned by trial user"
+- Se non e nei localPixels, controlla il DB come prima
 
-1. Legge le dimensioni dell'immagine dal file (usando `Image()` temporaneo)
-2. Calcola il centro della viewport in coordinate grid: `mapRef.current.getCenter()` -> `lngLatToGridInt()`
-3. Calcola quante celle grid sono visibili: `containerWidth / getCellSize(zoom)` e `containerHeight / getCellSize(zoom)`
-4. Calcola la scala ideale perche l'immagine occupi ~60% della viewport: `Math.min((vpGridW * 0.6 / imgW) * 100, (vpGridH * 0.6 / imgH) * 100)`, clamped tra 1 e 400
-5. Calcola la posizione top-left centrata: `centerX - (imgW * scale/100) / 2`, `centerY - (imgH * scale/100) / 2`
-6. Chiama `addTemplate(file, { x, y })` e poi `updateSettings(id, { scale })`
-
-Passare `handleAddTemplate` a `TemplatesPanel` al posto di `addTemplate`.
-
-**B) Drag con offset (move mode)**
-
-Aggiungere un ref `templateDragOffsetRef = useRef<{ dx: number; dy: number } | null>(null)`.
-
-In `handleMapMouseDown` (linea 1120-1124), quando inizia il drag del template:
-```
-const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
-const template = templates.find(t => t.id === activeTemplateId);
-if (template) {
-  templateDragOffsetRef.current = {
-    dx: pixel.x - template.positionX,
-    dy: pixel.y - template.positionY,
-  };
-}
+Logica aggiornata per ERASE:
+```text
+Per ogni pixel:
+  Se pixel in localPixels -> valido (owned by trial)
+  Se pixel in DB e owner == TRIAL_USER_ID -> valido
+  Altrimenti -> invalid "Not your pixel"
 ```
 
-In `handleMapMouseMove` (linea 1055-1058), applicare l'offset:
-```
-const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
-const offset = templateDragOffsetRef.current || { dx: 0, dy: 0 };
-updatePosition(activeTemplateId, {
-  x: pixel.x - offset.dx,
-  y: pixel.y - offset.dy,
-});
-```
+Stessa logica per REINFORCE (richiede ownership) e DEFEND/ATTACK (richiede NON-ownership).
 
-In `handleMapMouseUp` (linea 1195-1198), resettare l'offset:
-```
-templateDragOffsetRef.current = null;
-```
+---
 
-#### File 2: `src/lib/paletteQuantizer.ts`
+### Problema 3: Persistenza dei pixel trial al reload (NON implementato)
 
-**Quantizzazione asincrona a batch**
+I pixel disegnati in trial sono in memoria (`usePixelStore` e `useSupabasePixels` cache). Al reload della pagina spariscono.
 
-Convertire `quantizeImage` in `quantizeImageAsync` che processa l'immagine in batch da ~50.000 pixel, cedendo al main thread tra un batch e l'altro con `await new Promise(r => setTimeout(r, 0))`. Questo impedisce il freeze del browser.
+**Soluzione:**
+Salvare i pixel trial in `localStorage` sotto una chiave dedicata (`bitplace_trial_pixels`). Al caricamento, se `isTrialMode` e attivo, ripristinare i pixel dalla cache locale.
 
-Struttura:
-```
-export async function quantizeImageAsync(
-  image: HTMLImageElement,
-  scale: number,
-  options?: QuantizeOptions,
-  onProgress?: (percent: number) => void
-): Promise<QuantizedPixel[]> {
-  // ... setup canvas, read imageData (sincrono, veloce)
-  
-  const BATCH_SIZE = 50000;
-  const totalPixels = guideW * guideH;
-  
-  for (let offset = 0; offset < totalPixels; offset += BATCH_SIZE) {
-    const end = Math.min(offset + BATCH_SIZE, totalPixels);
-    // Process pixels offset..end
-    for (let idx = offset; idx < end; idx++) { ... }
-    
-    // Yield to main thread
-    await new Promise(r => setTimeout(r, 0));
-    onProgress?.(Math.round(end / totalPixels * 100));
-  }
-  
-  return pixels;
-}
+In `BitplaceMap.tsx`:
+- Dopo ogni commit trial (PAINT), salvare i pixel in `localStorage`
+- Dopo ERASE trial, rimuovere i pixel dal `localStorage`
+- Al mount, se `isTrialMode`, caricare i pixel dal `localStorage` e applicarli con `addPixels`
+- Quando l'utente collega un wallet vero (`exitTrialMode`), cancellare `localStorage` trial
+
+Struttura dati in localStorage:
+```text
+bitplace_trial_pixels = [
+  { x: 100, y: 200, color: "#FF0000" },
+  { x: 101, y: 200, color: "#00FF00" },
+  ...
+]
 ```
 
-Mantenere anche `quantizeImage` sincrono come fallback per immagini piccole.
-
-Aggiungere anche un limite massimo di risoluzione per il guide: se `guideW * guideH > 250000` (500x500), ridurre proporzionalmente per evitare carichi eccessivi.
-
-#### File 3: `src/components/map/TemplateOverlay.tsx`
-
-**Usare quantizzazione asincrona**
-
-Sostituire il `useMemo` sincrono per `quantizedPixels` con un `useEffect` asincrono + `useState`:
-
-```
-const [quantizedPixels, setQuantizedPixels] = useState<QuantizedPixel[]>([]);
-const [isQuantizing, setIsQuantizing] = useState(false);
-
-useEffect(() => {
-  if (!imageLoaded || !imageRef.current || template.mode !== 'pixelGuide') {
-    setQuantizedPixels([]);
-    return;
-  }
-  
-  let cancelled = false;
-  setIsQuantizing(true);
-  
-  quantizeImageAsync(imageRef.current, template.scale)
-    .then(pixels => {
-      if (!cancelled) {
-        setQuantizedPixels(pixels);
-        setIsQuantizing(false);
-      }
-    });
-  
-  return () => { cancelled = true; };
-}, [imageLoaded, template.mode, template.scale]);
-```
-
-Questo permette di:
-- Non bloccare il main thread durante la quantizzazione
-- Cancellare la quantizzazione precedente se scala/modalita cambiano prima che finisca
-- Mostrare uno stato di caricamento (opzionale)
+Limite: max 10.000 pixel salvati per evitare problemi di storage.
 
 ---
 
@@ -145,13 +75,15 @@ Questo permette di:
 
 | File | Modifica |
 |------|----------|
-| `BitplaceMap.tsx` | `handleAddTemplate` con auto-center/scale + drag offset ref per move mode |
-| `paletteQuantizer.ts` | `quantizeImageAsync` con batching e cap risoluzione |
-| `TemplateOverlay.tsx` | Sostituire `useMemo` sincrono con `useEffect` async per quantizzazione |
+| `TemplateDetailView.tsx` | Debounce 300ms sullo slider Scale in pixel guide mode |
+| `TemplateOverlay.tsx` | Debounce 300ms sull'effect di quantizzazione + cancellazione |
+| `paletteQuantizer.ts` | Ridurre MAX_GUIDE_PIXELS da 250k a 100k |
+| `BitplaceMap.tsx` | `trialValidate` controlla cache locale per ownership + persistenza trial pixels in localStorage |
+| `WalletContext.tsx` | `exitTrialMode` cancella `bitplace_trial_pixels` da localStorage |
 
-### Cosa non cambia
-- `useTemplates.ts` e `templatesStore.ts` restano invariati
-- `TemplatesPanel.tsx` e `TemplateDetailView.tsx` restano invariati
-- La logica di rendering (canvas draw) resta invariata
-- Lo slider Scale continua a funzionare, ma ora la quantizzazione non blocca piu la pagina
+### Cosa NON cambia
+- La logica di rendering canvas resta invariata
+- Le edge functions e il database non vengono toccati
+- Il flusso per utenti autenticati (non trial) resta identico
+- `handleConfirm` trial gia implementato resta invariato (funziona gia, il problema era solo nella validazione)
 
