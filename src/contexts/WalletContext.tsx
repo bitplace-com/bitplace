@@ -275,7 +275,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setUser(trialUser);
     setEnergy({ ...trialEnergyState });
     sessionStorage.setItem(TRIAL_MODE_KEY, '1');
-    toast.success('Test Wallet activated!', { description: '10,000 trial PE ready to use. Nothing is saved.' });
+    toast.success('Test Wallet activated!', { description: '100,000 trial PE ready to use. Nothing is saved.' });
   }, []);
 
   // Trial mode: exit
