@@ -156,9 +156,7 @@ export function PixelInfoPanel({
           {pixel && isOwned && (
             <span className="flex items-center gap-1 text-xs font-medium truncate flex-1">
               {isOwnPixel ? (
-                <>
-                  <span className="text-primary truncate">You own this pixel</span>
-                </>
+                <span className="text-primary truncate">You own this pixel</span>
               ) : pixel.myContribution?.side === 'DEF' ? (
                 <>
                   <PixelIcon name="shield" className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
@@ -169,12 +167,11 @@ export function PixelInfoPanel({
                   <PixelIcon name="swords" className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                   <span className="text-rose-500 truncate">You're attacking</span>
                 </>
-              ) : null}
-            </span>
-          )}
-          {pixel && isOwned && !isOwnPixel && !pixel.myContribution && (
-            <span className="text-xs font-medium text-muted-foreground truncate flex-1">
-              Owned by {pixel.owner?.display_name || pixel.owner?.wallet_short || 'someone'}
+              ) : (
+                <span className="text-muted-foreground truncate">
+                  Owned by {pixel.owner?.display_name || pixel.owner?.wallet_short || 'someone'}
+                </span>
+              )}
             </span>
           )}
           {!(pixel && isOwned) && <span className="flex-1" />}

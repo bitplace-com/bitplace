@@ -229,6 +229,11 @@ export function PlayerProfileModal({ open, onOpenChange, playerId, onJumpToPixel
                   <h3 className="font-semibold text-lg truncate">
                     {profile.displayName || profile.walletShort || 'Unknown'}
                   </h3>
+                  {profile.allianceTag && (
+                    <span className="text-sm text-primary font-medium">
+                      [{profile.allianceTag}]
+                    </span>
+                  )}
                   {isAdmin(profile.walletAddress || profile.walletShort) && <AdminBadge size="md" />}
                   {(() => { const tier = getProTier(profile.peUsed); return tier ? <ProBadge tier={tier} size="md" /> : null; })()}
                   {country && (
@@ -237,12 +242,6 @@ export function PlayerProfileModal({ open, onOpenChange, playerId, onJumpToPixel
                     </span>
                   )}
                 </div>
-                
-                {profile.allianceTag && (
-                  <span className="text-sm text-primary font-medium">
-                    [{profile.allianceTag}]
-                  </span>
-                )}
               </div>
 
               {/* Follow button */}
