@@ -234,14 +234,18 @@ export function PlayerProfileModal({ open, onOpenChange, playerId, onJumpToPixel
                       [{profile.allianceTag}]
                     </span>
                   )}
-                  {isAdmin(profile.walletAddress || profile.walletShort) && <AdminBadge size="md" />}
-                  {(() => { const tier = getProTier(profile.peUsed); return tier ? <ProBadge tier={tier} size="md" /> : null; })()}
-                  {country && (
-                    <span className="text-lg" title={country.name}>
-                      {country.flag}
-                    </span>
-                  )}
                 </div>
+                {(isAdmin(profile.walletAddress || profile.walletShort) || getProTier(profile.peUsed) || country) && (
+                  <div className="flex items-center gap-2 mt-1">
+                    {isAdmin(profile.walletAddress || profile.walletShort) && <AdminBadge size="md" />}
+                    {(() => { const tier = getProTier(profile.peUsed); return tier ? <ProBadge tier={tier} size="md" /> : null; })()}
+                    {country && (
+                      <span className="text-lg" title={country.name}>
+                        {country.flag}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Follow button */}
