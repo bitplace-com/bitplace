@@ -4,7 +4,6 @@
  */
 
 import { ALL_COLORS } from '@/lib/palettes/basePaletteGrid';
-import { MATERIALS } from '@/lib/materials/materialRegistry';
 
 interface RGB {
   r: number;
@@ -80,52 +79,64 @@ export function nearestPaletteColor(rgb: RGB): string {
   return nearestHex;
 }
 
-/**
- * Quantize an image to palette colors
- * Returns array of non-transparent pixels with their grid offsets
- */
-export function quantizeImage(
-  image: HTMLImageElement,
-  scale: number,     // 1-400 (percentage)
-  options?: QuantizeOptions
-): QuantizedPixel[] {
-  const alphaThreshold = options?.alphaThreshold ?? 25;
-  
-  // Calculate guide dimensions
-  const guideW = Math.max(1, Math.round(image.width * scale / 100));
-  const guideH = Math.max(1, Math.round(image.height * scale / 100));
+/** Max pixels for guide resolution cap */
+const MAX_GUIDE_PIXELS = 250_000;
 
-  // Create offscreen canvas to read pixels
+/**
+ * Prepare canvas image data for quantization, with resolution cap
+ */
+function prepareImageData(
+  image: HTMLImageElement,
+  scale: number,
+  alphaThreshold: number
+): { data: Uint8ClampedArray; guideW: number; guideH: number } | null {
+  let guideW = Math.max(1, Math.round(image.width * scale / 100));
+  let guideH = Math.max(1, Math.round(image.height * scale / 100));
+
+  // Cap resolution to prevent excessive computation
+  const totalPixels = guideW * guideH;
+  if (totalPixels > MAX_GUIDE_PIXELS) {
+    const ratio = Math.sqrt(MAX_GUIDE_PIXELS / totalPixels);
+    guideW = Math.max(1, Math.round(guideW * ratio));
+    guideH = Math.max(1, Math.round(guideH * ratio));
+  }
+
   const canvas = document.createElement('canvas');
   canvas.width = guideW;
   canvas.height = guideH;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) return [];
+  if (!ctx) return null;
 
-  // Draw scaled image
-  ctx.imageSmoothingEnabled = false; // Crisp pixels
+  ctx.imageSmoothingEnabled = false;
   ctx.drawImage(image, 0, 0, guideW, guideH);
 
-  // Read pixel data
   const imageData = ctx.getImageData(0, 0, guideW, guideH);
-  const data = imageData.data;
+  return { data: imageData.data, guideW, guideH };
+}
 
+/**
+ * Quantize an image to palette colors (synchronous - for small images)
+ */
+export function quantizeImage(
+  image: HTMLImageElement,
+  scale: number,
+  options?: QuantizeOptions
+): QuantizedPixel[] {
+  const alphaThreshold = options?.alphaThreshold ?? 25;
+  const prepared = prepareImageData(image, scale, alphaThreshold);
+  if (!prepared) return [];
+
+  const { data, guideW, guideH } = prepared;
   const pixels: QuantizedPixel[] = [];
   const palette = getPaletteRGB();
 
   for (let dy = 0; dy < guideH; dy++) {
     for (let dx = 0; dx < guideW; dx++) {
       const i = (dy * guideW + dx) * 4;
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
       const a = data[i + 3];
-
-      // Skip transparent pixels
       if (a < alphaThreshold) continue;
 
-      // Find nearest palette color
-      const rgb: RGB = { r, g, b };
+      const rgb: RGB = { r: data[i], g: data[i + 1], b: data[i + 2] };
       let nearestHex = '#000000';
       let minDist = Infinity;
 
@@ -141,6 +152,70 @@ export function quantizeImage(
     }
   }
 
+  return pixels;
+}
+
+/**
+ * Quantize an image to palette colors (async batched - prevents UI freeze)
+ */
+export async function quantizeImageAsync(
+  image: HTMLImageElement,
+  scale: number,
+  options?: QuantizeOptions,
+  onProgress?: (percent: number) => void
+): Promise<QuantizedPixel[]> {
+  const alphaThreshold = options?.alphaThreshold ?? 25;
+  const prepared = prepareImageData(image, scale, alphaThreshold);
+  if (!prepared) return [];
+
+  const { data, guideW, guideH } = prepared;
+  const palette = getPaletteRGB();
+  const paletteEntries = Array.from(palette.entries()); // avoid Map iteration overhead per pixel
+
+  const totalPixels = guideW * guideH;
+  const BATCH_SIZE = 50_000;
+  const pixels: QuantizedPixel[] = [];
+
+  for (let offset = 0; offset < totalPixels; offset += BATCH_SIZE) {
+    const end = Math.min(offset + BATCH_SIZE, totalPixels);
+
+    for (let idx = offset; idx < end; idx++) {
+      const i = idx * 4;
+      const a = data[i + 3];
+      if (a < alphaThreshold) continue;
+
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      let nearestHex = '#000000';
+      let minDist = Infinity;
+
+      for (let p = 0; p < paletteEntries.length; p++) {
+        const [hex, pRgb] = paletteEntries[p];
+        const dr = r - pRgb.r;
+        const dg = g - pRgb.g;
+        const db = b - pRgb.b;
+        const dist = dr * dr + dg * dg + db * db;
+        if (dist < minDist) {
+          minDist = dist;
+          nearestHex = hex;
+        }
+      }
+
+      const dx = idx % guideW;
+      const dy = Math.floor(idx / guideW);
+      pixels.push({ dx, dy, hexColor: nearestHex });
+    }
+
+    // Yield to main thread between batches
+    if (end < totalPixels) {
+      await new Promise(r => setTimeout(r, 0));
+      onProgress?.(Math.round(end / totalPixels * 100));
+    }
+  }
+
+  onProgress?.(100);
   return pixels;
 }
 

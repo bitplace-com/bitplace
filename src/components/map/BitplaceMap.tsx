@@ -48,7 +48,7 @@ import { useStatusStripHeight } from '@/hooks/useStatusStripHeight';
 import { useTemplates } from '@/hooks/useTemplates';
 import { getValidSessionToken } from '@/lib/authHelpers';
 import { computePixelHash } from '@/lib/pixelHash';
-import { lngLatToGridInt, gridIntToLngLat, getViewportGridBounds, Z_SHOW_PAINTS } from '@/lib/pixelGrid';
+import { lngLatToGridInt, gridIntToLngLat, getViewportGridBounds, Z_SHOW_PAINTS, getCellSize } from '@/lib/pixelGrid';
 import { hapticsEngine } from '@/lib/hapticsEngine';
 import { markMapMountStart } from '@/lib/perfMetrics';
 
@@ -134,7 +134,63 @@ export function BitplaceMap() {
   const { templates, activeTemplateId, activeTemplate, addTemplate, removeTemplate, selectTemplate, updateSettings, isMoveMode, toggleMoveMode, updatePosition } = useTemplates(walletAddress);
   const [templatesPanelOpen, setTemplatesPanelOpen] = useState(false);
   const [templateGuideColors, setTemplateGuideColors] = useState<string[]>([]);
-  
+  const templateDragOffsetRef = useRef<{ dx: number; dy: number } | null>(null);
+  const pendingScaleRef = useRef<number | null>(null);
+
+  // Auto-center and auto-scale template on add
+  const handleAddTemplate = useCallback(async (file: File) => {
+    const map = mapRef.current;
+    if (!map) {
+      await addTemplate(file);
+      return;
+    }
+
+    // Read image dimensions
+    const imgUrl = URL.createObjectURL(file);
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = imgUrl;
+    });
+    URL.revokeObjectURL(imgUrl);
+
+    const imgW = img.width;
+    const imgH = img.height;
+
+    // Calculate viewport in grid cells
+    const container = map.getContainer();
+    const z = map.getZoom();
+    const cellSize = getCellSize(z);
+    const vpGridW = container.clientWidth / cellSize;
+    const vpGridH = container.clientHeight / cellSize;
+
+    // Scale so image fits ~60% of viewport
+    const fitRatio = 0.6;
+    const scaleX = (vpGridW * fitRatio / imgW) * 100;
+    const scaleY = (vpGridH * fitRatio / imgH) * 100;
+    const finalScale = Math.max(1, Math.min(400, Math.round(Math.min(scaleX, scaleY))));
+
+    // Center position
+    const center = map.getCenter();
+    const gridCenter = lngLatToGridInt(center.lng, center.lat);
+    const scaledW = imgW * finalScale / 100;
+    const scaledH = imgH * finalScale / 100;
+    const posX = Math.round(gridCenter.x - scaledW / 2);
+    const posY = Math.round(gridCenter.y - scaledH / 2);
+
+    pendingScaleRef.current = finalScale;
+    await addTemplate(file, { x: posX, y: posY });
+  }, [addTemplate]);
+
+  // Apply pending scale after template is added (activeTemplateId changes)
+  useEffect(() => {
+    if (pendingScaleRef.current !== null && activeTemplateId) {
+      updateSettings(activeTemplateId, { scale: pendingScaleRef.current });
+      pendingScaleRef.current = null;
+    }
+  }, [activeTemplateId, updateSettings]);
+
   // Trial mode: store validation result locally (since we bypass the edge function)
   const trialValidationRef = useRef<any>(null);
 
@@ -1054,7 +1110,8 @@ export function BitplaceMap() {
       // Template move mode: update template position while dragging
       if (isMoveMode && activeTemplateId && isDraggingRef.current) {
         const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
-        updatePosition(activeTemplateId, { x: pixel.x, y: pixel.y });
+        const offset = templateDragOffsetRef.current || { dx: 0, dy: 0 };
+        updatePosition(activeTemplateId, { x: pixel.x - offset.dx, y: pixel.y - offset.dy });
         return;
       }
       
@@ -1121,6 +1178,14 @@ export function BitplaceMap() {
         isDraggingRef.current = true;
         const pixel = lngLatToGridInt(e.lngLat.lng, e.lngLat.lat);
         dragStartRef.current = { x: pixel.x, y: pixel.y, screenX: e.point.x, screenY: e.point.y };
+        // Calculate offset from click to template top-left
+        const tmpl = templates.find(t => t.id === activeTemplateId);
+        if (tmpl) {
+          templateDragOffsetRef.current = {
+            dx: pixel.x - tmpl.positionX,
+            dy: pixel.y - tmpl.positionY,
+          };
+        }
         return;
       }
       
@@ -1195,6 +1260,7 @@ export function BitplaceMap() {
       if (isMoveMode && activeTemplateId && isDraggingRef.current) {
         isDraggingRef.current = false;
         dragStartRef.current = null;
+        templateDragOffsetRef.current = null;
         return;
       }
       
@@ -1323,7 +1389,7 @@ export function BitplaceMap() {
       map.off('mouseup', handleMapMouseUp);
       canvas.removeEventListener('mouseleave', handleMapMouseLeave);
     };
-  }, [mapReady, mode, selectedColor, interactionMode, isSpaceHeld, isShiftHeld, updateSelection, startSelection, endSelection, clearSelection, isEyedropperActive, handleEyedropperPick, addToDraft, removeFromDraft, canPaint, user, playSound, requireWallet, brushSize, paintTool, selection.isSelecting, clearValidation, draftPixels, draftRemainingCapacity, isMoveMode, activeTemplateId, updatePosition]);
+  }, [mapReady, mode, selectedColor, interactionMode, isSpaceHeld, isShiftHeld, updateSelection, startSelection, endSelection, clearSelection, isEyedropperActive, handleEyedropperPick, addToDraft, removeFromDraft, canPaint, user, playSound, requireWallet, brushSize, paintTool, selection.isSelecting, clearValidation, draftPixels, draftRemainingCapacity, isMoveMode, activeTemplateId, updatePosition, templates]);
 
   const handleZoomIn = useCallback(() => mapRef.current?.zoomIn(), []);
   const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), []);
@@ -1902,7 +1968,7 @@ export function BitplaceMap() {
           templates={templates}
           activeTemplateId={activeTemplateId}
           isMoveMode={isMoveMode}
-          onAddTemplate={addTemplate}
+          onAddTemplate={handleAddTemplate}
           onRemoveTemplate={removeTemplate}
           onSelectTemplate={selectTemplate}
           onUpdateSettings={updateSettings}
