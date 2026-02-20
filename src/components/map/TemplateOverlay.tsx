@@ -33,7 +33,9 @@ export function TemplateOverlay({ map, template, selectedColor, onGuideColorsCha
     };
   }, [template.objectUrl]);
 
-  // Async quantization - replaces synchronous useMemo
+  // Async quantization with debounce to prevent accumulation
+  const quantizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     if (!imageLoaded || !imageRef.current || template.mode !== 'pixelGuide') {
       setQuantizedPixels([]);
@@ -42,15 +44,25 @@ export function TemplateOverlay({ map, template, selectedColor, onGuideColorsCha
 
     let cancelled = false;
     const img = imageRef.current;
+    const scale = template.scale;
 
-    quantizeImageAsync(img, template.scale)
-      .then(pixels => {
-        if (!cancelled) {
-          setQuantizedPixels(pixels);
-        }
-      });
+    // Clear previous debounce timer
+    if (quantizeTimerRef.current) clearTimeout(quantizeTimerRef.current);
 
-    return () => { cancelled = true; };
+    quantizeTimerRef.current = setTimeout(() => {
+      if (cancelled) return;
+      quantizeImageAsync(img, scale)
+        .then(pixels => {
+          if (!cancelled) {
+            setQuantizedPixels(pixels);
+          }
+        });
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      if (quantizeTimerRef.current) clearTimeout(quantizeTimerRef.current);
+    };
   }, [imageLoaded, template.mode, template.scale]);
 
   // Extract unique colors from quantized pixels and notify parent
