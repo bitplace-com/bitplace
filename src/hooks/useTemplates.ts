@@ -12,7 +12,8 @@ export interface Template {
   width: number;
   height: number;
   opacity: number;    // 0-100
-  scale: number;      // 1-400 (percentage)
+  scale: number;      // 1-400 (percentage) - absolute
+  initialScale: number; // Scale at first load (for relative slider)
   rotation: number;   // 0-360 degrees
   positionX: number;  // Grid coordinates
   positionY: number;
@@ -97,6 +98,7 @@ export function useTemplates(walletAddress: string | null): UseTemplatesReturn {
       height: record.height,
       opacity: record.settings.opacity,
       scale: record.settings.scale,
+      initialScale: record.settings.initialScale,
       rotation: record.settings.rotation,
       positionX: record.settings.x,
       positionY: record.settings.y,
@@ -242,6 +244,7 @@ export function useTemplates(walletAddress: string | null): UseTemplatesReturn {
         ...t,
         ...(settings.opacity !== undefined && { opacity: settings.opacity }),
         ...(settings.scale !== undefined && { scale: settings.scale }),
+        ...(settings.initialScale !== undefined && { initialScale: settings.initialScale }),
         ...(settings.rotation !== undefined && { rotation: settings.rotation }),
         ...(settings.x !== undefined && { positionX: settings.x }),
         ...(settings.y !== undefined && { positionY: settings.y }),

@@ -30,26 +30,32 @@ export function TemplateDetailView({
   onToggleMoveMode,
 }: TemplateDetailViewProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [localScale, setLocalScale] = useState(template.scale);
+  // Relative scale: 100 = size at load. Convert to/from absolute scale.
+  const initScale = template.initialScale || template.scale || 100;
+  const absoluteToRelative = (abs: number) => Math.round((abs / initScale) * 100);
+  const relativeToAbsolute = (rel: number) => Math.round((rel / 100) * initScale);
+
+  const [localRelativeScale, setLocalRelativeScale] = useState(() => absoluteToRelative(template.scale));
   const scaleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sync localScale when template.scale changes externally
+  // Sync localRelativeScale when template.scale changes externally
   useEffect(() => {
-    setLocalScale(template.scale);
-  }, [template.scale]);
+    setLocalRelativeScale(absoluteToRelative(template.scale));
+  }, [template.scale, initScale]);
 
   // Debounced scale update for pixel guide mode
-  const handleScaleChange = useCallback((value: number) => {
-    setLocalScale(value);
+  const handleScaleChange = useCallback((relValue: number) => {
+    setLocalRelativeScale(relValue);
+    const absValue = relativeToAbsolute(relValue);
     if (scaleTimerRef.current) clearTimeout(scaleTimerRef.current);
     if (template.mode === 'pixelGuide') {
       scaleTimerRef.current = setTimeout(() => {
-        onUpdateSettings({ scale: value });
+        onUpdateSettings({ scale: absValue });
       }, 300);
     } else {
-      onUpdateSettings({ scale: value });
+      onUpdateSettings({ scale: absValue });
     }
-  }, [template.mode, onUpdateSettings]);
+  }, [template.mode, onUpdateSettings, initScale]);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -177,17 +183,17 @@ export function TemplateDetailView({
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Transform</h4>
         
-        {/* Scale slider */}
+        {/* Scale slider (relative: 100% = size at load) */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-xs text-muted-foreground">Scale</label>
-            <span className="text-xs font-mono tabular-nums">{localScale}%</span>
+            <span className="text-xs font-mono tabular-nums">{localRelativeScale}%</span>
           </div>
           <Slider
-            value={[localScale]}
+            value={[localRelativeScale]}
             onValueChange={([value]) => handleScaleChange(value)}
-            min={1}
-            max={400}
+            min={10}
+            max={500}
             step={1}
           />
         </div>

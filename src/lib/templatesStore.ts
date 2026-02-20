@@ -11,7 +11,8 @@ export interface TemplateSettings {
   visible: boolean;
   x: number;
   y: number;
-  scale: number;        // 1-400 (percentage)
+  scale: number;        // 1-400 (percentage) - absolute scale
+  initialScale: number; // Scale at first load (for relative slider)
   opacity: number;      // 0-100
   rotation: number;     // 0-360 degrees
   mode: 'image' | 'pixelGuide';
@@ -40,6 +41,7 @@ const DEFAULT_SETTINGS: TemplateSettings = {
   x: 0,
   y: 0,
   scale: 100,
+  initialScale: 100,
   opacity: 70,
   rotation: 0,
   mode: 'image',
