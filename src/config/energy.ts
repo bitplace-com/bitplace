@@ -1,6 +1,9 @@
 // Shared energy configuration
-// Change this to 'BTP' when BTP token launches
-export const ENERGY_ASSET: 'SOL' | 'BTP' = 'SOL';
+// Current energy asset: $BIT token on Solana
+export const ENERGY_ASSET: 'SOL' | 'BIT' = 'BIT';
+
+// $BIT token mint address on Solana mainnet (Pump.fun launch)
+export const BIT_TOKEN_MINT = '6az8wE4Gmns7bPLwfeR9Ed9pnGjqN5Cv9FJ3vs4Cpump';
 
 export const ENERGY_CONFIG = {
   SOL: {
@@ -8,10 +11,11 @@ export const ENERGY_CONFIG = {
     decimals: 9, // lamports to SOL
     priceEndpoint: 'https://api.coinbase.com/v2/prices/SOL-USD/spot',
   },
-  BTP: {
-    symbol: 'BTP',
-    decimals: 9,
-    priceEndpoint: '', // TBD when BTP launches
+  BIT: {
+    symbol: 'BIT',
+    decimals: 6, // standard Pump.fun token decimals
+    mint: BIT_TOKEN_MINT,
+    priceEndpoint: `https://api.dexscreener.com/token-pairs/v1/solana/${BIT_TOKEN_MINT}`,
   },
 } as const;
 

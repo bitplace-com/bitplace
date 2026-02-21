@@ -64,7 +64,7 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
     ? Math.floor(energy.peTotal).toLocaleString() 
     : "0";
 
-  const assetSymbol = ENERGY_ASSET === 'SOL' ? 'SOL' : 'BTP';
+  const assetSymbol = '$BIT';
 
   return (
     <GamePanel
@@ -172,7 +172,7 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
                 <strong className="text-foreground">Rate:</strong> $1 USD = {PE_PER_USD.toLocaleString()} PE
               </p>
               <p className="text-xs text-primary">
-                Currently using {assetSymbol} balance. This will switch to BTP when the token launches.
+                PE is calculated from your $BIT token balance at current market price.
               </p>
             </div>
           </>

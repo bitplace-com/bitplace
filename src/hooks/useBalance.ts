@@ -1,16 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-const STORAGE_KEY_CLUSTER = 'bitplace_sol_cluster';
-const PRICE_REFRESH_MS = 30 * 1000; // 30 seconds
 const BALANCE_REFRESH_MS = 60 * 1000; // 60 seconds
 
 export interface BalanceState {
-  solBalance: number;
-  solUsdPrice: number;
+  bitBalance: number;
+  bitUsdPrice: number;
   walletUsd: number;
   peTotal: number;
-  cluster: 'mainnet' | 'devnet' | null;
   lastSyncAt: Date | null;
   isRefreshing: boolean;
   error: string | null;
@@ -22,11 +19,10 @@ interface UseBalanceOptions {
 }
 
 const defaultState: BalanceState = {
-  solBalance: 0,
-  solUsdPrice: 0,
+  bitBalance: 0,
+  bitUsdPrice: 0,
   walletUsd: 0,
   peTotal: 0,
-  cluster: null,
   lastSyncAt: null,
   isRefreshing: false,
   error: null,
@@ -46,18 +42,12 @@ const balanceDebug = (stage: string, data?: unknown) => {
 };
 
 export function useBalance({ walletAddress, enabled = true }: UseBalanceOptions) {
-  const [state, setState] = useState<BalanceState>(() => {
-    // Load cached cluster from localStorage
-    const cachedCluster = typeof window !== 'undefined' 
-      ? localStorage.getItem(STORAGE_KEY_CLUSTER) as 'mainnet' | 'devnet' | null
-      : null;
-    return { ...defaultState, cluster: cachedCluster };
-  });
+  const [state, setState] = useState<BalanceState>(defaultState);
 
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
 
-  // Fetch balance from sol-balance edge function (public, no auth required)
+  // Fetch balance from token-balance edge function (public, no auth required)
   const fetchBalance = useCallback(async (showRefreshing = true) => {
     if (!walletAddress || !enabled) return;
 
@@ -68,7 +58,7 @@ export function useBalance({ walletAddress, enabled = true }: UseBalanceOptions)
     balanceDebug('fetch_start', { wallet: walletAddress.substring(0, 8) });
 
     try {
-      const { data, error } = await supabase.functions.invoke('sol-balance', {
+      const { data, error } = await supabase.functions.invoke('token-balance', {
         body: { wallet: walletAddress },
       });
 
@@ -94,25 +84,18 @@ export function useBalance({ walletAddress, enabled = true }: UseBalanceOptions)
         return;
       }
 
-      const newCluster = data.cluster as 'mainnet' | 'devnet';
-      
-      // Cache cluster in localStorage
-      localStorage.setItem(STORAGE_KEY_CLUSTER, newCluster);
-
       balanceDebug('fetch_success', {
-        solBalance: data.solBalance,
+        bitBalance: data.bitBalance,
         usdPrice: data.usdPrice,
         walletUsd: data.walletUsd,
         peTotal: data.peTotal,
-        cluster: newCluster,
       });
 
       setState({
-        solBalance: data.solBalance || 0,
-        solUsdPrice: data.usdPrice || 0,
+        bitBalance: data.bitBalance || 0,
+        bitUsdPrice: data.usdPrice || 0,
         walletUsd: data.walletUsd || 0,
         peTotal: data.peTotal || 0,
-        cluster: newCluster,
         lastSyncAt: new Date(),
         isRefreshing: false,
         error: null,
@@ -140,14 +123,14 @@ export function useBalance({ walletAddress, enabled = true }: UseBalanceOptions)
     isMountedRef.current = true;
 
     if (!walletAddress || !enabled) {
-      setState(prev => ({ ...defaultState, cluster: prev.cluster }));
+      setState(defaultState);
       return;
     }
 
     // Initial fetch
     fetchBalance(true);
 
-    // Setup refresh interval (balance every 60s, price is cached in edge function)
+    // Setup refresh interval
     refreshTimerRef.current = setInterval(() => {
       fetchBalance(false); // Silent refresh (no spinner)
     }, BALANCE_REFRESH_MS);

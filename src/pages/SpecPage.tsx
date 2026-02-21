@@ -26,14 +26,14 @@ export default function SpecPage() {
         <SectionCard title="Token and Energy" icon={icons.bolt}>
           <div className="space-y-4 text-sm">
             <div>
-              <p><strong>Token:</strong> BTP (currently uses SOL as proxy)</p>
+              <p><strong>Token:</strong> $BIT (Solana SPL token)</p>
               <p><strong>Energy Unit:</strong> PE (Pixel Energy)</p>
             </div>
             <div className="bg-muted/50 p-3 rounded-md font-mono text-xs">
               1 PE = $0.001 USD<br />
               1 USD = 1,000 PE
             </div>
-            <p>PE is derived from the user's wallet value in BTP/SOL at current market price.</p>
+            <p>PE is derived from the user's wallet value in $BIT at current market price.</p>
           </div>
         </SectionCard>
 

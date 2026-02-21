@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ENERGY_ASSET, ENERGY_CONFIG, ENERGY_STALE_THRESHOLD_MS } from '@/config/energy';
 
 export interface EnergyState {
-  energyAsset: 'SOL' | 'BTP';
+  energyAsset: 'SOL' | 'BIT';
   nativeSymbol: string;
   nativeBalance: number;
   usdPrice: number;
@@ -78,7 +78,7 @@ export function useEnergy(userId: string | undefined) {
       const lastSyncAt = data.lastSyncAt ? new Date(data.lastSyncAt) : null;
 
       setState({
-        energyAsset: (data.energyAsset as 'SOL' | 'BTP') || ENERGY_ASSET,
+        energyAsset: (data.energyAsset as 'SOL' | 'BIT') || ENERGY_ASSET,
         nativeSymbol: data.nativeSymbol || ENERGY_CONFIG[ENERGY_ASSET].symbol,
         nativeBalance: data.nativeBalance || 0,
         usdPrice: data.usdPrice || 0,
@@ -128,7 +128,7 @@ export function useEnergy(userId: string | undefined) {
   }) => {
     const lastSyncAt = userData.last_energy_sync_at ? new Date(userData.last_energy_sync_at) : null;
     setState({
-      energyAsset: (userData.energy_asset as 'SOL' | 'BTP') || ENERGY_ASSET,
+      energyAsset: (userData.energy_asset as 'SOL' | 'BIT') || ENERGY_ASSET,
       nativeSymbol: userData.native_symbol || ENERGY_CONFIG[ENERGY_ASSET].symbol,
       nativeBalance: Number(userData.native_balance) || 0,
       usdPrice: Number(userData.usd_price) || 0,

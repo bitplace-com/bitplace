@@ -245,8 +245,7 @@ const ProfilePage = () => {
               {energy.peTotal < 1 && (
                 <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
                   <p className="text-sm text-amber-700 font-medium">
-                    Add {energy.nativeSymbol} to your Phantom wallet to get PE
-                    (temporary until BTP launches).
+                    Add $BIT to your Phantom wallet to get PE.
                   </p>
                   <p className="text-xs text-amber-600/80 mt-1">
                     1 PE = $0.001 • Your PE is calculated from your{" "}

@@ -39,6 +39,9 @@ verify_jwt = false
 [functions.sol-balance]
 verify_jwt = false
 
+[functions.token-balance]
+verify_jwt = false
+
 [functions.pe-status]
 verify_jwt = false
 
