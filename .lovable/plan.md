@@ -1,93 +1,60 @@
 
 
-## Migrazione da $SOL a $BIT Token
+## Cleanup SOL -> BIT e Reset Mappa
 
-Il piano che hai ricevuto da Claude e' sostanzialmente allineato con quello che avevamo gia' progettato. Ci sono alcune differenze minori da considerare:
+Questo piano copre due macro-operazioni: (A) aggiornare tutti i testi UI residui che menzionano SOL o "test phase", e (B) resettare completamente la mappa e i dati di gioco.
 
-### Differenze rispetto al prompt di Claude
+---
 
-1. **API DexScreener**: Claude suggerisce `/token-pairs/v1/solana/{CA}` con `pairs[0].priceUsd`. Il nostro piano usava `/tokens/v1/solana/{CA}`. Entrambi funzionano, ma il path `/token-pairs/` e' piu' affidabile perche' restituisce direttamente le coppie di trading con il prezzo. Useremo quello.
+### A. Aggiornamenti UI (6 file)
 
-2. **Environment variables**: Claude suggerisce `BIT_TOKEN_MINT` e `DEXSCREENER_API_URL` come env vars. Non servono come secrets nel backend: il mint address e' una costante pubblica (non un segreto) e puo' essere hardcoded sia nel config frontend che nelle edge functions. Nessun secret aggiuntivo necessario.
+**1. StatusStrip.tsx** (barra in basso nella mappa)
+- Riga 72: commento "SOL Balance" -> "BIT Balance"
+- Riga 130: commento "SOL Balance" -> "BIT Balance"  
+- Riga 134: testo hardcoded `SOL` -> usa `energy.nativeSymbol` (mostra "BIT" dinamicamente)
+- Riga 250: tooltip `SOL price:` -> `$BIT price:`
 
-3. **Rinomina `sol-balance`**: Claude suggerisce rinominare in `bit-balance` o `token-balance`. Rinomineremo in `token-balance` per essere piu' generici e future-proof.
+**2. WalletSelectModal.tsx** (modale connessione wallet)
+- Riga 106: rimuove "SOL temporarily powers PE"  -> "Connect your Phantom wallet to play Bitplace."
+- Righe 173-180: rimuove intero blocco "Test phase" che menziona $SOL e "$BIT coming soon" (non e' piu' "coming soon", e' live)
 
-### Piano di implementazione
+**3. RulesModal.tsx** (regole di gioco)
+- Righe 80-82: rimuove la riga italic "Test phase: PE is calculated from the $ value of $SOL in your wallet."
 
-**1. Configurazione frontend (`src/config/energy.ts`)**
-- `ENERGY_ASSET` da `'SOL'` a `'BIT'`
-- Aggiunge config `BIT` con symbol `'BIT'`, decimals `6`, mint address, e endpoint DexScreener
-- Rimuove la vecchia config `BTP` placeholder
+**4. ProfilePage.tsx** (scheda wallet personale)
+- Riga 212: cambia `$${formatUsd(energy.usdPrice)}/SOL` -> `$${formatUsd(energy.usdPrice)}/$BIT`
 
-**2. Nuova edge function `token-balance` (sostituisce `sol-balance`)**
-- Legge saldo SPL token con `getTokenAccountsByOwner` filtrato per mint `6az8wE4Gmns7bPLwfeR9Ed9pnGjqN5Cv9FJ3vs4Cpump`
-- Prezzo da DexScreener `/token-pairs/v1/solana/{CA}` con cache 30s
-- Solo mainnet (niente devnet fallback - i token SPL sono solo su mainnet)
-- Gestisce il caso "0 BIT" (nessun token account = saldo 0)
-- Response con campi `bitBalance`, `usdPrice`, `walletUsd`, `peTotal`
+**5. config/energy.ts** (configurazione tecnica)
+- Rimuove il blocco `SOL` dalla config (non serve piu' come fallback)
+- Semplifica il tipo a solo `'BIT'`
 
-**3. Aggiorna `energy-refresh` edge function**
-- Sostituisce `fetchSolBalanceFromRpc` / `fetchSolBalanceWithFallback` con `fetchBitBalance` (SPL token query)
-- Sostituisce `fetchSolPrice` (Coinbase) con `fetchBitPrice` (DexScreener)
-- Rimuove logica devnet/mainnet fallback
-- Aggiorna tutti i valori response da `"SOL"` a `"BIT"`
-- Aggiorna log da `[energy-refresh] SOL` a `[energy-refresh] BIT`
+**6. Tipi TypeScript** (WalletContext, useEnergy, usePeBalance)
+- Cambia tipo `'SOL' | 'BIT'` -> `'BIT'` in tutti e 3 i file per riflettere che SOL non e' piu' un'opzione
 
-**4. Aggiorna `pe-status` edge function**
-- Nessun cambiamento di logica (non dipende dal tipo di asset)
-- Solo aggiornamento commenti/log per chiarezza
+---
 
-**5. Frontend: `useBalance.ts`**
-- Chiama `token-balance` invece di `sol-balance`
-- Rinomina `solBalance` -> `bitBalance`, `solUsdPrice` -> `bitUsdPrice`
-- Rimuove logica cluster mainnet/devnet
+### B. Reset Mappa e Dati di Gioco
 
-**6. Frontend: `WalletContext.tsx`**
-- Aggiorna tipo `EnergyState.energyAsset` da `'SOL' | 'BTP'` a `'SOL' | 'BIT'`
-- Trial mode: cambia `'SOL'` -> `'BIT'` nei dati fittizi, simula saldo BIT
-- Sync balance: aggiorna nomi campi da `solBalance` a `bitBalance`
-- Aggiorna `updateEnergyFromUser` e `refreshEnergy` per usare `'BIT'`
+Dati attuali da cancellare:
+- 2.913 pixel nella tabella `pixels`
+- 63 eventi in `paint_events`
+- 49 notifiche in `notifications`
+- 5 utenti con `pe_used_pe` e `pixels_painted_total` da azzerare
 
-**7. Frontend: `useEnergy.ts`**
-- Aggiorna tipo union da `'SOL' | 'BTP'` a `'SOL' | 'BIT'`
+Operazioni SQL (tramite lo strumento di inserimento dati):
 
-**8. Frontend: `usePeBalance.ts`**
-- Aggiorna tipo union da `'SOL' | 'BTP'` a `'SOL' | 'BIT'`
+1. **Elimina tutti i pixel**: `DELETE FROM pixels` (i trigger aggiorneranno automaticamente `pe_used_pe` degli utenti)
+2. **Elimina contribuzioni**: `DELETE FROM pixel_contributions` (gia' vuota, ma per sicurezza)
+3. **Elimina eventi paint**: `DELETE FROM paint_events`
+4. **Elimina notifiche**: `DELETE FROM notifications`
+5. **Azzera contatori utenti**: `UPDATE users SET pixels_painted_total = 0, pe_used_pe = 0, takeover_def_pe_total = 0, takeover_atk_pe_total = 0, xp = 0`
 
-**9. Frontend: `ShopModal.tsx`**
-- Aggiorna label da `'SOL'` a `'BIT'`/`'$BIT'`
-- Aggiorna descrizione: "add $BIT to your wallet"
+Nota importante: la cancellazione dei pixel attiverà i trigger `update_pe_used_on_pixel_change` che decrementano `pe_used_pe` automaticamente. L'UPDATE successivo azzera eventuali residui.
 
-**10. Config: `supabase/config.toml`**
-- Aggiunge entry `[functions.token-balance]` con `verify_jwt = false`
+---
 
-**11. Database: colonne users**
-- Aggiorna default di `energy_asset` da `'SOL'` a `'BIT'`
-- Aggiorna default di `native_symbol` da `'SOL'` a `'BIT'`
-- Rimuove colonna `sol_cluster` (non piu' necessaria) o la rinomina -- valuteremo se tenerla per retrocompatibilita'
-
-**12. Elimina vecchia edge function `sol-balance`**
-- Rimossa dal codice e dal deploy
-
-### Cosa NON cambia
-- Formula PE: `PE = floor(walletUsd * 1000)` resta identica
-- Collateralizzazione, rebalance, validate-then-commit: invariati
-- Database triggers per `pe_used_pe`: invariati
-- Autenticazione Phantom: invariata (stessa firma)
-- Schema tabelle `pixels`, `pixel_contributions`: invariato
-
-### Rischi
-- **Basso**: DexScreener potrebbe avere downtime. Mitigato con cache 30s e fallback a ultimo prezzo noto
-- **Basso**: Utente senza token account $BIT riceve PE = 0. Comportamento corretto e previsto
-- **Nessuno**: La logica di gioco (paint, defend, attack) non cambia, solo la fonte dei dati di input
-
-### Sequenza di implementazione
-1. Config frontend + tipi TypeScript
-2. Nuova edge function `token-balance`
-3. Aggiorna `energy-refresh`
-4. Aggiorna hooks frontend (`useBalance`, `WalletContext`, `useEnergy`, `usePeBalance`)
-5. Aggiorna UI (`ShopModal`)
-6. Migration DB (defaults colonne)
-7. Deploy + elimina `sol-balance`
-8. Test end-to-end
+### Sequenza di esecuzione
+1. Aggiornamenti UI (tutti i 6 file in parallelo)
+2. Reset dati (5 query SQL in sequenza)
+3. Verifica che la mappa sia pulita
 
