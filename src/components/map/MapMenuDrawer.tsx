@@ -16,7 +16,6 @@ import { RulesModal } from "@/components/modals/RulesModal";
 import { ShopModal } from "@/components/modals/ShopModal";
 import { AllianceModal } from "@/components/modals/AllianceModal";
 import { SettingsModal } from "@/components/modals/SettingsModal";
-import { LeaderboardModal } from "@/components/modals/LeaderboardModal";
 import { WhitePaperModal } from "@/components/modals/WhitePaperModal";
 
 function ThemeToggleButton() {
@@ -41,7 +40,6 @@ export function MapMenuDrawer() {
   const [shopOpen, setShopOpen] = useState(false);
   const [allianceOpen, setAllianceOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [whitePaperOpen, setWhitePaperOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -101,14 +99,14 @@ export function MapMenuDrawer() {
                   Alliance
                 </Button>
 
-                {/* Leaderboard */}
+                {/* Buy $BIT */}
                 <Button
                   variant="ghost"
-                  onClick={() => setLeaderboardOpen(true)}
+                  onClick={() => setShopOpen(true)}
                   className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
                 >
-                  <PixelIcon name="trophy" size="md" />
-                  Leaderboard
+                  <PixelIcon name="cart" size="md" />
+                  Buy $BIT
                 </Button>
               </div>
             </div>
@@ -139,15 +137,6 @@ export function MapMenuDrawer() {
                   Rules
                 </Button>
 
-                {/* Buy $BIT */}
-                <Button
-                  variant="ghost"
-                  onClick={() => setShopOpen(true)}
-                  className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
-                >
-                  <PixelIcon name="cart" size="md" />
-                  Buy $BIT
-                </Button>
               </div>
             </div>
           </nav>
@@ -171,7 +160,6 @@ export function MapMenuDrawer() {
       <ShopModal open={shopOpen} onOpenChange={setShopOpen} />
       <AllianceModal open={allianceOpen} onOpenChange={setAllianceOpen} />
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
-      <LeaderboardModal open={leaderboardOpen} onOpenChange={setLeaderboardOpen} />
       <WhitePaperModal open={whitePaperOpen} onOpenChange={setWhitePaperOpen} />
     </>
   );
