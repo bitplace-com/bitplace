@@ -103,7 +103,7 @@ export function WalletSelectModal({
             Connect Wallet
           </DialogTitle>
           <DialogDescription>
-            Connect your Phantom wallet to use Bitplace. SOL temporarily powers PE (Pixel Energy).
+            Connect your Phantom wallet to play Bitplace.
           </DialogDescription>
         </DialogHeader>
 
@@ -170,14 +170,6 @@ export function WalletSelectModal({
             </div>
           </button>
 
-          {/* Test phase notice */}
-          <div className="px-4 py-3 rounded-lg bg-muted/50 border border-border/50">
-            <p className="text-xs text-muted-foreground text-center">
-              <span className="font-medium text-foreground">Test phase:</span> We're currently using{" "}
-              <span className="font-medium text-foreground">$SOL</span> to power Pixel Energy.
-              The official <span className="font-medium text-foreground">$BIT</span> token is coming soon.
-            </p>
-          </div>
 
           {/* Install guidance for desktop */}
           {phantomInstalled === false && !isMobile && (

@@ -45,7 +45,7 @@ interface User {
 }
 
 interface EnergyState {
-  energyAsset: 'SOL' | 'BIT';
+  energyAsset: 'BIT';
   nativeSymbol: string;
   nativeBalance: number;
   usdPrice: number;
@@ -365,7 +365,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const isStale = !lastSyncAt || (Date.now() - lastSyncAt.getTime() > ENERGY_STALE_THRESHOLD_MS);
     
     setEnergy(prev => ({
-      energyAsset: (userData.energy_asset as 'SOL' | 'BIT') || ENERGY_ASSET,
+      energyAsset: 'BIT',
       nativeSymbol: userData.native_symbol || ENERGY_CONFIG[ENERGY_ASSET].symbol,
       nativeBalance: Number(userData.native_balance) || prev.nativeBalance,
       usdPrice: Number(userData.usd_price) || prev.usdPrice,
@@ -459,7 +459,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const paintCooldownUntil = data.paintCooldownUntil ? new Date(data.paintCooldownUntil) : null;
       
       setEnergy({
-        energyAsset: (data.energyAsset as 'SOL' | 'BIT') || ENERGY_ASSET,
+        energyAsset: 'BIT',
         nativeSymbol: data.nativeSymbol || ENERGY_CONFIG[ENERGY_ASSET].symbol,
         nativeBalance: data.nativeBalance || 0,
         usdPrice: data.usdPrice || 0,
@@ -518,7 +518,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         const paintCooldownUntil = data.paintCooldownUntil ? new Date(data.paintCooldownUntil) : null;
         
         setEnergy({
-          energyAsset: (data.energyAsset as 'SOL' | 'BIT') || ENERGY_ASSET,
+          energyAsset: 'BIT',
           nativeSymbol: data.nativeSymbol || ENERGY_CONFIG[ENERGY_ASSET].symbol,
           nativeBalance: data.nativeBalance || 0,
           usdPrice: data.usdPrice || 0,

@@ -209,7 +209,7 @@ const ProfilePage = () => {
                   icon={(props) => <PixelIcon name="wallet" {...props} />}
                   helper={
                     energy.usdPrice > 0
-                      ? `$${formatUsd(energy.usdPrice)}/SOL`
+                      ? `$${formatUsd(energy.usdPrice)}/$BIT`
                       : undefined
                   }
                 />
