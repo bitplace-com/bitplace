@@ -17,7 +17,7 @@ export interface PeBalance {
   contributionTotal: number;
   isContributionsUnderCollateralized: boolean;
   // Energy source info
-  energyAsset: 'SOL' | 'BIT';
+  energyAsset: 'BIT';
   nativeSymbol: string;
   nativeBalance: number;
   usdPrice: number;

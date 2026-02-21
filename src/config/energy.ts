@@ -1,16 +1,11 @@
 // Shared energy configuration
 // Current energy asset: $BIT token on Solana
-export const ENERGY_ASSET: 'SOL' | 'BIT' = 'BIT';
+export const ENERGY_ASSET: 'BIT' = 'BIT';
 
 // $BIT token mint address on Solana mainnet (Pump.fun launch)
 export const BIT_TOKEN_MINT = '6az8wE4Gmns7bPLwfeR9Ed9pnGjqN5Cv9FJ3vs4Cpump';
 
 export const ENERGY_CONFIG = {
-  SOL: {
-    symbol: 'SOL',
-    decimals: 9, // lamports to SOL
-    priceEndpoint: 'https://api.coinbase.com/v2/prices/SOL-USD/spot',
-  },
   BIT: {
     symbol: 'BIT',
     decimals: 6, // standard Pump.fun token decimals

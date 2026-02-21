@@ -69,7 +69,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
         ref={onHeightChange}
         className="min-h-12 sm:min-h-11 glass-hud flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 sm:gap-4 px-3 sm:px-4 py-2.5 sm:py-2 border-t-0 rounded-none safe-bottom-bar overflow-x-auto scrollbar-hide"
       >
-        {/* Left side - SOL Balance & Cluster */}
+        {/* Left side - BIT Balance & Cluster */}
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap sm:flex-nowrap">
           {/* Sign-in required pill */}
           {needsSignature && (
@@ -127,11 +127,11 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             </div>
           )}
 
-          {/* SOL Balance */}
+          {/* BIT Balance */}
           <div className="flex items-center gap-2">
             <PixelIcon name="wallet" className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium tabular-nums leading-tight">
-              {isLoading || energy.isRefreshing ? '...' : `${energy.nativeBalance.toFixed(4)} SOL`}
+              {isLoading || energy.isRefreshing ? '...' : `${energy.nativeBalance.toFixed(4)} ${energy.nativeSymbol}`}
             </span>
             {energy.walletUsd > 0 && (
               <span className="text-xs text-muted-foreground">
@@ -247,7 +247,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             <TooltipContent side="top" className="text-xs">
               <p>Last sync: {formatLastSync(energy.lastSyncAt)}</p>
               {energy.usdPrice > 0 && (
-                <p className="text-muted-foreground">SOL price: ${energy.usdPrice.toFixed(2)}</p>
+                <p className="text-muted-foreground">$BIT price: ${energy.usdPrice.toFixed(2)}</p>
               )}
             </TooltipContent>
           </Tooltip>
