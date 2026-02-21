@@ -131,7 +131,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
           <div className="flex items-center gap-2">
             <PixelIcon name="wallet" className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium tabular-nums leading-tight">
-              {isLoading || energy.isRefreshing ? '...' : `${energy.nativeBalance.toFixed(4)} ${energy.nativeSymbol}`}
+              {isLoading || energy.isRefreshing ? '...' : `${energy.nativeBalance.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ${energy.nativeSymbol}`}
             </span>
             {energy.walletUsd > 0 && (
               <span className="text-xs text-muted-foreground">
