@@ -319,6 +319,14 @@ Deno.serve(async (req) => {
 
       const query = searchQuery.trim();
 
+      // Validate input contains only safe characters
+      if (!/^[\p{L}\p{N} .\-_]+$/u.test(query)) {
+        return new Response(JSON.stringify({ error: "Invalid search characters" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       // Escape SQL wildcard characters to prevent injection
       const escaped = query.replace(/[%_\\]/g, '\\$&');
 
