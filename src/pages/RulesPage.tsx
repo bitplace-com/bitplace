@@ -17,7 +17,7 @@ const RulesPage = () => {
         <SectionCard icon={Coins} title="Token & Energy">
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <InfoChip variant="primary">BTP</InfoChip>
+              <InfoChip variant="primary">$BIT</InfoChip>
               <span className="text-sm text-foreground">The Bitplace token</span>
             </div>
             <div className="flex items-center gap-3">
@@ -25,7 +25,7 @@ const RulesPage = () => {
               <span className="text-sm text-foreground">Pixel Energy — 1 PE = $0.01</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              PE is derived from your wallet's BTP balance and used for all map actions.
+              PE is derived from your wallet's $BIT balance and used for all map actions.
             </p>
           </div>
         </SectionCard>

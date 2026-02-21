@@ -21,9 +21,10 @@ function getCorsHeaders(req: Request): Record<string, string> {
   };
 }
 
-// RPC endpoints
+// $BIT token configuration
+const BIT_TOKEN_MINT = "6az8wE4Gmns7bPLwfeR9Ed9pnGjqN5Cv9FJ3vs4Cpump";
+const BIT_DECIMALS = 6;
 const RPC_MAINNET = "https://api.mainnet-beta.solana.com";
-const RPC_DEVNET = "https://api.devnet.solana.com";
 
 // In-memory rate limiting (per user)
 const userLastRefresh: Map<string, number> = new Map();
@@ -48,7 +49,6 @@ async function verifyToken(token: string, secret: string): Promise<{ userId: str
     const [headerB64, payloadB64, signatureB64] = parts;
     const encoder = new TextEncoder();
     
-    // Import the secret key for HMAC
     const key = await crypto.subtle.importKey(
       'raw',
       encoder.encode(secret),
@@ -57,11 +57,9 @@ async function verifyToken(token: string, secret: string): Promise<{ userId: str
       ['verify']
     );
 
-    // Decode the signature from base64url
     const signatureB64Std = signatureB64.replace(/-/g, '+').replace(/_/g, '/');
     const signatureBytes = Uint8Array.from(atob(signatureB64Std), c => c.charCodeAt(0));
 
-    // Verify the signature against header.payload
     const signatureInput = `${headerB64}.${payloadB64}`;
     const isValid = await crypto.subtle.verify(
       'HMAC',
@@ -75,11 +73,9 @@ async function verifyToken(token: string, secret: string): Promise<{ userId: str
       return null;
     }
 
-    // Decode and parse payload (handle base64url)
     const payloadB64Std = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
     const payload = JSON.parse(atob(payloadB64Std));
 
-    // Check expiration
     if (payload.exp && payload.exp < Date.now()) {
       console.error("[energy-refresh] Token expired");
       return null;
@@ -96,93 +92,94 @@ async function verifyToken(token: string, secret: string): Promise<{ userId: str
   }
 }
 
-// Fetch SOL balance from a specific RPC
-async function fetchSolBalanceFromRpc(walletAddress: string, rpcUrl: string, cluster: string): Promise<{ balance: number; cluster: string }> {
-  console.log(`[energy-refresh] Fetching balance from ${cluster}: ${walletAddress.substring(0, 8)}...`);
-  
+// Fetch $BIT SPL token balance from Solana RPC (mainnet only)
+async function fetchBitBalance(walletAddress: string): Promise<number> {
+  console.log(`[energy-refresh] Fetching $BIT balance for ${walletAddress.substring(0, 8)}...`);
+
   try {
-    const response = await fetch(rpcUrl, {
+    const response = await fetch(RPC_MAINNET, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         jsonrpc: "2.0",
         id: 1,
-        method: "getBalance",
-        params: [walletAddress],
+        method: "getTokenAccountsByOwner",
+        params: [
+          walletAddress,
+          { mint: BIT_TOKEN_MINT },
+          { encoding: "jsonParsed" },
+        ],
       }),
     });
 
     if (!response.ok) {
-      console.error(`[energy-refresh] BALANCE_RPC_FAILED: ${cluster} returned ${response.status}`);
-      return { balance: 0, cluster };
+      console.error(`[energy-refresh] BALANCE_RPC_FAILED: mainnet returned ${response.status}`);
+      return 0;
     }
 
     const data = await response.json();
-    
+
     if (data.error) {
-      console.error(`[energy-refresh] BALANCE_RPC_FAILED: ${cluster} error: ${data.error.message}`);
-      return { balance: 0, cluster };
+      console.error(`[energy-refresh] BALANCE_RPC_FAILED: ${data.error.message}`);
+      return 0;
     }
 
-    const lamports = data.result?.value ?? 0;
-    const solBalance = lamports / 1e9;
-    
-    console.log(`[energy-refresh] ${cluster}: ${solBalance} SOL`);
-    return { balance: solBalance, cluster };
+    const accounts = data.result?.value || [];
+    if (accounts.length === 0) {
+      console.log("[energy-refresh] No $BIT token account found (balance = 0)");
+      return 0;
+    }
+
+    let totalRaw = 0;
+    for (const account of accounts) {
+      const info = account.account?.data?.parsed?.info;
+      if (info) {
+        totalRaw += Number(info.tokenAmount?.amount || 0);
+      }
+    }
+
+    const balance = totalRaw / Math.pow(10, BIT_DECIMALS);
+    console.log(`[energy-refresh] $BIT balance: ${balance}`);
+    return balance;
   } catch (err) {
-    console.error(`[energy-refresh] BALANCE_RPC_FAILED: ${cluster} exception:`, err);
-    return { balance: 0, cluster };
+    console.error("[energy-refresh] BALANCE_RPC_FAILED: exception:", err);
+    return 0;
   }
 }
 
-// Fetch SOL balance with cluster fallback
-async function fetchSolBalanceWithFallback(walletAddress: string): Promise<{ balance: number; cluster: 'mainnet' | 'devnet' }> {
-  const [mainnetResult, devnetResult] = await Promise.all([
-    fetchSolBalanceFromRpc(walletAddress, RPC_MAINNET, 'mainnet'),
-    fetchSolBalanceFromRpc(walletAddress, RPC_DEVNET, 'devnet'),
-  ]);
-
-  console.log(`[energy-refresh] Mainnet: ${mainnetResult.balance}, Devnet: ${devnetResult.balance}`);
-
-  if (mainnetResult.balance >= devnetResult.balance && mainnetResult.balance > 0) {
-    return { balance: mainnetResult.balance, cluster: 'mainnet' };
-  } else if (devnetResult.balance > 0) {
-    console.log('[energy-refresh] CLUSTER_FALLBACK_USED: devnet has higher balance');
-    return { balance: devnetResult.balance, cluster: 'devnet' };
-  } else if (mainnetResult.balance > 0) {
-    return { balance: mainnetResult.balance, cluster: 'mainnet' };
-  }
-
-  return { balance: 0, cluster: 'mainnet' };
-}
-
-// Fetch SOL/USD price from Coinbase (with caching)
-async function fetchSolPrice(): Promise<number> {
+// Fetch $BIT/USD price from DexScreener (with caching)
+async function fetchBitPrice(): Promise<number> {
   const now = Date.now();
-  
+
   if (priceCache && (now - priceCache.fetchedAt) < PRICE_CACHE_TTL_MS) {
-    console.log(`[energy-refresh] Using cached SOL price: $${priceCache.price}`);
+    console.log(`[energy-refresh] Using cached $BIT price: $${priceCache.price}`);
     return priceCache.price;
   }
 
-  console.log("[energy-refresh] Fetching SOL price from Coinbase...");
-  
+  console.log("[energy-refresh] Fetching $BIT price from DexScreener...");
+
   try {
-    const response = await fetch("https://api.coinbase.com/v2/prices/SOL-USD/spot", {
-      headers: { "Accept": "application/json" },
-    });
-    
+    const response = await fetch(
+      `https://api.dexscreener.com/token-pairs/v1/solana/${BIT_TOKEN_MINT}`,
+      { headers: { Accept: "application/json" } }
+    );
+
     if (!response.ok) {
-      console.error(`[energy-refresh] PRICE_FETCH_FAILED: Coinbase returned ${response.status}`);
+      console.error(`[energy-refresh] PRICE_FETCH_FAILED: DexScreener returned ${response.status}`);
       return priceCache?.price ?? 0;
     }
 
     const data = await response.json();
-    const price = parseFloat(data.data?.amount ?? "0");
-    
-    console.log(`[energy-refresh] SOL price: $${price}`);
+    const pairs = Array.isArray(data) ? data : data.pairs || [];
+    const price = parseFloat(pairs[0]?.priceUsd ?? "0");
+
+    if (price <= 0) {
+      console.error("[energy-refresh] PRICE_FETCH_FAILED: No valid price from DexScreener");
+      return priceCache?.price ?? 0;
+    }
+
+    console.log(`[energy-refresh] $BIT price: $${price}`);
     priceCache = { price, fetchedAt: now };
-    
     return price;
   } catch (err) {
     console.error("[energy-refresh] PRICE_FETCH_FAILED: Exception:", err);
@@ -232,10 +229,10 @@ Deno.serve(async (req) => {
       },
     });
 
-    // Fetch user from DB (including paint_cooldown_until and pe_used_pe from trigger)
+    // Fetch user from DB
     const { data: userData, error: userError } = await supabase
       .from("users")
-      .select("id, wallet_address, native_balance, usd_price, wallet_usd, pe_total_pe, pe_used_pe, last_energy_sync_at, sol_cluster, pixels_painted_total, level, paint_cooldown_until")
+      .select("id, wallet_address, native_balance, usd_price, wallet_usd, pe_total_pe, pe_used_pe, last_energy_sync_at, pixels_painted_total, level, paint_cooldown_until")
       .eq("id", userId)
       .maybeSingle();
 
@@ -264,7 +261,6 @@ Deno.serve(async (req) => {
       const waitTime = Math.ceil((RATE_LIMIT_MS - timeSinceLastRefresh) / 1000);
       console.log(`[energy-refresh] Rate limited for user ${userId}, wait ${waitTime}s`);
       
-      // Use pe_used_pe from trigger as single source of truth + COUNT for pixelsOwned
       const { count: pixelsOwned } = await supabase
         .from("pixels")
         .select("*", { count: "exact", head: true })
@@ -273,10 +269,8 @@ Deno.serve(async (req) => {
       const peTotal = Number(userData.pe_total_pe) || 0;
       const peUsed = Number(userData.pe_used_pe) || 0;
       const peAvailable = Math.max(0, peTotal - peUsed);
-      // pixelStakeTotal = peUsed - contributions (for display purposes)
-      const pixelStakeTotal = peUsed; // Simplified: pe_used includes owner stake + contribs
+      const pixelStakeTotal = peUsed;
 
-      // Calculate paint cooldown remaining
       let paintCooldownUntil: string | null = null;
       let paintCooldownRemainingSeconds = 0;
       if (userData.paint_cooldown_until) {
@@ -293,8 +287,8 @@ Deno.serve(async (req) => {
           ok: true,
           stale: true,
           waitSeconds: waitTime,
-          energyAsset: "SOL",
-          nativeSymbol: "SOL",
+          energyAsset: "BIT",
+          nativeSymbol: "BIT",
           nativeBalance: Number(userData.native_balance) || 0,
           usdPrice: Number(userData.usd_price) || 0,
           walletUsd: Number(userData.wallet_usd) || 0,
@@ -303,7 +297,6 @@ Deno.serve(async (req) => {
           peAvailable,
           pixelsOwned,
           pixelStakeTotal,
-          cluster: userData.sol_cluster || 'mainnet',
           lastSyncAt: userData.last_energy_sync_at,
           pixelsPaintedTotal: Number(userData.pixels_painted_total) || 0,
           level: userData.level || 1,
@@ -317,27 +310,22 @@ Deno.serve(async (req) => {
     // Update rate limit timestamp
     userLastRefresh.set(userId, now);
 
-    // Fetch SOL balance with cluster fallback and price
-    const [balanceResult, solPrice] = await Promise.all([
-      fetchSolBalanceWithFallback(walletAddress),
-      fetchSolPrice(),
+    // Fetch $BIT balance and price in parallel
+    const [bitBalance, bitPrice] = await Promise.all([
+      fetchBitBalance(walletAddress),
+      fetchBitPrice(),
     ]);
 
-    const { balance: solBalance, cluster } = balanceResult;
-
     // Calculate wallet USD value and PE
-    const walletUsd = solBalance * solPrice;
+    const walletUsd = bitBalance * bitPrice;
     const peTotal = Math.floor(walletUsd * PE_PER_USD);
 
-    console.log(`[energy-refresh] User ${userId}: ${solBalance} SOL × $${solPrice} = $${walletUsd.toFixed(2)} = ${peTotal} PE (${cluster})`);
+    console.log(`[energy-refresh] User ${userId}: ${bitBalance} BIT × $${bitPrice} = $${walletUsd.toFixed(4)} = ${peTotal} PE`);
 
     // ===== COLLATERAL ENFORCEMENT =====
     
-    // 1. Use pe_used_pe from trigger (bypasses 1000 row limit)
-    // pe_used_pe = owner_stake_total + contrib_total (maintained by DB triggers)
     const peUsedFromDb = Number(userData.pe_used_pe) || 0;
 
-    // 2. Compute contrib_used separately (needed for collateral logic)
     const { data: userContribs } = await supabase
       .from("pixel_contributions")
       .select("amount_pe")
@@ -347,12 +335,10 @@ Deno.serve(async (req) => {
       (sum, c) => sum + Number(c.amount_pe || 0), 0
     );
     
-    // ownerUsed = pe_used - contributions
     const ownerUsed = peUsedFromDb - contribUsed;
 
     console.log(`[energy-refresh] User ${userId}: pe_total=${peTotal}, owner_used=${ownerUsed}, contrib_used=${contribUsed}`);
 
-    // 3. If pe_total < owner_used + contrib_used, DELETE all contributions immediately
     if (peTotal < ownerUsed + contribUsed) {
       console.log(`[energy-refresh] User ${userId} under-collateralized (${peTotal} < ${ownerUsed + contribUsed}), purging all contributions`);
       const { error: deleteError } = await supabase
@@ -363,40 +349,35 @@ Deno.serve(async (req) => {
       if (deleteError) {
         console.error("[energy-refresh] Failed to delete contributions:", deleteError);
       }
-      // Note: Trigger will auto-update pixels.def_total and atk_total
     }
 
-    // 4. Fetch current rebalance state
+    // Fetch current rebalance state
     const { data: currentUser } = await supabase
       .from("users")
       .select("rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier")
       .eq("id", userId)
       .single();
 
-    // 5. Check if owner stake requires rebalancing
     const isOwnerUnderCollateralized = peTotal < ownerUsed;
     let rebalanceUpdate: Record<string, any> = {};
 
     if (isOwnerUnderCollateralized && ownerUsed > 0) {
-      // Start or continue rebalance
       if (!currentUser?.rebalance_active) {
         const targetMultiplier = Math.max(0, peTotal / ownerUsed);
         const nowDate = new Date();
-        const endsAt = new Date(nowDate.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days
+        const endsAt = new Date(nowDate.getTime() + 3 * 24 * 60 * 60 * 1000);
         
         rebalanceUpdate = {
           rebalance_active: true,
           rebalance_started_at: nowDate.toISOString(),
           rebalance_ends_at: endsAt.toISOString(),
           rebalance_target_multiplier: targetMultiplier,
-          owner_health_multiplier: 1, // Starts at 1, decays over time
+          owner_health_multiplier: 1,
         };
         
         console.log(`[energy-refresh] Started rebalance for ${userId}: target=${targetMultiplier.toFixed(4)}`);
       }
-      // If already active, let rebalance-tick handle the multiplier updates
     } else if (currentUser?.rebalance_active) {
-      // Re-collateralized - stop rebalance immediately
       rebalanceUpdate = {
         rebalance_active: false,
         owner_health_multiplier: 1,
@@ -408,18 +389,17 @@ Deno.serve(async (req) => {
       console.log(`[energy-refresh] Stopped rebalance for ${userId} (re-collateralized)`);
     }
 
-    // Update user record with cluster info and rebalance state
+    // Update user record
     const syncAt = new Date().toISOString();
     const { error: updateError } = await supabase
       .from("users")
       .update({
-        energy_asset: "SOL",
-        native_symbol: "SOL",
-        native_balance: solBalance,
-        usd_price: solPrice,
+        energy_asset: "BIT",
+        native_symbol: "BIT",
+        native_balance: bitBalance,
+        usd_price: bitPrice,
         wallet_usd: walletUsd,
         pe_total_pe: peTotal,
-        sol_cluster: cluster,
         last_energy_sync_at: syncAt,
         ...rebalanceUpdate,
       })
@@ -430,7 +410,7 @@ Deno.serve(async (req) => {
       throw new Error("Failed to update user energy");
     }
 
-    // Fetch fresh pe_used_pe from DB (triggers have updated it) + COUNT for pixelsOwned
+    // Fetch fresh pe_used_pe from DB (triggers have updated it)
     const [freshUserResult, finalPixelCountResult] = await Promise.all([
       supabase
         .from("users")
@@ -446,7 +426,6 @@ Deno.serve(async (req) => {
     const finalPixelsOwned = finalPixelCountResult.count || 0;
     const peUsed = Number(freshUserResult.data?.pe_used_pe) || 0;
     const peAvailable = Math.max(0, peTotal - peUsed);
-    // For pixelStakeTotal display, use ownerUsed calculated earlier (line 359)
     const finalPixelStakeTotal = ownerUsed;
 
     console.log(`[energy-refresh] Final PE status: total=${peTotal}, used=${peUsed}, available=${peAvailable}, pixelsOwned=${finalPixelsOwned}`);
@@ -467,17 +446,16 @@ Deno.serve(async (req) => {
       JSON.stringify({
         ok: true,
         stale: false,
-        energyAsset: "SOL",
-        nativeSymbol: "SOL",
-        nativeBalance: solBalance,
-        usdPrice: solPrice,
+        energyAsset: "BIT",
+        nativeSymbol: "BIT",
+        nativeBalance: bitBalance,
+        usdPrice: bitPrice,
         walletUsd,
         peTotal,
         peUsed,
         peAvailable,
         pixelsOwned: finalPixelsOwned,
         pixelStakeTotal: finalPixelStakeTotal,
-        cluster,
         lastSyncAt: syncAt,
         pixelsPaintedTotal: Number(userData.pixels_painted_total) || 0,
         level: userData.level || 1,

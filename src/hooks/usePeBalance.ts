@@ -17,7 +17,7 @@ export interface PeBalance {
   contributionTotal: number;
   isContributionsUnderCollateralized: boolean;
   // Energy source info
-  energyAsset: 'SOL' | 'BTP';
+  energyAsset: 'SOL' | 'BIT';
   nativeSymbol: string;
   nativeBalance: number;
   usdPrice: number;
@@ -64,7 +64,6 @@ export function usePeBalance(userId: string | undefined): PeBalance {
     }
 
     try {
-      // Use public_pixel_owner_info view for rebalance/health data (no financial fields accessible via RLS)
       const { data: userData } = await supabase
         .from('public_pixel_owner_info' as any)
         .select('id, owner_health_multiplier, rebalance_active, rebalance_ends_at, rebalance_target_multiplier')
@@ -76,8 +75,6 @@ export function usePeBalance(userId: string | undefined): PeBalance {
       const rebalanceEndsAt = (userData as any)?.rebalance_ends_at ? new Date((userData as any).rebalance_ends_at) : null;
       const rebalanceTargetMultiplier = (userData as any)?.rebalance_target_multiplier ?? null;
       
-      // Financial/energy fields must come from WalletContext (via edge function), not direct query
-      // For now, these will be defaults - actual values come from energy-refresh edge function
       const total = 0; // Will be set by WalletContext
       const energyAsset = ENERGY_ASSET;
       const nativeSymbol = ENERGY_CONFIG[ENERGY_ASSET].symbol;
@@ -86,7 +83,6 @@ export function usePeBalance(userId: string | undefined): PeBalance {
       const walletUsd = 0;
       const lastSyncAt: Date | null = null;
 
-      // Fetch sum of owner_stake_pe for pixels owned by user
       const { data: pixelStakes } = await supabase
         .from('pixels')
         .select('owner_stake_pe')
@@ -97,7 +93,6 @@ export function usePeBalance(userId: string | undefined): PeBalance {
         0
       ) || 0;
 
-      // Fetch sum of contributions by user
       const { data: contributions } = await supabase
         .from('pixel_contributions')
         .select('amount_pe')
@@ -111,7 +106,6 @@ export function usePeBalance(userId: string | undefined): PeBalance {
       const locked = pixelStakeTotal + contributionTotal;
       const free = total - locked;
       const isUnderCollateralized = pixelStakeTotal > total;
-      // DEF/ATK are under-collateralized if total PE < contribution total
       const isContributionsUnderCollateralized = total < contributionTotal;
 
       setBalance({
