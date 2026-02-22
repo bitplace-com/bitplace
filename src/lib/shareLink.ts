@@ -18,7 +18,7 @@ export function generatePixelShareLink(
  */
 export function generateProfileShareLink(userId: string): string {
   const baseUrl = window.location.origin;
-  return `${baseUrl}/profile/${userId}`;
+  return `${baseUrl}/?player=${userId}`;
 }
 
 /**
