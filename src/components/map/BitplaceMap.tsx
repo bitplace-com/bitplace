@@ -66,6 +66,45 @@ const getSnapped2x2Block = (x: number, y: number): { x: number; y: number }[] =>
 
 export function BitplaceMap() {
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Parse URL position directly from window.location.search at mount time
+  // This avoids race conditions with React Router's useSearchParams
+  const initialUrlPos = useRef((() => {
+    const params = new URLSearchParams(window.location.search);
+    const lat = params.get('lat');
+    const lng = params.get('lng');
+    const z = params.get('z');
+    const px = params.get('px');
+    const py = params.get('py');
+
+    if (lat && lng) {
+      const parsedLat = parseFloat(lat);
+      const parsedLng = parseFloat(lng);
+      if (!isNaN(parsedLat) && !isNaN(parsedLng) &&
+          Math.abs(parsedLat) <= 90 && Math.abs(parsedLng) <= 180) {
+        const result: {
+          lat: number; lng: number; zoom: number;
+          pixelX: number | undefined; pixelY: number | undefined;
+        } = {
+          lat: parsedLat,
+          lng: parsedLng,
+          zoom: z ? parseFloat(z) : 8,
+          pixelX: undefined,
+          pixelY: undefined,
+        };
+        if (px && py) {
+          const parsedPx = parseInt(px, 10);
+          const parsedPy = parseInt(py, 10);
+          if (!isNaN(parsedPx) && !isNaN(parsedPy) && parsedPx >= 0 && parsedPy >= 0) {
+            result.pixelX = parsedPx;
+            result.pixelY = parsedPy;
+          }
+        }
+        return result;
+      }
+    }
+    return null;
+  })());
   const interactionLayerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -495,8 +534,8 @@ export function BitplaceMap() {
     // Mark perf timing for TTFP measurement
     markMapMountStart();
     
-    // Check for URL params for initial position
-    const urlPos = getUrlPosition();
+    // Use position captured at mount time from window.location.search
+    const urlPos = initialUrlPos.current;
     
     // Store pixel coords from URL to open after map ready
     if (urlPos?.pixelX !== undefined && urlPos?.pixelY !== undefined) {
