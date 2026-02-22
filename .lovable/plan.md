@@ -1,47 +1,52 @@
 
 
-## Bug: pixels_painted_total non si decrementa correttamente con la gomma
+## Fix condivisione link: preview social e link profilo
 
-### Problema identificato
+### Problemi identificati
 
-Quando cancelli piu di 1000 pixel in una sola operazione con la gomma, il contatore `pixels_painted_total` non si decrementa correttamente. Questo succede perche il backend usa `.delete().select("id")` per contare quanti pixel sono stati effettivamente cancellati, ma le risposte del database sono limitate a 1000 righe per default. Quindi se cancelli 1500 pixel, il DELETE li rimuove tutti, ma il `.select("id")` ne restituisce solo 1000, e il contatore viene decrementato di 1000 anziche 1500.
+1. **Link profilo non funzionante**: La funzione `shareArtwork` genera link come `/profile/USER_ID`, ma non esiste una rotta `/profile/:id` nell'app. L'unica rotta definita e `/profile` (senza parametri), quindi il link condiviso porta a una pagina 404. Il `PlayerProfileModal` e un componente modale, non una pagina a se stante.
 
-Dai log del tuo account:
-- Hai dipinto 1500 pixel (5 batch da 300)
-- La prima cancellazione ha contato 1424 pixel (anziche tutti)
-- La seconda ha contato 8 pixel
-- Totale decrementato: 1432, ma i pixel reali cancellati erano 1500
-- Risultato: il contatore e rimasto a 68 invece di 0
+2. **Preview social (OG meta tags)**: I meta tag Open Graph in `index.html` contengono gia il banner social corretto (`Cover_Naming_Bitplace.webp`), ma `og:url` non e impostato. Per una SPA come questa, i meta tag sono statici e non possono cambiare dinamicamente per pixel o profilo senza un server-side rendering layer. Tuttavia possiamo assicurarci che `og:url` sia presente.
 
 ### Soluzione
 
-Modificare la funzione `game-commit` per usare `ownedPixelIds.length` come conteggio dei pixel cancellati, anziche affidarsi alla risposta limitata del `.select("id")`. Dato che `ownedPixelIds` e gia filtrato per pixel effettivamente posseduti dall'utente, e un conteggio affidabile.
+**1. Aggiungere la rotta `/profile/:id` nell'app**
 
-Inoltre, correggere il valore attuale nel database per il tuo account (da 68 a 0).
+Modificare `src/App.tsx` per aggiungere una rotta che gestisca `/profile/:id` e apra automaticamente il `PlayerProfileModal` per quell'utente. Il modo piu pulito e creare una piccola pagina wrapper che:
+- Legge il parametro `:id` dall'URL
+- Mostra la mappa come sfondo (reindirizzando a `/` con il modale del profilo aperto)
+- Oppure piu semplicemente: reindirizza alla mappa con un parametro query che triggera l'apertura del PlayerProfileModal
+
+Approccio scelto: aggiungere il supporto a `?player=USER_ID` sulla rotta principale `/`, cosi il `MapPage` puo aprire il `PlayerProfileModal` automaticamente. Aggiungere anche un redirect da `/profile/:id` a `/?player=:id`.
+
+**2. Aggiornare `shareArtwork` per usare il formato corretto**
+
+Cambiare `generateProfileShareLink` per generare `/?player=USER_ID` invece di `/profile/USER_ID`.
+
+**3. Aggiungere `og:url` nei meta tag**
+
+Aggiungere `<meta property="og:url">` in `index.html` con l'URL del sito pubblicato.
 
 ### Dettagli tecnici
 
-**File: `supabase/functions/game-commit/index.ts`**
+**File: `src/lib/shareLink.ts`**
+- Cambiare `generateProfileShareLink` da:
+  ```
+  return `${baseUrl}/profile/${userId}`;
+  ```
+  a:
+  ```
+  return `${baseUrl}/?player=${userId}`;
+  ```
 
-Cambiamento alla riga 312:
-```
-// Prima (bug):
-affectedPixels = deletedPixels?.length || 0;
+**File: `src/App.tsx`**
+- Aggiungere rotta di redirect: `/profile/:id` che reindirizza a `/?player=:id`
 
-// Dopo (fix):
-affectedPixels = ownedPixelIds.length;
-```
+**File: `src/pages/MapPage.tsx`**
+- Leggere il parametro `player` dalla query string
+- Se presente, aprire automaticamente il `PlayerProfileModal` con quel `playerId`
+- Aggiungere il componente `PlayerProfileModal` al render del MapPage
 
-Rimuovere anche il `.select("id")` dal delete (non serve piu):
-```typescript
-await supabase
-  .from("pixels")
-  .delete()
-  .in("id", ownedPixelIds)
-  .eq("owner_user_id", userId);
-
-affectedPixels = ownedPixelIds.length;
-```
-
-**Fix dati: aggiornare `pixels_painted_total` a 0** per l'account con id `76f4ab9b-5f04-44e6-91e0-0ac208995ffc`.
+**File: `index.html`**
+- Aggiungere `<meta property="og:url" content="https://bitplace.lovable.app">`
 
