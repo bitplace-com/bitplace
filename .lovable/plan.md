@@ -1,60 +1,47 @@
 
 
-## Cleanup SOL -> BIT e Reset Mappa
+## Bug: pixels_painted_total non si decrementa correttamente con la gomma
 
-Questo piano copre due macro-operazioni: (A) aggiornare tutti i testi UI residui che menzionano SOL o "test phase", e (B) resettare completamente la mappa e i dati di gioco.
+### Problema identificato
 
----
+Quando cancelli piu di 1000 pixel in una sola operazione con la gomma, il contatore `pixels_painted_total` non si decrementa correttamente. Questo succede perche il backend usa `.delete().select("id")` per contare quanti pixel sono stati effettivamente cancellati, ma le risposte del database sono limitate a 1000 righe per default. Quindi se cancelli 1500 pixel, il DELETE li rimuove tutti, ma il `.select("id")` ne restituisce solo 1000, e il contatore viene decrementato di 1000 anziche 1500.
 
-### A. Aggiornamenti UI (6 file)
+Dai log del tuo account:
+- Hai dipinto 1500 pixel (5 batch da 300)
+- La prima cancellazione ha contato 1424 pixel (anziche tutti)
+- La seconda ha contato 8 pixel
+- Totale decrementato: 1432, ma i pixel reali cancellati erano 1500
+- Risultato: il contatore e rimasto a 68 invece di 0
 
-**1. StatusStrip.tsx** (barra in basso nella mappa)
-- Riga 72: commento "SOL Balance" -> "BIT Balance"
-- Riga 130: commento "SOL Balance" -> "BIT Balance"  
-- Riga 134: testo hardcoded `SOL` -> usa `energy.nativeSymbol` (mostra "BIT" dinamicamente)
-- Riga 250: tooltip `SOL price:` -> `$BIT price:`
+### Soluzione
 
-**2. WalletSelectModal.tsx** (modale connessione wallet)
-- Riga 106: rimuove "SOL temporarily powers PE"  -> "Connect your Phantom wallet to play Bitplace."
-- Righe 173-180: rimuove intero blocco "Test phase" che menziona $SOL e "$BIT coming soon" (non e' piu' "coming soon", e' live)
+Modificare la funzione `game-commit` per usare `ownedPixelIds.length` come conteggio dei pixel cancellati, anziche affidarsi alla risposta limitata del `.select("id")`. Dato che `ownedPixelIds` e gia filtrato per pixel effettivamente posseduti dall'utente, e un conteggio affidabile.
 
-**3. RulesModal.tsx** (regole di gioco)
-- Righe 80-82: rimuove la riga italic "Test phase: PE is calculated from the $ value of $SOL in your wallet."
+Inoltre, correggere il valore attuale nel database per il tuo account (da 68 a 0).
 
-**4. ProfilePage.tsx** (scheda wallet personale)
-- Riga 212: cambia `$${formatUsd(energy.usdPrice)}/SOL` -> `$${formatUsd(energy.usdPrice)}/$BIT`
+### Dettagli tecnici
 
-**5. config/energy.ts** (configurazione tecnica)
-- Rimuove il blocco `SOL` dalla config (non serve piu' come fallback)
-- Semplifica il tipo a solo `'BIT'`
+**File: `supabase/functions/game-commit/index.ts`**
 
-**6. Tipi TypeScript** (WalletContext, useEnergy, usePeBalance)
-- Cambia tipo `'SOL' | 'BIT'` -> `'BIT'` in tutti e 3 i file per riflettere che SOL non e' piu' un'opzione
+Cambiamento alla riga 312:
+```
+// Prima (bug):
+affectedPixels = deletedPixels?.length || 0;
 
----
+// Dopo (fix):
+affectedPixels = ownedPixelIds.length;
+```
 
-### B. Reset Mappa e Dati di Gioco
+Rimuovere anche il `.select("id")` dal delete (non serve piu):
+```typescript
+await supabase
+  .from("pixels")
+  .delete()
+  .in("id", ownedPixelIds)
+  .eq("owner_user_id", userId);
 
-Dati attuali da cancellare:
-- 2.913 pixel nella tabella `pixels`
-- 63 eventi in `paint_events`
-- 49 notifiche in `notifications`
-- 5 utenti con `pe_used_pe` e `pixels_painted_total` da azzerare
+affectedPixels = ownedPixelIds.length;
+```
 
-Operazioni SQL (tramite lo strumento di inserimento dati):
-
-1. **Elimina tutti i pixel**: `DELETE FROM pixels` (i trigger aggiorneranno automaticamente `pe_used_pe` degli utenti)
-2. **Elimina contribuzioni**: `DELETE FROM pixel_contributions` (gia' vuota, ma per sicurezza)
-3. **Elimina eventi paint**: `DELETE FROM paint_events`
-4. **Elimina notifiche**: `DELETE FROM notifications`
-5. **Azzera contatori utenti**: `UPDATE users SET pixels_painted_total = 0, pe_used_pe = 0, takeover_def_pe_total = 0, takeover_atk_pe_total = 0, xp = 0`
-
-Nota importante: la cancellazione dei pixel attiverà i trigger `update_pe_used_on_pixel_change` che decrementano `pe_used_pe` automaticamente. L'UPDATE successivo azzera eventuali residui.
-
----
-
-### Sequenza di esecuzione
-1. Aggiornamenti UI (tutti i 6 file in parallelo)
-2. Reset dati (5 query SQL in sequenza)
-3. Verifica che la mappa sia pulita
+**Fix dati: aggiornare `pixels_painted_total` a 0** per l'account con id `76f4ab9b-5f04-44e6-91e0-0ac208995ffc`.
 
