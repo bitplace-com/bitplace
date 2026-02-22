@@ -9,6 +9,7 @@ import { MapLayout } from "@/components/layout/MapLayout";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useEdgeFunctionWarmup } from "@/hooks/useEdgeFunctionWarmup";
+import { Navigate, useParams } from "react-router-dom";
 import MapPage from "./pages/MapPage";
 import RulesPage from "./pages/RulesPage";
 import SpecPage from "./pages/SpecPage";
@@ -21,6 +22,12 @@ import PrivacyPage from "./pages/PrivacyPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+// Redirect /profile/:id to /?player=:id
+function ProfileRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/?player=${id}`} replace />;
+}
 
 // Component to initialize warmup
 function AppInitializer({ children }: { children: React.ReactNode }) {
@@ -55,6 +62,7 @@ const App = () => (
                 <Route element={<MainLayout><WhitePaperPage /></MainLayout>} path="/whitepaper" />
                 <Route element={<TermsPage />} path="/terms" />
                 <Route element={<PrivacyPage />} path="/privacy" />
+                <Route path="/profile/:id" element={<ProfileRedirect />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
