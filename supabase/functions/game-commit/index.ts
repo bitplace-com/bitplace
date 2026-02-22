@@ -302,14 +302,13 @@ async function executeCommit(
         .in("pixel_id", ownedPixelIds);
       
       // Batch delete pixels
-      const { data: deletedPixels } = await supabase
+      await supabase
         .from("pixels")
         .delete()
         .in("id", ownedPixelIds)
-        .eq("owner_user_id", userId)
-        .select("id");
+        .eq("owner_user_id", userId);
       
-      affectedPixels = deletedPixels?.length || 0;
+      affectedPixels = ownedPixelIds.length;
     }
   } else if (mode === "REINFORCE") {
     // OPTIMIZED: Parallel batch updates for REINFORCE
