@@ -19,17 +19,273 @@ interface RequestBody {
   period: Period;
 }
 
+// deno-lint-ignore no-explicit-any
+type SB = any;
+
+/* ── Paginated fetch for paint_events ── */
+async function fetchPaintEvents(supabase: SB, timeFilter: string | null) {
+  // deno-lint-ignore no-explicit-any
+  const allData: any[] = [];
+  const batchSize = 1000;
+  let offset = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    let query = supabase
+      .from("paint_events")
+      .select("user_id, pixel_count, action_type")
+      .in("action_type", ["PAINT", "ERASE"]);
+    if (timeFilter) query = query.gte("created_at", timeFilter);
+    query = query.range(offset, offset + batchSize - 1);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    if (data && data.length > 0) {
+      allData.push(...data);
+      offset += batchSize;
+      hasMore = data.length === batchSize;
+    } else {
+      hasMore = false;
+    }
+  }
+  return allData;
+}
+
+/* ── Aggregate paint events by user ── */
+// deno-lint-ignore no-explicit-any
+function aggregateByUser(events: any[]): Map<string, number> {
+  const totals = new Map<string, number>();
+  for (const e of events) {
+    if (!e.user_id) continue;
+    const delta = e.action_type === "ERASE" ? -(e.pixel_count || 0) : (e.pixel_count || 0);
+    totals.set(e.user_id, (totals.get(e.user_id) || 0) + delta);
+  }
+  // Clamp negatives to 0
+  for (const [uid, val] of totals) {
+    if (val < 0) totals.set(uid, 0);
+  }
+  return totals;
+}
+
+/* ── Fetch user profiles by IDs ── */
+async function fetchUserProfiles(supabase: SB, userIds: string[]) {
+  if (userIds.length === 0) return new Map();
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, display_name, country_code, alliance_tag, avatar_url, bio, social_x, social_instagram, social_website, wallet_address")
+    .in("id", userIds);
+  if (error) throw error;
+  // deno-lint-ignore no-explicit-any
+  return new Map((data || []).map((u: any) => [u.id, u]));
+}
+
+/* ── Build player entry from user row ── */
+// deno-lint-ignore no-explicit-any
+function playerEntry(user: any, totalPixels: number) {
+  return {
+    id: user.id,
+    displayName: user.display_name,
+    countryCode: user.country_code,
+    allianceTag: user.alliance_tag,
+    totalPixels,
+    avatarUrl: user.avatar_url || null,
+    bio: user.bio || null,
+    socialX: user.social_x || null,
+    socialInstagram: user.social_instagram || null,
+    socialWebsite: user.social_website || null,
+    walletAddress: user.wallet_address || null,
+  };
+}
+
+/* ── "All time" painters: read directly from users table ── */
+async function paintersAllTime(supabase: SB, scope: MacroScope) {
+  if (scope === "players") {
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, display_name, country_code, alliance_tag, avatar_url, bio, social_x, social_instagram, social_website, wallet_address, pixels_painted_total")
+      .gt("pixels_painted_total", 0)
+      .order("pixels_painted_total", { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    // deno-lint-ignore no-explicit-any
+    return (data || []).map((u: any, i: number) => ({ ...playerEntry(u, u.pixels_painted_total), rank: i + 1 }));
+  }
+
+  if (scope === "countries") {
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, country_code, pixels_painted_total")
+      .not("country_code", "is", null)
+      .gt("pixels_painted_total", 0);
+    if (error) throw error;
+
+    const countryMap = new Map<string, { pixels: number; players: Set<string> }>();
+    // deno-lint-ignore no-explicit-any
+    for (const u of data || [] as any[]) {
+      const cur = countryMap.get(u.country_code) || { pixels: 0, players: new Set() };
+      cur.pixels += u.pixels_painted_total;
+      cur.players.add(u.id);
+      countryMap.set(u.country_code, cur);
+    }
+    return Array.from(countryMap.entries())
+      .sort((a, b) => b[1].pixels - a[1].pixels)
+      .slice(0, 50)
+      .map(([cc, s], i) => ({ rank: i + 1, countryCode: cc, playerCount: s.players.size, totalPixels: s.pixels }));
+  }
+
+  // alliances
+  const { data: users, error: usersErr } = await supabase
+    .from("users")
+    .select("id, alliance_tag, pixels_painted_total")
+    .not("alliance_tag", "is", null)
+    .gt("pixels_painted_total", 0);
+  if (usersErr) throw usersErr;
+
+  const { data: alliances } = await supabase.from("alliances").select("tag, name");
+  const nameMap = new Map((alliances || []).map((a: { tag: string; name: string }) => [a.tag, a.name]));
+
+  const allianceMap = new Map<string, { pixels: number; players: Set<string> }>();
+  // deno-lint-ignore no-explicit-any
+  for (const u of users || [] as any[]) {
+    const cur = allianceMap.get(u.alliance_tag) || { pixels: 0, players: new Set() };
+    cur.pixels += u.pixels_painted_total;
+    cur.players.add(u.id);
+    allianceMap.set(u.alliance_tag, cur);
+  }
+  return Array.from(allianceMap.entries())
+    .sort((a, b) => b[1].pixels - a[1].pixels)
+    .slice(0, 50)
+    .map(([tag, s], i) => ({ rank: i + 1, allianceTag: tag, allianceName: nameMap.get(tag) || tag, playerCount: s.players.size, totalPixels: s.pixels }));
+}
+
+/* ── Filtered period painters: use paint_events with pagination ── */
+async function paintersFiltered(supabase: SB, scope: MacroScope, timeFilter: string) {
+  const events = await fetchPaintEvents(supabase, timeFilter);
+  const userTotals = aggregateByUser(events);
+
+  if (scope === "players") {
+    const userMap = await fetchUserProfiles(supabase, Array.from(userTotals.keys()));
+    const entries = Array.from(userTotals.entries())
+      .map(([uid, total]) => playerEntry(userMap.get(uid) || { id: uid }, total))
+      .sort((a, b) => b.totalPixels - a.totalPixels);
+    return entries.slice(0, 50).map((e, i) => ({ ...e, rank: i + 1 }));
+  }
+
+  if (scope === "countries") {
+    const { data: users } = await supabase.from("users").select("id, country_code").not("country_code", "is", null);
+    // deno-lint-ignore no-explicit-any
+    const userCountryMap = new Map((users || []).map((u: any) => [u.id, u.country_code]));
+    const countryTotals = new Map<string, { pixels: number; players: Set<string> }>();
+    for (const [uid, total] of userTotals) {
+      const cc = userCountryMap.get(uid);
+      if (!cc) continue;
+      const cur = countryTotals.get(cc) || { pixels: 0, players: new Set() };
+      cur.pixels += total;
+      cur.players.add(uid);
+      countryTotals.set(cc, cur);
+    }
+    return Array.from(countryTotals.entries())
+      .sort((a, b) => b[1].pixels - a[1].pixels)
+      .slice(0, 50)
+      .map(([cc, s], i) => ({ rank: i + 1, countryCode: cc, playerCount: s.players.size, totalPixels: s.pixels }));
+  }
+
+  // alliances
+  const { data: users } = await supabase.from("users").select("id, alliance_tag").not("alliance_tag", "is", null);
+  // deno-lint-ignore no-explicit-any
+  const userAllianceMap = new Map((users || []).map((u: any) => [u.id, u.alliance_tag]));
+  const { data: alliances } = await supabase.from("alliances").select("tag, name");
+  const nameMap = new Map((alliances || []).map((a: { tag: string; name: string }) => [a.tag, a.name]));
+
+  const allianceTotals = new Map<string, { pixels: number; players: Set<string> }>();
+  for (const [uid, total] of userTotals) {
+    const tag = userAllianceMap.get(uid);
+    if (!tag) continue;
+    const cur = allianceTotals.get(tag) || { pixels: 0, players: new Set() };
+    cur.pixels += total;
+    cur.players.add(uid);
+    allianceTotals.set(tag, cur);
+  }
+  return Array.from(allianceTotals.entries())
+    .sort((a, b) => b[1].pixels - a[1].pixels)
+    .slice(0, 50)
+    .map(([tag, s], i) => ({ rank: i + 1, allianceTag: tag, allianceName: nameMap.get(tag) || tag, playerCount: s.players.size, totalPixels: s.pixels }));
+}
+
+/* ── PE-based leaderboards (investors/defenders/attackers) ── */
+async function peLeaderboard(supabase: SB, scope: MacroScope, subCategory: SubCategory) {
+  const rpcName = subCategory === "investors"
+    ? "leaderboard_top_investors"
+    : subCategory === "defenders"
+      ? "leaderboard_top_defenders"
+      : "leaderboard_top_attackers";
+
+  const { data: rpcData, error: rpcError } = await supabase.rpc(rpcName, { lim: 200 });
+  if (rpcError) throw rpcError;
+
+  // deno-lint-ignore no-explicit-any
+  const entries = (rpcData || []).map((r: any) => ({
+    id: r.user_id,
+    displayName: r.display_name,
+    countryCode: r.country_code,
+    allianceTag: r.alliance_tag,
+    totalPe: Number(r.total_pe),
+    avatarUrl: r.avatar_url,
+    bio: r.bio,
+    socialX: r.social_x,
+    socialInstagram: r.social_instagram,
+    socialWebsite: r.social_website,
+    walletAddress: r.wallet_address,
+  }));
+
+  if (scope === "players") {
+    return entries.slice(0, 50).map((e: typeof entries[0], i: number) => ({ ...e, rank: i + 1 }));
+  }
+
+  if (scope === "countries") {
+    const countryMap = new Map<string, { totalPe: number; players: Set<string> }>();
+    for (const e of entries) {
+      if (!e.countryCode) continue;
+      const cur = countryMap.get(e.countryCode) || { totalPe: 0, players: new Set() };
+      cur.totalPe += e.totalPe;
+      cur.players.add(e.id);
+      countryMap.set(e.countryCode, cur);
+    }
+    return Array.from(countryMap.entries())
+      .sort((a, b) => b[1].totalPe - a[1].totalPe)
+      .slice(0, 50)
+      .map(([cc, s], i) => ({ rank: i + 1, countryCode: cc, playerCount: s.players.size, totalPe: s.totalPe }));
+  }
+
+  // alliances
+  const { data: alliances } = await supabase.from("alliances").select("tag, name");
+  const nameMap = new Map((alliances || []).map((a: { tag: string; name: string }) => [a.tag, a.name]));
+  const allianceMap = new Map<string, { totalPe: number; players: Set<string> }>();
+  for (const e of entries) {
+    if (!e.allianceTag) continue;
+    const cur = allianceMap.get(e.allianceTag) || { totalPe: 0, players: new Set() };
+    cur.totalPe += e.totalPe;
+    cur.players.add(e.id);
+    allianceMap.set(e.allianceTag, cur);
+  }
+  return Array.from(allianceMap.entries())
+    .sort((a, b) => b[1].totalPe - a[1].totalPe)
+    .slice(0, 50)
+    .map(([tag, s], i) => ({ rank: i + 1, allianceTag: tag, allianceName: nameMap.get(tag) || tag, playerCount: s.players.size, totalPe: s.totalPe }));
+}
+
+/* ── Main handler ── */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Rate limiting
     const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
                      req.headers.get("cf-connecting-ip") || "unknown";
     const now = Date.now();
     const rateLimit = rateLimitMap.get(clientIp);
-    
     if (rateLimit && now < rateLimit.resetAt) {
       if (rateLimit.count >= RATE_LIMIT_MAX_REQUESTS) {
         const retryAfter = Math.ceil((rateLimit.resetAt - now) / 1000);
@@ -43,9 +299,7 @@ Deno.serve(async (req) => {
       rateLimitMap.set(clientIp, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const body: RequestBody = await req.json();
     const { scope, subCategory = "painters", period } = body;
@@ -61,226 +315,20 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Invalid period" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const getTimeFilter = (): string | null => {
-      const now = new Date();
-      switch (period) {
-        case "today": return new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
-        case "week": return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-        case "month": return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
-        case "all": return null;
-      }
-    };
+    let data: unknown[];
 
-    let data: unknown[] = [];
-
-    // ─── PE-based sub-categories (investors/defenders/attackers) ───
     if (subCategory !== "painters") {
-      const rpcName = subCategory === "investors" 
-        ? "leaderboard_top_investors" 
-        : subCategory === "defenders" 
-          ? "leaderboard_top_defenders" 
-          : "leaderboard_top_attackers";
-
-      const { data: rpcData, error: rpcError } = await supabase.rpc(rpcName, { lim: 200 });
-      if (rpcError) throw rpcError;
-
-      // deno-lint-ignore no-explicit-any
-      const entries = (rpcData || []).map((r: any) => ({
-        id: r.user_id,
-        displayName: r.display_name,
-        countryCode: r.country_code,
-        allianceTag: r.alliance_tag,
-        totalPe: Number(r.total_pe),
-        avatarUrl: r.avatar_url,
-        bio: r.bio,
-        socialX: r.social_x,
-        socialInstagram: r.social_instagram,
-        socialWebsite: r.social_website,
-        walletAddress: r.wallet_address,
-      }));
-
-      if (scope === "players") {
-        data = entries.slice(0, 50).map((e: { id: string; displayName: string; countryCode: string; allianceTag: string; totalPe: number; avatarUrl: string; bio: string; socialX: string; socialInstagram: string; socialWebsite: string; walletAddress: string }, i: number) => ({ ...e, rank: i + 1 }));
-      } else if (scope === "countries") {
-        // Aggregate by country
-        const countryMap = new Map<string, { totalPe: number; players: Set<string> }>();
-        for (const e of entries) {
-          if (!e.countryCode) continue;
-          const cur = countryMap.get(e.countryCode) || { totalPe: 0, players: new Set() };
-          cur.totalPe += e.totalPe;
-          cur.players.add(e.id);
-          countryMap.set(e.countryCode, cur);
-        }
-        data = Array.from(countryMap.entries())
-          .sort((a, b) => b[1].totalPe - a[1].totalPe)
-          .slice(0, 50)
-          .map(([cc, stats], i) => ({
-            rank: i + 1,
-            countryCode: cc,
-            playerCount: stats.players.size,
-            totalPe: stats.totalPe,
-          }));
-      } else if (scope === "alliances") {
-        // Aggregate by alliance
-        const { data: alliances } = await supabase.from("alliances").select("tag, name");
-        const allianceNameMap = new Map((alliances || []).map((a: { tag: string; name: string }) => [a.tag, a.name]));
-
-        const allianceMap = new Map<string, { totalPe: number; players: Set<string> }>();
-        for (const e of entries) {
-          if (!e.allianceTag) continue;
-          const cur = allianceMap.get(e.allianceTag) || { totalPe: 0, players: new Set() };
-          cur.totalPe += e.totalPe;
-          cur.players.add(e.id);
-          allianceMap.set(e.allianceTag, cur);
-        }
-        data = Array.from(allianceMap.entries())
-          .sort((a, b) => b[1].totalPe - a[1].totalPe)
-          .slice(0, 50)
-          .map(([tag, stats], i) => ({
-            rank: i + 1,
-            allianceTag: tag,
-            allianceName: allianceNameMap.get(tag) || tag,
-            playerCount: stats.players.size,
-            totalPe: stats.totalPe,
-          }));
-      }
+      data = await peLeaderboard(supabase, scope, subCategory);
+    } else if (period === "all") {
+      data = await paintersAllTime(supabase, scope);
     } else {
-      // ─── Painters sub-category (pixel count, supports time period) ───
-      const timeFilter = getTimeFilter();
-
-      if (scope === "players") {
-        let query = supabase.from("paint_events").select("user_id, pixel_count, action_type, created_at").in("action_type", ["PAINT", "ERASE"]);
-        if (timeFilter) query = query.gte("created_at", timeFilter);
-        const { data: events, error: eventsError } = await query;
-        if (eventsError) throw eventsError;
-
-        const userTotals = new Map<string, number>();
-        for (const event of events || []) {
-          if (event.user_id) {
-            const delta = event.action_type === "ERASE" ? -(event.pixel_count || 0) : (event.pixel_count || 0);
-            userTotals.set(event.user_id, (userTotals.get(event.user_id) || 0) + delta);
-          }
-        }
-        for (const [uid, val] of userTotals) {
-          if (val < 0) userTotals.set(uid, 0);
-        }
-
-        const allUserIds = Array.from(userTotals.keys());
-        if (allUserIds.length > 0) {
-          const { data: users, error: usersError } = await supabase
-            .from("users")
-            .select("id, display_name, country_code, alliance_tag, avatar_url, bio, social_x, social_instagram, social_website, wallet_address")
-            .in("id", allUserIds);
-          if (usersError) throw usersError;
-
-          // deno-lint-ignore no-explicit-any
-          const userMap = new Map((users || []).map((u: any) => [u.id, u]));
-          
-          const entries = Array.from(userTotals.entries()).map(([userId, totalPixels]) => {
-            const user = userMap.get(userId);
-            return {
-              id: userId,
-              displayName: user?.display_name,
-              countryCode: user?.country_code,
-              allianceTag: user?.alliance_tag,
-              totalPixels,
-              avatarUrl: user?.avatar_url || null,
-              bio: user?.bio || null,
-              socialX: user?.social_x || null,
-              socialInstagram: user?.social_instagram || null,
-              socialWebsite: user?.social_website || null,
-              walletAddress: user?.wallet_address || null,
-            };
-          });
-
-          entries.sort((a, b) => b.totalPixels - a.totalPixels);
-          data = entries.slice(0, 50).map((e, i) => ({ ...e, rank: i + 1 }));
-        }
-      } else if (scope === "countries") {
-        let query = supabase.from("paint_events").select("user_id, pixel_count, action_type, created_at").in("action_type", ["PAINT", "ERASE"]);
-        if (timeFilter) query = query.gte("created_at", timeFilter);
-        const { data: events, error: eventsError } = await query;
-        if (eventsError) throw eventsError;
-
-        const { data: users, error: usersError } = await supabase
-          .from("users")
-          .select("id, country_code")
-          .not("country_code", "is", null);
-        if (usersError) throw usersError;
-
-        // deno-lint-ignore no-explicit-any
-        const userCountryMap = new Map((users || []).map((u: any) => [u.id, u.country_code]));
-
-        const countryTotals = new Map<string, { pixels: number; players: Set<string> }>();
-        for (const event of events || []) {
-          if (event.user_id) {
-            const countryCode = userCountryMap.get(event.user_id);
-            if (countryCode) {
-              const current = countryTotals.get(countryCode) || { pixels: 0, players: new Set() };
-              const delta = event.action_type === "ERASE" ? -(event.pixel_count || 0) : (event.pixel_count || 0);
-              current.pixels += delta;
-              current.players.add(event.user_id);
-              countryTotals.set(countryCode, current);
-            }
-          }
-        }
-
-        data = Array.from(countryTotals.entries())
-          .sort((a, b) => b[1].pixels - a[1].pixels)
-          .slice(0, 50)
-          .map(([countryCode, stats], index) => ({
-            rank: index + 1,
-            countryCode,
-            playerCount: stats.players.size,
-            totalPixels: stats.pixels,
-          }));
-      } else if (scope === "alliances") {
-        let query = supabase.from("paint_events").select("user_id, pixel_count, action_type, created_at").in("action_type", ["PAINT", "ERASE"]);
-        if (timeFilter) query = query.gte("created_at", timeFilter);
-        const { data: events, error: eventsError } = await query;
-        if (eventsError) throw eventsError;
-
-        const { data: users, error: usersError } = await supabase
-          .from("users")
-          .select("id, alliance_tag")
-          .not("alliance_tag", "is", null);
-        if (usersError) throw usersError;
-
-        // deno-lint-ignore no-explicit-any
-        const userAllianceMap = new Map((users || []).map((u: any) => [u.id, u.alliance_tag]));
-
-        const { data: alliances, error: alliancesError } = await supabase
-          .from("alliances")
-          .select("tag, name");
-        if (alliancesError) throw alliancesError;
-
-        const allianceNameMap = new Map((alliances || []).map((a: { tag: string; name: string }) => [a.tag, a.name]));
-
-        const allianceTotals = new Map<string, { pixels: number; players: Set<string> }>();
-        for (const event of events || []) {
-          if (event.user_id) {
-            const allianceTag = userAllianceMap.get(event.user_id);
-            if (allianceTag) {
-              const current = allianceTotals.get(allianceTag) || { pixels: 0, players: new Set() };
-              const delta = event.action_type === "ERASE" ? -(event.pixel_count || 0) : (event.pixel_count || 0);
-              current.pixels += delta;
-              current.players.add(event.user_id);
-              allianceTotals.set(allianceTag, current);
-            }
-          }
-        }
-
-        data = Array.from(allianceTotals.entries())
-          .sort((a, b) => b[1].pixels - a[1].pixels)
-          .slice(0, 50)
-          .map(([tag, stats], index) => ({
-            rank: index + 1,
-            allianceTag: tag,
-            allianceName: allianceNameMap.get(tag) || tag,
-            playerCount: stats.players.size,
-            totalPixels: stats.pixels,
-          }));
-      }
+      const nowDate = new Date();
+      const timeFilter = period === "today"
+        ? new Date(nowDate.getTime() - 24 * 60 * 60 * 1000).toISOString()
+        : period === "week"
+          ? new Date(nowDate.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+          : new Date(nowDate.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      data = await paintersFiltered(supabase, scope, timeFilter);
     }
 
     console.log(`[leaderboard-get] Returning ${data.length} entries`);
