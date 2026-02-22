@@ -25,45 +25,14 @@ export function generateProfileShareLink(userId: string): string {
  * Share a pixel using Web Share API (mobile) or clipboard fallback (desktop)
  */
 export async function sharePixel(x: number, y: number): Promise<boolean> {
-  const link = generatePixelShareLink(x, y);
-  const shareData = {
-    title: `Pixel ${x}:${y} on Bitplace`,
-    text: 'Check out this pixel on Bitplace!',
-    url: link,
-  };
-
-  if (navigator.share) {
-    try {
-      await navigator.share(shareData);
-      return true;
-    } catch {
-      // User cancelled or error — fall through to clipboard
-    }
-  }
   return copyPixelLink(x, y);
 }
 
 /**
- * Share a player's artwork / profile using Web Share API or clipboard fallback
+ * Share a player's profile link by copying to clipboard
  */
-export async function shareArtwork(userId: string, displayName?: string | null): Promise<boolean> {
+export async function shareArtwork(userId: string, _displayName?: string | null): Promise<boolean> {
   const link = generateProfileShareLink(userId);
-  const name = displayName || 'a player';
-  const shareData = {
-    title: `${name}'s paints on Bitplace`,
-    text: `Check out ${name}'s pixel art on Bitplace!`,
-    url: link,
-  };
-
-  if (navigator.share) {
-    try {
-      await navigator.share(shareData);
-      return true;
-    } catch {
-      // User cancelled
-    }
-  }
-  // Fallback: copy link
   try {
     await navigator.clipboard.writeText(link);
     return true;
