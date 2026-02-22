@@ -6,11 +6,14 @@ import { pixelToLngLat } from './coordinates';
 export function generatePixelShareLink(
   x: number,
   y: number,
-  zoom: number = 18
+  zoom: number = 18,
+  userId?: string
 ): string {
   const { lat, lng } = pixelToLngLat(x, y);
   const baseUrl = window.location.origin;
-  return `${baseUrl}/?lat=${lat.toFixed(5)}&lng=${lng.toFixed(5)}&z=${zoom}&px=${x}&py=${y}`;
+  let url = `${baseUrl}/?lat=${lat.toFixed(5)}&lng=${lng.toFixed(5)}&z=${zoom}&px=${x}&py=${y}`;
+  if (userId) url += `&player=${userId}`;
+  return url;
 }
 
 /**
@@ -24,8 +27,8 @@ export function generateProfileShareLink(userId: string): string {
 /**
  * Share a pixel using Web Share API (mobile) or clipboard fallback (desktop)
  */
-export async function sharePixel(x: number, y: number): Promise<boolean> {
-  return copyPixelLink(x, y);
+export async function sharePixel(x: number, y: number, userId?: string): Promise<boolean> {
+  return copyPixelLink(x, y, userId);
 }
 
 /**
@@ -44,8 +47,8 @@ export async function shareArtwork(userId: string, _displayName?: string | null)
 /**
  * Copy pixel share link to clipboard
  */
-export async function copyPixelLink(x: number, y: number): Promise<boolean> {
-  const link = generatePixelShareLink(x, y);
+export async function copyPixelLink(x: number, y: number, userId?: string): Promise<boolean> {
+  const link = generatePixelShareLink(x, y, 18, userId);
   try {
     await navigator.clipboard.writeText(link);
     return true;

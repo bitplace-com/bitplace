@@ -235,7 +235,7 @@ export function OwnerArtworkModal({
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>{pixels.length.toLocaleString()} pixels</span>
                 <button
-                  onClick={() => sharePixel(clusters[0].centerX, clusters[0].centerY).then(ok => ok && toast.success('Link copied!'))}
+                  onClick={() => sharePixel(clusters[0].centerX, clusters[0].centerY, userId).then(ok => ok && toast.success('Link copied!'))}
                   className="flex items-center gap-0.5 hover:text-foreground transition-colors"
                 >
                   <PixelIcon name="share" className="w-3 h-3" />
@@ -261,7 +261,7 @@ export function OwnerArtworkModal({
                       <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                         <span>{cluster.pixels.length.toLocaleString()} px</span>
                         <button
-                          onClick={(e) => { e.stopPropagation(); sharePixel(cluster.centerX, cluster.centerY).then(ok => ok && toast.success('Link copied!')); }}
+                          onClick={(e) => { e.stopPropagation(); sharePixel(cluster.centerX, cluster.centerY, userId).then(ok => ok && toast.success('Link copied!')); }}
                           className="hover:text-foreground transition-colors"
                         >
                           <PixelIcon name="share" className="w-3 h-3" />
