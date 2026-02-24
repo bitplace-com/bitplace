@@ -99,14 +99,14 @@ export function MapMenuDrawer() {
                   Alliance
                 </Button>
 
-                {/* Buy $BIT */}
+                {/* Get $BIT */}
                 <Button
                   variant="ghost"
                   onClick={() => setShopOpen(true)}
                   className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
                 >
                   <PixelIcon name="cart" size="md" />
-                  Buy $BIT
+                  Get $BIT
                 </Button>
               </div>
             </div>
