@@ -209,7 +209,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             onClick={() => setShopOpen(true)}
           >
             <PixelIcon name="cart" className="h-4 w-4" />
-            Buy $BIT
+            Get $BIT
           </Button>
         </div>
 

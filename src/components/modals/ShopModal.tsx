@@ -5,12 +5,80 @@ import { GamePanel } from "./GamePanel";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/contexts/WalletContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { ENERGY_ASSET, PE_PER_USD } from "@/config/energy";
+import { ENERGY_ASSET, PE_PER_USD, BIT_TOKEN_MINT } from "@/config/energy";
 import { toast } from "sonner";
 
 interface ShopModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+const PUMP_FUN_URL = `https://pump.fun/coin/${BIT_TOKEN_MINT}`;
+const TRUNCATED_CA = `${BIT_TOKEN_MINT.slice(0, 6)}...${BIT_TOKEN_MINT.slice(-4)}`;
+
+function TokenomicsSection() {
+  const [caCopied, setCaCopied] = useState(false);
+
+  const handleCopyCA = async () => {
+    try {
+      await navigator.clipboard.writeText(BIT_TOKEN_MINT);
+      setCaCopied(true);
+      toast.success("Contract address copied!");
+      setTimeout(() => setCaCopied(false), 2000);
+    } catch {
+      toast.error("Failed to copy");
+    }
+  };
+
+  return (
+    <div className="p-3 rounded-xl bg-muted border border-border space-y-2">
+      <p className="text-xs font-semibold text-foreground">Tokenomics</p>
+
+      <div className="space-y-1.5 text-xs text-muted-foreground">
+        <div className="flex justify-between">
+          <span>Network</span>
+          <span className="font-medium text-foreground">Solana</span>
+        </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <span className="shrink-0">CA</span>
+          <div className="flex items-center gap-1">
+            <code className="text-[11px] font-mono text-foreground">{TRUNCATED_CA}</code>
+            <button onClick={handleCopyCA} className="text-muted-foreground hover:text-foreground transition-colors">
+              {caCopied
+                ? <PixelIcon name="check" className="h-3 w-3 text-emerald-500" />
+                : <PixelIcon name="copy" className="h-3 w-3" />}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex justify-between">
+          <span>Total Supply</span>
+          <span className="font-medium text-foreground">1,000,000,000 $BIT</span>
+        </div>
+
+        <div className="flex justify-between">
+          <span>Team</span>
+          <span className="font-medium text-foreground">20% of supply</span>
+        </div>
+
+        <ul className="pl-3 space-y-0.5 text-[11px] list-disc list-inside">
+          <li>10% locked (12-month vesting)</li>
+          <li>10% for ops, airdrops, community events, incentives & development</li>
+        </ul>
+      </div>
+
+      <a
+        href={PUMP_FUN_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center gap-2 w-full mt-2 px-3 py-2 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-accent transition-colors"
+      >
+        <PixelIcon name="externalLink" className="h-3.5 w-3.5" />
+        Trade on Pump.fun
+      </a>
+    </div>
+  );
 }
 
 export function ShopModal({ open, onOpenChange }: ShopModalProps) {
@@ -177,6 +245,9 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
             </div>
           </>
         )}
+
+        {/* Tokenomics — always visible */}
+        <TokenomicsSection />
       </div>
     </GamePanel>
   );
