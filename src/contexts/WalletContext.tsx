@@ -745,6 +745,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         const provider = session.user?.app_metadata?.provider;
         if (provider !== 'google') return;
         
+        // Guard: skip if already authenticated (restore already handled it)
+        if (walletState === 'AUTHENTICATED') {
+          walletDebug('supabase_auth_skip', { reason: 'already_authenticated' });
+          return;
+        }
+        
         // Call auth-google edge function with the Supabase access token
         try {
           setWalletState('AUTHENTICATING');
@@ -772,8 +778,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           setUser(googleUser);
           setCachedUser(googleUser);
           setWalletAddress(googleUser.wallet_address || `google:${googleUser.id.substring(0, 8)}`);
+          localStorage.setItem(WALLET_ADDRESS_KEY, googleUser.wallet_address || `google:${googleUser.id.substring(0, 8)}`);
           setWalletState('AUTHENTICATED');
           setLastError(null);
+          restoreInFlightRef.current = false;
           
           // Set virtual PE energy state
           const virtualPeTotal = Number((googleUser as any).virtual_pe_total) || 300000;
@@ -1034,6 +1042,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
               refreshPeStatus(),
             ]).catch(err => walletDebug('session_restore_refresh_error', { error: err }));
             
+            restoreInFlightRef.current = false;
             return;
           }
         }
@@ -1050,8 +1059,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         
         if (!phantomWallet) {
           walletDebug('session_restore_no_phantom');
-          clearSession();
-          setWalletState('DISCONNECTED');
+          // Don't clear session if Google auth callback is already processing
+          if (walletState !== 'AUTHENTICATING') {
+            clearSession();
+            setWalletState('DISCONNECTED');
+          }
+          restoreInFlightRef.current = false;
           return;
         }
         

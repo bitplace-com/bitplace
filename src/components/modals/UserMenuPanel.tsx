@@ -1,5 +1,6 @@
 import { PixelIcon } from "@/components/icons";
 import { PEIcon } from "@/components/ui/pe-icon";
+import { ProBadge } from "@/components/ui/pro-badge";
 import { useState } from "react";
 import {
   Popover,
@@ -96,10 +97,15 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                   </span>
                 )}
                 {isGoogleOnly && !isTrialMode && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 shrink-0 flex items-center gap-0.5">
-                    <PixelIcon name="clock" className="h-2.5 w-2.5" />
-                    STARTER
-                  </span>
+                  user?.auth_provider !== 'both' ? (
+                    <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 shrink-0 flex items-center gap-0.5">
+                      <PixelIcon name="clock" className="h-2.5 w-2.5" />
+                      STARTER
+                    </span>
+                  ) : null
+                )}
+                {user?.auth_provider === 'both' && energy.nativeBalance >= 1 && !isTrialMode && (
+                  <ProBadge shine size="sm" />
                 )}
               </div>
               {/* Email for Google users */}
@@ -160,7 +166,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               <span className="tabular-nums">{energy.peUsed.toLocaleString()} / {energy.peTotal.toLocaleString()}</span>
             </div>
             <p className="text-[10px] text-amber-500">
-              ⏱ Starter pixels expire after 72h
+              Starter pixels expire after 72h
             </p>
           </div>
         ) : user?.auth_provider === 'both' && !isTrialMode ? (
@@ -208,7 +214,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                   <span className="text-foreground tabular-nums">{energy.virtualPeAvailable.toLocaleString()} available</span>
                   <span className="text-muted-foreground tabular-nums">{energy.virtualPeUsed.toLocaleString()} / {energy.virtualPeTotal.toLocaleString()}</span>
                 </div>
-                <p className="text-[10px] text-amber-500">⏱ Starter pixels expire after 72h</p>
+                <p className="text-[10px] text-amber-500">Starter pixels expire after 72h</p>
               </div>
             )}
           </>
