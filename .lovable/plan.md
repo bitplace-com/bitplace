@@ -1,39 +1,82 @@
 
-
-## Fix: Rinominare "Connect Wallet" in "Sign In"
+## Fix: "Sign In" deve sempre aprire il pannello di selezione
 
 ### Problema
-Il codice backend e il modal di selezione sono gia completi (Google + Phantom + Trial). Ma il bottone iniziale visibile all'utente dice "Connect Wallet", dando l'impressione che serva per forza un wallet crypto. L'utente non sa che puo anche usare Google.
+Quando Phantom e installato e il token e scaduto, la pagina si carica in stato `AUTH_REQUIRED` (wallet gia connesso ma serve firma). In questo stato, il bottone "Sign In" chiama direttamente `signIn()` che apre il popup di Phantom senza mostrare il pannello di selezione Google/Phantom/Trial.
+
+### Soluzione
+Cambiare il flusso: il bottone "Sign In" apre **sempre** il `WalletSelectModal`, indipendentemente dallo stato. Il modal mostrera le opzioni contestuali:
+- Se Phantom e gia connesso (AUTH_REQUIRED): mostra "Continue with Phantom" + Google come alternativa
+- Se disconnesso: mostra Google + Phantom + Trial come adesso
 
 ### Modifiche
 
 **1. `src/components/wallet/WalletButton.tsx`**
-- Stato disconnesso (riga 155-168): cambiare testo da "Connect Wallet" a "Sign In" e icona da `wallet` a `user`
-- Stato AUTH_REQUIRED (riga 58-70): cambiare testo da "Connect Wallet" a "Sign In" (questo stato si attiva quando il wallet e connesso ma manca la firma)
-- Rimuovere il link "or try for free" sotto il bottone (la trial option e gia dentro il WalletSelectModal)
+- Rimuovere il branch separato per `AUTH_REQUIRED` (righe 57-69) che bypassa il modal
+- Unificare: lo stato `AUTH_REQUIRED` usa lo stesso bottone "Sign In" che apre il modal
+- Aggiungere `onActivateTrial={activateTrialMode}` al `WalletSelectModal` (mancante sul desktop)
+- Passare `needsSignature` e `walletAddress` al modal cosi sa mostrare il contesto giusto
 
-**2. `src/components/wallet/MobileWalletButton.tsx`**
-- Stato non connesso (riga 72-93): cambiare `aria-label` da "Connect Wallet" a "Sign In", icona da `wallet` a `user`
-- Rimuovere il link "or try for free" (gia presente nel modal)
+**2. `src/components/modals/WalletSelectModal.tsx`**
+- Aggiungere props opzionali: `needsSignature?: boolean`, `connectedWalletAddress?: string`
+- Quando `needsSignature` e true: mostrare una sezione Phantom speciale "Continue with connected wallet (4J2k...vqRR)" con un bottone per firmare
+- Mostrare sempre Google come alternativa (l'utente puo scollegare Phantom e usare Google)
+- Aggiungere prop `onSignIn?: () => void` per il caso AUTH_REQUIRED
+
+**3. `src/components/wallet/MobileWalletButton.tsx`**
+- Stesso fix: quando in `AUTH_REQUIRED`, aprire il modal invece di un bottone diretto
 
 ### Dettagli tecnici
 
 ```text
-WalletButton disconnected state:
-  Before: <PixelIcon name="wallet" /> Connect Wallet
-  After:  <PixelIcon name="user" /> Sign In
+WalletButton.tsx:
+  // PRIMA (AUTH_REQUIRED aveva un branch separato):
+  if (needsSignature && walletAddress) {
+    return <Button onClick={handleSignIn}>Sign In</Button>; // bypass modal!
+  }
 
-WalletButton AUTH_REQUIRED state:
-  Before: <PixelIcon name="wallet" /> Connect Wallet  
-  After:  <PixelIcon name="wallet" /> Sign In
-
-MobileWalletButton disconnected state:
-  Before: <PixelIcon name="wallet" /> aria-label="Connect Wallet"
-  After:  <PixelIcon name="user" /> aria-label="Sign In"
+  // DOPO (AUTH_REQUIRED usa lo stesso flusso del disconnected):
+  if (!isConnected || needsSignature) {
+    return (
+      <Button onClick={() => setModalOpen(true)}>Sign In</Button>
+      <WalletSelectModal
+        needsSignature={needsSignature}
+        connectedWalletAddress={walletAddress}
+        onSignIn={handleSignIn}
+        onActivateTrial={activateTrialMode}
+        ...
+      />
+    );
+  }
 ```
 
-### Risultato
-- L'utente vede "Sign In" -- clicca -- si apre il modal con Google e Phantom come opzioni
-- Chiaro che non serve un wallet per iniziare
-- Il link "or try for free" sparisce dal bottone principale (ma resta nel modal come opzione)
+```text
+WalletSelectModal.tsx:
+  // Se Phantom e gia connesso e serve firma:
+  {needsSignature && connectedWalletAddress && (
+    <button onClick={onSignIn}>
+      <PhantomLogo />
+      "Continue with Phantom (4J2k...vqRR)"
+      "Sign message to authenticate"
+    </button>
+  )}
+  
+  // Google sempre visibile come alternativa
+  <button onClick={googleSignIn}>
+    <GoogleLogo />
+    "Sign in with Google"
+  </button>
+  
+  // Phantom "nuova connessione" (solo se NON gia connesso)
+  {!needsSignature && (
+    <button onClick={onSelectPhantom}>
+      <PhantomLogo />
+      "Phantom - Solana wallet"
+    </button>
+  )}
+```
 
+### File da modificare
+- `src/components/wallet/WalletButton.tsx` -- unificare branch disconnected + AUTH_REQUIRED
+- `src/components/modals/WalletSelectModal.tsx` -- aggiungere contesto AUTH_REQUIRED
+- `src/components/wallet/MobileWalletButton.tsx` -- stesso fix per mobile
