@@ -54,7 +54,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
         ref={onHeightChange}
         className="h-12 sm:h-11 glass-hud flex items-center justify-between px-4 py-0 border-t-0 rounded-none"
       >
-        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+        <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
           © 2026 Bitplace
           <span>·</span>
           <Link to="/privacy" className="hover:underline">Privacy Policy</Link>
@@ -80,7 +80,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
         {/* Left side - BIT Balance & Cluster */}
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap sm:flex-nowrap">
           {/* Legal footer - desktop only */}
-          <span className="hidden sm:flex items-center gap-1 text-[10px] text-muted-foreground">
+          <span className="hidden sm:flex items-center gap-1 text-xs font-medium text-muted-foreground">
             © 2026 Bitplace
             <span>·</span>
             <Link to="/privacy" className="hover:underline">Privacy</Link>
