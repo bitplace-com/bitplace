@@ -54,21 +54,6 @@ export function WalletButton() {
     );
   }
 
-  // AUTH_REQUIRED state - wallet connected but needs signature
-  if (needsSignature && walletAddress) {
-    return (
-      <Button
-        onClick={handleSignIn}
-        size="sm"
-        className="gap-2 rounded-xl shadow-lg backdrop-blur-md bg-white/90 text-black border border-white/20 hover:bg-white dark:bg-black/80 dark:text-white dark:border-white/10 dark:hover:bg-black/90"
-        data-tour="wallet"
-      >
-        <PixelIcon name="wallet" size="sm" />
-        Sign In
-      </Button>
-    );
-  }
-
   // Trial mode - show trial wallet button
   if (isTrialMode && walletAddress) {
     return (
@@ -149,7 +134,7 @@ export function WalletButton() {
     );
   }
 
-  // Disconnected state - show connect button + try free link
+  // Disconnected or AUTH_REQUIRED - always show Sign In button that opens modal
   return (
     <div className="flex flex-col items-end gap-1" data-tour="wallet">
       <Button
@@ -166,6 +151,10 @@ export function WalletButton() {
         onOpenChange={setModalOpen}
         onSelectPhantom={handleSelectPhantom}
         isConnecting={isConnecting}
+        onActivateTrial={activateTrialMode}
+        needsSignature={needsSignature}
+        connectedWalletAddress={walletAddress}
+        onSignIn={handleSignIn}
       />
     </div>
   );

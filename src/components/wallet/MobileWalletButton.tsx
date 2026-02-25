@@ -8,7 +8,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { cn } from '@/lib/utils';
 
 export function MobileWalletButton() {
-  const { isConnected, isConnecting, needsSignature, walletAddress, connect, activateTrialMode, isTrialMode, isGoogleAuth } = useWallet();
+  const { isConnected, isConnecting, needsSignature, walletAddress, connect, signIn, activateTrialMode, isTrialMode, isGoogleAuth } = useWallet();
   const [collapsed, setCollapsed] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -69,8 +69,8 @@ export function MobileWalletButton() {
     );
   }
 
-  // Not connected: compact wallet icon button + try free link
-  if (!isConnected && !needsSignature) {
+  // Not connected or AUTH_REQUIRED: show Sign In button that opens modal
+  if (!isConnected || needsSignature) {
     return (
       <div className="flex flex-col items-center gap-1" data-tour="wallet">
         <GlassIconButton size="lg" onClick={handleConnectClick} aria-label="Sign In">
@@ -82,6 +82,9 @@ export function MobileWalletButton() {
           onSelectPhantom={handleSelectPhantom}
           isConnecting={isConnecting}
           onActivateTrial={activateTrialMode}
+          needsSignature={needsSignature}
+          connectedWalletAddress={walletAddress}
+          onSignIn={async () => { await signIn(); setModalOpen(false); }}
         />
       </div>
     );
