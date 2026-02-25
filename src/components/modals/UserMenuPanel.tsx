@@ -160,9 +160,58 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               <span className="tabular-nums">{energy.peUsed.toLocaleString()} / {energy.peTotal.toLocaleString()}</span>
             </div>
             <p className="text-[10px] text-amber-500">
-              ⏱ Starter pixels expire after 24h
+              ⏱ Starter pixels expire after 72h
             </p>
           </div>
+        ) : user?.auth_provider === 'both' && !isTrialMode ? (
+          <>
+            {/* Wallet balance */}
+            <div className="p-4 space-y-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                <PixelIcon name="wallet" className="h-3.5 w-3.5" />
+                <span className="uppercase tracking-wider font-medium">Wallet</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-mono font-semibold text-foreground">
+                  {formatNumber(energy.nativeBalance, 4)} {energy.nativeSymbol}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  ${formatUsd(energy.walletUsd)}
+                </span>
+              </div>
+              {walletAddress && (
+                <button
+                  onClick={handleCopyAddress}
+                  className="flex items-center gap-1 text-xs text-muted-foreground font-mono hover:text-foreground transition-colors"
+                >
+                  {shortenAddress(walletAddress)}
+                  {copied ? (
+                    <PixelIcon name="check" className="h-3 w-3 text-emerald-500" />
+                  ) : (
+                    <PixelIcon name="copy" className="h-3 w-3" />
+                  )}
+                </button>
+              )}
+              <p className="text-[10px] text-muted-foreground">
+                Synced {formatRelativeTime(energy.lastSyncAt)}
+              </p>
+            </div>
+            <Separator className="bg-border" />
+            {/* Starter PE section */}
+            {(energy.virtualPeTotal > 0) && (
+              <div className="p-4 space-y-1">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                  <PixelIcon name="clock" className="h-3.5 w-3.5" />
+                  <span className="uppercase tracking-wider font-medium">Starter PE</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-foreground tabular-nums">{energy.virtualPeAvailable.toLocaleString()} available</span>
+                  <span className="text-muted-foreground tabular-nums">{energy.virtualPeUsed.toLocaleString()} / {energy.virtualPeTotal.toLocaleString()}</span>
+                </div>
+                <p className="text-[10px] text-amber-500">⏱ Starter pixels expire after 72h</p>
+              </div>
+            )}
+          </>
         ) : (
           <div className="p-4 space-y-2">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
