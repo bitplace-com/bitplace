@@ -11,12 +11,19 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
+function shortenAddress(address: string): string {
+  return `${address.slice(0, 4)}…${address.slice(-4)}`;
+}
+
 interface WalletSelectModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelectPhantom: () => void;
   isConnecting: boolean;
   onActivateTrial?: () => void;
+  needsSignature?: boolean;
+  connectedWalletAddress?: string | null;
+  onSignIn?: () => void;
 }
 
 // Detect if Phantom is installed (extension or in-app browser)
@@ -52,6 +59,9 @@ export function WalletSelectModal({
   onSelectPhantom,
   isConnecting,
   onActivateTrial,
+  needsSignature,
+  connectedWalletAddress,
+  onSignIn,
 }: WalletSelectModalProps) {
   const { googleSignIn } = useWallet();
   const [phantomInstalled, setPhantomInstalled] = useState<boolean | null>(null);
@@ -111,6 +121,42 @@ export function WalletSelectModal({
         </DialogHeader>
 
         <div className="space-y-3 py-4">
+          {/* Connected wallet - Continue with signature */}
+          {needsSignature && connectedWalletAddress && onSignIn && (
+            <button
+              onClick={() => {
+                onSignIn();
+                onOpenChange(false);
+              }}
+              disabled={isConnecting}
+              className="w-full flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
+            >
+              <div className="h-10 w-10 rounded-xl bg-[#AB9FF2] flex items-center justify-center flex-shrink-0">
+                <svg width="24" height="24" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M110.584 64.9142H99.142C99.142 41.7651 80.173 23 56.7724 23C33.6612 23 14.8716 41.3057 14.4118 64.0599C13.9361 87.576 35.5765 107 59.4867 107H63.4989C85.0042 107 110.584 88.7583 110.584 64.9142Z" fill="white"/>
+                  <path d="M40.2729 67.9011C40.2729 71.5233 37.3407 74.4614 33.7261 74.4614C30.1114 74.4614 27.1792 71.5233 27.1792 67.9011V59.6289C27.1792 56.0067 30.1114 53.0686 33.7261 53.0686C37.3407 53.0686 40.2729 56.0067 40.2729 59.6289V67.9011Z" fill="#AB9FF2"/>
+                  <path d="M58.9369 67.9011C58.9369 71.5233 56.0047 74.4614 52.3901 74.4614C48.7754 74.4614 45.8432 71.5233 45.8432 67.9011V59.6289C45.8432 56.0067 48.7754 53.0686 52.3901 53.0686C56.0047 53.0686 58.9369 56.0067 58.9369 59.6289V67.9011Z" fill="#AB9FF2"/>
+                </svg>
+              </div>
+              <div className="flex-1 text-left">
+                <div className="font-medium text-foreground">Continue with Phantom</div>
+                <div className="text-sm text-muted-foreground">
+                  {shortenAddress(connectedWalletAddress)} · Sign to authenticate
+                </div>
+              </div>
+              <PixelIcon name="externalLink" size="md" className="text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
+            </button>
+          )}
+
+          {/* Divider between connected wallet and alternatives */}
+          {needsSignature && connectedWalletAddress && (
+            <div className="flex items-center gap-3 px-2">
+              <Separator className="flex-1" />
+              <span className="text-xs text-muted-foreground">or use another method</span>
+              <Separator className="flex-1" />
+            </div>
+          )}
+
           {/* Google Sign-In */}
           <button
             onClick={async () => {
@@ -137,81 +183,48 @@ export function WalletSelectModal({
             <PixelIcon name="externalLink" size="md" className="text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
           </button>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3 px-2">
-            <Separator className="flex-1" />
-            <span className="text-xs text-muted-foreground">or</span>
-            <Separator className="flex-1" />
-          </div>
-
-          {/* Phantom Option */}
-          <button
-            onClick={handlePhantomClick}
-            disabled={isConnecting}
-            className="w-full flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
-          >
-            {/* Phantom Logo */}
-            <div className="h-10 w-10 rounded-xl bg-[#AB9FF2] flex items-center justify-center flex-shrink-0">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 128 128"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                {/* Ghost body */}
-                <path
-                  d="M110.584 64.9142H99.142C99.142 41.7651 80.173 23 56.7724 23C33.6612 23 14.8716 41.3057 14.4118 64.0599C13.9361 87.576 35.5765 107 59.4867 107H63.4989C85.0042 107 110.584 88.7583 110.584 64.9142Z"
-                  fill="white"
-                />
-                {/* Left eye */}
-                <path
-                  d="M40.2729 67.9011C40.2729 71.5233 37.3407 74.4614 33.7261 74.4614C30.1114 74.4614 27.1792 71.5233 27.1792 67.9011V59.6289C27.1792 56.0067 30.1114 53.0686 33.7261 53.0686C37.3407 53.0686 40.2729 56.0067 40.2729 59.6289V67.9011Z"
-                  fill="#AB9FF2"
-                />
-                {/* Right eye */}
-                <path
-                  d="M58.9369 67.9011C58.9369 71.5233 56.0047 74.4614 52.3901 74.4614C48.7754 74.4614 45.8432 71.5233 45.8432 67.9011V59.6289C45.8432 56.0067 48.7754 53.0686 52.3901 53.0686C56.0047 53.0686 58.9369 56.0067 58.9369 59.6289V67.9011Z"
-                  fill="#AB9FF2"
-                />
-              </svg>
-            </div>
-
-            <div className="flex-1 text-left">
-              <div className="font-medium text-foreground">Phantom</div>
-              <div className="text-sm text-muted-foreground">
-                {phantomInstalled === null ? (
-                  'Detecting...'
-                ) : phantomInstalled ? (
-                  isInPhantomBrowser ? 'Tap to connect' : 'Solana wallet'
-                ) : isMobile ? (
-                  'Open in Phantom app'
-                ) : (
-                  'Not installed'
-                )}
+          {/* Phantom Option - only when NOT already connected */}
+          {!needsSignature && (
+            <>
+              <div className="flex items-center gap-3 px-2">
+                <Separator className="flex-1" />
+                <span className="text-xs text-muted-foreground">or</span>
+                <Separator className="flex-1" />
               </div>
-            </div>
 
-            {/* Action indicator */}
-            <div className="flex-shrink-0">
-              {isConnecting ? (
-                <PixelIcon name="loader" size="md" className="animate-spin" />
-              ) : phantomInstalled ? (
-                <PixelIcon name="externalLink" size="md" className="text-muted-foreground group-hover:text-foreground transition-colors" />
-              ) : isMobile ? (
-                <PixelIcon name="smartphone" size="md" className="text-muted-foreground group-hover:text-foreground transition-colors" />
-              ) : (
-                <PixelIcon name="externalLink" size="md" className="text-muted-foreground group-hover:text-foreground transition-colors" />
+              <button
+                onClick={handlePhantomClick}
+                disabled={isConnecting}
+                className="w-full flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
+              >
+                <div className="h-10 w-10 rounded-xl bg-[#AB9FF2] flex items-center justify-center flex-shrink-0">
+                  <svg width="24" height="24" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M110.584 64.9142H99.142C99.142 41.7651 80.173 23 56.7724 23C33.6612 23 14.8716 41.3057 14.4118 64.0599C13.9361 87.576 35.5765 107 59.4867 107H63.4989C85.0042 107 110.584 88.7583 110.584 64.9142Z" fill="white"/>
+                    <path d="M40.2729 67.9011C40.2729 71.5233 37.3407 74.4614 33.7261 74.4614C30.1114 74.4614 27.1792 71.5233 27.1792 67.9011V59.6289C27.1792 56.0067 30.1114 53.0686 33.7261 53.0686C37.3407 53.0686 40.2729 56.0067 40.2729 59.6289V67.9011Z" fill="#AB9FF2"/>
+                    <path d="M58.9369 67.9011C58.9369 71.5233 56.0047 74.4614 52.3901 74.4614C48.7754 74.4614 45.8432 71.5233 45.8432 67.9011V59.6289C45.8432 56.0067 48.7754 53.0686 52.3901 53.0686C56.0047 53.0686 58.9369 56.0067 58.9369 59.6289V67.9011Z" fill="#AB9FF2"/>
+                  </svg>
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="font-medium text-foreground">Phantom</div>
+                  <div className="text-sm text-muted-foreground">
+                    {phantomInstalled === null ? 'Detecting...' : phantomInstalled ? (isInPhantomBrowser ? 'Tap to connect' : 'Solana wallet') : isMobile ? 'Open in Phantom app' : 'Not installed'}
+                  </div>
+                </div>
+                <div className="flex-shrink-0">
+                  {isConnecting ? (
+                    <PixelIcon name="loader" size="md" className="animate-spin" />
+                  ) : (
+                    <PixelIcon name="externalLink" size="md" className="text-muted-foreground group-hover:text-foreground transition-colors" />
+                  )}
+                </div>
+              </button>
+
+              {phantomInstalled === false && !isMobile && (
+                <p className="text-xs text-muted-foreground text-center px-4">
+                  Click above to install the Phantom browser extension, then refresh this page.
+                </p>
               )}
-            </div>
-          </button>
-
-
-          {/* Install guidance for desktop */}
-          {phantomInstalled === false && !isMobile && (
-            <p className="text-xs text-muted-foreground text-center px-4">
-              Click above to install the Phantom browser extension, then refresh this page.
-            </p>
+            </>
           )}
 
           {/* Trial mode option */}
