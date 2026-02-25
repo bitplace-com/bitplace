@@ -234,7 +234,7 @@ export function WalletSelectModal({
                 No wallet? <span className="font-medium text-foreground">Try without one.</span>
               </p>
               <p className="text-[11px] text-muted-foreground mb-3">
-                Paint with 100,000 free test PE. Nothing is saved — it's just a preview of the experience.
+                Paint with 10,000 free test PE. Nothing is saved — it's just a preview of the experience.
               </p>
               <Button
                 variant="outline"
