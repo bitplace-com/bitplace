@@ -64,7 +64,7 @@ export function WalletButton() {
         data-tour="wallet"
       >
         <PixelIcon name="wallet" size="sm" />
-        Connect Wallet
+        Sign In
       </Button>
     );
   }
@@ -157,15 +157,9 @@ export function WalletButton() {
         size="sm"
         className="gap-2 rounded-xl shadow-lg backdrop-blur-md bg-white/90 text-black border border-white/20 hover:bg-white dark:bg-black/80 dark:text-white dark:border-white/10 dark:hover:bg-black/90"
       >
-        <PixelIcon name="wallet" size="sm" />
-        Connect Wallet
+        <PixelIcon name="user" size="sm" />
+        Sign In
       </Button>
-      <button
-        onClick={activateTrialMode}
-        className="text-[10px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
-      >
-        or try for free
-      </button>
 
       <WalletSelectModal
         open={modalOpen}
