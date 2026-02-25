@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { lovable } from '@/integrations/lovable/index';
 import { toast } from 'sonner';
 import { ENERGY_ASSET, ENERGY_CONFIG } from '@/config/energy';
 import { useBalance } from '@/hooks/useBalance';
@@ -13,7 +14,6 @@ interface PhantomProvider {
   connect(options?: { onlyIfTrusted?: boolean }): Promise<{ publicKey: { toBase58(): string } }>;
   disconnect(): Promise<void>;
   signMessage(message: Uint8Array): Promise<{ signature: Uint8Array }>;
-  // Provider.request() method - recommended by Phantom docs for better popup handling
   request(args: { method: string; params: Record<string, unknown> }): Promise<{ signature: Uint8Array | string }>;
   on(event: string, callback: () => void): void;
   off(event: string, callback: () => void): void;
@@ -42,6 +42,10 @@ interface User {
   social_instagram?: string | null;
   social_discord?: string | null;
   social_website?: string | null;
+  // Google auth fields
+  auth_provider?: string;
+  email?: string | null;
+  google_avatar_url?: string | null;
 }
 
 interface EnergyState {
@@ -62,6 +66,11 @@ interface EnergyState {
   isStale: boolean;
   // Paint cooldown
   paintCooldownUntil: Date | null;
+  // Virtual PE (for Google users)
+  isVirtualPe: boolean;
+  virtualPeTotal: number;
+  virtualPeUsed: number;
+  virtualPeAvailable: number;
 }
 
 // Wallet State Machine
@@ -90,6 +99,12 @@ interface WalletContextType {
   refreshEnergy: () => Promise<void>;
   refreshPeStatus: () => Promise<void>;
   updatePeStatus: (peStatus: { total: number; used: number; available: number }, cooldownUntil?: string) => void;
+  
+  // Google auth
+  googleSignIn: () => Promise<void>;
+  linkWallet: () => Promise<void>;
+  isGoogleAuth: boolean;
+  isGoogleOnly: boolean;
   
   // Derived helpers for backward compatibility
   isConnected: boolean;
@@ -124,14 +139,12 @@ const walletDebug = (stage: string, data?: unknown) => {
 const getPhantom = (): PhantomProvider | null => {
   if (typeof window === 'undefined') return null;
   
-  // Recommended Phantom detection (phantom.solana)
   const phantom = (window as any).phantom?.solana;
   if (phantom?.isPhantom) {
     walletDebug('provider_check', { source: 'phantom.solana', isPhantom: true });
     return phantom;
   }
   
-  // Fallback for older versions (window.solana)
   const solana = (window as any).solana;
   if (solana?.isPhantom) {
     walletDebug('provider_check', { source: 'window.solana', isPhantom: true });
@@ -170,6 +183,10 @@ const trialEnergyState: EnergyState = {
   isRefreshing: false,
   isStale: false,
   paintCooldownUntil: null,
+  isVirtualPe: false,
+  virtualPeTotal: 0,
+  virtualPeUsed: 0,
+  virtualPeAvailable: 0,
 };
 
 const defaultEnergyState: EnergyState = {
@@ -188,16 +205,19 @@ const defaultEnergyState: EnergyState = {
   isRefreshing: false,
   isStale: true,
   paintCooldownUntil: null,
+  isVirtualPe: false,
+  virtualPeTotal: 0,
+  virtualPeUsed: 0,
+  virtualPeAvailable: 0,
 };
 
 // Parse JWT payload safely (handles URL-safe base64)
-const parseJwtPayload = (token: string): { wallet: string; userId: string; exp: number } | null => {
+const parseJwtPayload = (token: string): { wallet: string; userId: string; exp: number; authProvider?: string } | null => {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
     
     const payloadB64 = parts[1];
-    // Handle URL-safe base64
     const decoded = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
     const payload = JSON.parse(atob(decoded));
     
@@ -205,6 +225,7 @@ const parseJwtPayload = (token: string): { wallet: string; userId: string; exp: 
       wallet: payload.wallet,
       userId: payload.userId,
       exp: payload.exp,
+      authProvider: payload.authProvider,
     };
   } catch {
     return null;
@@ -223,6 +244,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const connectInFlightRef = useRef(false);
   const signInFlightRef = useRef(false);
   const restoreInFlightRef = useRef(false);
+  const googleSignInFlightRef = useRef(false);
   
   // Cooldown timestamps
   const lastConnectAttemptRef = useRef<number>(0);
@@ -233,22 +255,24 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return sessionStorage.getItem(TRIAL_MODE_KEY) === '1';
   });
   
-  // Ref to read trial mode inside async closures without stale captures
   const isTrialModeRef = useRef(isTrialMode);
   useEffect(() => { isTrialModeRef.current = isTrialMode; }, [isTrialMode]);
 
-  // Derived state for backward compatibility and explicit auth checks
+  // Derived state
   const isConnected = walletState === 'AUTHENTICATED' || isTrialMode;
   const isConnecting = walletState === 'CONNECTING' || walletState === 'AUTHENTICATING';
   const needsSignature = walletState === 'AUTH_REQUIRED' && !isTrialMode;
   
-  // NEW: Explicit flags for gameplay gating
   const isWalletConnected = isTrialMode || (['CONNECTED', 'AUTH_REQUIRED', 'AUTHENTICATING', 'AUTHENTICATED'].includes(walletState) && !!walletAddress);
   const isAuthenticated = isTrialMode || (walletState === 'AUTHENTICATED' && !!user);
 
+  // Google auth derived state
+  const authProvider = user?.auth_provider || (parseJwtPayload(localStorage.getItem(SESSION_TOKEN_KEY) || '')?.authProvider);
+  const isGoogleAuth = authProvider === 'google' || authProvider === 'both';
+  const isGoogleOnly = authProvider === 'google';
+
   // Trial mode: activate
   const activateTrialMode = useCallback(() => {
-    // Cancel any in-flight session restore so it won't overwrite trial state
     restoreInFlightRef.current = false;
     isTrialModeRef.current = true;
     
@@ -285,7 +309,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setEnergy(defaultEnergyState);
     sessionStorage.removeItem(TRIAL_MODE_KEY);
-    // Clear trial pixel cache
     try { localStorage.removeItem('bitplace_trial_pixels'); } catch {}
   }, []);
 
@@ -302,7 +325,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   // Use the new balance hook for immediate balance fetching (no auth required)
   const balance = useBalance({ 
     walletAddress, 
-    enabled: walletState === 'AUTHENTICATED' && !isTrialMode 
+    enabled: walletState === 'AUTHENTICATED' && !isTrialMode && !isGoogleOnly
   });
 
   const getSessionToken = () => localStorage.getItem(SESSION_TOKEN_KEY);
@@ -337,11 +360,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       connectInFlight: connectInFlightRef.current,
       signInFlight: signInFlightRef.current,
       lastError,
+      isGoogleAuth,
+      isGoogleOnly,
     });
-  }, [walletState, walletAddress, user, lastError]);
+  }, [walletState, walletAddress, user, lastError, isGoogleAuth, isGoogleOnly]);
 
-  // Sync balance hook state to energy state
+  // Sync balance hook state to energy state (only for wallet users)
   useEffect(() => {
+    if (isGoogleOnly) return; // Skip balance sync for Google-only users
     if (balance.bitBalance > 0 || balance.peTotal > 0) {
       setEnergy(prev => ({
         ...prev,
@@ -354,10 +380,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         isStale: !balance.lastSyncAt || (Date.now() - balance.lastSyncAt.getTime() > ENERGY_STALE_THRESHOLD_MS),
       }));
 
-      // Also update user's pe_total_pe
       setUser(prev => prev ? { ...prev, pe_total_pe: balance.peTotal } : null);
     }
-  }, [balance.bitBalance, balance.bitUsdPrice, balance.walletUsd, balance.peTotal, balance.lastSyncAt, balance.isRefreshing]);
+  }, [balance.bitBalance, balance.bitUsdPrice, balance.walletUsd, balance.peTotal, balance.lastSyncAt, balance.isRefreshing, isGoogleOnly]);
 
   // Update energy state from user data
   const updateEnergyFromUser = useCallback((userData: User) => {
@@ -380,6 +405,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       isRefreshing: false,
       isStale,
       paintCooldownUntil: prev.paintCooldownUntil,
+      isVirtualPe: prev.isVirtualPe,
+      virtualPeTotal: prev.virtualPeTotal,
+      virtualPeUsed: prev.virtualPeUsed,
+      virtualPeAvailable: prev.virtualPeAvailable,
     }));
   }, []);
 
@@ -401,11 +430,29 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
 
       if (data?.ok) {
-        setEnergy(prev => ({
-          ...prev,
-          peUsed: data.pe_used || 0,
-          peAvailable: data.pe_available || 0,
-        }));
+        if (data.isVirtualPe) {
+          // Google-only user: use virtual PE
+          setEnergy(prev => ({
+            ...prev,
+            peTotal: data.pe_total || 0,
+            peUsed: data.pe_used || 0,
+            peAvailable: data.pe_available || 0,
+            isVirtualPe: true,
+            virtualPeTotal: data.virtual_pe_total || 0,
+            virtualPeUsed: data.virtual_pe_used || 0,
+            virtualPeAvailable: data.virtual_pe_available || 0,
+          }));
+        } else {
+          setEnergy(prev => ({
+            ...prev,
+            peUsed: data.pe_used || 0,
+            peAvailable: data.pe_available || 0,
+            // Include virtual PE for 'both' users
+            virtualPeTotal: data.virtual_pe_total ?? prev.virtualPeTotal,
+            virtualPeUsed: data.virtual_pe_used ?? prev.virtualPeUsed,
+            virtualPeAvailable: data.virtual_pe_available ?? prev.virtualPeAvailable,
+          }));
+        }
       }
     } catch (err) {
       console.error('[WalletContext] PE status refresh exception:', err);
@@ -416,8 +463,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const refreshEnergy = useCallback(async () => {
     const token = getSessionToken();
     if (!token) {
-      // If no token, use the balance hook's refresh
-      balance.refresh();
+      if (!isGoogleOnly) balance.refresh();
       return;
     }
 
@@ -443,8 +489,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
 
       const lastSyncAt = data.lastSyncAt ? new Date(data.lastSyncAt) : null;
-      
-      // energy-refresh now returns peUsed and peAvailable directly
       const peUsed = data.peUsed ?? 0;
       const peAvailable = data.peAvailable ?? Math.max(0, (data.peTotal || 0) - peUsed);
       
@@ -452,10 +496,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         peTotal: data.peTotal, 
         peUsed, 
         peAvailable,
-        stale: data.stale 
+        stale: data.stale,
+        isVirtualPe: data.isVirtualPe,
       });
       
-      // Parse paint cooldown from response
       const paintCooldownUntil = data.paintCooldownUntil ? new Date(data.paintCooldownUntil) : null;
       
       setEnergy({
@@ -474,27 +518,33 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         isRefreshing: false,
         isStale: data.stale ?? false,
         paintCooldownUntil,
+        isVirtualPe: data.isVirtualPe ?? false,
+        virtualPeTotal: data.virtualPeTotal ?? 0,
+        virtualPeUsed: data.virtualPeUsed ?? 0,
+        virtualPeAvailable: data.virtualPeAvailable ?? 0,
       });
 
-      // Also update user's pe_total_pe
       setUser(prev => prev ? { ...prev, pe_total_pe: data.peTotal } : null);
 
-      if (!data.stale) {
+      if (!data.stale && !data.isVirtualPe) {
         toast.success('Balance updated', { 
           description: `${data.nativeBalance.toFixed(4)} ${data.nativeSymbol} = ${data.peTotal.toLocaleString()} PE`
+        });
+      } else if (!data.stale && data.isVirtualPe) {
+        toast.success('Balance updated', { 
+          description: `${data.peAvailable.toLocaleString()} PE available`
         });
       }
     } catch (err) {
       console.error('[WalletContext] Energy refresh exception:', err);
       setEnergy(prev => ({ ...prev, isRefreshing: false }));
     }
-  }, [balance]);
+  }, [balance, isGoogleOnly]);
 
   const refreshUser = useCallback(async () => {
     const token = getSessionToken();
     if (!token) return;
 
-    // Use energy-refresh edge function to get fresh user data (authenticated)
     try {
       const { data, error } = await supabase.functions.invoke('energy-refresh', {
         headers: {
@@ -503,18 +553,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       });
 
       if (!error && data?.ok) {
-        // Energy refresh returns user data including peUsed/peAvailable
         const lastSyncAt = data.lastSyncAt ? new Date(data.lastSyncAt) : null;
         const peUsed = data.peUsed ?? 0;
         const peAvailable = data.peAvailable ?? Math.max(0, (data.peTotal || 0) - peUsed);
         
-        console.log('[WalletContext] refreshUser result:', { 
-          peTotal: data.peTotal, 
-          peUsed, 
-          peAvailable 
-        });
-        
-        // Parse paint cooldown from response
         const paintCooldownUntil = data.paintCooldownUntil ? new Date(data.paintCooldownUntil) : null;
         
         setEnergy({
@@ -533,9 +575,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           isRefreshing: false,
           isStale: data.stale ?? false,
           paintCooldownUntil,
+          isVirtualPe: data.isVirtualPe ?? false,
+          virtualPeTotal: data.virtualPeTotal ?? 0,
+          virtualPeUsed: data.virtualPeUsed ?? 0,
+          virtualPeAvailable: data.virtualPeAvailable ?? 0,
         });
 
-        // Update user's pe_total_pe
         setUser(prev => prev ? { ...prev, pe_total_pe: data.peTotal } : null);
       }
     } catch (err) {
@@ -544,7 +589,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Update PE status directly (called after game-commit response)
-  // PROMPT 55: Added optional cooldownUntil parameter
   const updatePeStatus = useCallback((
     peStatus: { total: number; used: number; available: number },
     cooldownUntil?: string
@@ -555,13 +599,129 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       peTotal: peStatus.total,
       peUsed: peStatus.used,
       peAvailable: peStatus.available,
-      // PROMPT 55: Update cooldown immediately if provided
       paintCooldownUntil: cooldownUntil ? new Date(cooldownUntil) : prev.paintCooldownUntil,
     }));
     
-    // Also update user's pe_total_pe
     setUser(prev => prev ? { ...prev, pe_total_pe: peStatus.total } : null);
   }, []);
+
+  // ============ GOOGLE SIGN IN ============
+  const googleSignIn = useCallback(async () => {
+    if (googleSignInFlightRef.current) return;
+    googleSignInFlightRef.current = true;
+    
+    walletDebug('google_signin_start');
+    
+    try {
+      const { error } = await lovable.auth.signInWithOAuth('google', {
+        redirect_uri: window.location.origin,
+      });
+      
+      if (error) {
+        console.error('[WalletContext] Google sign-in error:', error);
+        toast.error('Google sign-in failed', { description: error.message });
+      }
+      // After this, the page will redirect to Google.
+      // On return, supabase.auth.onAuthStateChange will fire SIGNED_IN.
+    } catch (err) {
+      console.error('[WalletContext] Google sign-in exception:', err);
+      toast.error('Google sign-in failed');
+    } finally {
+      googleSignInFlightRef.current = false;
+    }
+  }, []);
+
+  // Link wallet for Google-only users
+  const linkWallet = useCallback(async () => {
+    if (!isGoogleOnly || !user) {
+      toast.info('Wallet linking is only for Google-only accounts');
+      return;
+    }
+    // Just trigger the normal connect flow - the wallet auth will handle 
+    // transitioning auth_provider to 'both' on the backend
+    // For now, open connect flow
+    toast.info('Wallet linking coming soon');
+  }, [isGoogleOnly, user]);
+
+  // Listen for Supabase Auth state changes (Google OAuth callback)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.access_token) {
+        walletDebug('supabase_auth_signed_in', { provider: session.user?.app_metadata?.provider });
+        
+        // Only process Google auth callbacks
+        const provider = session.user?.app_metadata?.provider;
+        if (provider !== 'google') return;
+        
+        // Call auth-google edge function with the Supabase access token
+        try {
+          setWalletState('AUTHENTICATING');
+          
+          const { data, error } = await supabase.functions.invoke('auth-google', {
+            body: { supabase_access_token: session.access_token },
+          });
+          
+          if (error || !data?.token) {
+            console.error('[WalletContext] auth-google error:', error, data);
+            toast.error('Google authentication failed');
+            setWalletState('DISCONNECTED');
+            return;
+          }
+          
+          // Store custom JWT
+          setSessionToken(data.token);
+          const googleUser = data.user as User;
+          setUser(googleUser);
+          setCachedUser(googleUser);
+          setWalletAddress(googleUser.wallet_address || `google:${googleUser.id.substring(0, 8)}`);
+          setWalletState('AUTHENTICATED');
+          setLastError(null);
+          
+          // Set virtual PE energy state
+          const virtualPeTotal = Number((googleUser as any).virtual_pe_total) || 300000;
+          const virtualPeUsed = Number((googleUser as any).virtual_pe_used) || 0;
+          const virtualPeAvailable = Math.max(0, virtualPeTotal - virtualPeUsed);
+          
+          setEnergy({
+            ...defaultEnergyState,
+            peTotal: virtualPeTotal,
+            peUsed: virtualPeUsed,
+            peAvailable: virtualPeAvailable,
+            isVirtualPe: true,
+            virtualPeTotal,
+            virtualPeUsed,
+            virtualPeAvailable,
+            lastSyncAt: new Date(),
+            isRefreshing: false,
+            isStale: false,
+          });
+          
+          walletDebug('google_auth_complete', { userId: googleUser.id });
+          toast.success('Signed in with Google!', { 
+            description: `${virtualPeAvailable.toLocaleString()} Starter PE ready to use` 
+          });
+          soundEngine.play('wallet_connect');
+          
+          // Warm up and refresh
+          warmupAuthenticatedFunctions(data.token).catch(err => {
+            walletDebug('warmup_error', err);
+          });
+          
+          setTimeout(() => {
+            refreshEnergy();
+            refreshPeStatus();
+          }, 500);
+          
+        } catch (err) {
+          console.error('[WalletContext] Google auth callback error:', err);
+          toast.error('Google authentication failed');
+          setWalletState('DISCONNECTED');
+        }
+      }
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [refreshEnergy, refreshPeStatus]);
 
   // Attempt Phantom trusted reconnect (silent, no popup)
   const attemptTrustedReconnect = useCallback(async (): Promise<string | null> => {
@@ -580,12 +740,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Perform authentication with Phantom signature (called ONLY on user intent)
+  // Perform authentication with Phantom signature
   const performAuthentication = useCallback(async (wallet: string): Promise<boolean> => {
     const phantom = getPhantom();
     if (!phantom) return false;
     
-    // Check cooldown
     const now = Date.now();
     if (now - lastSignAttemptRef.current < COOLDOWN_MS) {
       walletDebug('auth_cooldown', { remaining: COOLDOWN_MS - (now - lastSignAttemptRef.current) });
@@ -593,7 +752,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       return false;
     }
     
-    // Check in-flight guard
     if (signInFlightRef.current) {
       walletDebug('auth_skip', { reason: 'in_flight' });
       return false;
@@ -606,7 +764,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       walletDebug('auth_nonce_start');
       
-      // Get nonce
       const { data: nonceData, error: nonceError } = await supabase.functions.invoke('auth-nonce', {
         body: { wallet },
       });
@@ -619,14 +776,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         return false;
       }
       
-      // Sign nonce - try provider.request() first, fallback to signMessage()
       walletDebug('auth_sign_start');
       let signatureB64: string;
       try {
         const messageBytes = new TextEncoder().encode(nonceData.nonce);
         let signatureBytes: Uint8Array;
 
-        // Check if request method is available (preferred approach)
         if (typeof phantom.request === 'function') {
           walletDebug('auth_sign_using_request');
           const signResult = await phantom.request({
@@ -637,25 +792,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             },
           });
           
-          // Handle signature response - can be Uint8Array or base64 string
           if (signResult.signature instanceof Uint8Array) {
             signatureBytes = signResult.signature;
           } else if (typeof signResult.signature === 'string') {
-            // Already base64, decode to bytes first
             signatureBytes = new Uint8Array(
               atob(signResult.signature).split('').map(c => c.charCodeAt(0))
             );
           } else {
-            // Assume array-like object
             signatureBytes = new Uint8Array(signResult.signature as ArrayLike<number>);
           }
         } else if (typeof phantom.signMessage === 'function') {
-          // Fallback to signMessage method (older Phantom versions / mobile)
           walletDebug('auth_sign_using_signMessage_fallback');
           const signResult = await phantom.signMessage(messageBytes);
           signatureBytes = signResult.signature;
         } else {
-          // Neither method available
           walletDebug('auth_sign_no_method_available');
           throw new Error('Wallet does not support message signing');
         }
@@ -679,7 +829,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         return false;
       }
       
-      // Verify and get token
       walletDebug('auth_verify_start');
       const { data: authData, error: authError } = await supabase.functions.invoke('auth-verify', {
         body: { wallet, signature: signatureB64, nonce: nonceData.nonce },
@@ -693,7 +842,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         return false;
       }
       
-      // Store and set state
       setSessionToken(authData.token);
       localStorage.setItem(WALLET_ADDRESS_KEY, wallet);
       setWalletAddress(wallet);
@@ -710,12 +858,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       toast.success('Signed in successfully');
       soundEngine.play('wallet_connect');
       
-      // Warm-up critical edge functions with authenticated PING
       warmupAuthenticatedFunctions(authData.token).catch(err => {
         walletDebug('warmup_error', err);
       });
       
-      // Refresh energy + PE status
       setTimeout(() => {
         refreshEnergy();
         refreshPeStatus();
@@ -732,7 +878,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [updateEnergyFromUser, refreshEnergy, refreshPeStatus]);
 
-  // Sign in (for AUTH_REQUIRED state) - triggered by user clicking "Sign in"
+  // Sign in (for AUTH_REQUIRED state)
   const signIn = useCallback(async () => {
     if (walletState !== 'AUTH_REQUIRED' || !walletAddress) {
       walletDebug('signIn_invalid_state', { walletState, hasWallet: !!walletAddress });
@@ -744,7 +890,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   // Session restore on mount (runs ONCE)
   useEffect(() => {
-    // Guard against multiple executions
     if (restoreInFlightRef.current) {
       walletDebug('session_restore_skip', { reason: 'already_in_flight' });
       return;
@@ -753,7 +898,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const restoreSession = async () => {
       restoreInFlightRef.current = true;
       
-      // Skip session restore if trial mode is active (from sessionStorage)
       if (isTrialMode) {
         walletDebug('session_restore_skip', { reason: 'trial_mode_active' });
         activateTrialMode();
@@ -767,52 +911,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         
         walletDebug('session_restore_start', { hasToken: !!token, hasWallet: !!storedWallet });
         
-        setWalletState('CONNECTING');
-        
-        // Step 1: Try Phantom trusted reconnect (silent, no popup)
-        const phantomWallet = await attemptTrustedReconnect();
-        
-        // Re-check trial mode after async - user may have activated trial during reconnect
-        if (isTrialModeRef.current) {
-          walletDebug('session_restore_abort', { reason: 'trial_activated_during_reconnect' });
-          restoreInFlightRef.current = false;
-          return;
-        }
-        
-        if (!phantomWallet) {
-          // Phantom not available or not trusted - clear and wait for manual connect
-          walletDebug('session_restore_no_phantom');
-          clearSession();
-          setWalletState('DISCONNECTED');
-          return;
-        }
-        
-        // Wallet is connected via trusted reconnect
-        setWalletAddress(phantomWallet);
-        
-        // Step 2: Check if we have a valid token for this wallet
-        if (token && storedWallet === phantomWallet) {
+        // Check if this is a Google auth session
+        if (token) {
           const payload = parseJwtPayload(token);
-          
-          if (payload && payload.exp > Date.now()) {
-            // Token still valid - fully restore
-            walletDebug('session_restore_valid_token', { expiresIn: payload.exp - Date.now() });
+          if (payload && payload.exp > Date.now() && (payload.authProvider === 'google' || payload.authProvider === 'both')) {
+            walletDebug('session_restore_google', { authProvider: payload.authProvider });
             
             setWalletState('AUTHENTICATED');
+            setWalletAddress(storedWallet || `google:${payload.userId.substring(0, 8)}`);
             
-            // Load cached user immediately for fast UI
             const cachedUser = getCachedUser();
             if (cachedUser) {
               setUser(cachedUser);
               updateEnergyFromUser(cachedUser);
             }
             
-            // Warm-up critical edge functions with authenticated PING
             warmupAuthenticatedFunctions(token).catch(err => {
               walletDebug('warmup_error', err);
             });
             
-            // Fetch fresh data in parallel
             Promise.all([
               refreshUser(),
               refreshEnergy(),
@@ -823,13 +940,57 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           }
         }
         
-        // Step 3: Token missing/expired/mismatched - DO NOT auto-sign!
-        // Just set state to AUTH_REQUIRED and show UI prompt
+        setWalletState('CONNECTING');
+        
+        const phantomWallet = await attemptTrustedReconnect();
+        
+        if (isTrialModeRef.current) {
+          walletDebug('session_restore_abort', { reason: 'trial_activated_during_reconnect' });
+          restoreInFlightRef.current = false;
+          return;
+        }
+        
+        if (!phantomWallet) {
+          walletDebug('session_restore_no_phantom');
+          clearSession();
+          setWalletState('DISCONNECTED');
+          return;
+        }
+        
+        setWalletAddress(phantomWallet);
+        
+        if (token && storedWallet === phantomWallet) {
+          const payload = parseJwtPayload(token);
+          
+          if (payload && payload.exp > Date.now()) {
+            walletDebug('session_restore_valid_token', { expiresIn: payload.exp - Date.now() });
+            
+            setWalletState('AUTHENTICATED');
+            
+            const cachedUser = getCachedUser();
+            if (cachedUser) {
+              setUser(cachedUser);
+              updateEnergyFromUser(cachedUser);
+            }
+            
+            warmupAuthenticatedFunctions(token).catch(err => {
+              walletDebug('warmup_error', err);
+            });
+            
+            Promise.all([
+              refreshUser(),
+              refreshEnergy(),
+              refreshPeStatus(),
+            ]).catch(err => walletDebug('session_restore_refresh_error', { error: err }));
+            
+            return;
+          }
+        }
+        
         walletDebug('session_restore_auth_required', { 
           reason: !token ? 'no_token' : storedWallet !== phantomWallet ? 'wallet_mismatch' : 'token_expired' 
         });
         
-        // Load cached user for UI display (but not authenticated)
         const cachedUser = getCachedUser();
         if (cachedUser && cachedUser.wallet_address === phantomWallet) {
           setUser(cachedUser);
@@ -837,7 +998,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         }
         
         setWalletState('AUTH_REQUIRED');
-        // User must click "Sign in" to trigger signature popup
         
       } catch (err) {
         walletDebug('session_restore_error', { error: err });
@@ -847,7 +1007,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     };
     
     restoreSession();
-    // Empty deps - run once on mount. The guard prevents re-runs.
   }, []);
 
   // Listen for Phantom disconnect
@@ -856,9 +1015,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (!phantom) return;
 
     const handleDisconnect = () => {
-      // Don't reset state if trial mode is active
       if (isTrialModeRef.current) {
         walletDebug('phantom_disconnect_ignored', { reason: 'trial_mode_active' });
+        return;
+      }
+      // Don't disconnect if this is a Google auth session
+      if (isGoogleAuth) {
+        walletDebug('phantom_disconnect_ignored', { reason: 'google_auth_session' });
         return;
       }
       setWalletState('DISCONNECTED');
@@ -870,14 +1033,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     phantom.on('disconnect', handleDisconnect);
     return () => phantom.off('disconnect', handleDisconnect);
-  }, []);
+  }, [isGoogleAuth]);
 
-  // Listen for token expired events (from API calls that detect expired tokens)
+  // Listen for token expired events
   useEffect(() => {
     const handleTokenExpired = () => {
       walletDebug('token_expired_event');
       
-      // Only transition if currently authenticated and NOT in trial mode
       if (walletState === 'AUTHENTICATED' && !isTrialMode) {
         setWalletState('AUTH_REQUIRED');
         toast.info('Session expired', { 
@@ -923,7 +1085,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Check cooldown
     const now = Date.now();
     if (now - lastConnectAttemptRef.current < COOLDOWN_MS) {
       walletDebug('connect_cooldown', { remaining: COOLDOWN_MS - (now - lastConnectAttemptRef.current) });
@@ -931,7 +1092,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       return;
     }
     
-    // Check in-flight guard
     if (connectInFlightRef.current) {
       walletDebug('connect_skip', { reason: 'in_flight' });
       return;
@@ -943,10 +1103,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     walletDebug('connect_start');
 
     try {
-      // Connect to Phantom
       let publicKey;
       try {
-        // Check if already connected
         if (phantom.publicKey) {
           publicKey = phantom.publicKey;
           walletDebug('connect_reuse', { publicKey: publicKey.toBase58().substring(0, 8) });
@@ -958,7 +1116,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       } catch (connectError: any) {
         walletDebug('connect_error', { code: connectError?.code, message: connectError?.message });
         
-        // User rejected connection
         if (connectError?.code === 4001 || connectError?.message?.includes('User rejected')) {
           toast.error('Connection cancelled', {
             description: 'You rejected the connection request',
@@ -974,12 +1131,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setWalletAddress(wallet);
       walletDebug('wallet_address', { wallet: wallet.substring(0, 8) + '...' });
 
-      // Now proceed to authentication (signature)
-      // For connect(), we go straight to authentication since user explicitly clicked Connect
       const authSuccess = await performAuthentication(wallet);
       
       if (!authSuccess) {
-        // Authentication failed or was cancelled - state already set by performAuthentication
         walletDebug('connect_auth_failed');
       }
 
@@ -1002,15 +1156,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   };
 
   const disconnect = () => {
-    // If in trial mode, just exit trial
     if (isTrialMode) {
       exitTrialMode();
       return;
     }
     
     const phantom = getPhantom();
-    if (phantom) {
+    if (phantom && !isGoogleOnly) {
       phantom.disconnect();
+    }
+    
+    // Sign out of Supabase auth if Google
+    if (isGoogleAuth) {
+      supabase.auth.signOut().catch(() => {});
     }
     
     setWalletState('DISCONNECTED');
@@ -1020,7 +1178,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setLastError(null);
     clearSession();
     
-    toast.success('Wallet disconnected');
+    toast.success('Disconnected');
   };
 
   const updateUser = async (updates: Partial<Pick<User, 'display_name' | 'country_code' | 'alliance_tag' | 'avatar_url' | 'bio' | 'social_x' | 'social_instagram' | 'social_website'>>) => {
@@ -1060,6 +1218,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         refreshEnergy,
         refreshPeStatus,
         updatePeStatus,
+        googleSignIn,
+        linkWallet,
+        isGoogleAuth,
+        isGoogleOnly,
         isConnected,
         isConnecting,
         needsSignature,

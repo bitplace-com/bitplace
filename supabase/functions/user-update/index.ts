@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Allowed origins for CORS (restrict to known origins for authenticated endpoints)
@@ -23,7 +22,7 @@ function getCorsHeaders(req: Request): Record<string, string> {
 }
 
 // Verify and decode token
-async function verifyToken(token: string, secret: string): Promise<{ wallet: string; userId: string; exp: number } | null> {
+async function verifyToken(token: string, secret: string): Promise<{ wallet: string; userId: string; exp: number; authProvider?: string } | null> {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
@@ -60,7 +59,7 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   
   // Handle CORS preflight
@@ -131,7 +130,6 @@ serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        // Validate ISO 3166-1 alpha-2 format (2 uppercase letters)
         if (!/^[A-Z]{2}$/.test(country_code)) {
           return new Response(
             JSON.stringify({ error: 'Country code must be 2 uppercase letters (ISO format)' }),
@@ -150,7 +148,6 @@ serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        // Validate alliance tag format: 2-5 uppercase letters only
         if (!/^[A-Z]{2,5}$/.test(alliance_tag)) {
           return new Response(
             JSON.stringify({ error: 'Alliance tag must be 2-5 uppercase letters' }),
@@ -169,7 +166,6 @@ serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        // Validate URL format and protocol
         try {
           const url = new URL(avatar_url);
           if (!['http:', 'https:'].includes(url.protocol)) {

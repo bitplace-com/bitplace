@@ -5,7 +5,7 @@
 const SESSION_TOKEN_KEY = 'bitplace_session_token';
 
 // Parse JWT payload to check expiry
-export const parseJwtPayload = (token: string): { wallet: string; userId: string; exp: number } | null => {
+export const parseJwtPayload = (token: string): { wallet: string; userId: string; exp: number; authProvider?: string } | null => {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
@@ -18,10 +18,27 @@ export const parseJwtPayload = (token: string): { wallet: string; userId: string
       wallet: payload.wallet,
       userId: payload.userId,
       exp: payload.exp,
+      authProvider: payload.authProvider,
     };
   } catch {
     return null;
   }
+};
+
+// Check if current session is Google-based
+export const isGoogleSession = (): boolean => {
+  const token = getSessionToken();
+  if (!token) return false;
+  const payload = parseJwtPayload(token);
+  return payload?.authProvider === 'google' || payload?.authProvider === 'both';
+};
+
+// Check if current session is Google-only (no wallet)
+export const isGoogleOnlySession = (): boolean => {
+  const token = getSessionToken();
+  if (!token) return false;
+  const payload = parseJwtPayload(token);
+  return payload?.authProvider === 'google';
 };
 
 // Check if token is expired (with 30s buffer)
