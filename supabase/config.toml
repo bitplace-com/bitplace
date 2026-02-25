@@ -77,3 +77,9 @@ verify_jwt = false
 
 [functions.places-delete]
 verify_jwt = false
+
+[functions.auth-google]
+verify_jwt = false
+
+[functions.pixels-cleanup-expired]
+verify_jwt = false
