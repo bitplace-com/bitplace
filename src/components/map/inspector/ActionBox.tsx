@@ -277,11 +277,6 @@ export function ActionBox({
             <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium text-destructive">{lastError.message}</p>
-              {lastError.requestId && (
-                <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                  ID: {lastError.requestId}
-                </p>
-              )}
             </div>
           </div>
           {lastError.canRetry && onRetryValidate && (
