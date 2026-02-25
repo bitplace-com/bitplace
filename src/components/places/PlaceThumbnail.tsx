@@ -144,12 +144,13 @@ export const PlaceThumbnail = memo(function PlaceThumbnail({
       );
 
       const drawPixels = () => {
-        const cellSize = scale;
         pixels.forEach((pixel) => {
           ctx.fillStyle = pixel.color;
-          const px = offsetX + (pixel.x - viewXmin) * scale;
-          const py = offsetY + (pixel.y - viewYmin) * scale;
-          ctx.fillRect(px, py, Math.max(cellSize, 1), Math.max(cellSize, 1));
+          const px = Math.floor(offsetX + (pixel.x - viewXmin) * scale);
+          const py = Math.floor(offsetY + (pixel.y - viewYmin) * scale);
+          const pw = Math.floor(offsetX + (pixel.x - viewXmin + 1) * scale) - px;
+          const ph = Math.floor(offsetY + (pixel.y - viewYmin + 1) * scale) - py;
+          ctx.fillRect(px, py, pw, ph);
         });
       };
 

@@ -153,7 +153,7 @@ export function PlacesModal({
     if (places.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <PixelIcon name="map" size="lg" className="text-muted-foreground mb-3" />
+          <PixelIcon name="locationPin" size="lg" className="text-muted-foreground mb-3" />
           <p className="text-sm text-muted-foreground">{emptyMessage}</p>
         </div>
       );
