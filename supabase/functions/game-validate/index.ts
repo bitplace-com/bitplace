@@ -368,7 +368,7 @@ async function handlePaintFastPath(
     // Launch both queries in parallel
     const userPromise = supabase
       .from("users")
-      .select("id, pe_total_pe, pe_used_pe, paint_cooldown_until")
+      .select("id, pe_total_pe, pe_used_pe, paint_cooldown_until, auth_provider, virtual_pe_total, virtual_pe_used")
       .eq("id", userId)
       .single();
     
@@ -391,6 +391,10 @@ async function handlePaintFastPath(
     }
     
     console.log(`[game-validate] Parallel fetch completed in ${tParallelEnd - tParallelStart}ms (user+pixels)`);
+    
+    // Determine if user is using virtual PE (Google auth without wallet)
+    const isVirtualPe = user.auth_provider === 'google' || 
+      (user.auth_provider === 'both' && !user.wallet_address);
     
     // Step C: Cooldown check IMMEDIATELY (before any heavy processing)
     if (user.paint_cooldown_until) {
@@ -440,10 +444,19 @@ async function handlePaintFastPath(
     }
     const fetchOwnersMs = Date.now() - tFetchOwners;
     
-    // Step F: Calculate PE availability from counters (NO GLOBAL SCAN)
-    const peTotal = Number(user.pe_total_pe) || 0;
-    const peUsed = Number(user.pe_used_pe) || 0;
-    const peAvailable = peTotal - peUsed;
+    // Step F: Calculate PE availability - use virtual PE for Google users
+    let peTotal: number, peUsed: number, peAvailable: number;
+    
+    if (isVirtualPe) {
+      peTotal = Number(user.virtual_pe_total) || 0;
+      peUsed = Number(user.virtual_pe_used) || 0;
+      peAvailable = peTotal - peUsed;
+      console.log(`[game-validate] Virtual PE mode: total=${peTotal}, used=${peUsed}, available=${peAvailable}`);
+    } else {
+      peTotal = Number(user.pe_total_pe) || 0;
+      peUsed = Number(user.pe_used_pe) || 0;
+      peAvailable = peTotal - peUsed;
+    }
     
     // Step G: Compute required PE for each pixel
     emit?.({ type: "progress", phase: "compute", pct: 80, requestId });
@@ -552,6 +565,7 @@ async function handlePaintFastPath(
       availablePe: peAvailable,
       requestId,
       timings,
+      ...(isVirtualPe ? { isVirtualPe: true } : {}),
     };
   };
   
@@ -1214,7 +1228,7 @@ Deno.serve(async (req) => {
     // Fetch user data for legacy modes (with pe_used_pe)
     const { data: user, error: userError } = await supabase
       .from("users")
-      .select("id, pe_total_pe, pe_used_pe, paint_cooldown_until")
+      .select("id, pe_total_pe, pe_used_pe, paint_cooldown_until, auth_provider, wallet_address")
       .eq("id", userId)
       .single();
 
@@ -1223,6 +1237,22 @@ Deno.serve(async (req) => {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Block DEF/ATK/REINFORCE for Google-only users (no wallet)
+    if (user.auth_provider === 'google' && !user.wallet_address) {
+      const walletRequiredModes = ["DEFEND", "ATTACK", "REINFORCE", "WITHDRAW_DEF", "WITHDRAW_ATK", "WITHDRAW_REINFORCE"];
+      if (walletRequiredModes.includes(mode)) {
+        return new Response(JSON.stringify({ 
+          ok: false, 
+          error: "WALLET_REQUIRED", 
+          message: "Connect a wallet with $BIT tokens to use this action",
+          requestId 
+        }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     return handleLegacyValidate(corsHeaders, supabase, userId, mode, pixels, pePerPixel, user, stream);

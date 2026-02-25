@@ -262,7 +262,8 @@ async function executeCommit(
   // deno-lint-ignore no-explicit-any
   user: any,
   requestedColorMap?: Map<string, string>,
-  onProgress?: (processed: number, total: number) => void
+  onProgress?: (processed: number, total: number) => void,
+  isVirtualPe?: boolean
 ): Promise<{
   ok: boolean;
   affectedPixels: number;
@@ -397,6 +398,22 @@ async function executeCommit(
       affectedPixels += inserted?.length || 0;
     }
     
+    // DEFEND: Clear expires_at on pixels with virtual stake (save them from expiry)
+    if (mode === "DEFEND") {
+      const pixelIdsWithExpiry = pixelsToProcess
+        .filter(p => p.id)
+        .map(p => p.id!);
+      
+      if (pixelIdsWithExpiry.length > 0) {
+        // Only update pixels that actually have expires_at set
+        await supabase
+          .from("pixels")
+          .update({ expires_at: null })
+          .in("id", pixelIdsWithExpiry)
+          .not("expires_at", "is", null);
+      }
+    }
+    
     const ownersToNotify = pixelsToProcess
       .filter(p => p.owner_user_id && p.owner_user_id !== userId)
       .map(p => ({
@@ -492,6 +509,9 @@ async function executeCommit(
   } else if (mode === "PAINT") {
     // PROMPT 54+56: Batch UPSERT for all PAINT pixels with chunking for large operations
     
+    // Determine expiry for virtual PE users (Google auth)
+    const expiresAt = isVirtualPe ? new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString() : null;
+    
     // Build upsert data with calculated thresholds
     // Note: pixel_id, tile_x and tile_y are GENERATED columns, do not include them
     const upsertData: Array<{
@@ -501,19 +521,26 @@ async function executeCommit(
       owner_user_id: string;
       owner_stake_pe: number;
       updated_at: string;
+      expires_at: string | null;
+      is_virtual_stake: boolean;
+      virtual_pe_cost: number;
     }> = [];
     
     const takeoverPreviousOwners: Array<{ ownerId: string; x: number; y: number }> = [];
     const takeoverPixelIds: number[] = [];
+    let totalVirtualPeCost = 0;
     
     for (const pixel of pixelStates) {
       const isEmpty = !pixel.id;
       const isOwnedByUser = pixel.owner_user_id === userId;
       
       let stake = 1;
+      let virtualCost = 0;
+      
       if (!isEmpty && !isOwnedByUser) {
         // Takeover: calculate threshold
         stake = calculateThreshold(pixel);
+        virtualCost = stake;
         if (pixel.id) takeoverPixelIds.push(pixel.id);
         if (pixel.owner_user_id) {
           takeoverPreviousOwners.push({ ownerId: pixel.owner_user_id, x: pixel.x, y: pixel.y });
@@ -521,6 +548,16 @@ async function executeCommit(
       } else if (!isEmpty && isOwnedByUser) {
         // Color change only: keep existing stake
         stake = pixel.owner_stake_pe || 1;
+        virtualCost = 0; // No additional cost for color change
+      } else {
+        // Empty pixel
+        virtualCost = 1; // 1 PE for empty pixel
+      }
+      
+      // For virtual PE: owner_stake_pe = 0, track cost separately
+      const actualStake = isVirtualPe ? 0 : stake;
+      if (isVirtualPe && !(!isEmpty && isOwnedByUser)) {
+        totalVirtualPeCost += virtualCost;
       }
       
       // Use per-pixel requested color from requestedColorMap, fallback to top-level color
@@ -532,8 +569,11 @@ async function executeCommit(
         y: pixel.y,
         color: pixelColor,
         owner_user_id: userId,
-        owner_stake_pe: stake,
+        owner_stake_pe: actualStake,
         updated_at: now,
+        expires_at: isVirtualPe ? expiresAt : null,
+        is_virtual_stake: isVirtualPe || false,
+        virtual_pe_cost: isVirtualPe ? virtualCost : 0,
       });
     }
 
@@ -713,12 +753,19 @@ async function executeCommit(
     newPixelsPaintedTotal = (user.pixels_painted_total || 0) + affectedPixels;
     paintCooldownUntil = new Date(Date.now() + PAINT_COOLDOWN_SECONDS * 1000);
     
+    const userUpdate: Record<string, unknown> = {
+      pixels_painted_total: newPixelsPaintedTotal, 
+      paint_cooldown_until: paintCooldownUntil.toISOString(),
+    };
+    
+    // For virtual PE: manually increment virtual_pe_used (DB triggers won't handle stake=0)
+    if (isVirtualPe && totalVirtualPeCost > 0) {
+      userUpdate.virtual_pe_used = (Number(user.virtual_pe_used) || 0) + totalVirtualPeCost;
+    }
+    
     await supabase
       .from("users")
-      .update({ 
-        pixels_painted_total: newPixelsPaintedTotal, 
-        paint_cooldown_until: paintCooldownUntil.toISOString(),
-      })
+      .update(userUpdate)
       .eq("id", userId);
   }
 
@@ -747,21 +794,31 @@ async function executeCommit(
 
   onProgress?.(Math.floor(total * 0.9), total);
 
-  // PROMPT 54: Read pre-calculated pe_used_pe counter (NO global scans!)
-  // The DB triggers automatically maintain users.pe_used_pe on pixel/contribution changes
-  const { data: updatedUser } = await supabase
-    .from("users")
-    .select("pe_total_pe, pe_used_pe")
-    .eq("id", userId)
-    .single();
-
-  const peTotal = Number(updatedUser?.pe_total_pe || user.pe_total_pe || 0);
-  const peUsed = Number(updatedUser?.pe_used_pe || 0);
-  const peAvailable = Math.max(0, peTotal - peUsed);
+  // Read PE status - use virtual PE for Google users
+  let peTotal: number, peUsed: number, peAvailable: number;
+  
+  if (isVirtualPe) {
+    const { data: updatedUser } = await supabase
+      .from("users")
+      .select("virtual_pe_total, virtual_pe_used")
+      .eq("id", userId)
+      .single();
+    peTotal = Number(updatedUser?.virtual_pe_total || user.virtual_pe_total || 0);
+    peUsed = Number(updatedUser?.virtual_pe_used || 0);
+    peAvailable = Math.max(0, peTotal - peUsed);
+  } else {
+    const { data: updatedUser } = await supabase
+      .from("users")
+      .select("pe_total_pe, pe_used_pe")
+      .eq("id", userId)
+      .single();
+    peTotal = Number(updatedUser?.pe_total_pe || user.pe_total_pe || 0);
+    peUsed = Number(updatedUser?.pe_used_pe || 0);
+    peAvailable = Math.max(0, peTotal - peUsed);
+  }
 
   onProgress?.(total, total);
 
-  // PROMPT 55: Return changedPixels for immediate UI update (PAINT mode only)
   return {
     ok: true,
     affectedPixels,
@@ -774,6 +831,7 @@ async function executeCommit(
       used: peUsed,
       available: peAvailable,
     },
+    ...(isVirtualPe ? { isVirtualPe: true } : {}),
     ...(mode === "PAINT" && paintCooldownUntil ? {
       paintCooldownUntil: paintCooldownUntil.toISOString(),
       paintCooldownSeconds: PAINT_COOLDOWN_SECONDS,
@@ -1037,7 +1095,7 @@ Deno.serve(async (req) => {
     // Fetch user data
     const { data: user, error: userError } = await supabase
       .from("users")
-      .select("id, pe_total_pe, pixels_painted_total, level, paint_cooldown_until")
+      .select("id, pe_total_pe, pixels_painted_total, level, paint_cooldown_until, auth_provider, wallet_address, virtual_pe_total, virtual_pe_used")
       .eq("id", userId)
       .single();
 
