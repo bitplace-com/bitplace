@@ -20,7 +20,7 @@ function getCorsHeaders(req: Request): Record<string, string> {
   };
 }
 
-async function verifyToken(token: string, secret: string): Promise<{ wallet: string; userId: string; exp: number } | null> {
+async function verifyToken(token: string, secret: string): Promise<{ wallet: string; userId: string; exp: number; authProvider?: string } | null> {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) {
@@ -31,7 +31,6 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
     const [headerB64, payloadB64, signatureB64] = parts;
     const encoder = new TextEncoder();
 
-    // Import the secret key for HMAC
     const key = await crypto.subtle.importKey(
       "raw",
       encoder.encode(secret),
@@ -40,11 +39,9 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
       ["verify"]
     );
 
-    // Decode the signature from base64url
     const signatureB64Std = signatureB64.replace(/-/g, "+").replace(/_/g, "/");
     const signatureBytes = Uint8Array.from(atob(signatureB64Std), c => c.charCodeAt(0));
 
-    // Verify the signature against header.payload
     const signatureInput = `${headerB64}.${payloadB64}`;
     const isValid = await crypto.subtle.verify(
       "HMAC",
@@ -58,11 +55,9 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
       return null;
     }
 
-    // Decode and parse payload (handle base64url)
     const payloadB64Std = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
     const payload = JSON.parse(atob(payloadB64Std));
 
-    // Check expiry - exp is in milliseconds (matches Date.now())
     if (payload.exp && Date.now() > payload.exp) {
       console.error("[notifications-manage] Token expired. exp:", payload.exp, "now:", Date.now());
       return null;
@@ -236,7 +231,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Check if already following
       const { data: existing } = await supabase
         .from("user_follows")
         .select("id")

@@ -13,7 +13,7 @@ interface UseWalletGateResult {
 }
 
 export function useWalletGate(): UseWalletGateResult {
-  const { walletState, walletAddress, user, signIn, isAuthenticated, isTrialMode } = useWallet();
+  const { walletState, walletAddress, user, signIn, isAuthenticated, isTrialMode, isGoogleAuth, isGoogleOnly } = useWallet();
   const [isWalletModalOpen, setWalletModalOpen] = useState(false);
   
   // Cooldown refs to prevent spam
@@ -26,6 +26,21 @@ export function useWalletGate(): UseWalletGateResult {
     // Trial mode: always allow
     if (isTrialMode) return true;
     
+    // Google auth: allow PAINT, block DEF/ATK/REINFORCE
+    if (isGoogleAuth && isAuthenticated) {
+      if (['defend', 'attack', 'reinforce'].includes(action)) {
+        if (isGoogleOnly) {
+          const now = Date.now();
+          if (now - lastToastRef.current > TOAST_COOLDOWN) {
+            toast.info('Connect your wallet to use this action');
+            lastToastRef.current = now;
+          }
+          return false;
+        }
+      }
+      return true;
+    }
+    
     // Case 1: Fully authenticated - allow action
     if (isAuthenticated && user) return true;
     
@@ -33,13 +48,11 @@ export function useWalletGate(): UseWalletGateResult {
     
     // Case 2: AUTH_REQUIRED - wallet connected but needs signature
     if (walletState === 'AUTH_REQUIRED' && walletAddress) {
-      // Show toast once per cooldown with sign action
       if (now - lastToastRef.current > TOAST_COOLDOWN) {
         toast.info('Sign in to save your paints', {
           action: {
             label: 'Sign',
             onClick: () => {
-              // Trigger sign-in with guards
               if (!signInFlightRef.current && now - lastSignAttemptRef.current > SIGN_COOLDOWN) {
                 signInFlightRef.current = true;
                 lastSignAttemptRef.current = Date.now();
@@ -67,7 +80,7 @@ export function useWalletGate(): UseWalletGateResult {
     }
     
     return false;
-  }, [walletState, walletAddress, user, signIn, isAuthenticated, isTrialMode]);
+  }, [walletState, walletAddress, user, signIn, isAuthenticated, isTrialMode, isGoogleAuth, isGoogleOnly]);
 
   return {
     isWalletModalOpen,

@@ -23,6 +23,9 @@ export function WalletButton() {
     needsSignature,
     isTrialMode,
     activateTrialMode,
+    isGoogleAuth,
+    isGoogleOnly,
+    user,
   } = useWallet();
   const [modalOpen, setModalOpen] = useState(false);
 

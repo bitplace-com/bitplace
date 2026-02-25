@@ -38,7 +38,7 @@ const PRICE_CACHE_TTL_MS = 30 * 1000; // 30 seconds
 const PE_PER_USD = 1000;
 
 // Auth token verification using HMAC-SHA256 (3-part JWT format: header.payload.signature)
-async function verifyToken(token: string, secret: string): Promise<{ userId: string; wallet: string; exp: number } | null> {
+async function verifyToken(token: string, secret: string): Promise<{ userId: string; wallet: string; exp: number; authProvider?: string } | null> {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) {
@@ -84,7 +84,8 @@ async function verifyToken(token: string, secret: string): Promise<{ userId: str
     return {
       userId: payload.userId,
       wallet: payload.wallet,
-      exp: payload.exp
+      exp: payload.exp,
+      authProvider: payload.authProvider,
     };
   } catch (err) {
     console.error("[energy-refresh] Token verification error:", err);
@@ -232,7 +233,7 @@ Deno.serve(async (req) => {
     // Fetch user from DB
     const { data: userData, error: userError } = await supabase
       .from("users")
-      .select("id, wallet_address, native_balance, usd_price, wallet_usd, pe_total_pe, pe_used_pe, last_energy_sync_at, pixels_painted_total, level, paint_cooldown_until")
+      .select("id, wallet_address, native_balance, usd_price, wallet_usd, pe_total_pe, pe_used_pe, last_energy_sync_at, pixels_painted_total, level, paint_cooldown_until, auth_provider, virtual_pe_total, virtual_pe_used")
       .eq("id", userId)
       .maybeSingle();
 
@@ -244,7 +245,69 @@ Deno.serve(async (req) => {
       );
     }
 
+    const authProvider = userData.auth_provider || 'wallet';
+    const isGoogleOnly = authProvider === 'google';
     const walletAddress = userData.wallet_address;
+
+    // Paint cooldown helper
+    const getPaintCooldown = () => {
+      let paintCooldownUntil: string | null = null;
+      let paintCooldownRemainingSeconds = 0;
+      if (userData.paint_cooldown_until) {
+        const cooldownTime = new Date(userData.paint_cooldown_until);
+        const nowTime = new Date();
+        if (nowTime < cooldownTime) {
+          paintCooldownUntil = cooldownTime.toISOString();
+          paintCooldownRemainingSeconds = Math.ceil((cooldownTime.getTime() - nowTime.getTime()) / 1000);
+        }
+      }
+      return { paintCooldownUntil, paintCooldownRemainingSeconds };
+    };
+
+    // ============ GOOGLE-ONLY USERS: Return virtual PE stats, skip Solana RPC ============
+    if (isGoogleOnly) {
+      console.log(`[energy-refresh] Google-only user ${userId}, returning virtual PE stats`);
+      
+      const virtualPeTotal = Number(userData.virtual_pe_total) || 0;
+      const virtualPeUsed = Number(userData.virtual_pe_used) || 0;
+      const virtualPeAvailable = Math.max(0, virtualPeTotal - virtualPeUsed);
+
+      const { count: pixelsOwned } = await supabase
+        .from("pixels")
+        .select("*", { count: "exact", head: true })
+        .eq("owner_user_id", userId);
+
+      const { paintCooldownUntil, paintCooldownRemainingSeconds } = getPaintCooldown();
+
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          stale: false,
+          isVirtualPe: true,
+          energyAsset: "BIT",
+          nativeSymbol: "BIT",
+          nativeBalance: 0,
+          usdPrice: 0,
+          walletUsd: 0,
+          peTotal: virtualPeTotal,
+          peUsed: virtualPeUsed,
+          peAvailable: virtualPeAvailable,
+          virtualPeTotal: virtualPeTotal,
+          virtualPeUsed: virtualPeUsed,
+          virtualPeAvailable: virtualPeAvailable,
+          pixelsOwned: pixelsOwned || 0,
+          pixelStakeTotal: 0,
+          lastSyncAt: new Date().toISOString(),
+          pixelsPaintedTotal: Number(userData.pixels_painted_total) || 0,
+          level: userData.level || 1,
+          paintCooldownUntil,
+          paintCooldownRemainingSeconds,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ============ WALLET USERS (wallet or both): Normal Solana RPC flow ============
     if (!walletAddress) {
       return new Response(
         JSON.stringify({ error: "NO_WALLET", message: "User has no wallet address" }),
@@ -271,16 +334,15 @@ Deno.serve(async (req) => {
       const peAvailable = Math.max(0, peTotal - peUsed);
       const pixelStakeTotal = peUsed;
 
-      let paintCooldownUntil: string | null = null;
-      let paintCooldownRemainingSeconds = 0;
-      if (userData.paint_cooldown_until) {
-        const cooldownTime = new Date(userData.paint_cooldown_until);
-        const nowTime = new Date();
-        if (nowTime < cooldownTime) {
-          paintCooldownUntil = cooldownTime.toISOString();
-          paintCooldownRemainingSeconds = Math.ceil((cooldownTime.getTime() - nowTime.getTime()) / 1000);
-        }
-      }
+      const { paintCooldownUntil, paintCooldownRemainingSeconds } = getPaintCooldown();
+      
+      // Include virtual PE info for 'both' users
+      const virtualPeFields = authProvider === 'both' ? {
+        isVirtualPe: false,
+        virtualPeTotal: Number(userData.virtual_pe_total) || 0,
+        virtualPeUsed: Number(userData.virtual_pe_used) || 0,
+        virtualPeAvailable: Math.max(0, (Number(userData.virtual_pe_total) || 0) - (Number(userData.virtual_pe_used) || 0)),
+      } : {};
       
       return new Response(
         JSON.stringify({
@@ -302,6 +364,7 @@ Deno.serve(async (req) => {
           level: userData.level || 1,
           paintCooldownUntil,
           paintCooldownRemainingSeconds,
+          ...virtualPeFields,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -430,17 +493,15 @@ Deno.serve(async (req) => {
 
     console.log(`[energy-refresh] Final PE status: total=${peTotal}, used=${peUsed}, available=${peAvailable}, pixelsOwned=${finalPixelsOwned}`);
 
-    // Calculate paint cooldown remaining for response
-    let paintCooldownUntil: string | null = null;
-    let paintCooldownRemainingSeconds = 0;
-    if (userData.paint_cooldown_until) {
-      const cooldownTime = new Date(userData.paint_cooldown_until);
-      const nowTime = new Date();
-      if (nowTime < cooldownTime) {
-        paintCooldownUntil = cooldownTime.toISOString();
-        paintCooldownRemainingSeconds = Math.ceil((cooldownTime.getTime() - nowTime.getTime()) / 1000);
-      }
-    }
+    const { paintCooldownUntil, paintCooldownRemainingSeconds } = getPaintCooldown();
+
+    // Include virtual PE info for 'both' users
+    const virtualPeFields = authProvider === 'both' ? {
+      isVirtualPe: false,
+      virtualPeTotal: Number(userData.virtual_pe_total) || 0,
+      virtualPeUsed: Number(userData.virtual_pe_used) || 0,
+      virtualPeAvailable: Math.max(0, (Number(userData.virtual_pe_total) || 0) - (Number(userData.virtual_pe_used) || 0)),
+    } : {};
 
     return new Response(
       JSON.stringify({
@@ -461,6 +522,7 @@ Deno.serve(async (req) => {
         level: userData.level || 1,
         paintCooldownUntil,
         paintCooldownRemainingSeconds,
+        ...virtualPeFields,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { PixelIcon } from '@/components/icons';
+import { useWallet } from '@/contexts/WalletContext';
 import {
   Dialog,
   DialogContent,

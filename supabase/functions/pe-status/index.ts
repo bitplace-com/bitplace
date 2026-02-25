@@ -22,7 +22,7 @@ function getCorsHeaders(req: Request): Record<string, string> {
 }
 
 // Verify JWT token - extract userId from token
-async function verifyToken(token: string, secret: string): Promise<{ wallet: string; userId: string; exp: number } | null> {
+async function verifyToken(token: string, secret: string): Promise<{ wallet: string; userId: string; exp: number; authProvider?: string } | null> {
   try {
     const [headerB64, payloadB64, signatureB64] = token.split(".");
     if (!headerB64 || !payloadB64 || !signatureB64) return null;
@@ -94,10 +94,10 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch user data for pe_total_pe
+    // Fetch user data
     const { data: user, error: userError } = await supabase
       .from("users")
-      .select("pe_total_pe")
+      .select("pe_total_pe, auth_provider, virtual_pe_total, virtual_pe_used")
       .eq("id", userId)
       .single();
 
@@ -109,6 +109,35 @@ Deno.serve(async (req) => {
       });
     }
 
+    const authProvider = user.auth_provider || 'wallet';
+    const isGoogleOnly = authProvider === 'google';
+
+    // For Google-only users, return virtual PE stats
+    if (isGoogleOnly) {
+      const virtualPeTotal = Number(user.virtual_pe_total) || 0;
+      const virtualPeUsed = Number(user.virtual_pe_used) || 0;
+      const virtualPeAvailable = Math.max(0, virtualPeTotal - virtualPeUsed);
+
+      console.log("[pe-status] Google-only result:", { virtualPeTotal, virtualPeUsed, virtualPeAvailable });
+
+      return new Response(JSON.stringify({
+        ok: true,
+        isVirtualPe: true,
+        pe_total: virtualPeTotal,
+        pe_used: virtualPeUsed,
+        pe_available: virtualPeAvailable,
+        pixel_stake_total: 0,
+        contribution_total: 0,
+        virtual_pe_total: virtualPeTotal,
+        virtual_pe_used: virtualPeUsed,
+        virtual_pe_available: virtualPeAvailable,
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Wallet users: original PE calculation
     const peTotal = user.pe_total_pe || 0;
 
     // Fetch sum of owner_stake_pe for pixels owned by user
@@ -136,6 +165,13 @@ Deno.serve(async (req) => {
     const peUsed = pixelStakeTotal + contributionTotal;
     const peAvailable = Math.max(0, peTotal - peUsed);
 
+    // Include virtual PE info for 'both' users
+    const virtualPeFields = authProvider === 'both' ? {
+      virtual_pe_total: Number(user.virtual_pe_total) || 0,
+      virtual_pe_used: Number(user.virtual_pe_used) || 0,
+      virtual_pe_available: Math.max(0, (Number(user.virtual_pe_total) || 0) - (Number(user.virtual_pe_used) || 0)),
+    } : {};
+
     console.log("[pe-status] Result:", { peTotal, pixelStakeTotal, contributionTotal, peUsed, peAvailable });
 
     return new Response(JSON.stringify({
@@ -145,6 +181,7 @@ Deno.serve(async (req) => {
       pe_available: peAvailable,
       pixel_stake_total: pixelStakeTotal,
       contribution_total: contributionTotal,
+      ...virtualPeFields,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
