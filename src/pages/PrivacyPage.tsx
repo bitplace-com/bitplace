@@ -19,7 +19,7 @@ const PrivacyPage = () => {
         <PageHeader
           icon={Shield}
           title="Privacy Policy"
-          subtitle="Last updated: February 16, 2026"
+          subtitle="Last updated: February 25, 2026"
         />
 
         <SectionCard title="1. Introduction">
@@ -37,6 +37,7 @@ const PrivacyPage = () => {
               <li><span className="font-medium text-foreground">Canvas Interactions:</span> Pixel placements, color choices, PE stakes, and timestamps of your contributions on the world map.</li>
               <li><span className="font-medium text-foreground">Usage Data:</span> IP addresses, browser type, device information, and interaction patterns.</li>
               <li><span className="font-medium text-foreground">Authentication Data:</span> Wallet signatures, nonces, and session information used to verify your identity.</li>
+              <li><span className="font-medium text-foreground">Google Account Information:</span> When you sign in with Google, we receive your email address, display name, and profile picture. We do not access your Google contacts, files, or any other Google account data.</li>
             </ul>
           </div>
         </SectionCard>
@@ -46,7 +47,7 @@ const PrivacyPage = () => {
             <p>Your data is used for the following purposes:</p>
             <ul className="list-disc pl-5 space-y-1">
               <li><span className="font-medium text-foreground">Service Delivery:</span> To provide and maintain the pixel art platform functionality.</li>
-              <li><span className="font-medium text-foreground">Authentication:</span> To verify your wallet ownership and secure your account.</li>
+              <li><span className="font-medium text-foreground">Authentication:</span> To verify your identity via wallet signature or Google sign-in, and secure your account.</li>
               <li><span className="font-medium text-foreground">Synchronization:</span> To sync your pixel placements and game state across devices and sessions.</li>
               <li><span className="font-medium text-foreground">Analytics:</span> To understand usage patterns and improve the platform.</li>
               <li><span className="font-medium text-foreground">Communication:</span> To send you important updates about the Service.</li>
@@ -64,6 +65,7 @@ const PrivacyPage = () => {
               <li>Regular security audits and updates</li>
               <li>Access controls and authentication requirements for all data operations</li>
               <li>Row-level security policies to ensure users can only access their own data</li>
+              <li>OAuth-based authentication for Google sign-in, with tokens stored securely server-side</li>
             </ul>
           </div>
         </SectionCard>
@@ -74,6 +76,7 @@ const PrivacyPage = () => {
             <ul className="list-disc pl-5 space-y-1">
               <li><span className="font-medium text-foreground">Cloud Infrastructure:</span> Database, authentication, and storage services provided by trusted cloud partners.</li>
               <li><span className="font-medium text-foreground">Solana Blockchain:</span> For wallet authentication and on-chain token interactions ($BIT).</li>
+              <li><span className="font-medium text-foreground">Google OAuth:</span> Used solely for authentication. We request only your basic profile information (email, name, profile picture). We do not access your Google Drive, contacts, calendar, or any other Google service. You can revoke access at any time from your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Google Account settings</a>.</li>
             </ul>
             <p>These services have their own privacy policies and handle data according to their respective terms.</p>
           </div>

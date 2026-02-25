@@ -19,7 +19,7 @@ const TermsPage = () => {
         <PageHeader
           icon={FileText}
           title="Terms of Service"
-          subtitle="Last updated: February 16, 2026"
+          subtitle="Last updated: February 25, 2026"
         />
 
         <SectionCard title="1. Introduction">
@@ -44,15 +44,19 @@ const TermsPage = () => {
           </div>
         </SectionCard>
 
-        <SectionCard title="3. Account & Wallet Authentication">
+        <SectionCard title="3. Account & Authentication">
           <div className="space-y-3 text-sm text-muted-foreground">
             <p>
               To access certain features of the Service, you must connect a Solana-compatible wallet (e.g., Phantom, Solflare). Your wallet address serves as your account identifier.
             </p>
+            <p>
+              You may also sign in using your Google account. When you do, we receive your email, display name, and profile picture from Google to create and manage your Bitplace account. Google-authenticated accounts receive Virtual Pixel Energy (VPE) for a trial experience; pixels placed with VPE expire after 72 hours unless defended with real PE by a wallet-connected user.
+            </p>
             <p>You are responsible for:</p>
             <ul className="list-disc pl-5 space-y-1">
               <li>Maintaining the security of your wallet and private keys</li>
-              <li>All activities that occur through your connected wallet</li>
+              <li>Securing your Google account credentials if using Google sign-in</li>
+              <li>All activities that occur through your connected wallet or Google account</li>
               <li>Keeping your wallet software up to date</li>
               <li>Notifying us immediately of any unauthorized use</li>
             </ul>
