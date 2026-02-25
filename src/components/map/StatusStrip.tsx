@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { PixelIcon } from '@/components/icons';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { usePeBalance } from '@/hooks/usePeBalance';
@@ -51,8 +52,15 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
     return (
       <div 
         ref={onHeightChange}
-        className="h-12 sm:h-11 glass-hud flex items-center justify-center px-4 py-0 border-t-0 rounded-none"
+        className="h-12 sm:h-11 glass-hud flex items-center justify-between px-4 py-0 border-t-0 rounded-none"
       >
+        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+          © 2026 Bitplace
+          <span>·</span>
+          <Link to="/privacy" className="hover:underline">Privacy Policy</Link>
+          <span>·</span>
+          <Link to="/terms" className="hover:underline">T&C</Link>
+        </span>
         <span className="text-sm text-[var(--hud-text-muted)]">Connect your wallet to paint</span>
       </div>
     );
@@ -71,17 +79,15 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
       >
         {/* Left side - BIT Balance & Cluster */}
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap sm:flex-nowrap">
-          {/* Sign-in required pill */}
-          {needsSignature && (
-            <button
-              onClick={() => signIn()}
-              className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg hover:bg-muted transition-colors cursor-pointer"
-            >
-              <PixelIcon name="wallet" className="h-3.5 w-3.5 text-foreground" />
-              <span className="text-xs font-medium text-foreground">Sign in required</span>
-            </button>
-          )}
-          
+          {/* Legal footer - desktop only */}
+          <span className="hidden sm:flex items-center gap-1 text-[10px] text-muted-foreground">
+            © 2026 Bitplace
+            <span>·</span>
+            <Link to="/privacy" className="hover:underline">Privacy</Link>
+            <span>·</span>
+            <Link to="/terms" className="hover:underline">T&C</Link>
+          </span>
+
           {/* Draft Counter with limit */}
           {draftCount > 0 && (
             <div className={cn(
