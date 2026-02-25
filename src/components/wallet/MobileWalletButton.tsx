@@ -73,15 +73,9 @@ export function MobileWalletButton() {
   if (!isConnected && !needsSignature) {
     return (
       <div className="flex flex-col items-center gap-1" data-tour="wallet">
-        <GlassIconButton size="lg" onClick={handleConnectClick} aria-label="Connect Wallet">
-          <PixelIcon name="wallet" size="md" />
+        <GlassIconButton size="lg" onClick={handleConnectClick} aria-label="Sign In">
+          <PixelIcon name="user" size="md" />
         </GlassIconButton>
-        <button
-          onClick={activateTrialMode}
-          className="text-[10px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
-        >
-          or try for free
-        </button>
         <WalletSelectModal
           open={modalOpen}
           onOpenChange={setModalOpen}
