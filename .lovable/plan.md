@@ -1,59 +1,44 @@
 
-## Fix: Emoji, PRO Badge, e Race Condition Google Auth
+## Diagnosi: Pixel Inspector mostra "vuoto" per pixel esistenti
 
-### Problema 1: Emoji nel testo (righe 163 e 211 di UserMenuPanel)
-Due occorrenze di `⏱` nel testo "Starter pixels expire after 72h". Vanno rimosse entrambe.
+### Causa Root
 
-**File:** `src/components/modals/UserMenuPanel.tsx`
-- Riga 163: `⏱ Starter pixels expire after 72h` -> `Starter pixels expire after 72h`
-- Riga 211: `⏱ Starter pixels expire after 72h` -> `Starter pixels expire after 72h`
+Ho trovato il problema. Non c'entra nulla con i due tipi di PE o conflitti nei dati. I pixel nel database sono perfetti (11.761 pixel, tutti con owner, colore e stake corretti).
 
----
+Il problema e' una **policy RLS mancante sulla tabella `users`**:
 
-### Problema 2: Badge PRO quando l'utente ha $BIT nel wallet
-Quando `auth_provider === 'both'` e l'utente ha almeno 1 $BIT (cioe `energy.nativeBalance >= 1`), il badge deve passare da "STARTER" a "PRO" usando l'icona PixelPro con l'effetto dorato animato identico al badge admin (PixelBadgeCheck con `shine`).
+1. La tabella `users` ha RLS abilitato ma **zero policy di SELECT** -- nessun ruolo client (anon/authenticated) puo' leggere righe dalla tabella
+2. Le view `public_pixel_owner_info`, `public_user_profiles` e `public_alliances` hanno tutte `security_invoker=true`, quindi quando il client le interroga, PostgreSQL verifica le policy RLS di `users` con il ruolo del chiamante
+3. Nessuna policy = zero righe restituite = owner sempre `null` = "Unclaimed pixel"
 
-**File da modificare:**
+Le tiles si caricano perche' la edge function `pixels-fetch-tiles` usa `service_role` (bypass RLS), ma l'inspector usa query client dirette che passano per RLS.
 
-1. **`src/components/icons/custom/PixelPro.tsx`** -- Aggiungere supporto per la prop `shine` con lo stesso `linearGradient` animato del `PixelBadgeCheck`, applicato al `fill` del path principale.
+### Cosa NON serve
 
-2. **`src/components/ui/pro-badge.tsx`** -- Aggiungere una variante "connected" (non tier-based) che mostra il badge PRO dorato quando l'utente ha $BIT. Aggiungere prop `shine` per attivare l'animazione.
+- **Nessun reset dei pixel** -- i dati sono integri, il disegno e' intatto
+- **Nessuna modifica al codice frontend** -- la logica funziona correttamente
+- **Nessun conflitto PE** -- il problema e' solo un'autorizzazione DB mancante
 
-3. **`src/components/modals/UserMenuPanel.tsx`** -- Nel header utente (riga 98-103), quando `auth_provider === 'both'` e `energy.nativeBalance >= 1`, mostrare il badge PRO con effetto dorato al posto del badge STARTER.
+### Fix
 
-4. **`src/components/wallet/WalletButton.tsx`** -- Nella sezione Google auth (riga ~80), quando `auth_provider === 'both'` e il bilancio $BIT e positivo, mostrare il badge PRO dorato invece di "STARTER".
+Aggiungere una policy di SELECT permissiva alla tabella `users`:
 
----
+```text
+CREATE POLICY "Users publicly readable"
+ON public.users FOR SELECT USING (true);
+```
 
-### Problema 3: Google Auth non persiste (loader infinito + 0 PE al reload)
-C'e una **race condition** tra il session restore e il callback `onAuthStateChange`:
+Questo e' sicuro perche':
+- Le view gia' limitano le colonne esposte (niente wallet_address completo, solo wallet_short troncato)
+- Il client non interroga mai `users` direttamente, passa sempre per le view
+- La tabella `users` non contiene dati sensibili critici (niente password, il wallet address e' gia' pubblico on-chain)
 
-**Sequenza del bug:**
-1. L'utente torna dal redirect Google
-2. L'effetto `restoreSession` (riga 990) parte: non trova token -> va al path Phantom -> `attemptTrustedReconnect()` (asincrono)
-3. Nel frattempo, `onAuthStateChange` (riga 740) riceve `SIGNED_IN` -> chiama `auth-google` -> imposta `AUTHENTICATING`
-4. Il restore finisce (no Phantom trovato) -> chiama `clearSession()` -> imposta `DISCONNECTED`
-5. `auth-google` ritorna con successo -> salva il token -> imposta `AUTHENTICATED`
-6. MA il token e stato salvato solo dopo `clearSession()`, quindi funziona... oppure no?
+### Dettagli tecnici
 
-Il problema reale e che:
-- `restoreInFlightRef` non viene MAI resettato a `false` nel path Google (riga 1015-1037) - impedisce future restore
-- Sul reload, il restore trova il token Google e lo usa, MA la `walletAddress` non viene salvata in `WALLET_ADDRESS_KEY` durante il callback Google (riga 774), causando potenziali problemi
-- Se `onAuthStateChange` si attiva anche al reload (Supabase detecta sessione attiva), puo' sovrascrivere lo stato gia' ripristinato dalla restore
+**Tabelle/view coinvolte:**
+- `users` -- tabella base, RLS attivo, 0 policy (il bug)
+- `public_pixel_owner_info` -- view con `security_invoker=true`, usata dall'inspector pixel
+- `public_user_profiles` -- view con `security_invoker=true`, usata per nomi nei contributi
+- `public_alliances` -- view con `security_invoker=on`, usata per info alleanze
 
-**Fix in `src/contexts/WalletContext.tsx`:**
-
-1. **Salvare `WALLET_ADDRESS_KEY`** nel callback `onAuthStateChange` (dopo riga 774): aggiungere `localStorage.setItem(WALLET_ADDRESS_KEY, walletAddress)` per garantire che il restore funzioni al reload.
-
-2. **Guard nel callback `onAuthStateChange`**: Se lo stato e gia `AUTHENTICATED` (restore riuscito), non rieseguire il flusso auth-google. Evita doppia esecuzione al reload.
-
-3. **Resettare `restoreInFlightRef`**: Aggiungere `restoreInFlightRef.current = false` dopo il restore Google (riga ~1037).
-
-4. **Guard nel session restore**: Se `walletState` e gia `AUTHENTICATING` (il callback Google sta gia' lavorando), non procedere con il path Phantom che chiamerebbe `clearSession()`.
-
-### Riepilogo file da modificare
-- `src/components/modals/UserMenuPanel.tsx` (emoji + badge PRO)
-- `src/components/wallet/WalletButton.tsx` (badge PRO)
-- `src/components/icons/custom/PixelPro.tsx` (animazione shine)
-- `src/components/ui/pro-badge.tsx` (variante shine)
-- `src/contexts/WalletContext.tsx` (race condition fix)
+**Operazione:** Una singola migrazione SQL per aggiungere la policy SELECT sulla tabella `users`.
