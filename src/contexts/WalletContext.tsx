@@ -657,9 +657,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         try {
           setWalletState('AUTHENTICATING');
           
+          console.log('[WalletContext] Calling auth-google with explicit token...');
+          const controller = new AbortController();
+          const invokeTimeout = setTimeout(() => controller.abort(), 15000);
+          
           const { data, error } = await supabase.functions.invoke('auth-google', {
-            body: { supabase_access_token: session.access_token },
+            headers: { Authorization: `Bearer ${session.access_token}` },
           });
+          clearTimeout(invokeTimeout);
+          console.log('[WalletContext] auth-google response:', { data: !!data, error });
           
           if (error || !data?.token) {
             console.error('[WalletContext] auth-google error:', error, data);
