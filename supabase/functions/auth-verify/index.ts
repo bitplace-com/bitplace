@@ -58,6 +58,32 @@ async function signToken(payload: object, secret: string): Promise<string> {
   return `${headerB64}.${payloadB64}.${signatureB64}`;
 }
 
+// Verify an existing JWT link token
+async function verifyLinkToken(token: string, secret: string): Promise<{ userId: string; wallet: string; authProvider?: string } | null> {
+  try {
+    const [headerB64, payloadB64, signatureB64] = token.split('.');
+    if (!headerB64 || !payloadB64 || !signatureB64) return null;
+
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw', encoder.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
+    );
+
+    const signatureInput = `${headerB64}.${payloadB64}`;
+    const sig = Uint8Array.from(atob(signatureB64.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+    const valid = await crypto.subtle.verify('HMAC', key, sig, encoder.encode(signatureInput));
+    if (!valid) return null;
+
+    const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
+    if (payload.exp && Date.now() > payload.exp) return null;
+
+    return { userId: payload.userId, wallet: payload.wallet, authProvider: payload.authProvider };
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   
@@ -68,6 +94,8 @@ serve(async (req) => {
 
   try {
     const { wallet, signature, nonce } = await req.json();
+    // Check for linking header (Google user linking a wallet)
+    const linkToken = req.headers.get('x-link-token');
 
     if (!wallet || !signature || !nonce) {
       console.error('Missing required fields');
@@ -134,7 +162,70 @@ serve(async (req) => {
       .update({ used_at: new Date().toISOString() })
       .eq('id', nonceData.id);
 
-    // Create or fetch user
+    // === LINKING FLOW: Google user linking a wallet ===
+    if (linkToken) {
+      console.log('Link token detected, attempting wallet linking...');
+      
+      // Verify the link token
+      const linkPayload = await verifyLinkToken(linkToken, authSecret);
+      if (!linkPayload) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid or expired link token' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Check if wallet is already used by another user
+      const { data: existingWalletUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('wallet_address', wallet)
+        .maybeSingle();
+
+      if (existingWalletUser && existingWalletUser.id !== linkPayload.userId) {
+        console.error('Wallet already in use by another account');
+        return new Response(
+          JSON.stringify({ error: 'This wallet is already linked to another account' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Update user: set wallet_address and auth_provider to 'both'
+      const { data: updatedUser, error: updateError } = await supabase
+        .from('users')
+        .update({ 
+          wallet_address: wallet,
+          auth_provider: 'both',
+        })
+        .eq('id', linkPayload.userId)
+        .select()
+        .single();
+
+      if (updateError || !updatedUser) {
+        console.error('Failed to link wallet:', updateError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to link wallet' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Generate new token with authProvider: 'both'
+      const tokenPayload = {
+        wallet: wallet,
+        userId: updatedUser.id,
+        authProvider: 'both',
+        exp: Date.now() + 24 * 60 * 60 * 1000,
+      };
+      const token = await signToken(tokenPayload, authSecret);
+
+      console.log('Wallet linked successfully, new token generated');
+      return new Response(
+        JSON.stringify({ token, user: updatedUser }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // === NORMAL FLOW: Create or fetch user by wallet ===
     let { data: user, error: userError } = await supabase
       .from('users')
       .select('*')
@@ -143,13 +234,12 @@ serve(async (req) => {
 
     if (!user) {
       console.log('Creating new user for wallet');
-      // Generate wallet_short as default display_name
       const walletShort = `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
       const { data: newUser, error: createError } = await supabase
         .from('users')
         .insert({ 
           wallet_address: wallet,
-          display_name: walletShort,  // Default to shortened wallet
+          display_name: walletShort,
         })
         .select()
         .single();

@@ -79,9 +79,10 @@ export function WalletButton() {
     );
   }
 
-  // Google authenticated state
+  // Google authenticated state (Google-only shows STARTER, 'both' shows wallet address)
   if (isGoogleAuth && isConnected && walletAddress && !isTrialMode) {
     const avatarUrl = user?.google_avatar_url || user?.avatar_url;
+    const isBoth = user?.auth_provider === 'both';
     return (
       <UserMenuPanel>
         <GlassPanel
@@ -92,15 +93,23 @@ export function WalletButton() {
           {avatarUrl ? (
             <img src={avatarUrl} alt="" className="h-6 w-6 rounded-full object-cover border border-border" />
           ) : (
-            <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           )}
-          <span className="text-xs font-medium text-foreground truncate max-w-[80px]">
-            {user?.display_name || user?.email?.split('@')[0] || 'Starter'}
-          </span>
-          <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 shrink-0 flex items-center gap-0.5">
-            <PixelIcon name="clock" className="h-2.5 w-2.5" />
-            STARTER
-          </span>
+          {isBoth && walletAddress ? (
+            <span className="font-mono text-xs text-foreground">
+              {shortenAddress(walletAddress)}
+            </span>
+          ) : (
+            <span className="text-xs font-medium text-foreground truncate max-w-[80px]">
+              {user?.display_name || user?.email?.split('@')[0] || 'Starter'}
+            </span>
+          )}
+          {isGoogleOnly && (
+            <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 shrink-0 flex items-center gap-0.5">
+              <PixelIcon name="clock" className="h-2.5 w-2.5" />
+              STARTER
+            </span>
+          )}
           <span className="text-xs text-muted-foreground">•</span>
           <span className="text-xs font-medium text-foreground tabular-nums">
             {energy.peAvailable.toLocaleString()} PE

@@ -637,11 +637,103 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       toast.info('Wallet linking is only for Google-only accounts');
       return;
     }
-    // Just trigger the normal connect flow - the wallet auth will handle 
-    // transitioning auth_provider to 'both' on the backend
-    // For now, open connect flow
-    toast.info('Wallet linking coming soon');
-  }, [isGoogleOnly, user]);
+
+    const phantom = getPhantom();
+    if (!phantom) {
+      toast.error('Phantom wallet not found', { description: 'Install Phantom to connect your wallet' });
+      return;
+    }
+
+    try {
+      setWalletState('CONNECTING');
+      walletDebug('link_wallet_start');
+
+      // 1. Connect to Phantom
+      const response = await phantom.connect();
+      const wallet = response.publicKey.toBase58();
+      walletDebug('link_wallet_connected', { wallet: wallet.substring(0, 8) });
+
+      // 2. Get nonce
+      const { data: nonceData, error: nonceError } = await supabase.functions.invoke('auth-nonce', {
+        body: { wallet },
+      });
+
+      if (nonceError || !nonceData?.nonce) {
+        toast.error('Authentication failed', { description: 'Could not get authentication nonce' });
+        setWalletState('AUTHENTICATED');
+        return;
+      }
+
+      // 3. Sign message
+      setWalletState('AUTHENTICATING');
+      const messageBytes = new TextEncoder().encode(nonceData.nonce);
+      let signatureBytes: Uint8Array;
+
+      if (typeof phantom.request === 'function') {
+        const signResult = await phantom.request({
+          method: 'signMessage',
+          params: { message: messageBytes, display: 'utf8' },
+        });
+        if (signResult.signature instanceof Uint8Array) {
+          signatureBytes = signResult.signature;
+        } else if (typeof signResult.signature === 'string') {
+          signatureBytes = new Uint8Array(atob(signResult.signature).split('').map(c => c.charCodeAt(0)));
+        } else {
+          signatureBytes = new Uint8Array(signResult.signature as ArrayLike<number>);
+        }
+      } else if (typeof phantom.signMessage === 'function') {
+        const signResult = await phantom.signMessage(messageBytes);
+        signatureBytes = signResult.signature;
+      } else {
+        throw new Error('Wallet does not support message signing');
+      }
+
+      const signatureB64 = btoa(String.fromCharCode(...signatureBytes));
+
+      // 4. Call auth-verify with current Google session token for linking
+      const currentToken = getSessionToken();
+      const { data: authData, error: authError } = await supabase.functions.invoke('auth-verify', {
+        body: { wallet, signature: signatureB64, nonce: nonceData.nonce },
+        headers: currentToken ? { 'X-Link-Token': currentToken } : undefined,
+      });
+
+      if (authError || !authData?.token) {
+        const errMsg = authData?.error || 'Server could not verify your signature';
+        toast.error('Wallet linking failed', { description: errMsg });
+        setWalletState('AUTHENTICATED');
+        return;
+      }
+
+      // 5. Update local state with new JWT (authProvider: 'both')
+      setSessionToken(authData.token);
+      localStorage.setItem(WALLET_ADDRESS_KEY, wallet);
+      const updatedUser = authData.user as User;
+      setUser(updatedUser);
+      setCachedUser(updatedUser);
+      setWalletAddress(wallet);
+      setWalletState('AUTHENTICATED');
+      updateEnergyFromUser(updatedUser);
+
+      walletDebug('link_wallet_complete', { wallet: wallet.substring(0, 8) });
+      toast.success('Wallet linked!', { description: 'Your account now has both Google and wallet access' });
+      soundEngine.play('wallet_connect');
+
+      // Refresh energy & PE
+      setTimeout(() => {
+        refreshEnergy();
+        refreshPeStatus();
+      }, 500);
+
+    } catch (err: any) {
+      walletDebug('link_wallet_error', { error: err });
+      if (err?.code === 4001 || err?.message?.includes('User rejected')) {
+        toast.error('Signature cancelled');
+      } else {
+        toast.error('Wallet linking failed', { description: err?.message || 'Unknown error' });
+      }
+      setWalletState('AUTHENTICATED');
+    }
+  }, [isGoogleOnly, user, updateEnergyFromUser, refreshEnergy, refreshPeStatus]);
 
   // Listen for Supabase Auth state changes (Google OAuth callback)
   useEffect(() => {
