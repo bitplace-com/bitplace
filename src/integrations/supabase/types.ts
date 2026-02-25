@@ -318,13 +318,16 @@ export type Database = {
           color: string
           created_at: string | null
           def_total: number
+          expires_at: string | null
           id: number
+          is_virtual_stake: boolean
           owner_stake_pe: number
           owner_user_id: string | null
           pixel_id: number | null
           tile_x: number | null
           tile_y: number | null
           updated_at: string | null
+          virtual_pe_cost: number
           x: number
           y: number
         }
@@ -333,13 +336,16 @@ export type Database = {
           color: string
           created_at?: string | null
           def_total?: number
+          expires_at?: string | null
           id?: number
+          is_virtual_stake?: boolean
           owner_stake_pe?: number
           owner_user_id?: string | null
           pixel_id?: number | null
           tile_x?: number | null
           tile_y?: number | null
           updated_at?: string | null
+          virtual_pe_cost?: number
           x: number
           y: number
         }
@@ -348,13 +354,16 @@ export type Database = {
           color?: string
           created_at?: string | null
           def_total?: number
+          expires_at?: string | null
           id?: number
+          is_virtual_stake?: boolean
           owner_stake_pe?: number
           owner_user_id?: string | null
           pixel_id?: number | null
           tile_x?: number | null
           tile_y?: number | null
           updated_at?: string | null
+          virtual_pe_cost?: number
           x?: number
           y?: number
         }
@@ -640,12 +649,16 @@ export type Database = {
       users: {
         Row: {
           alliance_tag: string | null
+          auth_provider: string
           avatar_url: string | null
           bio: string | null
           country_code: string | null
           created_at: string | null
           display_name: string | null
+          email: string | null
           energy_asset: string | null
+          google_avatar_url: string | null
+          google_user_id: string | null
           id: string
           last_energy_sync_at: string | null
           level: number
@@ -668,18 +681,24 @@ export type Database = {
           takeover_atk_pe_total: number
           takeover_def_pe_total: number
           usd_price: number | null
+          virtual_pe_total: number
+          virtual_pe_used: number
           wallet_address: string | null
           wallet_usd: number | null
           xp: number
         }
         Insert: {
           alliance_tag?: string | null
+          auth_provider?: string
           avatar_url?: string | null
           bio?: string | null
           country_code?: string | null
           created_at?: string | null
           display_name?: string | null
+          email?: string | null
           energy_asset?: string | null
+          google_avatar_url?: string | null
+          google_user_id?: string | null
           id?: string
           last_energy_sync_at?: string | null
           level?: number
@@ -702,18 +721,24 @@ export type Database = {
           takeover_atk_pe_total?: number
           takeover_def_pe_total?: number
           usd_price?: number | null
+          virtual_pe_total?: number
+          virtual_pe_used?: number
           wallet_address?: string | null
           wallet_usd?: number | null
           xp?: number
         }
         Update: {
           alliance_tag?: string | null
+          auth_provider?: string
           avatar_url?: string | null
           bio?: string | null
           country_code?: string | null
           created_at?: string | null
           display_name?: string | null
+          email?: string | null
           energy_asset?: string | null
+          google_avatar_url?: string | null
+          google_user_id?: string | null
           id?: string
           last_energy_sync_at?: string | null
           level?: number
@@ -736,6 +761,8 @@ export type Database = {
           takeover_atk_pe_total?: number
           takeover_def_pe_total?: number
           usd_price?: number | null
+          virtual_pe_total?: number
+          virtual_pe_used?: number
           wallet_address?: string | null
           wallet_usd?: number | null
           xp?: number
@@ -793,10 +820,13 @@ export type Database = {
       public_pixel_owner_info: {
         Row: {
           alliance_tag: string | null
+          auth_provider: string | null
           avatar_url: string | null
           bio: string | null
           country_code: string | null
           display_name: string | null
+          email: string | null
+          google_avatar_url: string | null
           id: string | null
           level: number | null
           owner_health_multiplier: number | null
@@ -813,10 +843,13 @@ export type Database = {
         }
         Insert: {
           alliance_tag?: string | null
+          auth_provider?: string | null
           avatar_url?: string | null
           bio?: string | null
           country_code?: string | null
           display_name?: string | null
+          email?: string | null
+          google_avatar_url?: string | null
           id?: string | null
           level?: number | null
           owner_health_multiplier?: number | null
@@ -833,10 +866,13 @@ export type Database = {
         }
         Update: {
           alliance_tag?: string | null
+          auth_provider?: string | null
           avatar_url?: string | null
           bio?: string | null
           country_code?: string | null
           display_name?: string | null
+          email?: string | null
+          google_avatar_url?: string | null
           id?: string | null
           level?: number | null
           owner_health_multiplier?: number | null
@@ -856,6 +892,7 @@ export type Database = {
       public_user_profiles: {
         Row: {
           alliance_tag: string | null
+          auth_provider: string | null
           avatar_url: string | null
           country_code: string | null
           created_at: string | null
@@ -870,6 +907,7 @@ export type Database = {
         }
         Insert: {
           alliance_tag?: string | null
+          auth_provider?: string | null
           avatar_url?: string | null
           country_code?: string | null
           created_at?: string | null
@@ -884,6 +922,7 @@ export type Database = {
         }
         Update: {
           alliance_tag?: string | null
+          auth_provider?: string | null
           avatar_url?: string | null
           country_code?: string | null
           created_at?: string | null
@@ -900,6 +939,15 @@ export type Database = {
       }
     }
     Functions: {
+      cleanup_expired_pixels: {
+        Args: never
+        Returns: {
+          owner_id: string
+          pixel_x: number
+          pixel_y: number
+          refund_amount: number
+        }[]
+      }
       fetch_pixels_by_coords: {
         Args: { coords: Json }
         Returns: {
