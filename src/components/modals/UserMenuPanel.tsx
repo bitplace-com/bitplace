@@ -39,7 +39,7 @@ function formatRelativeTime(date: Date | null): string {
 }
 
 export function UserMenuPanel({ children }: UserMenuPanelProps) {
-  const { user, walletAddress, disconnect, energy, isTrialMode, connect } = useWallet();
+  const { user, walletAddress, disconnect, energy, isTrialMode, connect, isGoogleAuth, isGoogleOnly, linkWallet } = useWallet();
   const [copied, setCopied] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
@@ -67,7 +67,13 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
         <div className="p-4">
           <div className="flex items-center gap-3">
             {/* Avatar */}
-            {user?.avatar_url ? (
+            {(isGoogleAuth && user?.google_avatar_url) ? (
+              <img
+                src={user.google_avatar_url}
+                alt="Avatar"
+                className="h-12 w-12 rounded-full object-cover border-2 border-border"
+              />
+            ) : user?.avatar_url ? (
               <img
                 src={user.avatar_url}
                 alt="Avatar"
@@ -89,9 +95,19 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                     TRIAL
                   </span>
                 )}
+                {isGoogleOnly && !isTrialMode && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 shrink-0 flex items-center gap-0.5">
+                    <PixelIcon name="clock" className="h-2.5 w-2.5" />
+                    STARTER
+                  </span>
+                )}
               </div>
+              {/* Email for Google users */}
+              {isGoogleAuth && user?.email && !isTrialMode && (
+                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+              )}
               <div className="flex items-center gap-1.5">
-                {walletAddress && !isTrialMode && (
+                {walletAddress && !isTrialMode && !isGoogleOnly && (
                   <button
                     onClick={handleCopyAddress}
                     className="flex items-center gap-1 text-xs text-muted-foreground font-mono hover:text-foreground transition-colors"
@@ -128,23 +144,44 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
         <Separator className="bg-border" />
 
         {/* Wallet Section */}
-        <div className="p-4 space-y-2">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-            <PixelIcon name="wallet" className="h-3.5 w-3.5" />
-            <span className="uppercase tracking-wider font-medium">Wallet</span>
+        {isGoogleOnly && !isTrialMode ? (
+          <div className="p-4 space-y-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+              <PixelIcon name="clock" className="h-3.5 w-3.5" />
+              <span className="uppercase tracking-wider font-medium">Starter PE</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-foreground tabular-nums">
+                {energy.peAvailable.toLocaleString()} PE available
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Used</span>
+              <span className="tabular-nums">{energy.peUsed.toLocaleString()} / {energy.peTotal.toLocaleString()}</span>
+            </div>
+            <p className="text-[10px] text-amber-500">
+              ⏱ Starter pixels expire after 24h
+            </p>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-mono font-semibold text-foreground">
-              {formatNumber(energy.nativeBalance, 4)} {energy.nativeSymbol}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              ${formatUsd(energy.walletUsd)}
-            </span>
+        ) : (
+          <div className="p-4 space-y-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+              <PixelIcon name="wallet" className="h-3.5 w-3.5" />
+              <span className="uppercase tracking-wider font-medium">Wallet</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-mono font-semibold text-foreground">
+                {formatNumber(energy.nativeBalance, 4)} {energy.nativeSymbol}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                ${formatUsd(energy.walletUsd)}
+              </span>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Synced {formatRelativeTime(energy.lastSyncAt)}
+            </p>
           </div>
-          <p className="text-[10px] text-muted-foreground">
-            Synced {formatRelativeTime(energy.lastSyncAt)}
-          </p>
-        </div>
+        )}
 
         <Separator className="bg-border" />
 
@@ -241,8 +278,6 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                 className="w-full justify-start gap-3 h-10 rounded-xl text-foreground hover:bg-accent"
                 onClick={() => {
                   disconnect();
-                  // Small delay then open connect flow
-                  // User needs to click connect wallet after
                 }}
               >
                 <PixelIcon name="wallet" className="h-4 w-4" />
@@ -255,6 +290,25 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               >
                 <PixelIcon name="logout" className="h-4 w-4" />
                 Exit Trial
+              </Button>
+            </>
+          ) : isGoogleOnly ? (
+            <>
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3 h-10 rounded-xl text-foreground hover:bg-accent"
+                onClick={linkWallet}
+              >
+                <PixelIcon name="wallet" className="h-4 w-4" />
+                Connect Wallet
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3 h-10 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={disconnect}
+              >
+                <PixelIcon name="logout" className="h-4 w-4" />
+                Sign Out
               </Button>
             </>
           ) : (

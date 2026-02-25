@@ -8,7 +8,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { cn } from '@/lib/utils';
 
 export function MobileWalletButton() {
-  const { isConnected, isConnecting, needsSignature, walletAddress, connect, activateTrialMode, isTrialMode } = useWallet();
+  const { isConnected, isConnecting, needsSignature, walletAddress, connect, activateTrialMode, isTrialMode, isGoogleAuth } = useWallet();
   const [collapsed, setCollapsed] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -108,7 +108,10 @@ export function MobileWalletButton() {
           )}
           aria-label="Show wallet info"
         >
-          <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <div className={cn(
+            "h-2.5 w-2.5 rounded-full animate-pulse",
+            isGoogleAuth ? "bg-blue-500" : "bg-emerald-500"
+          )} />
         </button>
       ) : (
         // Expanded: full WalletButton with slide-in animation
