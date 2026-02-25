@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PixelIcon } from '@/components/icons';
+import { ProBadge } from '@/components/ui/pro-badge';
 import { Button } from '@/components/ui/button';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { UserMenuPanel } from '@/components/modals/UserMenuPanel';
@@ -104,11 +105,14 @@ export function WalletButton() {
               {user?.display_name || user?.email?.split('@')[0] || 'Starter'}
             </span>
           )}
-          {isGoogleOnly && (
+          {isGoogleOnly && user?.auth_provider !== 'both' && (
             <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 shrink-0 flex items-center gap-0.5">
               <PixelIcon name="clock" className="h-2.5 w-2.5" />
               STARTER
             </span>
+          )}
+          {user?.auth_provider === 'both' && energy.nativeBalance >= 1 && (
+            <ProBadge shine size="sm" />
           )}
           <span className="text-xs text-muted-foreground">•</span>
           <span className="text-xs font-medium text-foreground tabular-nums">
