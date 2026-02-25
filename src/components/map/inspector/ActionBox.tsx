@@ -24,16 +24,14 @@ interface ActionBoxProps {
   draftCount?: number;
   onUndoDraft?: () => void;
   onClearDraft?: () => void;
-  // Real progress from SSE stream
   progress?: { processed: number; total: number } | null;
-  // Stall detection
   isStalled?: boolean;
-  // State machine hints
   isSelectionChanged?: boolean;
   lastCommitFailed?: boolean;
-  // Inline error display (PROMPT 44)
   lastError?: ActionError | null;
   onRetryValidate?: () => void;
+  isGoogleOnly?: boolean;
+  onLinkWallet?: () => void;
 }
 
 const modeConfig: Record<GameMode, { icon: React.ReactNode; label: string }> = {
@@ -71,6 +69,8 @@ export function ActionBox({
   lastCommitFailed = false,
   lastError,
   onRetryValidate,
+  isGoogleOnly = false,
+  onLinkWallet,
 }: ActionBoxProps) {
   const config = modeConfig[mode];
   
@@ -79,6 +79,36 @@ export function ActionBox({
   
   // Check if this is a withdraw mode
   const isWithdraw = mode === 'WITHDRAW_DEF' || mode === 'WITHDRAW_ATK' || mode === 'WITHDRAW_REINFORCE';
+  
+  // Google-only restriction: show CTA for DEF/ATK/REINFORCE/WITHDRAW_*
+  const isRestrictedForGoogle = isGoogleOnly && (
+    mode === 'DEFEND' || mode === 'ATTACK' || mode === 'REINFORCE' || isWithdraw
+  );
+
+  if (isRestrictedForGoogle) {
+    return (
+      <div className="border-t border-border p-4 space-y-3 bg-muted/50">
+        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+          {config.icon}
+          <span>{config.label}</span>
+        </div>
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 space-y-2">
+          <p className="text-sm text-foreground">
+            Connect your wallet to {mode === 'DEFEND' ? 'defend' : mode === 'ATTACK' ? 'attack' : 'reinforce'} pixels
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Starter accounts can only paint. Connect a Solana wallet to unlock all actions.
+          </p>
+          {onLinkWallet && (
+            <Button size="sm" className="w-full gap-2" onClick={onLinkWallet}>
+              <PixelIcon name="wallet" className="h-3.5 w-3.5" />
+              Connect Wallet
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
   
   // Determine if validation is required:
   // - Always for ERASE (even single pixel)

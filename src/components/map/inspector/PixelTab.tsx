@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, Shield, Swords, RefreshCw, AlertTriangle, ArrowUpFromLine, Loader2 } from 'lucide-react';
 import { PixelIcon } from '@/components/icons';
 import { getCountryByCode } from '@/lib/countries';
@@ -32,6 +32,14 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
   const { pixel, isLoading, refetch } = usePixelDetails(x, y, currentUserId);
   const { isCommitting, commit } = useWithdrawContribution();
   const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [now, setNow] = useState(Date.now());
+
+  // Countdown timer for expiring pixels
+  useEffect(() => {
+    if (!pixel?.expiresAt) return;
+    const interval = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(interval);
+  }, [pixel?.expiresAt]);
 
   const handleWithdraw = async () => {
     if (hideWithdraw) return;
@@ -155,6 +163,40 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
       {/* Stake & Value */}
       {!isEmpty && (
         <>
+          {/* Expiry Countdown for virtual-staked pixels */}
+          {pixel.expiresAt && (() => {
+            const remaining = pixel.expiresAt.getTime() - now;
+            if (remaining <= 0) return (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 flex items-center gap-2">
+                <PixelIcon name="clock" className="h-4 w-4 text-destructive" />
+                <span className="text-sm font-medium text-destructive">Expired</span>
+              </div>
+            );
+            const hours = Math.floor(remaining / 3600000);
+            const minutes = Math.floor((remaining % 3600000) / 60000);
+            return (
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <PixelIcon name="clock" className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm font-medium text-amber-500">
+                    Expires in {hours}h {minutes}m
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Stake real PE (DEF) to make this pixel permanent
+                </p>
+              </div>
+            );
+          })()}
+
+          {/* Protected badge for virtual-staked pixels that have been DEFed */}
+          {pixel.isVirtualStake && !pixel.expiresAt && (
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 flex items-center gap-2">
+              <PixelIcon name="shield" className="h-4 w-4 text-emerald-500" />
+              <span className="text-sm font-medium text-emerald-500">Protected</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-muted/50 rounded-lg p-3">
               <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">

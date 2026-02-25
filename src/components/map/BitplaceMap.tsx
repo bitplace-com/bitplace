@@ -130,7 +130,7 @@ export function BitplaceMap() {
   const [pinDragEnd, setPinDragEnd] = useState<{ screenX: number; screenY: number } | null>(null);
   const isPinDraggingRef = useRef(false);
   
-  const { user, walletAddress, refreshUser, connect, isConnecting, updatePeStatus, isTrialMode, activateTrialMode, updateTrialPe, energy } = useWallet();
+  const { user, walletAddress, refreshUser, connect, isConnecting, updatePeStatus, isTrialMode, activateTrialMode, updateTrialPe, energy, isGoogleOnly } = useWallet();
   const { isWalletModalOpen, setWalletModalOpen, requireWallet } = useWalletGate();
   const { getUrlPosition, setUrlPosition } = useMapUrl();
   const { localPixels, paintPixel, mergePixels, confirmPixel } = usePixelStore();
@@ -2170,7 +2170,7 @@ export function BitplaceMap() {
             </div>
           </HudSlot>
           <HudSlot position="top-center">
-            <MapToolbar mode={mode} onModeChange={setMode} />
+            <MapToolbar mode={mode} onModeChange={setMode} isGoogleOnly={isGoogleOnly} />
           </HudSlot>
           <HudSlot position="top-right">
             {isMobile ? <MobileWalletButton /> : <WalletButton />}

@@ -5,7 +5,7 @@ import { isPixelSyncing, getCachedPixelData, subscribeToCacheChanges } from './u
 interface OwnerProfile {
   id: string;
   display_name: string | null;
-  wallet_short: string | null;  // Truncated wallet for display (4J2k...Za7C)
+  wallet_short: string | null;
   country_code: string | null;
   alliance_tag: string | null;
   avatar_url: string | null;
@@ -16,12 +16,14 @@ interface OwnerProfile {
   rebalance_started_at: string | null;
   rebalance_ends_at: string | null;
   rebalance_target_multiplier: number | null;
-  // Profile fields
   bio: string | null;
   social_x: string | null;
   social_instagram: string | null;
   social_discord: string | null;
   social_website: string | null;
+  auth_provider: string | null;
+  email: string | null;
+  google_avatar_url: string | null;
 }
 
 interface Contribution {
@@ -73,7 +75,10 @@ export interface PixelDetails {
   thresholdWithFloor: number;
   isFloorBased: boolean;
   myContribution: MyContribution | null;
-  isSyncing: boolean; // True when tile is optimistic/stale
+  isSyncing: boolean;
+  // Virtual stake / expiry fields
+  expiresAt: Date | null;
+  isVirtualStake: boolean;
 }
 
 export function usePixelDetails(x: number | null, y: number | null, currentUserId?: string, isTrialMode?: boolean) {
@@ -113,7 +118,7 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
       // Fetch pixels with denormalized def_total and atk_total columns
       const { data: pixelData } = await supabase
         .from('pixels')
-        .select('id, x, y, color, owner_user_id, owner_stake_pe, def_total, atk_total')
+        .select('id, x, y, color, owner_user_id, owner_stake_pe, def_total, atk_total, expires_at, is_virtual_stake')
         .eq('x', x)
         .eq('y', y)
         .maybeSingle();
@@ -152,6 +157,9 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
             social_instagram: null,
             social_discord: null,
             social_website: null,
+            auth_provider: null,
+            email: null,
+            google_avatar_url: null,
           } : null,
           owner_stake_pe: isTrialPixel ? 1 : 0,
           defTotal: 0,
@@ -171,13 +179,15 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
           isFloorBased: false,
           myContribution: null,
           isSyncing: isTrialPixel ? false : true,
+          expiresAt: null,
+          isVirtualStake: false,
         });
         setIsLoading(false);
         return;
       }
 
       if (!pixelData) {
-        setPixel({ x, y, color: cachedPixel?.color || null, owner: null, owner_stake_pe: 0, defTotal: 0, atkTotal: 0, vNow: 0, threshold: 1, defenders: [], attackers: [], ownerHealthMultiplier: 1, ownerRebalanceActive: false, ownerRebalanceEndsAt: null, effectiveOwnerStake: 0, nextTickTime: null, multiplierAtNextTick: 1, vFloorNext6h: null, thresholdWithFloor: 1, isFloorBased: false, myContribution: null, isSyncing: syncing });
+        setPixel({ x, y, color: cachedPixel?.color || null, owner: null, owner_stake_pe: 0, defTotal: 0, atkTotal: 0, vNow: 0, threshold: 1, defenders: [], attackers: [], ownerHealthMultiplier: 1, ownerRebalanceActive: false, ownerRebalanceEndsAt: null, effectiveOwnerStake: 0, nextTickTime: null, multiplierAtNextTick: 1, vFloorNext6h: null, thresholdWithFloor: 1, isFloorBased: false, myContribution: null, isSyncing: syncing, expiresAt: null, isVirtualStake: false });
         setIsLoading(false);
         return;
       }
@@ -192,7 +202,7 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
         // Use public_pixel_owner_info view - safe public fields only (wallet_short, not full address)
         const { data: ownerData, error: ownerError } = await supabase
           .from('public_pixel_owner_info' as any)
-          .select('id, display_name, wallet_short, avatar_url, country_code, alliance_tag, pixels_painted_total, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier, bio, social_x, social_instagram, social_discord, social_website')
+          .select('id, display_name, wallet_short, avatar_url, country_code, alliance_tag, pixels_painted_total, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier, bio, social_x, social_instagram, social_discord, social_website, auth_provider, email, google_avatar_url')
           .eq('id', pixelData.owner_user_id)
           .maybeSingle();
         
@@ -226,6 +236,9 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
             social_instagram: data.social_instagram ?? null,
             social_discord: data.social_discord ?? null,
             social_website: data.social_website ?? null,
+            auth_provider: data.auth_provider ?? null,
+            email: data.email ?? null,
+            google_avatar_url: data.google_avatar_url ?? null,
           };
         } else {
           console.warn('[usePixelDetails] No owner profile found for:', pixelData.owner_user_id);
@@ -286,7 +299,7 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
         isFloorBased = true;
       }
 
-      setPixel({ x, y, color: pixelData.color, owner, owner_stake_pe: ownerStake, defTotal, atkTotal, vNow, threshold: Math.max(0, vNow) + 1, defenders, attackers, ownerHealthMultiplier: healthMultiplier, ownerRebalanceActive: rebalanceActive, ownerRebalanceEndsAt: owner?.rebalance_ends_at ? new Date(owner.rebalance_ends_at) : null, effectiveOwnerStake, nextTickTime, multiplierAtNextTick, vFloorNext6h, thresholdWithFloor, isFloorBased, myContribution, isSyncing: syncing });
+      setPixel({ x, y, color: pixelData.color, owner, owner_stake_pe: ownerStake, defTotal, atkTotal, vNow, threshold: Math.max(0, vNow) + 1, defenders, attackers, ownerHealthMultiplier: healthMultiplier, ownerRebalanceActive: rebalanceActive, ownerRebalanceEndsAt: owner?.rebalance_ends_at ? new Date(owner.rebalance_ends_at) : null, effectiveOwnerStake, nextTickTime, multiplierAtNextTick, vFloorNext6h, thresholdWithFloor, isFloorBased, myContribution, isSyncing: syncing, expiresAt: (pixelData as any).expires_at ? new Date((pixelData as any).expires_at) : null, isVirtualStake: (pixelData as any).is_virtual_stake ?? false });
     } catch (error) {
       console.error('Error fetching pixel details:', error);
       // Check cached pixel for fallback color
@@ -315,6 +328,8 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
         isFloorBased: false,
         myContribution: null,
         isSyncing: isPixelSyncing(x ?? 0, y ?? 0),
+        expiresAt: null,
+        isVirtualStake: false,
       });
     } finally {
       setIsLoading(false);
