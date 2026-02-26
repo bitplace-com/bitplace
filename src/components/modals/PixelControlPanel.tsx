@@ -30,7 +30,7 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
       open={open}
       onOpenChange={onOpenChange}
       title="Pixel Control Center"
-      icon={<PixelIcon name="chartNetwork" size="md" />}
+      icon={<PixelIcon name="grid3x3" size="md" />}
       size="md"
     >
       <TooltipProvider delayDuration={200}>
