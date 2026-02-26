@@ -1,37 +1,33 @@
 
 
-## Rinominare "Virtual PE" / "Starter PE" in "VPE" ovunque
+## Fix: Pixel VPE non mostra 0 PE e countdown
 
-Tutte le label visibili all'utente che dicono "Virtual PE", "Starter PE", "PE available", ecc. verranno sostituite con "VPE". I nomi interni delle variabili (come `virtualPeTotal`, `isVirtualPe`) restano invariati -- cambiano solo le stringhe mostrate nell'interfaccia.
+### Problema
+Quando un utente Google dipinge con VPE, i pixel risultano con `is_virtual_stake = false` e `owner_stake_pe = 1` nel database, invece di `is_virtual_stake = true`, `owner_stake_pe = 0` e `expires_at` impostato a 72h. Di conseguenza l'ispettore mostra "1 PE" invece di "0 PE" e manca il timer di scadenza.
+
+### Causa
+In `game-commit/index.ts`, la funzione `executeCommit` accetta il parametro `isVirtualPe`, ma il chiamante principale (linea 1239) non lo passa mai. Il flag viene determinato correttamente in `game-validate`, ma `game-commit` non lo calcola autonomamente.
+
+### Soluzione
+Aggiungere la determinazione automatica di `isVirtualPe` nel handler principale di `game-commit`, basandosi su `user.auth_provider` e `user.wallet_address` (stessa logica usata in `game-validate`).
 
 ### File da modificare
 
-| File | Cosa cambia |
-|------|-------------|
-| `src/components/modals/UserMenuPanel.tsx` | "Starter PE" → "VPE" (2 occorrenze, righe 158 e 212). "PE available" → "VPE available" (riga 162). "Starter pixels expire after 72h" → "VPE pixels expire after 72h" (righe 170 e 218) |
-| `src/components/map/PixelInfoPanel.tsx` | "Starter Pixel" → "VPE Pixel" (riga 407). "No real PE staked. Anyone can paint over this pixel." → "No PE staked (VPE only). Anyone can paint over." (riga 414) |
-| `src/components/map/StatusStrip.tsx` | Commento "virtual PE" → "VPE" (righe 176, 203). Nessun testo utente da cambiare qui. |
-| `src/components/ui/vpe-icon.tsx` | JSDoc comment: "Virtual PE icon" → "VPE icon" (riga 9) |
-| `src/contexts/WalletContext.tsx` | Toast: "Starter PE active" → "VPE active" (riga 860). Toast: "Starter PE ready to use" → "VPE ready to use" (riga 861). Toast: "PE available" → "VPE available" (riga 539). Commenti interni aggiornati. |
+| File | Modifica |
+|------|----------|
+| `supabase/functions/game-commit/index.ts` | Calcolare `isVirtualPe` dai dati utente e passarlo a `executeCommit` (sia streaming che non-streaming) |
 
-### Dettaglio modifiche
+### Dettaglio tecnico
 
-**UserMenuPanel.tsx** (sezioni Google-only e 'both'):
-- `<span>Starter PE</span>` → `<span>VPE</span>` (2x)
-- `{energy.virtualPeAvailable.toLocaleString()} PE available` → `{energy.virtualPeAvailable.toLocaleString()} VPE available`
-- `Starter pixels expire after 72h` → `VPE pixels expire after 72h` (2x)
+**Dopo la riga 1107** (dopo il fetch dell'utente), aggiungere:
+```typescript
+const isVirtualPe = user.auth_provider === 'google' || 
+  (user.auth_provider === 'both' && !user.wallet_address);
+```
 
-**PixelInfoPanel.tsx** (blocco expiry):
-- `Starter Pixel` → `VPE Pixel`
-- `No real PE staked. Anyone can paint over this pixel.` → `No PE staked (VPE only). Anyone can paint over.`
+**Riga 1239-1249** (chiamata `executeCommit` non-streaming): aggiungere `requestedColorMap, undefined, isVirtualPe` come ultimi parametri.
 
-**WalletContext.tsx** (toast messages):
-- `'Google linked! Wallet + Starter PE active'` → `'Google linked! Wallet + VPE active'`
-- `` `${virtualPeAvailable.toLocaleString()} Starter PE ready to use` `` → `` `${virtualPeAvailable.toLocaleString()} VPE ready to use` ``
-- `${data.peAvailable.toLocaleString()} PE available` → `${data.peAvailable.toLocaleString()} VPE available`
+**Riga 935** (chiamata `executeCommit` streaming): aggiungere il parametro `isVirtualPe` anche qui, calcolandolo dai dati utente passati alla funzione.
 
-**vpe-icon.tsx** (commento):
-- `Virtual PE icon` → `VPE icon`
-
-Nessuna modifica a variabili, tipi, o logica backend -- solo label e messaggi visibili all'utente.
+Questo farà si che i pixel dipinti da utenti Google-only vengano salvati con `owner_stake_pe: 0`, `is_virtual_stake: true` e `expires_at` a +72h, permettendo all'ispettore di mostrare correttamente "0 PE" e il countdown di scadenza.
 
