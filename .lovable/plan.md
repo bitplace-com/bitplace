@@ -1,44 +1,41 @@
 
-## Diagnosi: Pixel Inspector mostra "vuoto" per pixel esistenti
+## Fix: PRO Badge, Google Connect, Modal Copy e Contesto PE
 
-### Causa Root
+### Problema 1: Badge PRO non mostrato per utenti wallet-only
+Il blocco "Fully authenticated (wallet)" in `WalletButton.tsx` (righe 127-148) non controlla mai `energy.nativeBalance` per mostrare il ProBadge. Lo stesso vale per il path wallet-only in `UserMenuPanel.tsx` (righe 369-378).
 
-Ho trovato il problema. Non c'entra nulla con i due tipi di PE o conflitti nei dati. I pixel nel database sono perfetti (11.761 pixel, tutti con owner, colore e stake corretti).
+**Fix in `WalletButton.tsx` (righe 127-148):**
+- Aggiungere `<ProBadge shine size="sm" />` quando `energy.nativeBalance >= 1`, dopo il dot verde e l'indirizzo wallet
 
-Il problema e' una **policy RLS mancante sulla tabella `users`**:
+**Fix in `UserMenuPanel.tsx` (righe 99-109):**
+- Nel blocco che gestisce il nome utente, aggiungere la condizione per wallet-only (non Google, non trial): se `energy.nativeBalance >= 1`, mostrare il ProBadge
 
-1. La tabella `users` ha RLS abilitato ma **zero policy di SELECT** -- nessun ruolo client (anon/authenticated) puo' leggere righe dalla tabella
-2. Le view `public_pixel_owner_info`, `public_user_profiles` e `public_alliances` hanno tutte `security_invoker=true`, quindi quando il client le interroga, PostgreSQL verifica le policy RLS di `users` con il ruolo del chiamante
-3. Nessuna policy = zero righe restituite = owner sempre `null` = "Unclaimed pixel"
+### Problema 2: Opzione "Connect Google" mancante per utenti wallet-only
+L'utente connesso solo con wallet non ha modo di aggiungere Google dal menu.
 
-Le tiles si caricano perche' la edge function `pixels-fetch-tiles` usa `service_role` (bypass RLS), ma l'inspector usa query client dirette che passano per RLS.
+**Fix in `UserMenuPanel.tsx` (righe 369-378):**
+- Nel blocco `else` (wallet-only), aggiungere un bottone "Connect Google" prima di "Disconnect" che chiama `googleSignIn()` (importato dal WalletContext), permettendo all'utente di ottenere i 300,000 Virtual PE aggiuntivi
 
-### Cosa NON serve
+### Problema 3: Indirizzo wallet nel modal di Sign In
+In `WalletSelectModal.tsx`, la sezione `needsSignature` (riga 144) mostra `shortenAddress(connectedWalletAddress)`. Questo va rimosso perche' nel pannello deve esserci solo testo contestuale.
 
-- **Nessun reset dei pixel** -- i dati sono integri, il disegno e' intatto
-- **Nessuna modifica al codice frontend** -- la logica funziona correttamente
-- **Nessun conflitto PE** -- il problema e' solo un'autorizzazione DB mancante
+**Fix in `WalletSelectModal.tsx`:**
+- Riga 144: sostituire `{shortenAddress(connectedWalletAddress)} · Sign to authenticate` con `Sign to complete authentication`
+- Rimuovere la funzione `shortenAddress` (righe 14-16) non piu' usata
 
-### Fix
+### Problema 4: "Test Wallet" -> "Test Account"
+In `WalletSelectModal.tsx` riga 249, il bottone dice "Try Test Wallet". Va cambiato in "Try Test Account".
 
-Aggiungere una policy di SELECT permissiva alla tabella `users`:
+### Problema 5: Descrizioni PE piu' contestuali
+Le descrizioni attuali sono troppo generiche. Vanno migliorate per spiegare concisamente la differenza:
 
-```text
-CREATE POLICY "Users publicly readable"
-ON public.users FOR SELECT USING (true);
-```
+**In `WalletSelectModal.tsx`:**
+- **Phantom** (riga 208-211): sotto il nome, cambiare la descrizione in `"Permanent PE based on your $BIT holdings"` (o equivalente basato sullo stato di installazione)
+- **Google** (riga 179-180): cambiare `"Start with 300,000 Starter PE"` in `"300,000 recyclable PE — pixels expire after 72h"`
+- **Trial** (righe 234-238): cambiare il testo in `"Preview only — 10,000 test PE, nothing is saved to the map."`
+- **DialogDescription** (riga 119): cambiare in `"Choose how to play Bitplace. Each method gives you different Pixel Energy."`
 
-Questo e' sicuro perche':
-- Le view gia' limitano le colonne esposte (niente wallet_address completo, solo wallet_short troncato)
-- Il client non interroga mai `users` direttamente, passa sempre per le view
-- La tabella `users` non contiene dati sensibili critici (niente password, il wallet address e' gia' pubblico on-chain)
-
-### Dettagli tecnici
-
-**Tabelle/view coinvolte:**
-- `users` -- tabella base, RLS attivo, 0 policy (il bug)
-- `public_pixel_owner_info` -- view con `security_invoker=true`, usata dall'inspector pixel
-- `public_user_profiles` -- view con `security_invoker=true`, usata per nomi nei contributi
-- `public_alliances` -- view con `security_invoker=on`, usata per info alleanze
-
-**Operazione:** Una singola migrazione SQL per aggiungere la policy SELECT sulla tabella `users`.
+### Riepilogo file da modificare
+- `src/components/wallet/WalletButton.tsx` — ProBadge nel path wallet-only
+- `src/components/modals/UserMenuPanel.tsx` — ProBadge per wallet-only + bottone "Connect Google"
+- `src/components/modals/WalletSelectModal.tsx` — rimuovere indirizzo wallet, rinominare Test Account, migliorare descrizioni PE
