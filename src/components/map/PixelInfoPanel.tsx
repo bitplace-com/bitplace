@@ -404,14 +404,14 @@ export function PixelInfoPanel({
                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1 font-medium">
-                      <VPEIcon size="xs" className="text-amber-600 dark:text-amber-400" /> Starter Pixel
+                      <VPEIcon size="xs" className="text-amber-600 dark:text-amber-400" /> VPE Pixel
                     </span>
                     <span className="font-semibold text-amber-600 dark:text-amber-400 tabular-nums">
                       Expires in {formatTimeUntil(pixel.expiresAt)}
                     </span>
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    No real PE staked. Anyone can paint over this pixel.
+                    No PE staked (VPE only). Anyone can paint over.
                   </p>
                 </div>
               )}

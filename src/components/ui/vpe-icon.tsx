@@ -6,7 +6,7 @@ interface VPEIconProps {
   size?: 'xs' | 'sm' | 'md' | 'lg';
 }
 
-/** Virtual PE icon — uses the outline bolt to distinguish from real PE (filled bolt) */
+/** VPE icon — uses the outline bolt to distinguish from real PE (filled bolt) */
 export function VPEIcon({ className, size = 'sm' }: VPEIconProps) {
   return <PixelIcon name="boltOutline" size={size} className={cn('text-foreground', className)} />;
 }

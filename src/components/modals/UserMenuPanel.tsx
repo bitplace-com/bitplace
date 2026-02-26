@@ -155,11 +155,11 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           <div className="p-4 space-y-2">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
               <VPEIcon size="sm" className="text-muted-foreground" />
-              <span className="uppercase tracking-wider font-medium">Starter PE</span>
+              <span className="uppercase tracking-wider font-medium">VPE</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-foreground tabular-nums">
-                {energy.virtualPeAvailable.toLocaleString()} PE available
+                {energy.virtualPeAvailable.toLocaleString()} VPE available
               </span>
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -167,7 +167,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               <span className="tabular-nums">{energy.virtualPeUsed.toLocaleString()} / {energy.virtualPeTotal.toLocaleString()}</span>
             </div>
             <p className="text-[10px] text-amber-500">
-              Starter pixels expire after 72h
+              VPE pixels expire after 72h
             </p>
           </div>
         ) : user?.auth_provider === 'both' && !isTrialMode ? (
@@ -209,13 +209,13 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               <div className="p-4 space-y-1">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                   <VPEIcon size="sm" className="text-muted-foreground" />
-                  <span className="uppercase tracking-wider font-medium">Starter PE</span>
+                  <span className="uppercase tracking-wider font-medium">VPE</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-foreground tabular-nums">{energy.virtualPeAvailable.toLocaleString()} available</span>
                   <span className="text-muted-foreground tabular-nums">{energy.virtualPeUsed.toLocaleString()} / {energy.virtualPeTotal.toLocaleString()}</span>
                 </div>
-                <p className="text-[10px] text-amber-500">Starter pixels expire after 72h</p>
+                <p className="text-[10px] text-amber-500">VPE pixels expire after 72h</p>
               </div>
             )}
           </>
