@@ -135,7 +135,7 @@ export function WalletSelectModal({
               </div>
             }
             title="Sign in with Google"
-            subtitle="300,000 free Pixels — draw anywhere, expire after 72h"
+            subtitle="300,000 free Pixels — draw anywhere, expire after 72h unless renewed"
             badge={<TierBadge label="STARTER" />}
           />
 
