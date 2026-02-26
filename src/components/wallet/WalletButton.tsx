@@ -125,13 +125,13 @@ export function WalletButton() {
               {virtualPeAvailable > 0 && (
                 <>
                   <span className="text-muted-foreground">+</span>
-                  <span className="flex items-center gap-0.5"><PixelBalanceIcon size="xs" />{virtualPeAvailable.toLocaleString()}</span>
+                  <span className="flex items-center gap-0.5">{virtualPeAvailable.toLocaleString()} <PixelBalanceIcon size="xs" /> Pixels</span>
                 </>
               )}
             </span>
           ) : (
             <span className="text-xs font-medium text-foreground tabular-nums flex items-center gap-0.5">
-              <PixelBalanceIcon size="xs" />{virtualPeAvailable.toLocaleString()} Pixels
+              {virtualPeAvailable.toLocaleString()} <PixelBalanceIcon size="xs" /> Pixels
             </span>
           )}
           <PixelIcon name="chevronDown" size="xs" className="text-muted-foreground" />
