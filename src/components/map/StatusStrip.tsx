@@ -36,7 +36,7 @@ function formatLastSync(date: Date | null): string {
 
 export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = false, isFlushing = false, draftCount = 0, onHeightChange }: StatusStripProps) {
   const { isLoading, rebalanceActive, healthMultiplier, rebalanceEndsAt } = usePeBalance(userId);
-  const { energy, refreshEnergy, needsSignature, signIn, isTrialMode, isGoogleOnly, user } = useWallet();
+  const { energy, refreshEnergy, needsSignature, signIn, isGoogleOnly, user } = useWallet();
   const { isOnCooldown, formatCooldown } = usePaintCooldown(energy.paintCooldownUntil);
   const vpeRenew = useVpeRenew(userId);
   const now = useLiveTick();
@@ -142,7 +142,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
           )}
 
           {/* Cluster Badge */}
-          {energy.cluster && !isTrialMode && (
+          {energy.cluster && (
             <span className={cn(
               "px-1.5 py-0.5 text-[10px] font-semibold uppercase rounded",
               energy.cluster === 'mainnet' 
@@ -153,12 +153,6 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             </span>
           )}
 
-          {/* Trial Badge */}
-          {isTrialMode && (
-            <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30" title="Test session — nothing is saved">
-              TRIAL
-            </span>
-          )}
         </div>
 
         {/* Right side - PE & Status */}

@@ -130,7 +130,7 @@ export function BitplaceMap() {
   const [pinDragEnd, setPinDragEnd] = useState<{ screenX: number; screenY: number } | null>(null);
   const isPinDraggingRef = useRef(false);
   
-  const { user, walletAddress, refreshUser, connect, isConnecting, updatePeStatus, isTrialMode, activateTrialMode, updateTrialPe, energy, isGoogleOnly } = useWallet();
+  const { user, walletAddress, refreshUser, connect, isConnecting, updatePeStatus, energy, isGoogleOnly } = useWallet();
   const { isWalletModalOpen, setWalletModalOpen, requireWallet } = useWalletGate();
   const { getUrlPosition, setUrlPosition } = useMapUrl();
   const { localPixels, paintPixel, mergePixels, confirmPixel } = usePixelStore();
@@ -154,7 +154,7 @@ export function BitplaceMap() {
     reset: resetPaintState,
     checkSelectionChanged,
   } = usePaintStateMachine();
-  const { queue: paintQueue, queueSize, isSpacePainting, isFlushing, startSpacePaint, stopSpacePaint, addToQueue, flushQueue } = usePaintQueue(paintPixel, confirmPixel, isTrialMode);
+  const { queue: paintQueue, queueSize, isSpacePainting, isFlushing, startSpacePaint, stopSpacePaint, addToQueue, flushQueue } = usePaintQueue(paintPixel, confirmPixel);
   const { draft: draftPixels, draftCount, draftColor, isAtLimit: isDraftAtLimit, draftDirty, remainingCapacity: draftRemainingCapacity, addToDraft, removeFromDraft, removeInvalidFromDraft, undoLast: undoDraft, clearDraft, getDraftPixels, getDraftPixelsWithColor, setDraftDirty } = useDraftPaint();
   const { brushSelection, selectionCount, isSelectionAtLimit, hasShownLimitToast, startBrushSelection, addToBrushSelection, endBrushSelection, clearBrushSelection, getSelectedPixels: getBrushSelectedPixels, setFromRectSelection } = useBrushSelection();
   const { 
@@ -229,50 +229,6 @@ export function BitplaceMap() {
       pendingScaleRef.current = null;
     }
   }, [activeTemplateId, updateSettings]);
-
-  // Trial mode: store validation result locally (since we bypass the edge function)
-  const trialValidationRef = useRef<any>(null);
-
-  // Trial pixel localStorage persistence helpers
-  const TRIAL_PIXELS_KEY = 'bitplace_trial_pixels';
-  const MAX_TRIAL_PIXELS = 10_000;
-
-  const saveTrialPixelsToStorage = useCallback((newPixels: { x: number; y: number; color: string }[], erasePixels?: { x: number; y: number }[]) => {
-    try {
-      const raw = localStorage.getItem(TRIAL_PIXELS_KEY);
-      let stored: { x: number; y: number; color: string }[] = raw ? JSON.parse(raw) : [];
-      
-      // Remove erased pixels
-      if (erasePixels?.length) {
-        const eraseSet = new Set(erasePixels.map(p => `${p.x}:${p.y}`));
-        stored = stored.filter(p => !eraseSet.has(`${p.x}:${p.y}`));
-      }
-      
-      // Add new pixels (overwrite existing coords)
-      if (newPixels.length) {
-        const newMap = new Map(newPixels.map(p => [`${p.x}:${p.y}`, p]));
-        stored = stored.filter(p => !newMap.has(`${p.x}:${p.y}`));
-        stored.push(...newPixels);
-      }
-      
-      // Cap at limit
-      if (stored.length > MAX_TRIAL_PIXELS) stored = stored.slice(-MAX_TRIAL_PIXELS);
-      localStorage.setItem(TRIAL_PIXELS_KEY, JSON.stringify(stored));
-    } catch {}
-  }, []);
-
-  // Restore trial pixels from localStorage on mount
-  useEffect(() => {
-    if (!isTrialMode) return;
-    try {
-      const raw = localStorage.getItem(TRIAL_PIXELS_KEY);
-      if (!raw) return;
-      const stored = JSON.parse(raw) as { x: number; y: number; color: string }[];
-      if (stored.length > 0) {
-        addPixels(stored);
-      }
-    } catch {}
-  }, []); // Only on mount
 
   // Track if selection changed after validation (for auto-invalidation hint)
   const isSelectionChangedAfterValidation = useMemo(() => {

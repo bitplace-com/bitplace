@@ -43,7 +43,7 @@ function formatRelativeTime(date: Date | null): string {
 }
 
 export function UserMenuPanel({ children }: UserMenuPanelProps) {
-  const { user, walletAddress, disconnect, energy, isTrialMode, connect, isGoogleAuth, isGoogleOnly, linkWallet, googleSignIn } = useWallet();
+  const { user, walletAddress, disconnect, energy, isGoogleAuth, isGoogleOnly, linkWallet, googleSignIn } = useWallet();
   const [copied, setCopied] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
@@ -96,28 +96,23 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                 <p className="font-semibold text-foreground truncate">
                   {user?.display_name || "Anonymous"}
                 </p>
-                {isTrialMode && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0">
-                    TRIAL
-                  </span>
-                )}
-                {isGoogleOnly && !isTrialMode && (
+                {isGoogleOnly && (
                   user?.auth_provider !== 'both' ? (
                     <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-foreground/10 text-foreground border border-border shrink-0">
                       STARTER
                     </span>
                   ) : null
                 )}
-                {!isTrialMode && energy.nativeBalance >= 1 && (
+                {energy.nativeBalance >= 1 && (
                   <ProBadge shine size="sm" />
                 )}
               </div>
               {/* Email for Google users */}
-              {isGoogleAuth && user?.email && !isTrialMode && (
+              {isGoogleAuth && user?.email && (
                 <p className="text-xs text-muted-foreground truncate">{user.email}</p>
               )}
               <div className="flex items-center gap-1.5">
-                {walletAddress && !isTrialMode && !isGoogleOnly && (
+                {walletAddress && !isGoogleOnly && (
                   <button
                     onClick={handleCopyAddress}
                     className="flex items-center gap-1 text-xs text-muted-foreground font-mono hover:text-foreground transition-colors"
@@ -130,16 +125,13 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                     )}
                   </button>
                 )}
-                {isTrialMode && (
-                  <span className="text-xs text-muted-foreground">Test session — nothing is saved</span>
-                )}
               </div>
-              {country && !isTrialMode && (
+              {country && (
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {country.flag} {country.name}
                 </p>
               )}
-              {user?.alliance_tag && !isTrialMode && (
+              {user?.alliance_tag && (
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <PixelIcon name="usersCrown" className="h-3 w-3 text-foreground" />
                   <span className="text-xs font-medium font-mono text-foreground">
@@ -155,7 +147,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
 
         <TooltipProvider delayDuration={200}>
         {/* Wallet Section */}
-        {isGoogleOnly && !isTrialMode ? (
+        {isGoogleOnly ? (
           <div className="p-4 space-y-2">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -190,7 +182,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               </div>
             )}
           </div>
-        ) : user?.auth_provider === 'both' && !isTrialMode ? (
+        ) : user?.auth_provider === 'both' ? (
           <>
             {/* Wallet balance */}
             <div className="p-4 space-y-2">
@@ -419,28 +411,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
 
         {/* Disconnect / Connect Real Wallet */}
         <div className="p-2">
-          {isTrialMode ? (
-            <>
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-3 h-10 rounded-xl text-foreground hover:bg-accent"
-                onClick={() => {
-                  disconnect();
-                }}
-              >
-                <PixelIcon name="wallet" className="h-4 w-4" />
-                Connect Real Wallet
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-3 h-10 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={disconnect}
-              >
-                <PixelIcon name="logout" className="h-4 w-4" />
-                Exit Trial
-              </Button>
-            </>
-          ) : isGoogleOnly ? (
+          {isGoogleOnly ? (
             <>
               <Button
                 variant="ghost"

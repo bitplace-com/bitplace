@@ -2,7 +2,6 @@ import { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { warmupFunction } from '@/hooks/useGameActions';
 import { hapticsEngine } from '@/lib/hapticsEngine';
-import { useWallet } from '@/contexts/WalletContext';
 
 // Max pixels per paint action - exported for UI display
 export const PAINT_MAX_PIXELS = 300;
@@ -34,7 +33,6 @@ interface UseDraftPaintResult {
 }
 
 export function useDraftPaint(): UseDraftPaintResult {
-  const { isTrialMode } = useWallet();
   const [draft, setDraft] = useState<Map<string, DraftPixel>>(new Map());
   const [draftDirty, setDraftDirty] = useState(false);
   
@@ -51,13 +49,11 @@ export function useDraftPaint(): UseDraftPaintResult {
   const draftColor = draft.size > 0 ? Array.from(draft.values())[0]?.color ?? null : null;
 
   const addToDraft = useCallback((x: number, y: number, color: string): boolean => {
-    // Auth check (skip in trial mode)
-    if (!isTrialMode) {
-      const token = localStorage.getItem('bitplace_session_token');
-      if (!token) {
-        toast.info('Sign in to paint');
-        return false;
-      }
+    // Auth check
+    const token = localStorage.getItem('bitplace_session_token');
+    if (!token) {
+      toast.info('Sign in to paint');
+      return false;
     }
     
     const key = `${x}:${y}`;
@@ -101,7 +97,7 @@ export function useDraftPaint(): UseDraftPaintResult {
     hapticsEngine.trigger('light');
     
     return true;
-  }, [draft, isTrialMode]);
+  }, [draft]);
 
   const removeFromDraft = useCallback((x: number, y: number) => {
     const key = `${x}:${y}`;

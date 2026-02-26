@@ -8,7 +8,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { cn } from '@/lib/utils';
 
 export function MobileWalletButton() {
-  const { isConnected, isConnecting, needsSignature, walletAddress, connect, signIn, activateTrialMode, isTrialMode, isGoogleAuth } = useWallet();
+  const { isConnected, isConnecting, needsSignature, walletAddress, connect, signIn, isGoogleAuth } = useWallet();
   const [collapsed, setCollapsed] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -81,7 +81,6 @@ export function MobileWalletButton() {
           onOpenChange={setModalOpen}
           onSelectPhantom={handleSelectPhantom}
           isConnecting={isConnecting}
-          onActivateTrial={activateTrialMode}
           needsSignature={needsSignature}
           connectedWalletAddress={walletAddress}
           onSignIn={async () => { await signIn(); setModalOpen(false); }}

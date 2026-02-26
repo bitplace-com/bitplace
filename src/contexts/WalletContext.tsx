@@ -113,12 +113,6 @@ interface WalletContextType {
   // NEW: Explicit gameplay gating flags
   isWalletConnected: boolean;
   isAuthenticated: boolean;
-  
-  // Trial mode
-  isTrialMode: boolean;
-  activateTrialMode: () => void;
-  exitTrialMode: () => void;
-  updateTrialPe: (peSpent: number) => void;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
@@ -158,36 +152,8 @@ const getPhantom = (): PhantomProvider | null => {
 const SESSION_TOKEN_KEY = 'bitplace_session_token';
 const WALLET_ADDRESS_KEY = 'bitplace_wallet_address';
 const USER_DATA_KEY = 'bitplace_user_data';
-const TRIAL_MODE_KEY = 'bitplace_trial_mode';
 const ENERGY_STALE_THRESHOLD_MS = 60 * 1000; // 60 seconds
 const COOLDOWN_MS = 10000; // 10 second cooldown after failure
-
-const TRIAL_WALLET_ADDRESS = 'TRIAL...MODE';
-const TRIAL_PE_TOTAL = 10000;
-const TRIAL_BIT_BALANCE = 5000;
-const TRIAL_BIT_PRICE = 0.002; // fake price
-
-const trialEnergyState: EnergyState = {
-  energyAsset: 'BIT',
-  nativeSymbol: 'BIT',
-  nativeBalance: TRIAL_BIT_BALANCE,
-  usdPrice: TRIAL_BIT_PRICE,
-  walletUsd: TRIAL_BIT_BALANCE * TRIAL_BIT_PRICE,
-  peTotal: TRIAL_PE_TOTAL,
-  peUsed: 0,
-  peAvailable: TRIAL_PE_TOTAL,
-  pixelsOwned: 0,
-  pixelStakeTotal: 0,
-  cluster: null,
-  lastSyncAt: new Date(),
-  isRefreshing: false,
-  isStale: false,
-  paintCooldownUntil: null,
-  isVirtualPe: false,
-  virtualPeTotal: 0,
-  virtualPeUsed: 0,
-  virtualPeAvailable: 0,
-};
 
 const defaultEnergyState: EnergyState = {
   energyAsset: ENERGY_ASSET,
@@ -252,84 +218,26 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const lastConnectAttemptRef = useRef<number>(0);
   const lastSignAttemptRef = useRef<number>(0);
 
-  // Trial mode state
-  const [isTrialMode, setIsTrialMode] = useState<boolean>(() => {
-    return sessionStorage.getItem(TRIAL_MODE_KEY) === '1';
-  });
-  
-  const isTrialModeRef = useRef(isTrialMode);
-  useEffect(() => { isTrialModeRef.current = isTrialMode; }, [isTrialMode]);
   useEffect(() => { walletStateRef.current = walletState; }, [walletState]);
   useEffect(() => { userRef.current = user; }, [user]);
 
   // Derived state
-  const isConnected = walletState === 'AUTHENTICATED' || isTrialMode;
+  const isConnected = walletState === 'AUTHENTICATED';
   const isConnecting = walletState === 'CONNECTING' || walletState === 'AUTHENTICATING';
-  const needsSignature = walletState === 'AUTH_REQUIRED' && !isTrialMode;
+  const needsSignature = walletState === 'AUTH_REQUIRED';
   
-  const isWalletConnected = isTrialMode || (['CONNECTED', 'AUTH_REQUIRED', 'AUTHENTICATING', 'AUTHENTICATED'].includes(walletState) && !!walletAddress);
-  const isAuthenticated = isTrialMode || (walletState === 'AUTHENTICATED' && !!user);
+  const isWalletConnected = ['CONNECTED', 'AUTH_REQUIRED', 'AUTHENTICATING', 'AUTHENTICATED'].includes(walletState) && !!walletAddress;
+  const isAuthenticated = walletState === 'AUTHENTICATED' && !!user;
 
   // Google auth derived state
   const authProvider = user?.auth_provider || (parseJwtPayload(localStorage.getItem(SESSION_TOKEN_KEY) || '')?.authProvider);
   const isGoogleAuth = authProvider === 'google' || authProvider === 'both';
   const isGoogleOnly = authProvider === 'google';
 
-  // Trial mode: activate
-  const activateTrialMode = useCallback(() => {
-    restoreInFlightRef.current = false;
-    isTrialModeRef.current = true;
-    
-    const trialUser: User = {
-      id: crypto.randomUUID(),
-      wallet_address: TRIAL_WALLET_ADDRESS,
-      display_name: 'Test Player',
-      country_code: null,
-      alliance_tag: null,
-      avatar_url: null,
-      pe_total_pe: TRIAL_PE_TOTAL,
-      created_at: new Date().toISOString(),
-      energy_asset: 'BIT',
-      native_symbol: 'BIT',
-      native_balance: TRIAL_BIT_BALANCE,
-      usd_price: TRIAL_BIT_PRICE,
-      wallet_usd: TRIAL_BIT_BALANCE * TRIAL_BIT_PRICE,
-    };
-
-    setIsTrialMode(true);
-    setWalletState('AUTHENTICATED');
-    setWalletAddress(TRIAL_WALLET_ADDRESS);
-    setUser(trialUser);
-    setEnergy({ ...trialEnergyState });
-    sessionStorage.setItem(TRIAL_MODE_KEY, '1');
-    toast.success('Test Wallet activated!', { description: '10,000 trial PE ready to use. Nothing is saved.' });
-  }, []);
-
-  // Trial mode: exit
-  const exitTrialMode = useCallback(() => {
-    setIsTrialMode(false);
-    setWalletState('DISCONNECTED');
-    setWalletAddress(null);
-    setUser(null);
-    setEnergy(defaultEnergyState);
-    sessionStorage.removeItem(TRIAL_MODE_KEY);
-    try { localStorage.removeItem('bitplace_trial_pixels'); } catch {}
-  }, []);
-
-  // Trial mode: update PE when painting
-  const updateTrialPe = useCallback((peSpent: number) => {
-    if (!isTrialMode) return;
-    setEnergy(prev => ({
-      ...prev,
-      peUsed: prev.peUsed + peSpent,
-      peAvailable: Math.max(0, prev.peAvailable - peSpent),
-    }));
-  }, [isTrialMode]);
-
   // Use the new balance hook for immediate balance fetching (no auth required)
   const balance = useBalance({ 
     walletAddress, 
-    enabled: walletState === 'AUTHENTICATED' && !isTrialMode && !isGoogleOnly
+    enabled: walletState === 'AUTHENTICATED' && !isGoogleOnly
   });
 
   const getSessionToken = () => localStorage.getItem(SESSION_TOKEN_KEY);
@@ -435,7 +343,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       if (data?.ok) {
         if (data.isVirtualPe) {
-          // Google-only user: use virtual PE
           setEnergy(prev => ({
             ...prev,
             peTotal: data.pe_total || 0,
@@ -451,7 +358,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             ...prev,
             peUsed: data.pe_used || 0,
             peAvailable: data.pe_available || 0,
-            // Include virtual PE for 'both' users
             virtualPeTotal: data.virtual_pe_total ?? prev.virtualPeTotal,
             virtualPeUsed: data.virtual_pe_used ?? prev.virtualPeUsed,
             virtualPeAvailable: data.virtual_pe_available ?? prev.virtualPeAvailable,
@@ -600,7 +506,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   ) => {
     console.log('[WalletContext] updatePeStatus called:', peStatus, cooldownUntil, 'isVirtualPe:', isVirtualPe);
     if (isVirtualPe) {
-      // Virtual PE: update virtual fields and mirror to main fields for StatusStrip
       setEnergy(prev => ({
         ...prev,
         peTotal: peStatus.total,
@@ -641,8 +546,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         console.error('[WalletContext] Google sign-in error:', error);
         toast.error('Google sign-in failed', { description: error.message });
       }
-      // After this, the page will redirect to Google.
-      // On return, supabase.auth.onAuthStateChange will fire SIGNED_IN.
     } catch (err) {
       console.error('[WalletContext] Google sign-in exception:', err);
       toast.error('Google sign-in failed');
@@ -668,12 +571,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setWalletState('CONNECTING');
       walletDebug('link_wallet_start');
 
-      // 1. Connect to Phantom
       const response = await phantom.connect();
       const wallet = response.publicKey.toBase58();
       walletDebug('link_wallet_connected', { wallet: wallet.substring(0, 8) });
 
-      // 2. Get nonce
       const { data: nonceData, error: nonceError } = await supabase.functions.invoke('auth-nonce', {
         body: { wallet },
       });
@@ -684,7 +585,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // 3. Sign message
       setWalletState('AUTHENTICATING');
       const messageBytes = new TextEncoder().encode(nonceData.nonce);
       let signatureBytes: Uint8Array;
@@ -710,7 +610,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       const signatureB64 = btoa(String.fromCharCode(...signatureBytes));
 
-      // 4. Call auth-verify with current Google session token for linking
       const currentToken = getSessionToken();
       const { data: authData, error: authError } = await supabase.functions.invoke('auth-verify', {
         body: { wallet, signature: signatureB64, nonce: nonceData.nonce },
@@ -734,7 +633,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // 5. Update local state with new JWT (authProvider: 'both')
       setSessionToken(authData.token);
       localStorage.setItem(WALLET_ADDRESS_KEY, wallet);
       const updatedUser = authData.user as User;
@@ -748,7 +646,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       toast.success('Wallet linked!', { description: 'Your account now has both Google and wallet access' });
       soundEngine.play('wallet_connect');
 
-      // Refresh energy & PE
       setTimeout(() => {
         refreshEnergy();
         refreshPeStatus();
@@ -771,12 +668,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       if (event === 'SIGNED_IN' && session?.access_token) {
         walletDebug('supabase_auth_signed_in', { provider: session.user?.app_metadata?.provider });
         
-        // Only process Google auth callbacks
         const provider = session.user?.app_metadata?.provider;
         if (provider !== 'google') return;
         
-        // Guard: skip if already authenticated with Google/both (restore already handled it)
-        // But allow wallet-only users to upgrade to 'both'
         if (walletStateRef.current === 'AUTHENTICATED') {
           const currentProvider = userRef.current?.auth_provider || 
             parseJwtPayload(getSessionToken() || '')?.authProvider;
@@ -784,11 +678,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             walletDebug('supabase_auth_skip', { reason: 'already_google_or_both' });
             return;
           }
-          // Wallet-only user -> allow upgrade to 'both' via Google callback
           walletDebug('supabase_auth_upgrade', { reason: 'wallet_to_both' });
         }
         
-        // Call auth-google edge function with the Supabase access token
         try {
           setWalletState('AUTHENTICATING');
           
@@ -809,7 +701,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             return;
           }
           
-          // Store custom JWT
           setSessionToken(data.token);
           const googleUser = data.user as User;
           setUser(googleUser);
@@ -820,13 +711,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           setLastError(null);
           restoreInFlightRef.current = false;
           
-          // Set energy state based on auth provider
           const virtualPeTotal = Number((googleUser as any).virtual_pe_total) || 300000;
           const virtualPeUsed = Number((googleUser as any).virtual_pe_used) || 0;
           const virtualPeAvailable = Math.max(0, virtualPeTotal - virtualPeUsed);
           
           if (googleUser.auth_provider === 'both') {
-            // 'both' user: preserve wallet energy, add virtual PE
             updateEnergyFromUser(googleUser);
             setEnergy(prev => ({
               ...prev,
@@ -836,10 +725,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
               isVirtualPe: false,
               lastSyncAt: new Date(),
               isRefreshing: false,
-              isStale: true, // will refresh from wallet shortly
+              isStale: true,
             }));
           } else {
-            // Google-only user: virtual PE only
             setEnergy({
               ...defaultEnergyState,
               peTotal: virtualPeTotal,
@@ -862,7 +750,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           toast.success('Signed in with Google!', { description: toastMsg });
           soundEngine.play('wallet_connect');
           
-          // Warm up and refresh
           warmupAuthenticatedFunctions(data.token).catch(err => {
             walletDebug('warmup_error', err);
           });
@@ -1058,13 +945,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const restoreSession = async () => {
       restoreInFlightRef.current = true;
       
-      if (isTrialMode) {
-        walletDebug('session_restore_skip', { reason: 'trial_mode_active' });
-        activateTrialMode();
-        restoreInFlightRef.current = false;
-        return;
-      }
-      
       try {
         const token = getSessionToken();
         const storedWallet = localStorage.getItem(WALLET_ADDRESS_KEY);
@@ -1105,15 +985,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         
         const phantomWallet = await attemptTrustedReconnect();
         
-        if (isTrialModeRef.current) {
-          walletDebug('session_restore_abort', { reason: 'trial_activated_during_reconnect' });
-          restoreInFlightRef.current = false;
-          return;
-        }
-        
         if (!phantomWallet) {
           walletDebug('session_restore_no_phantom');
-          // Don't clear session if Google auth callback is already processing
           if (walletState !== 'AUTHENTICATING') {
             clearSession();
             setWalletState('DISCONNECTED');
@@ -1180,11 +1053,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (!phantom) return;
 
     const handleDisconnect = () => {
-      if (isTrialModeRef.current) {
-        walletDebug('phantom_disconnect_ignored', { reason: 'trial_mode_active' });
-        return;
-      }
-      // Don't disconnect if this is a Google auth session
       if (isGoogleAuth) {
         walletDebug('phantom_disconnect_ignored', { reason: 'google_auth_session' });
         return;
@@ -1205,7 +1073,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const handleTokenExpired = () => {
       walletDebug('token_expired_event');
       
-      if (walletState === 'AUTHENTICATED' && !isTrialMode) {
+      if (walletState === 'AUTHENTICATED') {
         setWalletState('AUTH_REQUIRED');
         toast.info('Session expired', { 
           description: 'Please sign in again to continue' 
@@ -1215,7 +1083,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener(TOKEN_EXPIRED_EVENT, handleTokenExpired);
     return () => window.removeEventListener(TOKEN_EXPIRED_EVENT, handleTokenExpired);
-  }, [walletState, isTrialMode]);
+  }, [walletState]);
 
   // Periodically check if energy is stale
   useEffect(() => {
@@ -1321,11 +1189,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   };
 
   const disconnect = () => {
-    if (isTrialMode) {
-      exitTrialMode();
-      return;
-    }
-    
     const phantom = getPhantom();
     if (phantom && !isGoogleOnly) {
       phantom.disconnect();
@@ -1392,10 +1255,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         needsSignature,
         isWalletConnected,
         isAuthenticated,
-        isTrialMode,
-        activateTrialMode,
-        exitTrialMode,
-        updateTrialPe,
       }}
     >
       {children}
