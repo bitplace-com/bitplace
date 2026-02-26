@@ -13,8 +13,10 @@ export interface PlayerProfile {
   walletShort: string | null;
   walletAddress: string | null;
   avatarUrl: string | null;
+  googleAvatarUrl: string | null;
   countryCode: string | null;
   allianceTag: string | null;
+  authProvider: string | null;
   peUsed: number;
   bio: string | null;
   socialX: string | null;
@@ -48,7 +50,7 @@ export function usePlayerProfile(playerId: string | null) {
       // Fetch user profile from public view (includes created_at, pe_used_pe, wallet_address)
       const { data: userData, error: userError } = await supabase
         .from('public_user_profiles' as any)
-        .select('id, display_name, wallet_short, wallet_address, avatar_url, country_code, alliance_tag, pixels_painted_total, created_at, pe_used_pe')
+        .select('id, display_name, wallet_short, wallet_address, avatar_url, country_code, alliance_tag, pixels_painted_total, created_at, pe_used_pe, auth_provider')
         .eq('id', playerId)
         .maybeSingle();
 
@@ -59,10 +61,10 @@ export function usePlayerProfile(playerId: string | null) {
         return;
       }
 
-      // Fetch additional profile fields from public_pixel_owner_info (has bio/socials)
+      // Fetch additional profile fields from public_pixel_owner_info (has bio/socials/google_avatar_url)
       const { data: profileData } = await supabase
         .from('public_pixel_owner_info' as any)
-        .select('bio, social_x, social_instagram, social_discord, social_website')
+        .select('bio, social_x, social_instagram, social_discord, social_website, google_avatar_url')
         .eq('id', playerId)
         .maybeSingle();
 
@@ -99,14 +101,19 @@ export function usePlayerProfile(playerId: string | null) {
       const user = userData as Record<string, any>;
       const profile = profileData as Record<string, any> | null;
 
+      // Use google_avatar_url as fallback when avatar_url is not set
+      const resolvedAvatar = user.avatar_url || profile?.google_avatar_url || null;
+
       setProfile({
         id: user.id,
         displayName: user.display_name,
         walletShort: user.wallet_short,
         walletAddress: user.wallet_address || null,
-        avatarUrl: user.avatar_url,
+        avatarUrl: resolvedAvatar,
+        googleAvatarUrl: profile?.google_avatar_url || null,
         countryCode: user.country_code,
         allianceTag: user.alliance_tag,
+        authProvider: user.auth_provider || null,
         peUsed: Number(user.pe_used_pe) || 0,
         bio: profile?.bio || null,
         socialX: profile?.social_x || null,

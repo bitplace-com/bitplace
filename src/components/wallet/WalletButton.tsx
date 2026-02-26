@@ -130,8 +130,8 @@ export function WalletButton() {
               )}
             </span>
           ) : (
-            <span className="text-xs font-medium text-foreground tabular-nums flex items-center gap-0.5">
-              <PixelBalanceIcon size="xs" /> {virtualPeAvailable.toLocaleString()} Pixels
+            <span className="text-xs font-medium text-foreground tabular-nums">
+              {virtualPeAvailable.toLocaleString()} Pixels
             </span>
           )}
           <PixelIcon name="chevronDown" size="xs" className="text-muted-foreground" />

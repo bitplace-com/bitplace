@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { PEIcon } from "@/components/ui/pe-icon";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { usePlayerProfile, PlayerPixel } from "@/hooks/usePlayerProfile";
 import { useFollows, useFollowerCount } from "@/hooks/useFollows";
 import { useWallet } from "@/contexts/WalletContext";
@@ -377,31 +378,69 @@ export function PlayerProfileModal({ open, onOpenChange, playerId, onJumpToPixel
             <Separator />
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <StatCard
-                label="Pixels Painted"
-                value={profile.pixelsPaintedTotal}
-                iconName="brush"
-                iconPosition="value"
-              />
-              <StatCard
-                label="Pixels Owned"
-                value={profile.totalPixelsOwned}
-                iconName="pin"
-                iconPosition="value"
-              />
-              <StatCard
-                label="PE Staked"
-                value={profile.totalStaked}
-                iconPosition="value"
-                suffix={<PEIcon size="sm" className="text-muted-foreground" />}
-              />
-              <StatCard
-                label="Staked Value"
-                value={peToUsd(profile.totalStaked)}
-                valueClassName="text-emerald-500"
-              />
-            </div>
+            <TooltipProvider delayDuration={200}>
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <StatCard
+                        label="Pixels Painted"
+                        value={profile.pixelsPaintedTotal}
+                        iconName="brush"
+                        iconPosition="value"
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-56 text-xs">
+                    Total number of pixels this player has painted across all time.
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <StatCard
+                        label="Pixels Owned"
+                        value={profile.totalPixelsOwned}
+                        iconName="pin"
+                        iconPosition="value"
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-56 text-xs">
+                    Pixels currently owned by this player on the map.
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <StatCard
+                        label="PE Used"
+                        value={profile.totalStaked}
+                        iconPosition="value"
+                        suffix={<PEIcon size="sm" className="text-muted-foreground" />}
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-56 text-xs">
+                    Paint Energy currently locked in pixel stakes.
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <StatCard
+                        label="PE Value"
+                        value={peToUsd(profile.totalStaked)}
+                        valueClassName="text-emerald-500"
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-56 text-xs">
+                    Dollar value of staked PE at $0.001 per PE.
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </TooltipProvider>
 
             {/* Joined date */}
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground justify-center pt-2">
