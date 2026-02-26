@@ -718,7 +718,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       });
 
       if (authError || !authData?.token) {
-        const errMsg = authData?.error || 'Server could not verify your signature';
+        let errMsg = 'Server could not verify your signature';
+        try {
+          if (authError && typeof authError === 'object' && 'context' in authError && authError.context instanceof Response) {
+            const body = await authError.context.json();
+            errMsg = body?.error || errMsg;
+          } else if (authError && typeof authError === 'object' && 'message' in authError) {
+            errMsg = (authError as any).message || errMsg;
+          } else if (authData?.error) {
+            errMsg = authData.error;
+          }
+        } catch {}
         toast.error('Wallet linking failed', { description: errMsg });
         setWalletState('AUTHENTICATED');
         return;
