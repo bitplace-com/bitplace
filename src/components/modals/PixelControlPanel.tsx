@@ -76,19 +76,21 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                         "flex items-start gap-2.5 px-3 py-2 rounded-xl border",
                         vpeRenew.expiringBatches.urgent > 0
                           ? "bg-destructive/10 border-destructive/20"
-                          : "bg-muted/40 border-border"
+                          : vpeRenew.expiringBatches.soon > 0
+                            ? "bg-amber-500/10 border-amber-500/20"
+                            : "bg-emerald-500/10 border-emerald-500/20"
                       )}>
                         <PixelIcon
                           name="clock"
                           className={cn(
                             "h-4 w-4 mt-0.5 shrink-0",
-                            vpeRenew.expiringBatches.urgent > 0 ? "text-destructive animate-pulse" : "text-muted-foreground"
+                            vpeRenew.expiringBatches.urgent > 0 ? "text-destructive animate-pulse" : vpeRenew.expiringBatches.soon > 0 ? "text-amber-500" : "text-emerald-500"
                           )}
                         />
                         <div className="min-w-0">
                           <p className={cn(
                             "text-xs font-semibold tabular-nums",
-                            vpeRenew.expiringBatches.urgent > 0 ? "text-destructive" : "text-foreground"
+                            vpeRenew.expiringBatches.urgent > 0 ? "text-destructive" : vpeRenew.expiringBatches.soon > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
                           )}>
                             {vpeRenew.expiringBatches.urgent > 0
                               ? `${vpeRenew.expiringBatches.urgent} pixel${vpeRenew.expiringBatches.urgent !== 1 ? "s" : ""} expiring soon!`
@@ -251,7 +253,7 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
             ) : (
               <div className="px-3 py-3 rounded-lg bg-muted/30 border border-border">
                 <p className="text-xs text-muted-foreground">
-                  Connect a wallet with $BIT to get PE — your power to permanently own and protect pixels on the map.
+                  Connect a wallet with $BIT to get PE. Your PE capacity is based on the dollar value of $BIT you hold. PE makes your drawings permanent and protectable on the map.
                 </p>
               </div>
             )}

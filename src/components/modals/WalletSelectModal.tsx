@@ -10,6 +10,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import phantomLogo from '@/assets/phantom-logo.png';
 
 interface WalletSelectModalProps {
   open: boolean;
@@ -25,29 +26,34 @@ interface WalletSelectModalProps {
 // Detect if Phantom is installed (extension or in-app browser)
 const getPhantomProvider = () => {
   if (typeof window === 'undefined') return null;
-  
-  // Recommended Phantom detection
   const phantom = (window as any).phantom?.solana;
   if (phantom?.isPhantom) return phantom;
-  
-  // Fallback for older versions
   const solana = (window as any).solana;
   if (solana?.isPhantom) return solana;
-  
   return null;
 };
 
-// Detect mobile device
 const isMobileDevice = () => {
   if (typeof navigator === 'undefined') return false;
   return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 };
 
-// Detect if we're inside Phantom's in-app browser
 const isPhantomInAppBrowser = () => {
   if (typeof navigator === 'undefined') return false;
   return navigator.userAgent.includes('Phantom');
 };
+
+// Real multicolor Google "G" logo
+function GoogleLogo({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+  );
+}
 
 export function WalletSelectModal({
   open,
@@ -62,44 +68,27 @@ export function WalletSelectModal({
   const { googleSignIn } = useWallet();
   const [phantomInstalled, setPhantomInstalled] = useState<boolean | null>(null);
   const [isMobile, setIsMobile] = useState(false);
-  const [isInPhantomBrowser, setIsInPhantomBrowser] = useState(false);
 
-  // Check on mount and after a short delay (extension might load late)
   useEffect(() => {
     const check = () => {
       setPhantomInstalled(!!getPhantomProvider());
       setIsMobile(isMobileDevice());
-      setIsInPhantomBrowser(isPhantomInAppBrowser());
     };
-    
     check();
     const timeout = setTimeout(check, 500);
     return () => clearTimeout(timeout);
   }, []);
 
   const handlePhantomClick = () => {
-    // If Phantom provider is available (extension on desktop, or in-app browser on mobile)
-    // Use native connection - this handles BOTH cases cleanly
     if (phantomInstalled) {
       onSelectPhantom();
       return;
     }
-    
-    // Mobile without Phantom app - use deeplink
-    // The deeplink opens the Phantom app which will open our site in its in-app browser
-    // where the provider WILL be available
     if (isMobile) {
-      // Use the callback URL for clean return
       const appUrl = window.location.origin;
-      const connectUrl = `${appUrl}/wallet-callback`;
-      
-      // Phantom universal link - opens the app and loads our site in its browser
-      // After connection, the user will be in Phantom's in-app browser with provider available
       window.location.href = `https://phantom.app/ul/browse/${encodeURIComponent(appUrl)}`;
       return;
     }
-    
-    // Desktop without extension - open install page
     window.open('https://phantom.app/', '_blank');
   };
 
@@ -108,73 +97,49 @@ export function WalletSelectModal({
       <DialogContent className="sm:max-w-md bg-popover/95 backdrop-blur-xl border-border">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <PixelIcon name="wallet" size="md" />
-            Sign In
+            <PixelIcon name="user" size="md" />
+            Sign In to Bitplace
           </DialogTitle>
           <DialogDescription>
-            Choose how to play Bitplace. Each method gives you different Paint Energy.
+            Choose your account type to start playing.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 py-4">
           {/* Connected wallet - Continue with signature */}
           {needsSignature && connectedWalletAddress && onSignIn && (
-            <button
-              onClick={() => {
-                onSignIn();
-                onOpenChange(false);
-              }}
-              disabled={isConnecting}
-              className="w-full flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
-            >
-              <div className="h-10 w-10 rounded-xl bg-[#AB9FF2] flex items-center justify-center flex-shrink-0">
-                <svg width="24" height="24" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M110.584 64.9142H99.142C99.142 41.7651 80.173 23 56.7724 23C33.6612 23 14.8716 41.3057 14.4118 64.0599C13.9361 87.576 35.5765 107 59.4867 107H63.4989C85.0042 107 110.584 88.7583 110.584 64.9142Z" fill="white"/>
-                  <path d="M40.2729 67.9011C40.2729 71.5233 37.3407 74.4614 33.7261 74.4614C30.1114 74.4614 27.1792 71.5233 27.1792 67.9011V59.6289C27.1792 56.0067 30.1114 53.0686 33.7261 53.0686C37.3407 53.0686 40.2729 56.0067 40.2729 59.6289V67.9011Z" fill="#AB9FF2"/>
-                  <path d="M58.9369 67.9011C58.9369 71.5233 56.0047 74.4614 52.3901 74.4614C48.7754 74.4614 45.8432 71.5233 45.8432 67.9011V59.6289C45.8432 56.0067 48.7754 53.0686 52.3901 53.0686C56.0047 53.0686 58.9369 56.0067 58.9369 59.6289V67.9011Z" fill="#AB9FF2"/>
-                </svg>
+            <>
+              <TierCard
+                onClick={() => { onSignIn(); onOpenChange(false); }}
+                disabled={isConnecting}
+                icon={<img src={phantomLogo} alt="Phantom" className="h-10 w-10 rounded-xl object-contain" />}
+                title="Continue with Phantom"
+                subtitle="Sign to complete authentication"
+                badge={null}
+              />
+              <div className="flex items-center gap-3 px-2">
+                <Separator className="flex-1" />
+                <span className="text-xs text-muted-foreground">or use another method</span>
+                <Separator className="flex-1" />
               </div>
-              <div className="flex-1 text-left">
-                <div className="font-medium text-foreground">Continue with Phantom</div>
-                <div className="text-sm text-muted-foreground">
-                  Sign to complete authentication
-                </div>
-              </div>
-              <PixelIcon name="externalLink" size="md" className="text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
-            </button>
+            </>
           )}
 
-          {/* Divider between connected wallet and alternatives */}
-          {needsSignature && connectedWalletAddress && (
-            <div className="flex items-center gap-3 px-2">
-              <Separator className="flex-1" />
-              <span className="text-xs text-muted-foreground">or use another method</span>
-              <Separator className="flex-1" />
-            </div>
-          )}
-
-          {/* Google Sign-In */}
-          <button
-            onClick={async () => {
-              await googleSignIn();
-              onOpenChange(false);
-            }}
+          {/* ── Tier 1: Google (Starter) ── */}
+          <TierCard
+            onClick={async () => { await googleSignIn(); onOpenChange(false); }}
             disabled={isConnecting}
-            className="w-full flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
-          >
-            <div className="h-10 w-10 rounded-xl bg-card flex items-center justify-center flex-shrink-0 border border-border">
-              <PixelIcon name="google" size="lg" />
-            </div>
-            <div className="flex-1 text-left">
-              <div className="font-medium text-foreground">Sign in with Google</div>
-              <div className="text-sm text-muted-foreground">
-                300,000 free Pixels — draw anywhere, expire after 72h
+            icon={
+              <div className="h-10 w-10 rounded-xl bg-card flex items-center justify-center border border-border">
+                <GoogleLogo />
               </div>
-            </div>
-            <PixelIcon name="externalLink" size="md" className="text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
-          </button>
+            }
+            title="Sign in with Google"
+            subtitle="300,000 free Pixels — draw anywhere, expire after 72h"
+            badge={<TierBadge label="STARTER" />}
+          />
 
-          {/* Phantom Option - only when NOT already connected */}
+          {/* ── Tier 2: Phantom (Pro) ── */}
           {!needsSignature && (
             <>
               <div className="flex items-center gap-3 px-2">
@@ -183,32 +148,23 @@ export function WalletSelectModal({
                 <Separator className="flex-1" />
               </div>
 
-              <button
+              <TierCard
                 onClick={handlePhantomClick}
                 disabled={isConnecting}
-                className="w-full flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
-              >
-                <div className="h-10 w-10 rounded-xl bg-[#AB9FF2] flex items-center justify-center flex-shrink-0">
-                  <svg width="24" height="24" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M110.584 64.9142H99.142C99.142 41.7651 80.173 23 56.7724 23C33.6612 23 14.8716 41.3057 14.4118 64.0599C13.9361 87.576 35.5765 107 59.4867 107H63.4989C85.0042 107 110.584 88.7583 110.584 64.9142Z" fill="white"/>
-                    <path d="M40.2729 67.9011C40.2729 71.5233 37.3407 74.4614 33.7261 74.4614C30.1114 74.4614 27.1792 71.5233 27.1792 67.9011V59.6289C27.1792 56.0067 30.1114 53.0686 33.7261 53.0686C37.3407 53.0686 40.2729 56.0067 40.2729 59.6289V67.9011Z" fill="#AB9FF2"/>
-                    <path d="M58.9369 67.9011C58.9369 71.5233 56.0047 74.4614 52.3901 74.4614C48.7754 74.4614 45.8432 71.5233 45.8432 67.9011V59.6289C45.8432 56.0067 48.7754 53.0686 52.3901 53.0686C56.0047 53.0686 58.9369 56.0067 58.9369 59.6289V67.9011Z" fill="#AB9FF2"/>
-                  </svg>
-                </div>
-                <div className="flex-1 text-left">
-                  <div className="font-medium text-foreground">Phantom</div>
-                  <div className="text-sm text-muted-foreground">
-                    {phantomInstalled === null ? 'Detecting...' : phantomInstalled ? 'Permanent PE based on your $BIT holdings — full access' : isMobile ? 'Open in Phantom app' : 'Install to get permanent PE'}
-                  </div>
-                </div>
-                <div className="flex-shrink-0">
-                  {isConnecting ? (
-                    <PixelIcon name="loader" size="md" className="animate-spin" />
-                  ) : (
-                    <PixelIcon name="externalLink" size="md" className="text-muted-foreground group-hover:text-foreground transition-colors" />
-                  )}
-                </div>
-              </button>
+                icon={<img src={phantomLogo} alt="Phantom" className="h-10 w-10 rounded-xl object-contain" />}
+                title="Phantom Wallet"
+                subtitle={
+                  phantomInstalled === null
+                    ? 'Detecting...'
+                    : phantomInstalled
+                      ? 'Permanent PE from $BIT holdings — full pixel ownership'
+                      : isMobile
+                        ? 'Open in Phantom app'
+                        : 'Install to get permanent PE'
+                }
+                badge={<TierBadge label="PRO" variant="pro" />}
+                trailing={isConnecting ? <PixelIcon name="loader" size="md" className="animate-spin" /> : undefined}
+              />
 
               {phantomInstalled === false && !isMobile && (
                 <p className="text-xs text-muted-foreground text-center px-4">
@@ -218,41 +174,90 @@ export function WalletSelectModal({
             </>
           )}
 
-          {/* Trial mode option */}
+          {/* ── Tier 3: Demo (Try Free) ── */}
           {onActivateTrial && (
-            <div className="px-4 py-3 rounded-lg border border-dashed border-border/50 text-center">
-              <p className="text-xs text-muted-foreground mb-2">
-                No wallet? <span className="font-medium text-foreground">Try without one.</span>
-              </p>
-              <p className="text-[11px] text-muted-foreground mb-3">
-                Preview only — 10,000 test PE, nothing is saved to the map.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  onActivateTrial();
-                  onOpenChange(false);
-                }}
-                className="gap-2"
-              >
-                <PixelIcon name="sparkles" size="sm" />
-                Try Test Account
-              </Button>
-            </div>
+            <>
+              <div className="flex items-center gap-3 px-2">
+                <Separator className="flex-1" />
+                <span className="text-xs text-muted-foreground">or</span>
+                <Separator className="flex-1" />
+              </div>
+
+              <TierCard
+                onClick={() => { onActivateTrial(); onOpenChange(false); }}
+                disabled={isConnecting}
+                icon={
+                  <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center border border-dashed border-border">
+                    <PixelIcon name="sparkles" size="md" className="text-muted-foreground" />
+                  </div>
+                }
+                title="Try Without Account"
+                subtitle="Preview only — 10,000 test Pixels, nothing saved to the map"
+                badge={<TierBadge label="DEMO" variant="muted" />}
+              />
+            </>
           )}
         </div>
 
         <div className="flex justify-end">
-          <Button
-            variant="ghost"
-            onClick={() => onOpenChange(false)}
-            disabled={isConnecting}
-          >
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isConnecting}>
             Cancel
           </Button>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* ═══════════════════ Sub-components ═══════════════════ */
+
+function TierCard({
+  onClick,
+  disabled,
+  icon,
+  title,
+  subtitle,
+  badge,
+  trailing,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  badge: React.ReactNode;
+  trailing?: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="w-full flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
+    >
+      {icon}
+      <div className="flex-1 text-left min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-foreground">{title}</span>
+          {badge}
+        </div>
+        <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
+      </div>
+      {trailing || (
+        <PixelIcon name="chevronRight" size="md" className="text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
+      )}
+    </button>
+  );
+}
+
+function TierBadge({ label, variant = 'default' }: { label: string; variant?: 'default' | 'pro' | 'muted' }) {
+  const styles = {
+    default: 'bg-foreground/10 text-foreground border-border',
+    pro: 'bg-primary/10 text-primary border-primary/20',
+    muted: 'bg-muted text-muted-foreground border-border/50',
+  };
+  return (
+    <span className={`px-1.5 py-0.5 text-[10px] font-bold uppercase rounded border shrink-0 ${styles[variant]}`}>
+      {label}
+    </span>
   );
 }
