@@ -170,7 +170,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             </Tooltip>
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-foreground tabular-nums">
-                {energy.virtualPeAvailable.toLocaleString()} Pixels available
+                {energy.virtualPeAvailable.toLocaleString()} available to paint
               </span>
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -301,7 +301,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             <TooltipTrigger asChild>
               <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  PE Staked
+                  PE Used
                 </p>
                 <p className="text-sm font-semibold text-foreground">
                   {energy.pixelStakeTotal.toLocaleString()}
@@ -316,7 +316,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             <TooltipTrigger asChild>
               <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                  <PEIcon size="xs" /> PE Total
+                  <PEIcon size="xs" /> PE Balance
                 </p>
                 <p className="text-sm font-semibold text-foreground tabular-nums">
                   {energy.isVirtualPe ? '0' : energy.peTotal.toLocaleString()}
@@ -332,7 +332,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               <TooltipTrigger asChild>
                 <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                    <PixelBalanceIcon size="xs" className="text-muted-foreground" /> Pixels Available
+                    <PixelBalanceIcon size="xs" className="text-muted-foreground" /> Pixel Balance
                   </p>
                   <p className="text-sm font-semibold text-foreground tabular-nums">
                     {energy.virtualPeAvailable.toLocaleString()}
