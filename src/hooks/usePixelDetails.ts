@@ -81,7 +81,7 @@ export interface PixelDetails {
   isVirtualStake: boolean;
 }
 
-export function usePixelDetails(x: number | null, y: number | null, currentUserId?: string, isTrialMode?: boolean) {
+export function usePixelDetails(x: number | null, y: number | null, currentUserId?: string) {
   const [pixel, setPixel] = useState<PixelDetails | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [, forceUpdate] = useState(0);
@@ -125,60 +125,28 @@ export function usePixelDetails(x: number | null, y: number | null, currentUserI
 
       // If no data from DB but we have cached pixel (optimistic), show partial data
       if (!pixelData && cachedPixel) {
-        // In trial mode, trial-painted pixels will never sync - show them without syncing state
-        const isTrialPixel = isTrialMode && (() => {
-          try {
-            const raw = localStorage.getItem('bitplace_trial_pixels');
-            if (!raw) return false;
-            const stored = JSON.parse(raw) as { x: number; y: number }[];
-            return stored.some(p => p.x === x && p.y === y);
-          } catch { return false; }
-        })();
-
         setPixel({
           x, y,
           color: cachedPixel.color,
-          owner: isTrialPixel ? {
-            id: 'trial',
-            display_name: 'You (Trial)',
-            wallet_short: null,
-            country_code: null,
-            alliance_tag: null,
-            avatar_url: null,
-            pixels_painted_total: 0,
-            total_staked_pe: 0,
-            owner_health_multiplier: 1,
-            rebalance_active: false,
-            rebalance_started_at: null,
-            rebalance_ends_at: null,
-            rebalance_target_multiplier: null,
-            bio: null,
-            social_x: null,
-            social_instagram: null,
-            social_discord: null,
-            social_website: null,
-            auth_provider: null,
-            email: null,
-            google_avatar_url: null,
-          } : null,
-          owner_stake_pe: isTrialPixel ? 1 : 0,
+          owner: null,
+          owner_stake_pe: 0,
           defTotal: 0,
           atkTotal: 0,
-          vNow: isTrialPixel ? 1 : 0,
+          vNow: 0,
           threshold: 1,
           defenders: [],
           attackers: [],
           ownerHealthMultiplier: 1,
           ownerRebalanceActive: false,
           ownerRebalanceEndsAt: null,
-          effectiveOwnerStake: isTrialPixel ? 1 : 0,
+          effectiveOwnerStake: 0,
           nextTickTime: null,
           multiplierAtNextTick: 1,
           vFloorNext6h: null,
           thresholdWithFloor: 1,
           isFloorBased: false,
           myContribution: null,
-          isSyncing: isTrialPixel ? false : true,
+          isSyncing: true,
           expiresAt: null,
           isVirtualStake: false,
         });
