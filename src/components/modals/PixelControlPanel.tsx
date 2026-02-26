@@ -67,83 +67,67 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                   />
                 </div>
 
-                {/* Expiration Breakdown */}
+                {/* ── Timer + Renew ── */}
                 {vpeRenew.totalVpePixels > 0 && (
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium px-1">
-                      Expiration Breakdown
+                  <div className="space-y-2">
+                    {/* Live countdown alert */}
+                    {vpeRenew.earliestExpiry && (
+                      <div className={cn(
+                        "flex items-start gap-2.5 px-3 py-2 rounded-xl border",
+                        vpeRenew.expiringBatches.urgent > 0
+                          ? "bg-destructive/10 border-destructive/20"
+                          : "bg-muted/40 border-border"
+                      )}>
+                        <PixelIcon
+                          name="clock"
+                          className={cn(
+                            "h-4 w-4 mt-0.5 shrink-0",
+                            vpeRenew.expiringBatches.urgent > 0 ? "text-destructive animate-pulse" : "text-muted-foreground"
+                          )}
+                        />
+                        <div className="min-w-0">
+                          <p className={cn(
+                            "text-xs font-semibold tabular-nums",
+                            vpeRenew.expiringBatches.urgent > 0 ? "text-destructive" : "text-foreground"
+                          )}>
+                            {vpeRenew.expiringBatches.urgent > 0
+                              ? `${vpeRenew.expiringBatches.urgent} pixel${vpeRenew.expiringBatches.urgent !== 1 ? "s" : ""} expiring soon!`
+                              : `Next expiry in ${formatLiveCountdown(vpeRenew.earliestExpiry, now)}`
+                            }
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {formatNumber(vpeRenew.totalVpePixels)} active pixel{vpeRenew.totalVpePixels !== 1 ? "s" : ""} · renew available after 48h
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Renew button */}
+                    <Button
+                      onClick={vpeRenew.renewAll}
+                      disabled={vpeRenew.renewableCount === 0 || vpeRenew.isRenewing}
+                      className={cn(
+                        "w-full h-9 font-semibold gap-2 text-xs",
+                        vpeRenew.renewableCount > 0 ? "bg-primary hover:bg-primary/90" : ""
+                      )}
+                    >
+                      <PixelIcon
+                        name="refresh"
+                        className={cn("h-3.5 w-3.5", vpeRenew.isRenewing && "animate-spin")}
+                      />
+                      {vpeRenew.isRenewing
+                        ? "Renewing..."
+                        : vpeRenew.renewableCount > 0
+                          ? `Renew ${vpeRenew.renewableCount} Pixel${vpeRenew.renewableCount !== 1 ? "s" : ""}`
+                          : "All pixels up to date"}
+                    </Button>
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      {vpeRenew.renewableCount > 0
+                        ? "Resets 72h timer for each renewed pixel"
+                        : "Resets 72h timer · available after 48h from last paint"}
                     </p>
-                    <div className="space-y-1">
-                      {vpeRenew.expiringBatches.urgent > 0 && (
-                        <ExpiryRow
-                          label="Expiring in < 6h"
-                          count={vpeRenew.expiringBatches.urgent}
-                          variant="urgent"
-                          tip="These pixels will disappear very soon. Renew now to keep them."
-                        />
-                      )}
-                      {vpeRenew.expiringBatches.soon > 0 && (
-                        <ExpiryRow
-                          label="Expiring in 6–24h"
-                          count={vpeRenew.expiringBatches.soon}
-                          variant="soon"
-                          tip="Eligible for renewal — 48h+ have passed since painting."
-                        />
-                      )}
-                      {vpeRenew.expiringBatches.upcoming > 0 && (
-                        <ExpiryRow
-                          label="24–48h remaining"
-                          count={vpeRenew.expiringBatches.upcoming}
-                          variant="upcoming"
-                          tip="Not yet renewable — less than 48h have passed since painting."
-                        />
-                      )}
-                      {vpeRenew.expiringBatches.safe > 0 && (
-                        <ExpiryRow
-                          label="Safe (48h+ left)"
-                          count={vpeRenew.expiringBatches.safe}
-                          variant="safe"
-                          tip="Recently painted — no action needed yet."
-                        />
-                      )}
-                    </div>
                   </div>
                 )}
-
-                {/* ── Renew Section ── */}
-                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2">
-                  <p className="text-xs font-semibold text-foreground">
-                    Renew your painted pixels
-                  </p>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Your pixels expire <strong>72h</strong> after painting. Once <strong>48h</strong> have passed, you can reset the timer for all of them at once — <em>no need to repaint each one</em>.
-                  </p>
-
-                  <Button
-                    onClick={vpeRenew.renewAll}
-                    disabled={vpeRenew.renewableCount === 0 || vpeRenew.isRenewing}
-                    className={cn(
-                      "w-full h-11 font-semibold gap-2",
-                      vpeRenew.renewableCount > 0 ? "bg-primary hover:bg-primary/90" : ""
-                    )}
-                  >
-                    <PixelIcon
-                      name="refresh"
-                      className={cn("h-4 w-4", vpeRenew.isRenewing && "animate-spin")}
-                    />
-                    {vpeRenew.isRenewing
-                      ? "Renewing..."
-                      : vpeRenew.renewableCount > 0
-                        ? `Renew ${vpeRenew.renewableCount} Pixel${vpeRenew.renewableCount !== 1 ? "s" : ""}`
-                        : "All pixels up to date"}
-                  </Button>
-
-                  <p className="text-[10px] text-muted-foreground text-center">
-                    {vpeRenew.renewableCount > 0
-                      ? "Timer resets to 72h from now for each renewed pixel."
-                      : "Renewal becomes available after 48h from last paint or renewal."}
-                  </p>
-                </div>
               </div>
             ) : (
               <div className="px-3 py-3 rounded-lg bg-muted/30 border border-border">
@@ -346,49 +330,3 @@ function StatBox({
   );
 }
 
-function ExpiryRow({
-  label,
-  count,
-  variant,
-  tip,
-}: {
-  label: string;
-  count: number;
-  variant: "urgent" | "soon" | "upcoming" | "safe";
-  tip?: string;
-}) {
-  const styles = {
-    urgent: "bg-destructive/10 border-destructive/20 text-destructive",
-    soon: "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400",
-    upcoming: "bg-yellow-500/10 border-yellow-500/20 text-yellow-600 dark:text-yellow-400",
-    safe: "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400",
-  };
-
-  const icons = {
-    urgent: "alert",
-    soon: "clock",
-    upcoming: "clock",
-    safe: "check",
-  };
-
-  const row = (
-    <div className={cn("flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs", styles[variant], tip && "cursor-help")}>
-      <span className="flex items-center gap-1.5">
-        <PixelIcon name={icons[variant] as any} className={cn("h-3 w-3", variant === "urgent" && "animate-pulse")} />
-        {label}
-      </span>
-      <span className="font-semibold tabular-nums">{count}</span>
-    </div>
-  );
-
-  if (!tip) return row;
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{row}</TooltipTrigger>
-      <TooltipContent side="top" className="max-w-56 text-xs z-[9999]">
-        {tip}
-      </TooltipContent>
-    </Tooltip>
-  );
-}

@@ -13,6 +13,7 @@ export interface VpeRenewState {
   expiringBatches: ExpiringBatches;
   renewableCount: number;  // urgent + soon
   totalVpePixels: number;
+  earliestExpiry: Date | null;
   isLoading: boolean;
   isRenewing: boolean;
   renewAll: () => Promise<void>;
@@ -23,14 +24,16 @@ const POLL_INTERVAL = 60_000; // 60s
 export function useVpeRenew(userId: string | undefined): VpeRenewState {
   const [batches, setBatches] = useState<ExpiringBatches>({ urgent: 0, soon: 0, upcoming: 0, safe: 0 });
   const [totalVpePixels, setTotalVpePixels] = useState(0);
+  const [earliestExpiry, setEarliestExpiry] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isRenewing, setIsRenewing] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
   const fetchBatches = useCallback(async () => {
-    if (!userId) {
+      if (!userId) {
       setBatches({ urgent: 0, soon: 0, upcoming: 0, safe: 0 });
       setTotalVpePixels(0);
+      setEarliestExpiry(null);
       return;
     }
 
@@ -55,9 +58,12 @@ export function useVpeRenew(userId: string | undefined): VpeRenewState {
       const h48 = 48 * 60 * 60 * 1000;
 
       let urgent = 0, soon = 0, upcoming = 0, safe = 0;
+      let minExpiry = Infinity;
 
       for (const row of data || []) {
-        const remaining = new Date(row.expires_at!).getTime() - now;
+        const expiryMs = new Date(row.expires_at!).getTime();
+        const remaining = expiryMs - now;
+        if (expiryMs < minExpiry) minExpiry = expiryMs;
         if (remaining < h6) urgent++;
         else if (remaining < h24) soon++;
         else if (remaining < h48) upcoming++;
@@ -66,6 +72,7 @@ export function useVpeRenew(userId: string | undefined): VpeRenewState {
 
       setBatches({ urgent, soon, upcoming, safe });
       setTotalVpePixels(data?.length || 0);
+      setEarliestExpiry(minExpiry < Infinity ? new Date(minExpiry) : null);
     } catch (err) {
       console.error('[useVpeRenew] exception:', err);
     } finally {
@@ -119,6 +126,7 @@ export function useVpeRenew(userId: string | undefined): VpeRenewState {
     expiringBatches: batches,
     renewableCount: batches.urgent + batches.soon,
     totalVpePixels,
+    earliestExpiry,
     isLoading,
     isRenewing,
     renewAll,
