@@ -1,84 +1,49 @@
 
 
-## Fix icona Grid3x3 + Redesign sezione Pixel Balance
+## Fix "Active Pixels" bloccato a 1000
 
-### 1. Fix icona Grid3x3
+### Problema
+Il hook `useVpeRenew` esegue una query `SELECT expires_at FROM pixels WHERE ...` e conta i risultati client-side con `data.length`. Supabase ha un limite predefinito di 1000 righe per query, quindi il conteggio non supera mai 1000.
 
-Il problema: le celle 5x5 con offset asimmetrico (2px a sinistra, 3px a destra) e `shapeRendering: crispEdges` causano distorsione a 20px. 
+### Soluzione
 
-Soluzione: riscrivere con celle 6x6, gap 2px, margine 1px simmetrico su ogni lato.
+Modificare `src/hooks/useVpeRenew.ts` per usare due query separate:
 
-File: `src/components/icons/custom/PixelGrid3x3.tsx`
+1. **Count totale**: usare `supabase.from('pixels').select('*', { count: 'exact', head: true })` per ottenere il conteggio totale senza fetchare righe (bypassa il limite di 1000).
 
-```text
-Griglia perfettamente centrata in viewBox 24x24:
-Celle 6x6, gap 2px, margine 1px
+2. **Expiry batches**: per il calcolo delle fasce di scadenza (urgent/soon/upcoming/safe) e l'earliest expiry, fetchare solo i pixel con scadenza entro 72h (quelli rilevanti per il renew), ordinati per `expires_at` ascending con limit 1 per l'earliest. In alternativa, usare due query:
+   - Una `head: true` con count per il totale
+   - Una con `order('expires_at', { ascending: true }).limit(1)` per l'earliest expiry
+   - Per le fasce, usare filtri con `lt`/`gte` sulla data per contare ciascuna fascia server-side
 
-  x=1    x=9    x=17
-y=1  [6x6]  [6x6]  [6x6]
-y=9  [6x6]  [6x6]  [6x6]
-y=17 [6x6]  [6x6]  [6x6]
+### Approccio scelto (piu semplice e robusto)
 
-Totale: 1 + 6 + 2 + 6 + 2 + 6 + 1 = 24 (perfetto)
-```
+Riscrivere `fetchBatches` in `useVpeRenew.ts`:
 
-### 2. Redesign sezione Pixel Balance nel PixelControlPanel
+- **Query 1**: `select('*', { count: 'exact', head: true })` con i filtri `owner_user_id`, `is_virtual_stake` -- restituisce solo il count, zero dati trasferiti
+- **Query 2**: `select('expires_at').order('expires_at', { ascending: true }).limit(1)` -- per l'earliest expiry
+- **Query 3-4**: Count con filtri temporali per urgent (< 6h) e soon (6-24h) usando `lt` e `gte` su `expires_at`
 
-Cambiamenti principali:
+Questo elimina completamente il problema del limite 1000 e riduce anche il traffico di rete (prima scaricava fino a 1000 righe di dati, ora solo conteggi).
 
-**a) Rimuovere l'Expiration Breakdown con le righe colorate (urgent/soon/upcoming/safe)**
-Non serve mostrare "Safe (48h+ left) 128" quando tutto va bene. Troppo rumore visivo.
+### File modificato
 
-**b) Aggiungere un timer countdown live sotto le stat box**
-Un alert compatto con icona clock che mostra:
-- "Next expiry in 2d 14h 32m 15s" (countdown live con `useLiveTick`)
-- Sotto: contesto breve tipo "128 pixels active -- renew available after 48h"
-- Se ci sono pixel urgenti (< 6h): variante rossa con "X pixels expiring soon!"
+`src/hooks/useVpeRenew.ts` -- riscrittura di `fetchBatches` per usare count queries server-side invece di fetch + count client-side.
 
-Richiede aggiungere `earliestExpiry: Date | null` al hook `useVpeRenew` (calcolato dal min di `expires_at` gia fetchato).
-
-**c) Compattare la sezione Renew**
-Rimuovere il box dedicato con titolo + paragrafo + bottone + nota. Al suo posto:
-- Solo il bottone renew (full width, compatto, h-9 invece di h-11)
-- Sotto il bottone: una riga di testo piccolo con il contesto ("Resets 72h timer -- available after 48h from last paint")
-- Nessun titolo "Renew your painted pixels" e nessun paragrafo esplicativo
-
-### 3. Hook useVpeRenew -- aggiungere earliestExpiry
-
-File: `src/hooks/useVpeRenew.ts`
-
-Nella funzione `fetchBatches`, durante il loop su `data`, tracciare il `min(expires_at)` e esporlo come `earliestExpiry: Date | null` nell'interfaccia `VpeRenewState`.
-
-### Dettaglio tecnico per file
-
-| File | Modifica |
-|------|----------|
-| `src/components/icons/custom/PixelGrid3x3.tsx` | Riscrivere 9 rect con coordinate 6x6, gap 2, margine 1 |
-| `src/hooks/useVpeRenew.ts` | Aggiungere `earliestExpiry: Date \| null` alla state e al return. Calcolare durante fetchBatches |
-| `src/components/modals/PixelControlPanel.tsx` | Rimuovere Expiration Breakdown. Aggiungere timer countdown compatto. Compattare sezione renew |
-
-### Layout risultante della sezione Pixel Balance
+### Dettaglio tecnico
 
 ```text
-PIXEL BALANCE (brush icon)
-+------------------------------------------+
-| Available  |   Used    |  Active Pixels   |
-| 299,872    |   128     |     128          |
-+------------------------------------------+
+// Prima (broken):
+const { data } = await supabase.from('pixels').select('expires_at').eq(...)
+totalVpePixels = data.length  // max 1000!
 
-[clock icon] Next expiry in 2d 14h 32m 15s
-             128 active pixels -- renew available after 48h
-
-[====== All pixels up to date (disabled) ======]
-Resets 72h timer -- available after 48h from last paint
+// Dopo (fixed):
+const { count } = await supabase.from('pixels').select('*', { count: 'exact', head: true }).eq(...)
+totalVpePixels = count  // numero reale, nessun limite
 ```
 
-Quando ci sono pixel urgenti (< 6h):
-```text
-[clock icon, red] 3 pixels expiring soon!
-                  Earliest in 4h 12m 3s
-
-[====== Renew 3 Pixels (active, primary) ======]
-Timer resets to 72h from now for each renewed pixel
-```
+Per le fasce di scadenza, si useranno filtri temporali server-side:
+- `urgent`: `.lt('expires_at', now + 6h)`
+- `soon`: `.gte('expires_at', now + 6h).lt('expires_at', now + 24h)`
+- Per l'earliest expiry: `.order('expires_at').limit(1)`
 
