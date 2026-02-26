@@ -79,25 +79,25 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
               </p>
             </section>
 
-            {/* VPE */}
+            {/* Pixel Balance */}
             <section className="space-y-2">
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <PixelIcon name="boltOutline" size="sm" />
+                  <PixelIcon name="grid2x2" size="sm" />
                 </div>
-                <h3 className="font-semibold">Virtual Paint Energy (VPE)</h3>
+                <h3 className="font-semibold">Pixel Balance</h3>
               </div>
               <p className="text-muted-foreground pl-9">
-                Free energy available when you sign in with Google. You get 300,000 recyclable VPE to try the game without buying tokens.
+                Free pixel budget when you sign in with Google. You get 300,000 recyclable pixels to try the game without buying tokens.
               </p>
               <div className="pl-9 text-xs text-muted-foreground space-y-1">
                 <p>Key differences from PE:</p>
                 <ul className="list-disc list-inside pl-2 space-y-0.5">
-                  <li>VPE pixels have a value of 0 — anyone can paint over them for free</li>
-                  <li>VPE pixels expire after 72h</li>
-                  <li>When a VPE pixel expires or is painted over, the VPE is recycled back to you</li>
-                  <li>VPE cannot be used for Defend, Attack, or Reinforce</li>
-                  <li>After 48h you can renew all your VPE pixels at once from Pixel Control — no need to repaint</li>
+                  <li>Pixels from your budget have a PE value of 0 — anyone can paint over them for free</li>
+                  <li>They expire after 72h</li>
+                  <li>When a pixel expires or is painted over, it is recycled back to your budget</li>
+                  <li>Budget pixels cannot be used for Defend, Attack, or Reinforce</li>
+                  <li>After 48h you can renew all your pixels at once from Pixel Control — no need to repaint</li>
                   <li>To make pixels permanent, connect a wallet and use real PE</li>
                 </ul>
               </div>
@@ -124,7 +124,6 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             Pixel Mechanics
           </p>
           <div className="space-y-4">
-            {/* Pixel Value */}
             <section className="space-y-2">
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -137,7 +136,6 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
               </p>
             </section>
 
-            {/* Takeover */}
             <section className="space-y-2">
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -159,7 +157,6 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
               </div>
             </section>
 
-            {/* Decay */}
             <section className="space-y-2">
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -172,7 +169,6 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
               </p>
             </section>
 
-            {/* Collateralization */}
             <section className="space-y-2">
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -214,12 +210,12 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
               <span className="text-muted-foreground text-right">Claiming a pixel by staking more PE than its current value</span>
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
-              <span className="font-medium">VPE</span>
-              <span className="text-muted-foreground text-right">Virtual Paint Energy — free energy for Starter accounts (72h expiry)</span>
+              <span className="font-medium">Pixel Balance</span>
+              <span className="text-muted-foreground text-right">Free pixel budget for Starter accounts (72h expiry)</span>
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
-              <span className="font-medium">VPE Renew</span>
-              <span className="text-muted-foreground text-right">Batch-reset the 72h timer on all eligible VPE pixels</span>
+              <span className="font-medium">Pixel Renew</span>
+              <span className="text-muted-foreground text-right">Batch-reset the 72h timer on all eligible pixels</span>
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">Decay</span>

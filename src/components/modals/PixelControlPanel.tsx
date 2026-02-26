@@ -1,6 +1,6 @@
 import { PixelIcon } from "@/components/icons";
 import { PEIcon } from "@/components/ui/pe-icon";
-import { VPEIcon } from "@/components/ui/vpe-icon";
+import { PixelBalanceIcon } from "@/components/ui/vpe-icon";
 import { GamePanel } from "./GamePanel";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/contexts/WalletContext";
@@ -36,12 +36,12 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
       <TooltipProvider delayDuration={200}>
         <div className="space-y-5 text-sm">
 
-          {/* ═══ SECTION 1: VPE (Virtual Paint Energy) ═══ */}
+          {/* ═══ SECTION 1: Pixel Balance ═══ */}
           <div>
             <SectionTitle>
-              <VPEIcon size="xs" className="text-muted-foreground" />
-              <TT tip="Virtual Paint Energy — free energy for Starter accounts. VPE pixels expire 72h after painting and can be painted over by anyone until renewed.">
-                Virtual Paint Energy (VPE)
+              <PixelBalanceIcon size="xs" className="text-muted-foreground" />
+              <TT tip="Your free pixel budget. Sign in with Google to get 300,000 pixels to draw with. These pixels expire 72h after painting and can be painted over by anyone until you add PE.">
+                Pixel Balance
               </TT>
             </SectionTitle>
 
@@ -53,17 +53,17 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                     label="Available"
                     value={formatNumber(energy.virtualPeAvailable)}
                     variant="primary"
-                    tip="VPE you can spend right now to paint pixels."
+                    tip="Pixels you can spend right now to draw on the map."
                   />
                   <StatBox
                     label="Used"
                     value={formatNumber(energy.virtualPeUsed)}
-                    tip="VPE currently locked in your painted pixels. Recycled when pixels expire or are painted over."
+                    tip="Pixels currently placed on the map. Recycled when they expire or are painted over."
                   />
                   <StatBox
                     label="Active Pixels"
                     value={formatNumber(vpeRenew.totalVpePixels)}
-                    tip="Pixels you painted using VPE that are still active on the map."
+                    tip="Pixels you painted using your budget that are still active on the map."
                   />
                 </div>
 
@@ -116,7 +116,7 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                     Renew your painted pixels
                   </p>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Your VPE pixels expire <strong>72h</strong> after painting. Once <strong>48h</strong> have passed, you can reset the timer for all of them at once — <em>no need to repaint each one</em>.
+                    Your pixels expire <strong>72h</strong> after painting. Once <strong>48h</strong> have passed, you can reset the timer for all of them at once — <em>no need to repaint each one</em>.
                   </p>
 
                   <Button
@@ -134,8 +134,8 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                     {vpeRenew.isRenewing
                       ? "Renewing..."
                       : vpeRenew.renewableCount > 0
-                        ? `Renew ${vpeRenew.renewableCount} VPE Pixel${vpeRenew.renewableCount !== 1 ? "s" : ""}`
-                        : "All VPE pixels up to date"}
+                        ? `Renew ${vpeRenew.renewableCount} Pixel${vpeRenew.renewableCount !== 1 ? "s" : ""}`
+                        : "All pixels up to date"}
                   </Button>
 
                   <p className="text-[10px] text-muted-foreground text-center">
@@ -148,7 +148,7 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
             ) : (
               <div className="px-3 py-3 rounded-lg bg-muted/30 border border-border">
                 <p className="text-xs text-muted-foreground">
-                  Sign in with Google to get 300,000 free VPE — recyclable energy to try the game.
+                  Sign in with Google to get 300,000 free pixels — a recyclable budget to try the game.
                 </p>
               </div>
             )}

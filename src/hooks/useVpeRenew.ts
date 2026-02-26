@@ -95,13 +95,13 @@ export function useVpeRenew(userId: string | undefined): VpeRenewState {
       });
 
       if (error) {
-        toast.error('Failed to renew VPE pixels');
+        toast.error('Failed to renew pixels');
         console.error('[useVpeRenew] renew error:', error);
         return;
       }
 
       if (data?.ok) {
-        toast.success(`Renewed ${data.renewed} VPE pixel${data.renewed !== 1 ? 's' : ''}`, {
+        toast.success(`Renewed ${data.renewed} pixel${data.renewed !== 1 ? 's' : ''}`, {
           description: 'Timer reset to 72h for all eligible pixels',
         });
         // Refresh batches immediately

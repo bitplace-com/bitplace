@@ -1,12 +1,15 @@
 import { PixelIcon } from '@/components/icons';
 import { cn } from '@/lib/utils';
 
-interface VPEIconProps {
+interface PixelBalanceIconProps {
   className?: string;
   size?: 'xs' | 'sm' | 'md' | 'lg';
 }
 
-/** VPE icon — uses the outline bolt to distinguish from real PE (filled bolt) */
-export function VPEIcon({ className, size = 'sm' }: VPEIconProps) {
-  return <PixelIcon name="boltOutline" size={size} className={cn('text-foreground', className)} />;
+/** Pixel Balance icon — uses grid2x2 to represent the free pixel budget */
+export function PixelBalanceIcon({ className, size = 'sm' }: PixelBalanceIconProps) {
+  return <PixelIcon name="grid2x2" size={size} className={cn('text-foreground', className)} />;
 }
+
+/** @deprecated Use PixelBalanceIcon instead */
+export const VPEIcon = PixelBalanceIcon;

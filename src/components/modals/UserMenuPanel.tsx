@@ -1,7 +1,7 @@
 import { PixelIcon } from "@/components/icons";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { PEIcon } from "@/components/ui/pe-icon";
-import { VPEIcon } from "@/components/ui/vpe-icon";
+import { PixelBalanceIcon } from "@/components/ui/vpe-icon";
 import { ProBadge } from "@/components/ui/pro-badge";
 import { useState } from "react";
 import {
@@ -159,17 +159,17 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2 cursor-help">
-                  <VPEIcon size="sm" className="text-muted-foreground" />
-                  <span className="uppercase tracking-wider font-medium">VPE</span>
+                  <PixelBalanceIcon size="sm" className="text-muted-foreground" />
+                  <span className="uppercase tracking-wider font-medium">PIXELS</span>
                 </div>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-56 text-xs">
-                Virtual Paint Energy — free energy for painting. VPE pixels expire after 72h but you can repaint them to reset the timer.
+                Your free pixel budget. Pixels expire after 72h but you can renew them to reset the timer.
               </TooltipContent>
             </Tooltip>
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-foreground tabular-nums">
-                {energy.virtualPeAvailable.toLocaleString()} VPE available
+                {energy.virtualPeAvailable.toLocaleString()} Pixels available
               </span>
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -177,7 +177,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               <span className="tabular-nums">{energy.virtualPeUsed.toLocaleString()} / {energy.virtualPeTotal.toLocaleString()}</span>
             </div>
             <p className="text-[10px] text-amber-500">
-              VPE pixels expire after 72h — repaint to reset the timer
+              Your pixels expire after 72h — renew them from Pixel Control to reset the timer
             </p>
           </div>
         ) : user?.auth_provider === 'both' && !isTrialMode ? (
@@ -214,25 +214,25 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               </p>
             </div>
             <Separator className="bg-border" />
-            {/* Starter PE section */}
+            {/* Pixel Balance section for 'both' users */}
             {(energy.virtualPeTotal > 0) && (
               <div className="p-4 space-y-1">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1 cursor-help">
-                      <VPEIcon size="sm" className="text-muted-foreground" />
-                      <span className="uppercase tracking-wider font-medium">VPE</span>
+                      <PixelBalanceIcon size="sm" className="text-muted-foreground" />
+                      <span className="uppercase tracking-wider font-medium">PIXELS</span>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-56 text-xs">
-                    Virtual Paint Energy — free energy for painting. VPE pixels expire after 72h but you can repaint them to reset the timer.
+                    Your free pixel budget. Pixels expire after 72h but you can renew them to reset the timer.
                   </TooltipContent>
                 </Tooltip>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-foreground tabular-nums">{energy.virtualPeAvailable.toLocaleString()} available</span>
                   <span className="text-muted-foreground tabular-nums">{energy.virtualPeUsed.toLocaleString()} / {energy.virtualPeTotal.toLocaleString()}</span>
                 </div>
-                <p className="text-[10px] text-amber-500">VPE pixels expire after 72h — repaint to reset the timer</p>
+                <p className="text-[10px] text-amber-500">Your pixels expire after 72h — renew them from Pixel Control to reset the timer</p>
               </div>
             )}
           </>
@@ -311,7 +311,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               <TooltipTrigger asChild>
                 <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                    <VPEIcon size="xs" className="text-muted-foreground" /> VPE Available
+                    <PixelBalanceIcon size="xs" className="text-muted-foreground" /> Pixels Available
                   </p>
                   <p className="text-sm font-semibold text-foreground tabular-nums">
                     {energy.virtualPeAvailable.toLocaleString()}
@@ -319,7 +319,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                 </div>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-56 text-xs">
-                Your remaining Virtual PE budget. VPE is recycled when your pixels expire or are painted over.
+                Your remaining pixel budget. Pixels are recycled when they expire or are painted over.
               </TooltipContent>
             </Tooltip>
           )}
