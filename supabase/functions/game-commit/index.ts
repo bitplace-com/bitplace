@@ -88,6 +88,7 @@ interface PixelData {
   defSum: number;
   atkSum: number;
   ownerData?: OwnerData;
+  updated_at?: string;
 }
 
 const commitTimestamps = new Map<string, number>();
@@ -127,6 +128,7 @@ async function fetchPixelsByCoords(
   color: string | null;
   def_total: number;
   atk_total: number;
+  updated_at: string | null;
 }>> {
   if (pixels.length === 0) return [];
   
@@ -751,7 +753,22 @@ async function executeCommit(
   let paintCooldownUntil: Date | null = null;
   
   if (mode === "PAINT" && affectedPixels > 0) {
-    newPixelsPaintedTotal = (user.pixels_painted_total || 0) + affectedPixels;
+    // 24h repaint rule: only count pixels for leaderboard if they are new, takeover, or self-repaint after 24h
+    const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+    let leaderboardPixels = 0;
+    for (const pixel of pixelStates) {
+      const isEmpty = !pixel.id;
+      const isOwnedByUser = pixel.owner_user_id === userId;
+      if (isEmpty || !isOwnedByUser) {
+        leaderboardPixels++;
+      } else if (isOwnedByUser && pixel.updated_at) {
+        const lastPaintTime = new Date(pixel.updated_at).getTime();
+        if (Date.now() - lastPaintTime >= TWENTY_FOUR_HOURS_MS) {
+          leaderboardPixels++;
+        }
+      }
+    }
+    newPixelsPaintedTotal = (user.pixels_painted_total || 0) + leaderboardPixels;
     paintCooldownUntil = new Date(Date.now() + PAINT_COOLDOWN_SECONDS * 1000);
     
     const userUpdate: Record<string, unknown> = {
@@ -920,6 +937,7 @@ async function handleStreamingCommit(
             defSum: existing?.def_total || 0,
             atkSum: existing?.atk_total || 0,
             ownerData,
+            updated_at: existing?.updated_at ?? undefined,
           };
         });
 
@@ -1229,6 +1247,7 @@ Deno.serve(async (req) => {
         defSum: existing?.def_total || 0,
         atkSum: existing?.atk_total || 0,
         ownerData,
+        updated_at: existing?.updated_at ?? undefined,
       };
     });
 

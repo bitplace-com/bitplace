@@ -958,6 +958,7 @@ export type Database = {
           owner_stake_pe: number
           owner_user_id: string
           pixel_id: number
+          updated_at: string
           x: number
           y: number
         }[]

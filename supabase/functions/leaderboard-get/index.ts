@@ -72,7 +72,7 @@ async function fetchUserProfiles(supabase: SB, userIds: string[]) {
   if (userIds.length === 0) return new Map();
   const { data, error } = await supabase
     .from("users")
-    .select("id, display_name, country_code, alliance_tag, avatar_url, bio, social_x, social_instagram, social_website, wallet_address")
+    .select("id, display_name, country_code, alliance_tag, avatar_url, bio, social_x, social_instagram, social_website, wallet_address, auth_provider")
     .in("id", userIds);
   if (error) throw error;
   // deno-lint-ignore no-explicit-any
@@ -94,6 +94,7 @@ function playerEntry(user: any, totalPixels: number) {
     socialInstagram: user.social_instagram || null,
     socialWebsite: user.social_website || null,
     walletAddress: user.wallet_address || null,
+    authProvider: user.auth_provider || null,
   };
 }
 
@@ -102,7 +103,7 @@ async function paintersAllTime(supabase: SB, scope: MacroScope) {
   if (scope === "players") {
     const { data, error } = await supabase
       .from("users")
-      .select("id, display_name, country_code, alliance_tag, avatar_url, bio, social_x, social_instagram, social_website, wallet_address, pixels_painted_total")
+      .select("id, display_name, country_code, alliance_tag, avatar_url, bio, social_x, social_instagram, social_website, wallet_address, auth_provider, pixels_painted_total")
       .gt("pixels_painted_total", 0)
       .order("pixels_painted_total", { ascending: false })
       .limit(50);
@@ -236,6 +237,7 @@ async function peLeaderboard(supabase: SB, scope: MacroScope, subCategory: SubCa
     socialInstagram: r.social_instagram,
     socialWebsite: r.social_website,
     walletAddress: r.wallet_address,
+    authProvider: null,
   }));
 
   if (scope === "players") {
