@@ -536,7 +536,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         });
       } else if (!data.stale && data.isVirtualPe) {
         toast.success('Balance updated', { 
-          description: `${data.peAvailable.toLocaleString()} PE available`
+          description: `${data.peAvailable.toLocaleString()} VPE available`
         });
       }
     } catch (err) {
@@ -857,8 +857,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           
           walletDebug('google_auth_complete', { userId: googleUser.id, provider: googleUser.auth_provider });
           const toastMsg = googleUser.auth_provider === 'both' 
-            ? 'Google linked! Wallet + Starter PE active'
-            : `${virtualPeAvailable.toLocaleString()} Starter PE ready to use`;
+            ? 'Google linked! Wallet + VPE active'
+            : `${virtualPeAvailable.toLocaleString()} VPE ready to use`;
           toast.success('Signed in with Google!', { description: toastMsg });
           soundEngine.play('wallet_connect');
           
