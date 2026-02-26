@@ -932,6 +932,10 @@ async function handleStreamingCommit(
         emit({ type: "progress", phase: "commit", processed: Math.floor(total * 0.2), total });
 
         // Execute commit with progress callback
+        // Determine if user paints with Virtual PE (VPE) for streaming path
+        const isVirtualPeStream = user.auth_provider === 'google' || 
+          (user.auth_provider === 'both' && !user.wallet_address);
+
         const result = await executeCommit(
           supabase,
           userId,
@@ -941,7 +945,9 @@ async function handleStreamingCommit(
           pePerPixel,
           pixelStates,
           user,
-          (processed, t) => emit({ type: "progress", phase: "commit", processed, total: t })
+          undefined,
+          (processed, t) => emit({ type: "progress", phase: "commit", processed, total: t }),
+          isVirtualPeStream
         );
 
         emit({ type: "done", result });
@@ -1106,6 +1112,10 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Determine if user paints with Virtual PE (VPE)
+    const isVirtualPe = user.auth_provider === 'google' || 
+      (user.auth_provider === 'both' && !user.wallet_address);
+
     // Re-check PAINT cooldown
     if (mode === "PAINT" && user.paint_cooldown_until) {
       const cooldownUntil = new Date(user.paint_cooldown_until);
@@ -1245,7 +1255,9 @@ Deno.serve(async (req) => {
       pePerPixel,
       pixelStates,
       user,
-      requestedColorMap
+      requestedColorMap,
+      undefined,
+      isVirtualPe
     );
 
     return new Response(JSON.stringify({
