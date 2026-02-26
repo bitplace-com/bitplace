@@ -30,7 +30,7 @@ export function useVpeRenew(userId: string | undefined): VpeRenewState {
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
   const fetchBatches = useCallback(async () => {
-      if (!userId) {
+    if (!userId) {
       setBatches({ urgent: 0, soon: 0, upcoming: 0, safe: 0 });
       setTotalVpePixels(0);
       setEarliestExpiry(null);
@@ -39,40 +39,41 @@ export function useVpeRenew(userId: string | undefined): VpeRenewState {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('pixels')
-        .select('expires_at')
-        .eq('owner_user_id', userId)
-        .eq('is_virtual_stake', true)
-        .not('expires_at', 'is', null);
+      const now = new Date();
+      const h6 = new Date(now.getTime() + 6 * 60 * 60 * 1000).toISOString();
+      const h24 = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+      const h48 = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString();
 
-      if (error) {
-        console.error('[useVpeRenew] fetch error:', error);
-        setIsLoading(false);
-        return;
-      }
+      const baseFilter = (q: any) =>
+        q.eq('owner_user_id', userId).eq('is_virtual_stake', true).not('expires_at', 'is', null);
 
-      const now = Date.now();
-      const h6 = 6 * 60 * 60 * 1000;
-      const h24 = 24 * 60 * 60 * 1000;
-      const h48 = 48 * 60 * 60 * 1000;
+      // All queries in parallel
+      const [totalRes, earliestRes, urgentRes, soonRes, upcomingRes] = await Promise.all([
+        // Q1: total count
+        baseFilter(supabase.from('pixels').select('*', { count: 'exact', head: true })),
+        // Q2: earliest expiry
+        baseFilter(supabase.from('pixels').select('expires_at')).order('expires_at', { ascending: true }).limit(1),
+        // Q3: urgent (< 6h)
+        baseFilter(supabase.from('pixels').select('*', { count: 'exact', head: true })).lt('expires_at', h6),
+        // Q4: soon (6-24h)
+        baseFilter(supabase.from('pixels').select('*', { count: 'exact', head: true })).gte('expires_at', h6).lt('expires_at', h24),
+        // Q5: upcoming (24-48h)
+        baseFilter(supabase.from('pixels').select('*', { count: 'exact', head: true })).gte('expires_at', h24).lt('expires_at', h48),
+      ]);
 
-      let urgent = 0, soon = 0, upcoming = 0, safe = 0;
-      let minExpiry = Infinity;
+      const total = totalRes.count ?? 0;
+      const urgent = urgentRes.count ?? 0;
+      const soon = soonRes.count ?? 0;
+      const upcoming = upcomingRes.count ?? 0;
+      const safe = total - urgent - soon - upcoming;
 
-      for (const row of data || []) {
-        const expiryMs = new Date(row.expires_at!).getTime();
-        const remaining = expiryMs - now;
-        if (expiryMs < minExpiry) minExpiry = expiryMs;
-        if (remaining < h6) urgent++;
-        else if (remaining < h24) soon++;
-        else if (remaining < h48) upcoming++;
-        else safe++;
-      }
+      const earliest = earliestRes.data?.[0]?.expires_at
+        ? new Date(earliestRes.data[0].expires_at)
+        : null;
 
       setBatches({ urgent, soon, upcoming, safe });
-      setTotalVpePixels(data?.length || 0);
-      setEarliestExpiry(minExpiry < Infinity ? new Date(minExpiry) : null);
+      setTotalVpePixels(total);
+      setEarliestExpiry(earliest);
     } catch (err) {
       console.error('[useVpeRenew] exception:', err);
     } finally {
