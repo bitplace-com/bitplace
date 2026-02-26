@@ -351,8 +351,8 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent relative"
             onClick={() => setPixelControlOpen(true)}
           >
-            <PixelIcon name="grid3x3" className="h-4 w-4" />
-            Pixel Control
+            <PixelIcon name="chartNetwork" className="h-4 w-4" />
+            Pixel Control Center
             {vpeRenew.renewableCount > 0 && (
               <span className="absolute right-3 top-1/2 -translate-y-1/2 h-5 min-w-5 px-1 flex items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
                 {vpeRenew.renewableCount}

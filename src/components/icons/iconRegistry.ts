@@ -93,6 +93,7 @@ import { PixelFire } from './custom/PixelFire';
 import { PixelMedia } from './custom/PixelMedia';
 import { PixelStartups } from './custom/PixelStartups';
 import { PixelGoogle } from './custom/PixelGoogle';
+import { PixelChartNetwork } from './custom/PixelChartNetwork';
 
 export type IconName =
   | 'hand'
@@ -186,7 +187,8 @@ export type IconName =
   | 'fire'
   | 'media'
   | 'startups'
-  | 'google';
+  | 'google'
+  | 'chartNetwork';
 
 type PixelIconComponent = ComponentType<SVGProps<SVGSVGElement> & { className?: string }>;
 
@@ -283,4 +285,5 @@ export const icons: Record<IconName, PixelIconComponent> = {
   media: PixelMedia,
   startups: PixelStartups,
   google: PixelGoogle,
+  chartNetwork: PixelChartNetwork,
 };
