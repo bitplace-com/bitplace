@@ -1,62 +1,82 @@
 
+# Rimozione completa della modalità Trial (Demo)
 
-## Multi-area UI improvements
+## Motivazione
+Con l'autenticazione Google che offre 300.000 pixel gratuiti, la modalità Trial (10.000 pixel locali, nulla salvato) non aggiunge valore e crea confusione. Rimuoverla semplifica il codice e l'esperienza utente.
 
-### 1. Google avatar as default Bitplace avatar
-- In `usePlayerProfile.ts`: fetch `google_avatar_url` from `public_user_profiles` or `public_pixel_owner_info`, and use it as fallback when `avatar_url` is null
-- In `PlayerProfileModal.tsx`: check `google_avatar_url` as fallback for avatar display
-- In `LeaderboardModal.tsx` (`PlayerRow`): check `google_avatar_url` from entry data as avatar fallback
-- The user can still override by uploading a custom avatar in Settings (existing flow unchanged)
+## Rischi / Problemi
+Nessun rischio reale:
+- I dati Trial sono solo in `localStorage`/`sessionStorage` (nessuna tabella DB coinvolta)
+- Nessun utente perde dati permanenti (i pixel Trial non venivano mai salvati)
+- Il flusso di autenticazione Google + Phantom resta invariato
 
-### 2. Remove brush icon from wallet button panel
-- In `WalletButton.tsx` (Google auth state, line ~133-134): remove `<PixelBalanceIcon size="xs" />` from the display, keep just `{virtualPeAvailable.toLocaleString()} Pixels`
+## File da modificare (14 file coinvolti)
 
-### 3. Change "available to paint" text in UserMenuPanel
-- In `UserMenuPanel.tsx` line ~172-174: change the available pixels display to `{number} * Available to use` format (dot separator + "Available to use")
+### 1. WalletContext.tsx — Rimuovere stato e logica Trial
+- Eliminare costanti: `TRIAL_MODE_KEY`, `TRIAL_WALLET_ADDRESS`, `TRIAL_PE_TOTAL`, `TRIAL_BIT_BALANCE`, `TRIAL_BIT_PRICE`, `trialEnergyState`
+- Eliminare stato `isTrialMode` e ref `isTrialModeRef`
+- Eliminare funzioni `activateTrialMode`, `exitTrialMode`, `updateTrialPe`
+- Rimuovere `isTrialMode` dal tipo del context e dal valore fornito
+- Semplificare `isConnected`, `isAuthenticated`, `needsSignature` (rimuovere check `isTrialMode`)
+- Rimuovere il branch trial dalla session restore
 
-### 4. Pixel Control Center improvements
-- Remove redundant info (repetition between stats and countdown text)
-- Add status colors: emerald background for "all safe" countdown, amber for "soon", red for "urgent"
-- Change "to earn PE" to "to get PE" in wallet section text (line ~254)
-- Improve PE section text to explain: "$BIT holdings determine your PE capacity based on their dollar value. PE makes your drawings permanent and protectable."
+### 2. WalletSelectModal.tsx — Rimuovere Tier 3 (Demo)
+- Rimuovere la prop `onActivateTrial` e il suo blocco UI (icona sparkles, "Try Without Account")
+- Rimuovere il separatore "or" prima del Tier Demo
 
-### 5. Player Profile tooltips
-- Add `TooltipProvider` wrapper to `PlayerProfileModal`
-- Wrap each `StatCard` label with tooltip explaining:
-  - Pixels Painted: "Total number of pixels this player has painted across all time"
-  - Pixels Owned: "Pixels currently owned by this player on the map"
-  - PE Used: "Paint Energy currently locked in pixel stakes" (was "PE Staked")
-  - PE Value: "Dollar value of staked PE at $0.001 per PE" (was "Staked Value")
-- Rename "PE Staked" to "PE Used" and "Staked Value" to "PE Value"
+### 3. WalletButton.tsx (desktop) — Rimuovere riferimenti Trial
+- Rimuovere prop `onActivateTrial` passata a `WalletSelectModal`
+- Rimuovere import/uso di `activateTrialMode` e `isTrialMode`
 
-### 6. Starter badge in leaderboard
-- Replace `<StarterBadge />` component in `LeaderboardModal.tsx` (`PlayerRow`) with the same inline `<span>` chip used in `UserMenuPanel` (matching proportions: `px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-foreground/10 text-foreground border border-border`)
-- Add shine animation to match PRO badge
+### 4. MobileWalletButton.tsx — Stessa pulizia
+- Rimuovere `activateTrialMode` e `isTrialMode` dal destructuring di `useWallet()`
+- Rimuovere `onActivateTrial` dal `WalletSelectModal`
 
-### 7. WalletSelectModal revamp as 3-tier account system
-- Redesign as 3 clear tiers with visual hierarchy:
-  1. **Google** (Tier 1 - Starter): Use real Google "G" logo SVG (multicolor), subtitle "300,000 free Pixels -- draw anywhere, expire after 72h"
-  2. **Phantom** (Tier 2 - Pro): Use the uploaded Phantom ghost logo (copy `Phantom_logo.png` to `src/assets/phantom-logo.png`), subtitle "Permanent PE from $BIT holdings -- full ownership"
-  3. **Try Free** (Tier 3 - Demo): Keep sparkles icon, "Preview only -- 10,000 test Pixels, nothing saved"
-- Update description text to remove old "Paint Energy" references and use current terminology
-- Improve visual styling: each tier gets a subtle numbered badge or label ("Starter", "Pro", "Demo")
-- Fix copy: replace outdated text mentioning "PE" where it should say "Pixels" for Google tier
+### 5. UserMenuPanel.tsx — Rimuovere badge e sezioni Trial
+- Rimuovere il badge "TRIAL", il testo "Test session", il bottone "Exit Trial", il bottone "Connect Real Wallet"
+- Semplificare tutte le condizioni `!isTrialMode` (diventano sempre true, quindi rimuovibili)
 
-### 8. Copy Phantom logo asset
-- Copy `user-uploads://Phantom_logo.png` to `src/assets/phantom-logo.png`
-- Import and use in `WalletSelectModal` as a rounded image instead of inline SVG
+### 6. useWalletGate.ts — Rimuovere bypass Trial
+- Rimuovere `isTrialMode` dal destructuring e dalla prima riga di `requireWallet`
+- Rimuovere dalla dependency array del `useCallback`
 
-### Technical details per file
+### 7. BitplaceMap.tsx — Pulizia consistente
+- Rimuovere `isTrialMode`, `activateTrialMode`, `updateTrialPe` dal destructuring
+- Rimuovere `trialValidationRef`, `TRIAL_PIXELS_KEY`, `MAX_TRIAL_PIXELS`
+- Rimuovere `saveTrialPixelsToStorage` e l'effect di restore trial pixels
+- Rimuovere tutti i branch `if (isTrialMode)` nel flusso paint/validate/commit
+- Rimuovere `isTrialMode` passato a `usePaintQueue`
 
-| File | Changes |
-|------|---------|
-| `src/assets/phantom-logo.png` | New file: copy from user upload |
-| `src/components/wallet/WalletButton.tsx` | Remove PixelBalanceIcon from Google auth display |
-| `src/components/modals/UserMenuPanel.tsx` | Change available text to "{n} * Available to use" |
-| `src/components/modals/PixelControlPanel.tsx` | Add status colors to countdown, fix PE section copy, remove redundancies |
-| `src/components/modals/PlayerProfileModal.tsx` | Add tooltips to stat cards, rename PE Staked/Staked Value, add TooltipProvider |
-| `src/components/modals/LeaderboardModal.tsx` | Improve StarterBadge styling + shine animation |
-| `src/components/modals/WalletSelectModal.tsx` | Full revamp: 3-tier design, real Google logo SVG, Phantom logo image, updated copy |
-| `src/hooks/usePlayerProfile.ts` | Fetch google_avatar_url, use as avatar fallback |
-| `src/components/ui/starter-badge.tsx` | Update styling to match UserMenuPanel chip + add shine |
+### 8. usePaintQueue.ts — Rimuovere parametro Trial
+- Rimuovere il parametro `isTrialMode` dalla firma
+- Rimuovere i branch che saltano il backend in modalita Trial
 
+### 9. useDraftPaint.ts — Rimuovere check Trial
+- Rimuovere `isTrialMode` da `useWallet()` e il branch che salta l'auth check
+
+### 10. usePixelDetails.ts — Rimuovere parametro e logica Trial
+- Rimuovere il parametro `isTrialMode` e tutta la logica "You (Trial)"
+- Rimuovere il lookup in `bitplace_trial_pixels` localStorage
+
+### 11. StatusStrip.tsx — Rimuovere badge Trial
+- Rimuovere `isTrialMode` dal destructuring
+- Rimuovere il badge "TRIAL" e la condizione `!isTrialMode` su cluster badge
+
+### 12. TermsPage.tsx — Aggiornare copy
+- Rimuovere il riferimento a "trial experience" nel testo legale, mantenendo la descrizione VPE/Google
+
+### 13. HudOverlay.tsx (o dove viene passato `isTrialMode` a `usePixelDetails`)
+- Rimuovere il passaggio del parametro `isTrialMode`
+
+### 14. Memory file — Eliminare o aggiornare
+- Rimuovere `memory/features/test-wallet-trial-mode` e `memory/gameplay/test-account-trial-limits`
+
+## Ordine di implementazione
+1. `WalletContext.tsx` (cuore della logica)
+2. `WalletSelectModal.tsx` (UI modale)
+3. `WalletButton.tsx` + `MobileWalletButton.tsx` (bottoni)
+4. `BitplaceMap.tsx` + `usePaintQueue.ts` + `useDraftPaint.ts` (flusso paint)
+5. `useWalletGate.ts` + `usePixelDetails.ts` (hooks)
+6. `UserMenuPanel.tsx` + `StatusStrip.tsx` (UI)
+7. `TermsPage.tsx` (copy legale)
+8. Pulizia riferimenti rimanenti
