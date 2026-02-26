@@ -1,42 +1,53 @@
 
 
-## VPE 72h timer renewal, tooltips VPE, e fix pannello utente
+## PRO badge basato su PE stakato + Periodic balance check
 
-### 1. WhitePaperModal - Aggiungere spiegazione timer renewal VPE
+### Stato attuale
 
-Nella sezione "Getting started (free)" (riga 63-70), dopo il paragrafo che spiega che i VPE pixel scadono dopo 72h, aggiungere una frase che spiega il meccanismo di rinnovo:
+- **VPE in Top Painters**: Gia funzionante. Il contatore `pixels_painted_total` viene incrementato anche per utenti VPE e NON viene decrementato alla scadenza dei pixel VPE. Nessuna modifica necessaria.
+- **PRO badge**: Attualmente mostrato per chiunque abbia un `walletAddress`. Va cambiato per mostrarlo solo a chi ha almeno 1 PE effettivamente stakato (`pe_used_pe > 0`).
+- **Balance check**: `energy-refresh` controlla la collateralizzazione ma solo quando l'utente e online. `rebalance-tick` lavora con il `pe_total_pe` memorizzato, che diventa stale se l'utente non torna. **Non esiste un job periodico che aggiorna i bilanci wallet da Solana per tutti gli utenti.**
 
-**Da** (riga 65):
-```
-VPE pixels are temporary — they expire after 72 hours and anyone can paint over them for free. When that happens, your VPE is recycled and you can use it again.
-```
+### 1. PRO badge basato su PE stakato
 
-**A**:
-```
-VPE pixels are temporary — they expire after 72 hours and anyone can paint over them for free. But you can keep them alive: just repaint your pixel anytime before it expires and the 72h timer resets. Come back regularly to maintain your artwork. When a VPE pixel expires or is painted over, your VPE is recycled and you can use it again.
-```
+**leaderboard-get/index.ts**: Aggiungere `pe_used_pe` ai dati restituiti per i player:
+- In `paintersAllTime`: aggiungere `pe_used_pe` alla select
+- In `fetchUserProfiles`: aggiungere `pe_used_pe` alla select  
+- In `playerEntry`: includere `peUsedPe` nel return
+- Per le RPC PE-based (investors/defenders/attackers): il `totalPe > 0` implica gia staking attivo
 
-### 2. UserMenuPanel - Aggiungere tooltip per VPE e fix sizing/scroll
+**useLeaderboard.ts**: Aggiungere `peUsedPe` a `PlayerPainterEntry` e `PlayerPeEntry`.
 
-**Tooltips VPE**: Nelle sezioni dove appare la riga "VPE pixels expire after 72h" (righe 169-171 e 218), wrappare con Tooltip o aggiungere testo piu chiaro. Aggiungere tooltip al titolo "VPE" header nelle sezioni Google-only (riga 158-159) e dual-account (riga 210-213) con spiegazione breve tipo: "Virtual Paint Energy — free energy for painting. VPE pixels expire after 72h but you can repaint them to reset the timer."
+**LeaderboardModal.tsx**: Cambiare la logica badge in `PlayerRow`:
+- Se `isAdmin` -> AdminBadge
+- Se ha wallet E `peUsedPe > 0` (o per PE sub-categories, `totalPe > 0`) -> ProBadge con shine
+- Se ha wallet ma 0 PE stakato -> nessun badge speciale (o Starter se preferisci)
+- Se NON ha wallet -> StarterBadge
 
-Aggiungere tooltips anche a:
-- **Pixels Owned** (riga 247-254): tooltip "Total pixels you currently own on the map."
-- **PE Available** stat (riga 302-311): tooltip "PE you can spend right now on paint, defend, attack, or reinforce."
+### 2. Periodic wallet balance check (nuova edge function)
 
-**Fix dimensione pannello**: Il `PopoverContent` (riga 65-68) non ha limiti di altezza e su desktop puo uscire dallo schermo.
+Creare `supabase/functions/balance-check-all/index.ts`:
+- Funzione cron che viene invocata periodicamente (ogni 6 ore, come rebalance-tick)
+- Carica tutti gli utenti wallet-based con `pe_used_pe > 0` (solo quelli con stake attivo)
+- Per ciascun utente, fetcha il bilancio $BIT da Solana RPC e ricalcola `pe_total_pe`
+- Se sotto-collateralizzato: purga le contributions e avvia rebalance (stessa logica di energy-refresh)
+- Rate limiting: processa max ~50 utenti per esecuzione per non sovraccaricare la Solana RPC
+- Logging dettagliato per monitorare lo stato
 
-Modificare la classe del PopoverContent aggiungendo `max-h-[85vh] overflow-y-auto`:
-```
-className="w-80 max-h-[85vh] overflow-y-auto p-0 bg-popover/95 backdrop-blur-xl border-border rounded-2xl shadow-xl z-50"
-```
+Questo garantisce che anche gli utenti che non tornano sulla piattaforma vengano eventualmente ri-bilanciati.
 
-Questo limita l'altezza massima all'85% del viewport e aggiunge scroll quando il contenuto non entra.
+### 3. Deploy
 
-### 3. Riepilogo file
+Deploy delle edge functions `leaderboard-get` e `balance-check-all`.
+
+---
+
+### File da modificare/creare
 
 | File | Modifiche |
 |------|-----------|
-| `src/components/modals/WhitePaperModal.tsx` | Aggiungere frase timer renewal VPE nella sezione "Getting started" |
-| `src/components/modals/UserMenuPanel.tsx` | Aggiungere `max-h-[85vh] overflow-y-auto` al PopoverContent; aggiungere tooltips a "VPE" header sections, "Pixels Owned", e "PE Available" |
+| `supabase/functions/leaderboard-get/index.ts` | Aggiungere `pe_used_pe` ai dati player |
+| `src/hooks/useLeaderboard.ts` | Aggiungere `peUsedPe` ai tipi entry |
+| `src/components/modals/LeaderboardModal.tsx` | PRO badge solo se `peUsedPe > 0` |
+| `supabase/functions/balance-check-all/index.ts` | **NUOVO** - Cron job per verificare bilanci wallet periodicamente |
 
