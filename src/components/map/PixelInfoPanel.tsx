@@ -21,6 +21,8 @@ import { AvatarFallback } from '@/components/ui/avatar-fallback-pattern';
 import { getCountryByCode } from '@/lib/countries';
 import { cn } from '@/lib/utils';
 import { PixelIcon } from '@/components/icons/PixelIcon';
+import { useLiveTick } from '@/hooks/useLiveTick';
+import { formatLiveCountdown } from '@/lib/formatLiveTime';
 
 interface PixelInfoPanelProps {
   x: number;
@@ -32,15 +34,6 @@ interface PixelInfoPanelProps {
   inDrawer?: boolean;
 }
 
-function formatTimeUntil(targetTime: Date): string {
-  const now = new Date();
-  const diffMs = targetTime.getTime() - now.getTime();
-  if (diffMs <= 0) return 'Now';
-  const hours = Math.floor(diffMs / (1000 * 60 * 60));
-  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-}
 
 function peToUsd(pe: number): string {
   const usd = pe * 0.001;
@@ -132,6 +125,7 @@ export function PixelInfoPanel({
 }: PixelInfoPanelProps) {
   const { isTrialMode } = useWallet();
   const { pixel, isLoading, refetch } = usePixelDetails(x, y, currentUserId, isTrialMode);
+  const now = useLiveTick();
   const [artworkModalOpen, setArtworkModalOpen] = useState(false);
 
   const handleJumpToPixel = (targetX: number, targetY: number) => {
@@ -339,20 +333,23 @@ export function PixelInfoPanel({
                 )}
                </div>
 
+               {/* ── Overview Section Title ── */}
+               <p className="text-[10px] uppercase tracking-wider text-muted-foreground text-center">Overview</p>
+
                {/* ── Owner Stats ── */}
                <div className="flex items-center gap-2 text-xs">
                  <div className="flex-1 bg-muted/70 rounded-lg px-2.5 py-2 text-center">
                    <div className="font-semibold text-foreground">{(pixel.owner?.pixels_painted_total ?? 0).toLocaleString()}</div>
-                   <div className="text-[10px] text-muted-foreground">Pixels</div>
+                   <div className="text-[10px] text-muted-foreground">Total Pixels Painted</div>
                  </div>
                  <TooltipProvider delayDuration={200}>
                    <Tooltip>
                      <TooltipTrigger asChild>
                        <div className="flex-1 bg-muted/70 rounded-lg px-2.5 py-2 text-center cursor-help">
                          <div className="font-semibold text-foreground flex items-center justify-center gap-0.5">
-                           {pixel.isVirtualStake ? '0' : (pixel.owner?.total_staked_pe ?? 0).toLocaleString()} {pixel.isVirtualStake ? <VPEIcon size="xs" /> : <PEIcon size="xs" />}
+                           {pixel.isVirtualStake ? '0' : (pixel.owner?.total_staked_pe ?? 0).toLocaleString()} <PEIcon size="xs" />
                          </div>
-                         <div className="text-[10px] text-muted-foreground">{pixel.isVirtualStake ? 'VPE' : 'PE'} Staked</div>
+                         <div className="text-[10px] text-muted-foreground">Total PE Staked</div>
                        </div>
                      </TooltipTrigger>
                      <TooltipContent side="bottom" className="max-w-56 text-xs">
@@ -364,9 +361,12 @@ export function PixelInfoPanel({
                  </TooltipProvider>
                  <div className="flex-1 bg-muted/70 rounded-lg px-2.5 py-2 text-center">
                    <div className="font-semibold text-emerald-500">{pixel.isVirtualStake ? '~$0.00' : peToUsd(pixel.owner?.total_staked_pe ?? 0)}</div>
-                   <div className="text-[10px] text-muted-foreground">Value</div>
+                   <div className="text-[10px] text-muted-foreground">Total PE Value</div>
                  </div>
                </div>
+
+               {/* ── In This Pixel Section Title ── */}
+               <p className="text-[10px] uppercase tracking-wider text-muted-foreground text-center">In this pixel</p>
 
                {/* ── Pixel Economy ── */}
               <div className="bg-muted/70 rounded-lg p-3 space-y-3">
@@ -377,7 +377,7 @@ export function PixelInfoPanel({
                    <TooltipTrigger asChild>
                    <div className="space-y-0.5 cursor-help">
                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                       {pixel.isVirtualStake ? <VPEIcon size="xs" /> : <PEIcon size="xs" />} {pixel.isVirtualStake ? 'VPE' : 'PE'} Owner Stake
+                       <PEIcon size="xs" /> PE Owner Stake
                      </span>
                     <div className="text-sm font-semibold">
                       {pixel.isVirtualStake ? '0' : pixel.owner_stake_pe.toLocaleString()} PE
@@ -398,7 +398,7 @@ export function PixelInfoPanel({
                    <TooltipTrigger asChild>
                    <div className="space-y-0.5 cursor-help">
                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                       {pixel.isVirtualStake ? <VPEIcon size="xs" /> : <PEIcon size="xs" />} {pixel.isVirtualStake ? 'VPE' : 'PE'} Total Stake
+                       <PEIcon size="xs" /> PE Total Stake
                      </span>
                     <div className={cn('text-sm font-semibold', !pixel.isVirtualStake && pixel.vNow < 0 && 'text-destructive')}>
                       {pixel.isVirtualStake ? '0' : pixel.vNow.toLocaleString()} PE
@@ -449,16 +449,12 @@ export function PixelInfoPanel({
               {/* ── Starter Pixel Expiry ── */}
               {pixel.isVirtualStake && pixel.expiresAt && (
                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1 font-medium">
-                      <VPEIcon size="xs" className="text-amber-600 dark:text-amber-400" /> VPE Pixel
-                    </span>
-                    <span className="font-semibold text-amber-600 dark:text-amber-400 tabular-nums">
-                      Expires in {formatTimeUntil(pixel.expiresAt)}
-                    </span>
+                  <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                    <PixelIcon name="clock" className="w-3.5 h-3.5 shrink-0" />
+                    <span className="tabular-nums">Expires in {formatLiveCountdown(pixel.expiresAt, now)}</span>
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    No PE staked (VPE only). Anyone can paint over.
+                  <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">
+                    This pixel has no PE (Paint Energy) staked, so it will expire when the timer runs out. Until then, anyone can paint over it for free.
                   </p>
                 </div>
               )}
@@ -509,7 +505,7 @@ export function PixelInfoPanel({
                     <div className="flex items-center justify-between text-xs pt-1 border-t border-amber-500/20">
                       {pixel.nextTickTime && (
                         <span className="text-muted-foreground">
-                          Next tick: <span className="font-mono tabular-nums font-medium text-foreground">{formatTimeUntil(pixel.nextTickTime)}</span>
+                          Next tick: <span className="font-mono tabular-nums font-medium text-foreground">{formatLiveCountdown(pixel.nextTickTime, now)}</span>
                         </span>
                       )}
                       {pixel.vFloorNext6h !== null && (
