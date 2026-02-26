@@ -123,11 +123,6 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                           ? `Renew ${vpeRenew.renewableCount} Pixel${vpeRenew.renewableCount !== 1 ? "s" : ""}`
                           : "Renew all pixels"}
                     </Button>
-                    <p className="text-[10px] text-muted-foreground text-center">
-                      {vpeRenew.renewableCount > 0
-                        ? "Resets 72h timer for each renewed pixel"
-                        : "Resets 72h timer · available after 48h from last paint"}
-                    </p>
                   </div>
                 )}
               </div>
