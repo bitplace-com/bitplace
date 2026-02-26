@@ -50,7 +50,7 @@ const TermsPage = () => {
               To access certain features of the Service, you must connect a Solana-compatible wallet (e.g., Phantom, Solflare). Your wallet address serves as your account identifier.
             </p>
             <p>
-              You may also sign in using your Google account. When you do, we receive your email, display name, and profile picture from Google to create and manage your Bitplace account. Google-authenticated accounts receive Virtual Paint Energy (VPE) for a trial experience; pixels placed with VPE expire after 72 hours unless defended with real PE by a wallet-connected user.
+              You may also sign in using your Google account. When you do, we receive your email, display name, and profile picture from Google to create and manage your Bitplace account. Google-authenticated accounts receive Virtual Paint Energy (VPE); pixels placed with VPE expire after 72 hours unless defended with real PE by a wallet-connected user.
             </p>
             <p>You are responsible for:</p>
             <ul className="list-disc pl-5 space-y-1">
