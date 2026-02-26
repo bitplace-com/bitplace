@@ -94,9 +94,10 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
                 <p>Key differences from PE:</p>
                 <ul className="list-disc list-inside pl-2 space-y-0.5">
                   <li>VPE pixels have a value of 0 — anyone can paint over them for free</li>
-                  <li>VPE pixels expire after 72 hours</li>
+                  <li>VPE pixels expire after 72h</li>
                   <li>When a VPE pixel expires or is painted over, the VPE is recycled back to you</li>
                   <li>VPE cannot be used for Defend, Attack, or Reinforce</li>
+                  <li>After 48h you can renew all your VPE pixels at once from Pixel Control — no need to repaint</li>
                   <li>To make pixels permanent, connect a wallet and use real PE</li>
                 </ul>
               </div>
@@ -167,7 +168,20 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
                 <h3 className="font-semibold">Decay</h3>
               </div>
               <p className="text-muted-foreground pl-9">
-                If the $ value of your wallet drops below what you've staked across all your pixels, your stakes start shrinking. The decay happens gradually over 3 days. You can stop it instantly by restoring your wallet's $ balance.
+                Your pixel stakes stay valid for 7 days after your last wallet verification. If you don't reconnect within 7 days, stakes gradually decay over 72h to a minimum of 1 PE per pixel. DEF and ATK contributions are not affected. Log in to reset the timer.
+              </p>
+            </section>
+
+            {/* Collateralization */}
+            <section className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <PixelIcon name="shield" size="sm" />
+                </div>
+                <h3 className="font-semibold">Collateralization</h3>
+              </div>
+              <p className="text-muted-foreground pl-9">
+                Your wallet's $BIT value backs your pixel stakes. As long as your wallet value covers your total staked PE, your pixels remain at full strength. If your wallet drops below your total staked PE, a 7-day grace period begins. After that, stakes decay linearly over 72h to a floor of 1 PE per pixel. Restoring your balance stops the decay instantly.
               </p>
             </section>
           </div>
@@ -204,8 +218,16 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
               <span className="text-muted-foreground text-right">Virtual Paint Energy — free energy for Starter accounts (72h expiry)</span>
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
+              <span className="font-medium">VPE Renew</span>
+              <span className="text-muted-foreground text-right">Batch-reset the 72h timer on all eligible VPE pixels</span>
+            </div>
+            <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">Decay</span>
               <span className="text-muted-foreground text-right">Gradual stake reduction when wallet balance drops</span>
+            </div>
+            <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
+              <span className="font-medium">Grace Period</span>
+              <span className="text-muted-foreground text-right">7 days of full stake validity after last wallet check</span>
             </div>
           </div>
         </div>
