@@ -72,7 +72,7 @@ async function fetchUserProfiles(supabase: SB, userIds: string[]) {
   if (userIds.length === 0) return new Map();
   const { data, error } = await supabase
     .from("users")
-    .select("id, display_name, country_code, alliance_tag, avatar_url, bio, social_x, social_instagram, social_website, wallet_address, auth_provider, pe_used_pe, native_balance")
+    .select("id, display_name, country_code, alliance_tag, avatar_url, google_avatar_url, bio, social_x, social_instagram, social_website, wallet_address, auth_provider, pe_used_pe, native_balance")
     .in("id", userIds);
   if (error) throw error;
   // deno-lint-ignore no-explicit-any
@@ -88,7 +88,7 @@ function playerEntry(user: any, totalPixels: number) {
     countryCode: user.country_code,
     allianceTag: user.alliance_tag,
     totalPixels,
-    avatarUrl: user.avatar_url || null,
+    avatarUrl: user.avatar_url || user.google_avatar_url || null,
     bio: user.bio || null,
     socialX: user.social_x || null,
     socialInstagram: user.social_instagram || null,
@@ -105,7 +105,7 @@ async function paintersAllTime(supabase: SB, scope: MacroScope) {
   if (scope === "players") {
     const { data, error } = await supabase
       .from("users")
-      .select("id, display_name, country_code, alliance_tag, avatar_url, bio, social_x, social_instagram, social_website, wallet_address, auth_provider, pixels_painted_total, pe_used_pe, native_balance")
+      .select("id, display_name, country_code, alliance_tag, avatar_url, google_avatar_url, bio, social_x, social_instagram, social_website, wallet_address, auth_provider, pixels_painted_total, pe_used_pe, native_balance")
       .gt("pixels_painted_total", 0)
       .order("pixels_painted_total", { ascending: false })
       .limit(50);
@@ -233,7 +233,7 @@ async function peLeaderboard(supabase: SB, scope: MacroScope, subCategory: SubCa
     countryCode: r.country_code,
     allianceTag: r.alliance_tag,
     totalPe: Number(r.total_pe),
-    avatarUrl: r.avatar_url,
+    avatarUrl: r.avatar_url || r.google_avatar_url || null,
     bio: r.bio,
     socialX: r.social_x,
     socialInstagram: r.social_instagram,

@@ -1010,6 +1010,7 @@ export type Database = {
           bio: string
           country_code: string
           display_name: string
+          google_avatar_url: string
           social_instagram: string
           social_website: string
           social_x: string
@@ -1026,6 +1027,7 @@ export type Database = {
           bio: string
           country_code: string
           display_name: string
+          google_avatar_url: string
           social_instagram: string
           social_website: string
           social_x: string
@@ -1042,6 +1044,7 @@ export type Database = {
           bio: string
           country_code: string
           display_name: string
+          google_avatar_url: string
           social_instagram: string
           social_website: string
           social_x: string
