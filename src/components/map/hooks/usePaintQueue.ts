@@ -161,7 +161,7 @@ export function usePaintQueue(
         });
         
         if (commitResult.peStatus) {
-          updatePeStatus(commitResult.peStatus);
+          updatePeStatus(commitResult.peStatus, undefined, commitResult.isVirtualPe);
         }
         refreshUser();
         soundEngine.play('paint_commit');

@@ -1,5 +1,6 @@
 import { PixelIcon } from "@/components/icons";
 import { PEIcon } from "@/components/ui/pe-icon";
+import { VPEIcon } from "@/components/ui/vpe-icon";
 import { ProBadge } from "@/components/ui/pro-badge";
 import { useState } from "react";
 import {
@@ -153,17 +154,17 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
         {isGoogleOnly && !isTrialMode ? (
           <div className="p-4 space-y-2">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-              <PixelIcon name="clock" className="h-3.5 w-3.5" />
+              <VPEIcon size="sm" className="text-muted-foreground" />
               <span className="uppercase tracking-wider font-medium">Starter PE</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-foreground tabular-nums">
-                {energy.peAvailable.toLocaleString()} PE available
+                {energy.virtualPeAvailable.toLocaleString()} PE available
               </span>
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>Used</span>
-              <span className="tabular-nums">{energy.peUsed.toLocaleString()} / {energy.peTotal.toLocaleString()}</span>
+              <span className="tabular-nums">{energy.virtualPeUsed.toLocaleString()} / {energy.virtualPeTotal.toLocaleString()}</span>
             </div>
             <p className="text-[10px] text-amber-500">
               Starter pixels expire after 72h
@@ -207,7 +208,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             {(energy.virtualPeTotal > 0) && (
               <div className="p-4 space-y-1">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                  <PixelIcon name="clock" className="h-3.5 w-3.5" />
+                  <VPEIcon size="sm" className="text-muted-foreground" />
                   <span className="uppercase tracking-wider font-medium">Starter PE</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
@@ -260,20 +261,32 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           </div>
           <div className="p-2.5 rounded-xl bg-accent border border-border">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-              <PEIcon size="xs" /> Total
+              <PEIcon size="xs" /> PE Total
             </p>
             <p className="text-sm font-semibold text-foreground tabular-nums">
-              {energy.peTotal.toLocaleString()}
+              {energy.isVirtualPe ? '0' : energy.peTotal.toLocaleString()}
             </p>
           </div>
-          <div className="p-2.5 rounded-xl bg-accent border border-border">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-              <PEIcon size="xs" /> Available
-            </p>
-            <p className="text-sm font-semibold text-foreground tabular-nums">
-              {energy.peAvailable.toLocaleString()}
-            </p>
-          </div>
+          {energy.virtualPeTotal > 0 && (
+            <div className="p-2.5 rounded-xl bg-accent border border-border">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                <VPEIcon size="xs" className="text-muted-foreground" /> VPE Avail
+              </p>
+              <p className="text-sm font-semibold text-foreground tabular-nums">
+                {energy.virtualPeAvailable.toLocaleString()}
+              </p>
+            </div>
+          )}
+          {!energy.isVirtualPe && (
+            <div className="p-2.5 rounded-xl bg-accent border border-border">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                <PEIcon size="xs" /> Available
+              </p>
+              <p className="text-sm font-semibold text-foreground tabular-nums">
+                {energy.peAvailable.toLocaleString()}
+              </p>
+            </div>
+          )}
         </div>
 
         <Separator className="bg-border" />
