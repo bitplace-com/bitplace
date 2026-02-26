@@ -374,7 +374,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                   className="w-full justify-start gap-3 h-10 rounded-xl text-foreground hover:bg-accent"
                   onClick={googleSignIn}
                 >
-                  <PixelIcon name="globe" className="h-4 w-4" />
+                  <PixelIcon name="google" className="h-4 w-4" />
                   Connect Google
                 </Button>
               )}

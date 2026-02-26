@@ -122,7 +122,7 @@ function PlayerRow({ entry, subCategory, onPlayerClick }: { entry: PlayerPainter
         <div className="flex items-center gap-1.5">
           <span className="font-medium text-sm truncate">{displayName}</span>
           {isAdmin(entry.walletAddress) && <AdminBadge />}
-          {(() => { const tier = getProTier(totalPeForBadge); return tier ? <ProBadge tier={tier} /> : null; })()}
+           {!isAdmin(entry.walletAddress) && entry.walletAddress ? <ProBadge shine size="sm" /> : (() => { const tier = getProTier(totalPeForBadge); return tier ? <ProBadge tier={tier} /> : null; })()}
           {entry.allianceTag && <span className="text-xs text-primary font-medium">[{entry.allianceTag}]</span>}
           {country && <span className="text-sm">{country.flag}</span>}
         </div>
