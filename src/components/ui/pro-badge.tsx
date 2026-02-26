@@ -28,7 +28,6 @@ export function ProBadge({ tier, shine, size = 'sm', className }: ProBadgeProps)
       title={shine ? 'PRO' : tier ? `Pro ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : 'PRO'}
     >
       <PixelPro shine={shine} className={size === 'md' ? 'w-5 h-5' : 'w-4 h-4'} />
-      {shine && <span className="text-[10px] font-semibold">PRO</span>}
     </span>
   );
 }

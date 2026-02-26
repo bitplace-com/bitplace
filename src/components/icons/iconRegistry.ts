@@ -91,6 +91,7 @@ import { PixelCybersecurity } from './custom/PixelCybersecurity';
 import { PixelFire } from './custom/PixelFire';
 import { PixelMedia } from './custom/PixelMedia';
 import { PixelStartups } from './custom/PixelStartups';
+import { PixelGoogle } from './custom/PixelGoogle';
 
 export type IconName =
   | 'hand'
@@ -182,7 +183,8 @@ export type IconName =
   | 'cybersecurity'
   | 'fire'
   | 'media'
-  | 'startups';
+  | 'startups'
+  | 'google';
 
 type PixelIconComponent = ComponentType<SVGProps<SVGSVGElement> & { className?: string }>;
 
@@ -277,4 +279,5 @@ export const icons: Record<IconName, PixelIconComponent> = {
   fire: PixelFire,
   media: PixelMedia,
   startups: PixelStartups,
+  google: PixelGoogle,
 };
