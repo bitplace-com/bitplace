@@ -66,7 +66,7 @@ export const TOUR_STEPS: TourStep[] = [
     id: 'wallet',
     target: 'wallet',
     title: 'Your Wallet',
-    description: 'Connect your Phantom wallet to fund your PE (Pixel Energy) — the energy you spend to paint, defend and attack on the map. Or try the Test Wallet to paint for free!',
+    description: 'Connect your Phantom wallet to fund your PE (Paint Energy) — the energy you spend to paint, defend and attack on the map. Or try the Test Wallet to paint for free!',
     position: 'left',
   },
 ];

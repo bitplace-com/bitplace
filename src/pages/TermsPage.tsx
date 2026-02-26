@@ -28,7 +28,7 @@ const TermsPage = () => {
               Welcome to Bitplace ("we", "our", "us"). By accessing or using our collaborative pixel art platform (the "Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, please do not use our Service.
             </p>
             <p>
-              Bitplace is a collaborative pixel art platform where users can place pixels on a world map, stake Pixel Energy (PE), compete for territory, and participate in a creative on-chain community.
+              Bitplace is a collaborative pixel art platform where users can place pixels on a world map, stake Paint Energy (PE), compete for territory, and participate in a creative on-chain community.
             </p>
           </div>
         </SectionCard>
@@ -50,7 +50,7 @@ const TermsPage = () => {
               To access certain features of the Service, you must connect a Solana-compatible wallet (e.g., Phantom, Solflare). Your wallet address serves as your account identifier.
             </p>
             <p>
-              You may also sign in using your Google account. When you do, we receive your email, display name, and profile picture from Google to create and manage your Bitplace account. Google-authenticated accounts receive Virtual Pixel Energy (VPE) for a trial experience; pixels placed with VPE expire after 72 hours unless defended with real PE by a wallet-connected user.
+              You may also sign in using your Google account. When you do, we receive your email, display name, and profile picture from Google to create and manage your Bitplace account. Google-authenticated accounts receive Virtual Paint Energy (VPE) for a trial experience; pixels placed with VPE expire after 72 hours unless defended with real PE by a wallet-connected user.
             </p>
             <p>You are responsible for:</p>
             <ul className="list-disc pl-5 space-y-1">
@@ -92,10 +92,10 @@ const TermsPage = () => {
           </div>
         </SectionCard>
 
-        <SectionCard title="5. Virtual Currency & Pixel Energy">
+        <SectionCard title="5. Virtual Currency & Paint Energy">
           <div className="space-y-3 text-sm text-muted-foreground">
             <p>
-              The Service includes a virtual economy based on $BIT tokens and Pixel Energy (PE). PE is derived from your $BIT balance and is used for all map actions including Paint, Defend, Attack, and Reinforce.
+              The Service includes a virtual economy based on $BIT tokens and Paint Energy (PE). PE is derived from your $BIT balance and is used for all map actions including Paint, Defend, Attack, and Reinforce.
             </p>
             <p>Important information about the virtual economy:</p>
             <ul className="list-disc pl-5 space-y-1">

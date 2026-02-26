@@ -189,7 +189,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
                 </div>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-64 text-xs">
-                Virtual Pixel Energy (VPE): free energy for Starter accounts. VPE pixels expire after 72h and can be painted over by anyone.
+                Virtual Paint Energy (VPE): free energy for Starter accounts. VPE pixels expire after 72h and can be painted over by anyone.
               </TooltipContent>
             </Tooltip>
           ) : (
@@ -209,7 +209,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
                 </div>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-64 text-xs">
-                Pixel Energy (PE): your energy capacity based on your $BIT wallet value. 1 PE = $0.001.
+                Paint Energy (PE): your energy capacity based on your $BIT wallet value. 1 PE = $0.001.
               </TooltipContent>
             </Tooltip>
           )}

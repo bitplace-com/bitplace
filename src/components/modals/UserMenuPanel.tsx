@@ -279,7 +279,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               </div>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-56 text-xs">
-              Your total Pixel Energy, calculated from the dollar value of $BIT in your wallet.
+              Your total Paint Energy, calculated from the dollar value of $BIT in your wallet.
             </TooltipContent>
           </Tooltip>
           {energy.virtualPeTotal > 0 && (

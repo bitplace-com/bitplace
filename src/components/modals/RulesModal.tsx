@@ -72,7 +72,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
                 <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
                   <PixelIcon name="bolt" size="sm" />
                 </div>
-                <h3 className="font-semibold">Pixel Energy (PE)</h3>
+                <h3 className="font-semibold">Paint Energy (PE)</h3>
               </div>
               <p className="text-muted-foreground pl-9">
                 The unit of energy in Bitplace. Your PE capacity depends on the $ value of $BIT in your wallet. Every action on the map costs PE. You can see your current PE balance in the top bar. 1 PE = $0.001.
@@ -85,7 +85,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
                 <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
                   <PixelIcon name="boltOutline" size="sm" />
                 </div>
-                <h3 className="font-semibold">Virtual Pixel Energy (VPE)</h3>
+                <h3 className="font-semibold">Virtual Paint Energy (VPE)</h3>
               </div>
               <p className="text-muted-foreground pl-9">
                 Free energy available when you sign in with Google. You get 300,000 recyclable VPE to try the game without buying tokens.
@@ -181,7 +181,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
           <div className="grid gap-2 text-xs">
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">PE</span>
-              <span className="text-muted-foreground text-right">Pixel Energy — your capacity to act on the map</span>
+              <span className="text-muted-foreground text-right">Paint Energy — your capacity to act on the map</span>
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">Stake</span>
@@ -201,7 +201,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">VPE</span>
-              <span className="text-muted-foreground text-right">Virtual PE — free energy for Starter accounts (72h expiry)</span>
+              <span className="text-muted-foreground text-right">Virtual Paint Energy — free energy for Starter accounts (72h expiry)</span>
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">Decay</span>

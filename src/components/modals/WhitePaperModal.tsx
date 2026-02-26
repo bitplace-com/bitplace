@@ -49,7 +49,7 @@ export function WhitePaperModal({
             <h2 className="text-lg font-semibold text-foreground">Getting started (free)</h2>
             <p className="text-sm text-muted-foreground">
               You don't need a wallet or tokens to start. Sign in with Google and you'll receive{" "}
-              <span className="text-foreground font-medium">300,000 VPE</span> (Virtual Pixel Energy) — free energy to paint pixels and explore the map.
+              <span className="text-foreground font-medium">300,000 VPE</span> (Virtual Paint Energy) — free energy to paint pixels and explore the map.
             </p>
             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-3 flex-wrap">
               <span className="px-3 py-1.5 rounded-lg bg-muted">Sign in with Google</span>
@@ -105,7 +105,7 @@ export function WhitePaperModal({
               </div>
               <p className="text-sm text-muted-foreground">
                 <span className="text-foreground font-medium">Your $BIT is never spent.</span>{" "}
-                Your token balance determines how much Pixel Energy you receive — equal in dollar value to your $BIT holdings. Only PE is consumed when you paint, defend or attack. Your $BIT stays safe in your wallet at all times — Bitplace has no access to it and cannot move or spend your tokens.
+                Your token balance determines how much Paint Energy you receive — equal in dollar value to your $BIT holdings. Only PE is consumed when you paint, defend or attack. Your $BIT stays safe in your wallet at all times — Bitplace has no access to it and cannot move or spend your tokens.
               </p>
             </div>
           </section>

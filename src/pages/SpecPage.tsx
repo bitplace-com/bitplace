@@ -27,7 +27,7 @@ export default function SpecPage() {
           <div className="space-y-4 text-sm">
             <div>
               <p><strong>Token:</strong> $BIT (Solana SPL token)</p>
-              <p><strong>Energy Unit:</strong> PE (Pixel Energy)</p>
+              <p><strong>Energy Unit:</strong> PE (Paint Energy)</p>
             </div>
             <div className="bg-muted/50 p-3 rounded-md font-mono text-xs">
               1 PE = $0.001 USD<br />

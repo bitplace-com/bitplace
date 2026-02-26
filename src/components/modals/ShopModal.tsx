@@ -139,7 +139,7 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
       open={open}
       onOpenChange={onOpenChange}
       title="Get more PE"
-      description={`Increase your Pixel Energy by adding ${assetSymbol} to your wallet`}
+      description={`Increase your Paint Energy by adding ${assetSymbol} to your wallet`}
       icon={<PixelIcon name="coins" className="h-5 w-5" />}
       size="sm"
     >
