@@ -660,6 +660,7 @@ export type Database = {
           google_avatar_url: string | null
           google_user_id: string | null
           id: string
+          last_balance_verified_at: string | null
           last_energy_sync_at: string | null
           level: number
           native_balance: number | null
@@ -700,6 +701,7 @@ export type Database = {
           google_avatar_url?: string | null
           google_user_id?: string | null
           id?: string
+          last_balance_verified_at?: string | null
           last_energy_sync_at?: string | null
           level?: number
           native_balance?: number | null
@@ -740,6 +742,7 @@ export type Database = {
           google_avatar_url?: string | null
           google_user_id?: string | null
           id?: string
+          last_balance_verified_at?: string | null
           last_energy_sync_at?: string | null
           level?: number
           native_balance?: number | null
