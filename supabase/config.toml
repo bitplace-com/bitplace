@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.pixels-cleanup-expired]
 verify_jwt = false
+
+[functions.balance-check-all]
+verify_jwt = false
