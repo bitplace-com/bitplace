@@ -20,6 +20,8 @@ import { cn, formatUsd, formatNumber } from "@/lib/utils";
 import { SettingsModal } from "./SettingsModal";
 import { LeaderboardModal } from "./LeaderboardModal";
 import { ShopModal } from "./ShopModal";
+import { PixelControlPanel } from "./PixelControlPanel";
+import { useVpeRenew } from "@/hooks/useVpeRenew";
 
 interface UserMenuPanelProps {
   children: React.ReactNode;
@@ -47,6 +49,8 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
+  const [pixelControlOpen, setPixelControlOpen] = useState(false);
+  const vpeRenew = useVpeRenew(user?.id);
   const { enabled: soundEnabled, toggle: toggleSound } = useSound();
 
   const country = getCountryByCode(user?.country_code);
@@ -346,6 +350,19 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
         <div className="p-2">
           <Button
             variant="ghost"
+            className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent relative"
+            onClick={() => setPixelControlOpen(true)}
+          >
+            <PixelIcon name="grid3x3" className="h-4 w-4" />
+            Pixel Control
+            {vpeRenew.renewableCount > 0 && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 h-5 min-w-5 px-1 flex items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
+                {vpeRenew.renewableCount}
+              </span>
+            )}
+          </Button>
+          <Button
+            variant="ghost"
             className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
             onClick={() => setLeaderboardOpen(true)}
           >
@@ -464,6 +481,9 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
       
       {/* Shop Modal */}
       <ShopModal open={shopOpen} onOpenChange={setShopOpen} />
+      
+      {/* Pixel Control Panel */}
+      <PixelControlPanel open={pixelControlOpen} onOpenChange={setPixelControlOpen} />
     </Popover>
   );
 }

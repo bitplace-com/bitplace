@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { StatusAlerts } from './StatusAlerts';
 import { PAINT_MAX_PIXELS } from './hooks/useDraftPaint';
+import { useVpeRenew } from '@/hooks/useVpeRenew';
 
 interface StatusStripProps {
   userId?: string;
@@ -48,6 +49,8 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
   const { energy, refreshEnergy, needsSignature, signIn, isTrialMode, isGoogleOnly, user } = useWallet();
   // Paint cooldown
   const { isOnCooldown, formatCooldown } = usePaintCooldown(energy.paintCooldownUntil);
+  // VPE renewal
+  const vpeRenew = useVpeRenew(userId);
 
   if (!userId) {
     return (
@@ -232,8 +235,26 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             </div>
           )}
 
+          {/* VPE Expiring Alert */}
+          {vpeRenew.expiringBatches.urgent > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('bitplace:open-pixel-control'))}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+                >
+                  <PixelIcon name="clock" className="h-3.5 w-3.5 animate-pulse" />
+                  {vpeRenew.expiringBatches.urgent} VPE expiring
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                {vpeRenew.expiringBatches.urgent} VPE pixels expire in less than 6h. Open Pixel Control to renew.
+              </TooltipContent>
+            </Tooltip>
+          )}
+
           {/* Status Alerts - actionable chips for Lost/Under Attack/Contested */}
-          <StatusAlerts 
+          <StatusAlerts
             userId={userId} 
             onJumpToPixel={(x, y) => {
               window.dispatchEvent(new CustomEvent('bitplace:inspect', { detail: { x, y } }));
