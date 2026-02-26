@@ -137,6 +137,9 @@ export function WalletButton() {
           <span className="font-mono text-xs text-foreground">
             {shortenAddress(walletAddress)}
           </span>
+          {energy.nativeBalance >= 1 && (
+            <ProBadge shine size="sm" />
+          )}
           <span className="text-xs text-muted-foreground">•</span>
           <span className="text-xs font-medium text-foreground">
             {formatNumber(energy.nativeBalance, 2)} {energy.nativeSymbol}

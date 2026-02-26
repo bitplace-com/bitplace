@@ -40,7 +40,7 @@ function formatRelativeTime(date: Date | null): string {
 }
 
 export function UserMenuPanel({ children }: UserMenuPanelProps) {
-  const { user, walletAddress, disconnect, energy, isTrialMode, connect, isGoogleAuth, isGoogleOnly, linkWallet } = useWallet();
+  const { user, walletAddress, disconnect, energy, isTrialMode, connect, isGoogleAuth, isGoogleOnly, linkWallet, googleSignIn } = useWallet();
   const [copied, setCopied] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
@@ -104,7 +104,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                     </span>
                   ) : null
                 )}
-                {user?.auth_provider === 'both' && energy.nativeBalance >= 1 && !isTrialMode && (
+                {!isTrialMode && energy.nativeBalance >= 1 && (
                   <ProBadge shine size="sm" />
                 )}
               </div>
@@ -367,14 +367,26 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               </Button>
             </>
           ) : (
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 h-10 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={disconnect}
-            >
-              <PixelIcon name="logout" className="h-4 w-4" />
-              Disconnect
-            </Button>
+            <>
+              {user?.auth_provider !== 'both' && (
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start gap-3 h-10 rounded-xl text-foreground hover:bg-accent"
+                  onClick={googleSignIn}
+                >
+                  <PixelIcon name="globe" className="h-4 w-4" />
+                  Connect Google
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3 h-10 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={disconnect}
+              >
+                <PixelIcon name="logout" className="h-4 w-4" />
+                Disconnect
+              </Button>
+            </>
           )}
         </div>
       </PopoverContent>

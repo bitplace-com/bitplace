@@ -11,10 +11,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
-function shortenAddress(address: string): string {
-  return `${address.slice(0, 4)}…${address.slice(-4)}`;
-}
-
 interface WalletSelectModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -116,7 +112,7 @@ export function WalletSelectModal({
             Sign In
           </DialogTitle>
           <DialogDescription>
-            Connect a wallet or sign in with Google to play Bitplace.
+            Choose how to play Bitplace. Each method gives you different Pixel Energy.
           </DialogDescription>
         </DialogHeader>
 
@@ -141,7 +137,7 @@ export function WalletSelectModal({
               <div className="flex-1 text-left">
                 <div className="font-medium text-foreground">Continue with Phantom</div>
                 <div className="text-sm text-muted-foreground">
-                  {shortenAddress(connectedWalletAddress)} · Sign to authenticate
+                  Sign to complete authentication
                 </div>
               </div>
               <PixelIcon name="externalLink" size="md" className="text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
@@ -177,7 +173,7 @@ export function WalletSelectModal({
             <div className="flex-1 text-left">
               <div className="font-medium text-foreground">Sign in with Google</div>
               <div className="text-sm text-muted-foreground">
-                Start with 300,000 Starter PE
+                300,000 recyclable PE — pixels expire after 72h
               </div>
             </div>
             <PixelIcon name="externalLink" size="md" className="text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
@@ -207,7 +203,7 @@ export function WalletSelectModal({
                 <div className="flex-1 text-left">
                   <div className="font-medium text-foreground">Phantom</div>
                   <div className="text-sm text-muted-foreground">
-                    {phantomInstalled === null ? 'Detecting...' : phantomInstalled ? (isInPhantomBrowser ? 'Tap to connect' : 'Solana wallet') : isMobile ? 'Open in Phantom app' : 'Not installed'}
+                    {phantomInstalled === null ? 'Detecting...' : phantomInstalled ? 'Permanent PE based on your $BIT holdings' : isMobile ? 'Open in Phantom app' : 'Install to get permanent PE'}
                   </div>
                 </div>
                 <div className="flex-shrink-0">
@@ -234,7 +230,7 @@ export function WalletSelectModal({
                 No wallet? <span className="font-medium text-foreground">Try without one.</span>
               </p>
               <p className="text-[11px] text-muted-foreground mb-3">
-                Paint with 10,000 free test PE. Nothing is saved — it's just a preview of the experience.
+                Preview only — 10,000 test PE, nothing is saved to the map.
               </p>
               <Button
                 variant="outline"
@@ -246,7 +242,7 @@ export function WalletSelectModal({
                 className="gap-2"
               >
                 <PixelIcon name="sparkles" size="sm" />
-                Try Test Wallet
+                Try Test Account
               </Button>
             </div>
           )}
