@@ -99,8 +99,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                 )}
                 {isGoogleOnly && !isTrialMode && (
                   user?.auth_provider !== 'both' ? (
-                    <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 shrink-0 flex items-center gap-0.5">
-                      <PixelIcon name="clock" className="h-2.5 w-2.5" />
+                    <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-foreground/10 text-foreground border border-border shrink-0">
                       STARTER
                     </span>
                   ) : null
