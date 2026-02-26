@@ -1,33 +1,52 @@
 
 
-## Fix: Pixel VPE non mostra 0 PE e countdown
+## Fix VPE: errore paint, icone PE, label e bilanci
 
-### Problema
-Quando un utente Google dipinge con VPE, i pixel risultano con `is_virtual_stake = false` e `owner_stake_pe = 1` nel database, invece di `is_virtual_stake = true`, `owner_stake_pe = 0` e `expires_at` impostato a 72h. Di conseguenza l'ispettore mostra "1 PE" invece di "0 PE" e manca il timer di scadenza.
+### 1. Fix critico: `totalVirtualPeCost is not defined` nel game-commit
 
-### Causa
-In `game-commit/index.ts`, la funzione `executeCommit` accetta il parametro `isVirtualPe`, ma il chiamante principale (linea 1239) non lo passa mai. Il flag viene determinato correttamente in `game-validate`, ma `game-commit` non lo calcola autonomamente.
+**Problema**: La variabile `totalVirtualPeCost` e' dichiarata con `let` dentro il blocco `else if (mode === "PAINT")` (riga 531), ma viene usata alla riga 762 che si trova fuori da quel blocco. Questo causa `ReferenceError` dopo che i pixel sono gia stati scritti nel DB, quindi i pixel appaiono sulla mappa ma:
+- Il contatore `virtual_pe_used` non viene aggiornato
+- La risposta al client fallisce con errore 500
+- I VPE usati non si aggiornano nell'interfaccia
 
-### Soluzione
-Aggiungere la determinazione automatica di `isVirtualPe` nel handler principale di `game-commit`, basandosi su `user.auth_provider` e `user.wallet_address` (stessa logica usata in `game-validate`).
-
-### File da modificare
+**Fix**: Spostare la dichiarazione `let totalVirtualPeCost = 0` all'inizio della funzione `executeCommit` (dopo riga 284), cosi e' accessibile sia nel blocco PAINT che nel blocco stats update.
 
 | File | Modifica |
 |------|----------|
-| `supabase/functions/game-commit/index.ts` | Calcolare `isVirtualPe` dai dati utente e passarlo a `executeCommit` (sia streaming che non-streaming) |
+| `supabase/functions/game-commit/index.ts` | Spostare `let totalVirtualPeCost = 0` da riga 531 a riga 285 (scope della funzione) |
+
+### 2. Label UI: "Total Staked" -> "PE Staked", "VPE Avail" -> "VPE Available"
+
+| File | Riga | Da | A |
+|------|------|-----|-----|
+| `src/components/modals/UserMenuPanel.tsx` | 255 | `Total Staked` | `PE Staked` |
+| `src/components/modals/UserMenuPanel.tsx` | 272 | `VPE Avail` | `VPE Available` |
+
+### 3. Icona PE: usare bolt solid ovunque per i PE
+
+Il `PEIcon` gia usa `name="bolt"` (solid). Verifico che nei punti chiave dell'inspector venga usato `PEIcon` e non un'icona diversa. Dai file letti, il `PixelInfoPanel` usa correttamente `PEIcon` e `VPEIcon` in modo differenziato. Non servono modifiche all'icona.
+
+### 4. Deploy e verifica
+
+Dopo le modifiche, deploy della funzione `game-commit` e verifica che:
+- Il paint con VPE non genera errori
+- `virtual_pe_used` si aggiorna correttamente
+- La risposta include `peStatus` con i valori VPE aggiornati
+- Le label nel menu utente sono corrette
 
 ### Dettaglio tecnico
 
-**Dopo la riga 1107** (dopo il fetch dell'utente), aggiungere:
-```typescript
-const isVirtualPe = user.auth_provider === 'google' || 
-  (user.auth_provider === 'both' && !user.wallet_address);
+**game-commit/index.ts** - Fix scoping variabile:
+```text
+// PRIMA (riga 531, dentro blocco PAINT):
+let totalVirtualPeCost = 0;
+
+// DOPO (riga 285, inizio executeCommit):
+let totalVirtualPeCost = 0;
+// + rimuovere la dichiarazione dalla riga 531
 ```
 
-**Riga 1239-1249** (chiamata `executeCommit` non-streaming): aggiungere `requestedColorMap, undefined, isVirtualPe` come ultimi parametri.
-
-**Riga 935** (chiamata `executeCommit` streaming): aggiungere il parametro `isVirtualPe` anche qui, calcolandolo dai dati utente passati alla funzione.
-
-Questo farà si che i pixel dipinti da utenti Google-only vengano salvati con `owner_stake_pe: 0`, `is_virtual_stake: true` e `expires_at` a +72h, permettendo all'ispettore di mostrare correttamente "0 PE" e il countdown di scadenza.
+**UserMenuPanel.tsx** - Label updates:
+- Riga 255: `Total Staked` -> `PE Staked`
+- Riga 272: `VPE Avail` -> `VPE Available`
 
