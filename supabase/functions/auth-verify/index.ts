@@ -178,19 +178,96 @@ serve(async (req) => {
       // Check if wallet is already used by another user
       const { data: existingWalletUser } = await supabase
         .from('users')
-        .select('id')
+        .select('*')
         .eq('wallet_address', wallet)
         .maybeSingle();
 
       if (existingWalletUser && existingWalletUser.id !== linkPayload.userId) {
-        console.error('Wallet already in use by another account');
+        // Only merge if the existing wallet user is wallet-only
+        if (existingWalletUser.auth_provider !== 'wallet') {
+          console.error('Wallet linked to another multi-auth account');
+          return new Response(
+            JSON.stringify({ error: 'This wallet is already linked to another multi-auth account' }),
+            { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // === ACCOUNT MERGE: transfer everything from wallet-only user to Google user ===
+        const walletUserId = existingWalletUser.id;
+        const googleUserId = linkPayload.userId;
+        console.log(`Merging wallet-only user ${walletUserId} into Google user ${googleUserId}`);
+
+        // Transfer pixels
+        await supabase.from('pixels').update({ owner_user_id: googleUserId }).eq('owner_user_id', walletUserId);
+        // Transfer pixel contributions
+        await supabase.from('pixel_contributions').update({ user_id: googleUserId }).eq('user_id', walletUserId);
+        // Transfer notifications
+        await supabase.from('notifications').update({ user_id: googleUserId }).eq('user_id', walletUserId);
+        // Transfer user_pins
+        await supabase.from('user_pins').update({ user_id: googleUserId }).eq('user_id', walletUserId);
+        // Transfer places
+        await supabase.from('places').update({ creator_user_id: googleUserId }).eq('creator_user_id', walletUserId);
+        // Transfer follows (follower side)
+        await supabase.from('user_follows').update({ follower_id: googleUserId }).eq('follower_id', walletUserId);
+        // Transfer follows (followed side)
+        await supabase.from('user_follows').update({ followed_id: googleUserId }).eq('followed_id', walletUserId);
+        // Transfer alliance membership
+        await supabase.from('alliance_members').update({ user_id: googleUserId }).eq('user_id', walletUserId);
+
+        // Merge stats onto Google user
+        const { data: googleUser } = await supabase.from('users').select('*').eq('id', googleUserId).single();
+        if (!googleUser) {
+          return new Response(
+            JSON.stringify({ error: 'Google user not found during merge' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: mergedUser, error: mergeError } = await supabase
+          .from('users')
+          .update({
+            wallet_address: wallet,
+            auth_provider: 'both',
+            pixels_painted_total: (googleUser.pixels_painted_total || 0) + (existingWalletUser.pixels_painted_total || 0),
+            pe_used_pe: (googleUser.pe_used_pe || 0) + (existingWalletUser.pe_used_pe || 0),
+            takeover_def_pe_total: (googleUser.takeover_def_pe_total || 0) + (existingWalletUser.takeover_def_pe_total || 0),
+            takeover_atk_pe_total: (googleUser.takeover_atk_pe_total || 0) + (existingWalletUser.takeover_atk_pe_total || 0),
+            xp: (googleUser.xp || 0) + (existingWalletUser.xp || 0),
+            virtual_pe_total: 300000,
+            alliance_tag: googleUser.alliance_tag || existingWalletUser.alliance_tag,
+          })
+          .eq('id', googleUserId)
+          .select()
+          .single();
+
+        if (mergeError || !mergedUser) {
+          console.error('Failed to merge accounts:', mergeError);
+          return new Response(
+            JSON.stringify({ error: 'Failed to merge accounts' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Delete the old wallet-only user
+        await supabase.from('users').delete().eq('id', walletUserId);
+        console.log(`Account merge complete. Wallet user ${walletUserId} deleted.`);
+
+        // Generate new token
+        const tokenPayload = {
+          wallet: wallet,
+          userId: mergedUser.id,
+          authProvider: 'both',
+          exp: Date.now() + 24 * 60 * 60 * 1000,
+        };
+        const token = await signToken(tokenPayload, authSecret);
+
         return new Response(
-          JSON.stringify({ error: 'This wallet is already linked to another account' }),
-          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ token, user: mergedUser }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // Update user: set wallet_address and auth_provider to 'both'
+      // No conflict or wallet belongs to same user — just update
       const { data: updatedUser, error: updateError } = await supabase
         .from('users')
         .update({ 
