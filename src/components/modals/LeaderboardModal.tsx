@@ -2,6 +2,7 @@ import { useState } from "react";
 import { PixelIcon } from "@/components/icons";
 import { ProBadge } from "@/components/ui/pro-badge";
 import { AdminBadge } from "@/components/ui/admin-badge";
+import { StarterBadge } from "@/components/ui/starter-badge";
 import { getProTier, isAdmin } from "@/lib/userBadges";
 import { GamePanel } from "./GamePanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -122,7 +123,8 @@ function PlayerRow({ entry, subCategory, onPlayerClick }: { entry: PlayerPainter
         <div className="flex items-center gap-1.5">
           <span className="font-medium text-sm truncate">{displayName}</span>
           {isAdmin(entry.walletAddress) && <AdminBadge />}
-           {!isAdmin(entry.walletAddress) && entry.walletAddress ? <ProBadge shine size="sm" /> : (() => { const tier = getProTier(totalPeForBadge); return tier ? <ProBadge tier={tier} /> : null; })()}
+          {!isAdmin(entry.walletAddress) && entry.walletAddress && <ProBadge shine size="sm" />}
+          {!isAdmin(entry.walletAddress) && !entry.walletAddress && <StarterBadge />}
           {entry.allianceTag && <span className="text-xs text-primary font-medium">[{entry.allianceTag}]</span>}
           {country && <span className="text-sm">{country.flag}</span>}
         </div>

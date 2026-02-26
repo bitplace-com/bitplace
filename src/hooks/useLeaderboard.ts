@@ -18,6 +18,7 @@ export interface PlayerPainterEntry {
   socialInstagram: string | null;
   socialWebsite: string | null;
   walletAddress: string | null;
+  authProvider: string | null;
 }
 
 export interface PlayerPeEntry {
@@ -33,6 +34,7 @@ export interface PlayerPeEntry {
   socialInstagram: string | null;
   socialWebsite: string | null;
   walletAddress: string | null;
+  authProvider: string | null;
 }
 
 export interface CountryPainterEntry {

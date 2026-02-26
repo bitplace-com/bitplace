@@ -37,10 +37,10 @@ export function WhitePaperModal({
           {/* Action Cards */}
           <section className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <ActionCard icon={<PixelIcon name="brush" size="md" />} title="Paint" description="Color any pixel on the map. Stake energy to paint it. Your mark stays until someone paints over it." />
-              <ActionCard icon={<PixelIcon name="shield" size="md" />} title="Defend" description="Add energy to protect any pixel. The more energy staked, the harder it is to Attack." />
-              <ActionCard icon={<PixelIcon name="swords" size="md" />} title="Attack" description="Drain energy from pixels you want to repaint. Each Attack weakens the pixel. When it's weak enough, you can paint over it." />
-              <ActionCard icon={<PixelIcon name="bolt" size="md" />} title="Reinforce" description="Add more energy to pixels you already painted. Strengthens your stake and makes your artwork harder to take." />
+              <ActionCard icon={<PixelIcon name="brush" size="md" />} title="Paint" description="Color any pixel on the map. Stake paint energy to claim it. Your mark stays until someone paints over it." />
+              <ActionCard icon={<PixelIcon name="shield" size="md" />} title="Defend" description="Add paint energy to protect any pixel. The more PE staked, the harder it is to Attack." />
+              <ActionCard icon={<PixelIcon name="swords" size="md" />} title="Attack" description="Drain paint energy from pixels you want to repaint. Each Attack weakens the pixel. When it's weak enough, you can paint over it." />
+              <ActionCard icon={<PixelIcon name="bolt" size="md" />} title="Reinforce" description="Add more paint energy to pixels you already painted. Strengthens your PE stake and makes your artwork harder to take." />
             </div>
            </section>
 
@@ -75,7 +75,7 @@ export function WhitePaperModal({
             <h2 className="text-lg font-semibold text-foreground">Mechanics</h2>
             <div className="space-y-3 text-sm">
               <ReasonRow title="Real places" description="The map is Earth. Your paintings mark real locations." />
-              <ReasonRow title="Visible commitment" description="Every action costs energy. You can see who cares about what." />
+              <ReasonRow title="Visible commitment" description="Every action costs paint energy. You can see who cares about what." />
               <ReasonRow title="Real stakes" description="When someone paints over your pixel, you feel it. When you defend one, it means something." />
               <ReasonRow title="Emergent behavior" description="No rules about how to play. People coordinate, compete, disrupt, and create." />
             </div>
@@ -85,12 +85,12 @@ export function WhitePaperModal({
           <section className="space-y-4">
             <h2 className="text-lg font-semibold text-foreground">How value works</h2>
             <p className="text-sm text-muted-foreground">
-              Your <span className="text-foreground font-medium">$BIT</span> holdings determine your energy. More $BIT means more energy to spend on pixels.
+              Your <span className="text-foreground font-medium">$BIT</span> holdings determine your paint energy. More $BIT means more PE to spend on pixels.
             </p>
             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-3 flex-wrap">
               <span className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-medium">Hold $BIT</span>
               <span className="text-muted-foreground/50">→</span>
-              <span className="px-3 py-1.5 rounded-lg bg-muted">Get Energy</span>
+              <span className="px-3 py-1.5 rounded-lg bg-muted">Get Paint Energy</span>
               <span className="text-muted-foreground/50">→</span>
               <span className="px-3 py-1.5 rounded-lg bg-muted">Paint Pixels</span>
               <span className="text-muted-foreground/50">→</span>
@@ -134,7 +134,7 @@ export function WhitePaperModal({
             <h2 className="text-lg font-semibold text-foreground">Value creation</h2>
             <div className="space-y-3 text-sm text-muted-foreground">
               <p>
-                Every action on the map requires energy. Energy comes from holding{" "}
+                Every action on the map requires paint energy. PE comes from holding{" "}
                 <span className="text-foreground font-medium">$BIT</span>.
               </p>
               <p>
@@ -143,7 +143,7 @@ export function WhitePaperModal({
               </p>
               <p>
                 Here's the twist: when someone paints over your pixel, it stings. But to do it, they had to 
-                stake more energy than was already there. That means more $BIT locked, more utility, more 
+                stake more paint energy than was already there. That means more $BIT locked, more utility, more 
                 value for everyone who holds.
               </p>
               <p>
