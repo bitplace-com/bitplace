@@ -121,7 +121,7 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                         ? "Renewing..."
                         : vpeRenew.renewableCount > 0
                           ? `Renew ${vpeRenew.renewableCount} Pixel${vpeRenew.renewableCount !== 1 ? "s" : ""}`
-                          : "All pixels up to date"}
+                          : "Renew all pixels"}
                     </Button>
                     <p className="text-[10px] text-muted-foreground text-center">
                       {vpeRenew.renewableCount > 0
