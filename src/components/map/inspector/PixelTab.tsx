@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { User, Shield, Swords, RefreshCw, AlertTriangle, ArrowUpFromLine, Loader2 } from 'lucide-react';
+import { useLiveTick } from '@/hooks/useLiveTick';
+import { formatLiveCountdown } from '@/lib/formatLiveTime';
 import { PixelIcon } from '@/components/icons';
 import { getCountryByCode } from '@/lib/countries';
 import { PEIcon } from '@/components/ui/pe-icon';
@@ -16,30 +18,17 @@ interface PixelTabProps {
   hideWithdraw?: boolean;
 }
 
-function formatTimeUntil(targetTime: Date): string {
-  const now = new Date();
-  const diffMs = targetTime.getTime() - now.getTime();
+function formatTimeUntil(targetTime: Date, nowMs: number): string {
+  const diffMs = targetTime.getTime() - nowMs;
   if (diffMs <= 0) return "Now";
-  
-  const hours = Math.floor(diffMs / (1000 * 60 * 60));
-  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-  
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
+  return formatLiveCountdown(targetTime, nowMs);
 }
 
 export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTabProps) {
   const { pixel, isLoading, refetch } = usePixelDetails(x, y, currentUserId);
   const { isCommitting, commit } = useWithdrawContribution();
   const [isWithdrawing, setIsWithdrawing] = useState(false);
-  const [now, setNow] = useState(Date.now());
-
-  // Countdown timer for expiring pixels
-  useEffect(() => {
-    if (!pixel?.expiresAt) return;
-    const interval = setInterval(() => setNow(Date.now()), 60000);
-    return () => clearInterval(interval);
-  }, [pixel?.expiresAt]);
+  const now = useLiveTick();
 
   const handleWithdraw = async () => {
     if (hideWithdraw) return;
@@ -172,14 +161,12 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
                 <span className="text-sm font-medium text-destructive">Expired</span>
               </div>
             );
-            const hours = Math.floor(remaining / 3600000);
-            const minutes = Math.floor((remaining % 3600000) / 60000);
             return (
               <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-1.5">
                 <div className="flex items-center gap-2">
                   <PixelIcon name="clock" className="h-4 w-4 text-amber-500" />
                   <span className="text-sm font-medium text-amber-500">
-                    Expires in {hours}h {minutes}m
+                    Expires in {formatLiveCountdown(pixel.expiresAt, now)}
                   </span>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
@@ -307,7 +294,7 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
             <div className="text-xs space-y-0.5">
               <div className="flex items-center justify-between text-muted-foreground">
                 <span>Next tick</span>
-                <span className="font-mono tabular-nums">{formatTimeUntil(pixel.nextTickTime)}</span>
+                <span className="font-mono tabular-nums">{formatTimeUntil(pixel.nextTickTime, now)}</span>
               </div>
               {pixel.vFloorNext6h !== null && (
                 <div className="flex items-center justify-between text-muted-foreground">
