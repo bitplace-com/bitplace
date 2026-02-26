@@ -24,7 +24,6 @@ interface UsePaintQueueResult {
 export function usePaintQueue(
   paintPixel: (x: number, y: number, color: string) => void,
   confirmPixel: (x: number, y: number) => void,
-  isTrialMode = false
 ): UsePaintQueueResult {
   const [queue, setQueue] = useState<Set<string>>(new Set());
   const [isSpacePainting, setIsSpacePainting] = useState(false);
@@ -45,13 +44,11 @@ export function usePaintQueue(
   const pendingPixelsRef = useRef<Map<string, string>>(new Map()); // key -> color
 
   const addToQueue = useCallback((x: number, y: number, color: string): boolean => {
-    // CRITICAL: Check auth before any optimistic paint (skip in trial mode)
-    if (!isTrialMode) {
-      const token = localStorage.getItem('bitplace_session_token');
-      if (!token) {
-        console.warn('[usePaintQueue] No session token, blocking paint');
-        return false;
-      }
+    // Auth check
+    const token = localStorage.getItem('bitplace_session_token');
+    if (!token) {
+      console.warn('[usePaintQueue] No session token, blocking paint');
+      return false;
     }
     
     currentColorRef.current = color;
@@ -86,28 +83,10 @@ export function usePaintQueue(
   }, []);
 
   const flushQueue = useCallback(async () => {
-    // Check if already flushing
-    if (flushingRef.current) {
-      return;
-    }
+    if (flushingRef.current) return;
     
-    // CRITICAL: Read from ref (synchronous, not subject to React batching)
     const pendingMap = pendingPixelsRef.current;
-    if (pendingMap.size === 0) {
-      return;
-    }
-    
-    // Trial mode: confirm locally, no backend
-    if (isTrialMode) {
-      const pixelsToConfirm = Array.from(pendingMap.keys()).map(key => {
-        const [x, y] = key.split(':').map(Number);
-        return { x, y };
-      });
-      pixelsToConfirm.forEach(({ x, y }) => confirmPixel(x, y));
-      pendingPixelsRef.current = new Map();
-      setQueue(new Set());
-      return;
-    }
+    if (pendingMap.size === 0) return;
     
     const token = localStorage.getItem('bitplace_session_token');
     if (!token) {
@@ -187,11 +166,9 @@ export function usePaintQueue(
 
   const stopSpacePaint = useCallback(() => {
     setIsSpacePainting(false);
-    // Flush remaining on stop
     flushQueue();
   }, [flushQueue]);
 
-  // Auto-flush interval
   useEffect(() => {
     if (!isSpacePainting) {
       if (intervalRef.current) {
@@ -213,14 +190,12 @@ export function usePaintQueue(
     };
   }, [isSpacePainting, flushQueue]);
 
-  // Auto-flush when batch size reached
   useEffect(() => {
     if (queue.size >= MAX_BATCH_SIZE) {
       flushQueue();
     }
   }, [queue.size, flushQueue]);
 
-  // Cleanup stale TTL entries periodically
   useEffect(() => {
     const cleanup = setInterval(() => {
       const now = Date.now();

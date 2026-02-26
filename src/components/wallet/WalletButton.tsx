@@ -23,8 +23,6 @@ export function WalletButton() {
     isConnected,
     isConnecting,
     needsSignature,
-    isTrialMode,
-    activateTrialMode,
     isGoogleAuth,
     isGoogleOnly,
     user,
@@ -56,33 +54,8 @@ export function WalletButton() {
     );
   }
 
-  // Trial mode - show trial wallet button
-  if (isTrialMode && walletAddress) {
-    return (
-      <UserMenuPanel>
-        <GlassPanel
-          padding="sm"
-          className="flex items-center gap-2.5 cursor-pointer hover:bg-accent transition-colors"
-          data-tour="wallet"
-        >
-          <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-            TRIAL
-          </span>
-          <span className="text-xs font-medium text-foreground">
-            Test Wallet
-          </span>
-          <span className="text-xs text-muted-foreground">•</span>
-          <span className="text-xs font-medium text-foreground tabular-nums">
-            {energy.peAvailable.toLocaleString()} PE
-          </span>
-          <PixelIcon name="chevronDown" size="xs" className="text-muted-foreground" />
-        </GlassPanel>
-      </UserMenuPanel>
-    );
-  }
-
   // Google authenticated state (Google-only shows STARTER, 'both' shows wallet + PRO)
-  if (isGoogleAuth && isConnected && walletAddress && !isTrialMode) {
+  if (isGoogleAuth && isConnected && walletAddress) {
     const avatarUrl = user?.google_avatar_url || user?.avatar_url;
     const isBoth = user?.auth_provider === 'both';
     const isPro = isBoth && energy.nativeBalance >= 1;
@@ -183,7 +156,6 @@ export function WalletButton() {
         onOpenChange={setModalOpen}
         onSelectPhantom={handleSelectPhantom}
         isConnecting={isConnecting}
-        onActivateTrial={activateTrialMode}
         needsSignature={needsSignature}
         connectedWalletAddress={walletAddress}
         onSignIn={handleSignIn}

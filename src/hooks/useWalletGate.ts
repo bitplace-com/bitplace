@@ -13,7 +13,7 @@ interface UseWalletGateResult {
 }
 
 export function useWalletGate(): UseWalletGateResult {
-  const { walletState, walletAddress, user, signIn, isAuthenticated, isTrialMode, isGoogleAuth, isGoogleOnly } = useWallet();
+  const { walletState, walletAddress, user, signIn, isAuthenticated, isGoogleAuth, isGoogleOnly } = useWallet();
   const [isWalletModalOpen, setWalletModalOpen] = useState(false);
   
   // Cooldown refs to prevent spam
@@ -23,9 +23,6 @@ export function useWalletGate(): UseWalletGateResult {
   const signInFlightRef = useRef(false);
 
   const requireWallet = useCallback((action = 'paint') => {
-    // Trial mode: always allow
-    if (isTrialMode) return true;
-    
     // Google auth: allow PAINT, block DEF/ATK/REINFORCE
     if (isGoogleAuth && isAuthenticated) {
       if (['defend', 'attack', 'reinforce'].includes(action)) {
@@ -80,7 +77,7 @@ export function useWalletGate(): UseWalletGateResult {
     }
     
     return false;
-  }, [walletState, walletAddress, user, signIn, isAuthenticated, isTrialMode, isGoogleAuth, isGoogleOnly]);
+  }, [walletState, walletAddress, user, signIn, isAuthenticated, isGoogleAuth, isGoogleOnly]);
 
   return {
     isWalletModalOpen,

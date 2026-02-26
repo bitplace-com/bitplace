@@ -123,8 +123,7 @@ export function PixelInfoPanel({
   onJumpToPixel,
   inDrawer = false,
 }: PixelInfoPanelProps) {
-  const { isTrialMode } = useWallet();
-  const { pixel, isLoading, refetch } = usePixelDetails(x, y, currentUserId, isTrialMode);
+  const { pixel, isLoading, refetch } = usePixelDetails(x, y, currentUserId);
   const now = useLiveTick();
   const [artworkModalOpen, setArtworkModalOpen] = useState(false);
 

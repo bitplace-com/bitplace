@@ -17,7 +17,6 @@ interface WalletSelectModalProps {
   onOpenChange: (open: boolean) => void;
   onSelectPhantom: () => void;
   isConnecting: boolean;
-  onActivateTrial?: () => void;
   needsSignature?: boolean;
   connectedWalletAddress?: string | null;
   onSignIn?: () => void;
@@ -38,11 +37,6 @@ const isMobileDevice = () => {
   return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 };
 
-const isPhantomInAppBrowser = () => {
-  if (typeof navigator === 'undefined') return false;
-  return navigator.userAgent.includes('Phantom');
-};
-
 // Real multicolor Google "G" logo
 function GoogleLogo({ className }: { className?: string }) {
   return (
@@ -60,7 +54,6 @@ export function WalletSelectModal({
   onOpenChange,
   onSelectPhantom,
   isConnecting,
-  onActivateTrial,
   needsSignature,
   connectedWalletAddress,
   onSignIn,
@@ -171,30 +164,6 @@ export function WalletSelectModal({
                   Click above to install the Phantom browser extension, then refresh this page.
                 </p>
               )}
-            </>
-          )}
-
-          {/* ── Tier 3: Demo (Try Free) ── */}
-          {onActivateTrial && (
-            <>
-              <div className="flex items-center gap-3 px-2">
-                <Separator className="flex-1" />
-                <span className="text-xs text-muted-foreground">or</span>
-                <Separator className="flex-1" />
-              </div>
-
-              <TierCard
-                onClick={() => { onActivateTrial(); onOpenChange(false); }}
-                disabled={isConnecting}
-                icon={
-                  <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center border border-dashed border-border">
-                    <PixelIcon name="sparkles" size="md" className="text-muted-foreground" />
-                  </div>
-                }
-                title="Try Without Account"
-                subtitle="Preview only — 10,000 test Pixels, nothing saved to the map"
-                badge={<TierBadge label="DEMO" variant="muted" />}
-              />
             </>
           )}
         </div>
