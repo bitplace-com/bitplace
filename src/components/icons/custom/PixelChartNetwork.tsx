@@ -3,24 +3,7 @@ import { PixelSVG, PixelSVGProps } from './base';
 export function PixelChartNetwork(props: PixelSVGProps) {
   return (
     <PixelSVG {...props}>
-      {/* Top-left node */}
-      <polygon points="7 7 5 7 5 6 4 6 4 4 5 4 5 3 7 3 7 4 8 4 8 6 7 6 7 7" />
-      {/* Left node */}
-      <polygon points="5 11 6 11 6 14 5 14 5 15 2 15 2 14 1 14 1 11 2 11 2 10 5 10 5 11" />
-      {/* Center node */}
-      <path d="m16,14v-3h-1v-1h-1v-1h-3v1h-1v1h-1v3h1v1h1v1h3v-1h1v-1h1Zm-5,0v-3h3v3h-3Z" />
-      {/* Top-right node */}
-      <polygon points="22 5 22 7 21 7 21 8 19 8 19 7 18 7 18 5 19 5 19 4 21 4 21 5 22 5" />
-      {/* Bottom-right node */}
-      <polygon points="21 18 22 18 22 21 21 21 21 22 18 22 18 21 17 21 17 18 18 18 18 17 21 17 21 18" />
-      {/* Links */}
-      <rect x="9" y="8" width="1" height="1" />
-      <rect x="15" y="15" width="1" height="1" />
-      <rect x="17" y="8" width="1" height="1" />
-      <rect x="8" y="7" width="1" height="1" />
-      <rect x="7" y="12" width="1" height="1" />
-      <rect x="16" y="9" width="1" height="1" />
-      <rect x="16" y="16" width="1" height="1" />
+      <path d="m17,14v-4h1v-1h1v-1h2v-1h1v-2h-1v-1h-2v1h-1v2h-1v1h-1v1h-2v-1h-4v-1h-1v-1h-1v-2h-1v-1h-2v1h-1v2h1v1h2v1h1v1h1v2h-1v1h-2v-1h-1v-1h-3v1h-1v3h1v1h3v-1h4v1h1v1h1v1h3v-1h1v1h1v1h1v3h1v1h3v-1h1v-3h-1v-1h-3v-1h-1v-1h-1v-1h1Zm-3,0h-3v-3h3v3Z" />
     </PixelSVG>
   );
 }
