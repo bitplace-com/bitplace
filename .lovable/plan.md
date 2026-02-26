@@ -1,53 +1,39 @@
 
 
-## PRO badge basato su PE stakato + Periodic balance check
+## PRO badge basato su bilancio $BIT >= 1 (invece di PE stakato)
 
-### Stato attuale
+### Logica attuale
+Il badge PRO viene mostrato se l'utente ha un wallet E `peUsedPe > 0` (PE attivamente stakato). Questo esclude utenti che hanno $BIT nel wallet ma non hanno ancora stakato.
 
-- **VPE in Top Painters**: Gia funzionante. Il contatore `pixels_painted_total` viene incrementato anche per utenti VPE e NON viene decrementato alla scadenza dei pixel VPE. Nessuna modifica necessaria.
-- **PRO badge**: Attualmente mostrato per chiunque abbia un `walletAddress`. Va cambiato per mostrarlo solo a chi ha almeno 1 PE effettivamente stakato (`pe_used_pe > 0`).
-- **Balance check**: `energy-refresh` controlla la collateralizzazione ma solo quando l'utente e online. `rebalance-tick` lavora con il `pe_total_pe` memorizzato, che diventa stale se l'utente non torna. **Non esiste un job periodico che aggiorna i bilanci wallet da Solana per tutti gli utenti.**
+### Nuova logica
+PRO badge = ha wallet + almeno 1 $BIT nel wallet (`native_balance >= 1`). Il campo `native_balance` e gia tracciato nella tabella `users` e aggiornato periodicamente da `balance-check-all` e `energy-refresh`.
 
-### 1. PRO badge basato su PE stakato
+### Modifiche
 
-**leaderboard-get/index.ts**: Aggiungere `pe_used_pe` ai dati restituiti per i player:
-- In `paintersAllTime`: aggiungere `pe_used_pe` alla select
-- In `fetchUserProfiles`: aggiungere `pe_used_pe` alla select  
-- In `playerEntry`: includere `peUsedPe` nel return
-- Per le RPC PE-based (investors/defenders/attackers): il `totalPe > 0` implica gia staking attivo
+**1. `supabase/functions/leaderboard-get/index.ts`**
+- Aggiungere `native_balance` alla select in `paintersAllTime` (riga 105-110)
+- Aggiungere `native_balance` alla select in `fetchUserProfiles` (riga 70-77)
+- Aggiungere `nativeBalance` al return di `playerEntry` (riga 84-99)
+- Per le RPC PE-based (investors/defenders/attackers): aggiungere `nativeBalance` calcolato dalla tabella users separatamente, oppure usare il fatto che chi ha `totalPe > 0` ha sicuramente $BIT (manteniamo PRO per loro)
 
-**useLeaderboard.ts**: Aggiungere `peUsedPe` a `PlayerPainterEntry` e `PlayerPeEntry`.
+**2. `src/hooks/useLeaderboard.ts`**
+- Aggiungere `nativeBalance: number` a `PlayerPainterEntry` e `PlayerPeEntry`
 
-**LeaderboardModal.tsx**: Cambiare la logica badge in `PlayerRow`:
-- Se `isAdmin` -> AdminBadge
-- Se ha wallet E `peUsedPe > 0` (o per PE sub-categories, `totalPe > 0`) -> ProBadge con shine
-- Se ha wallet ma 0 PE stakato -> nessun badge speciale (o Starter se preferisci)
-- Se NON ha wallet -> StarterBadge
+**3. `src/components/modals/LeaderboardModal.tsx`**
+- Cambiare la condizione del PRO badge (riga 128):
+  - Da: `entry.walletAddress && hasActiveStake` (dove hasActiveStake = peUsedPe > 0)
+  - A: `entry.walletAddress && (entry.nativeBalance >= 1 || hasActiveStake)`
+  - Per le sub-categories PE (investors/defenders/attackers), chi appare ha gia $BIT per definizione, quindi PRO rimane
 
-### 2. Periodic wallet balance check (nuova edge function)
+**4. Nessuna modifica a `balance-check-all`** — gia traccia `native_balance` per tutti gli utenti wallet con stake attivo. Per gli utenti wallet SENZA stake ma con $BIT, il campo `native_balance` viene aggiornato da `energy-refresh` quando sono online. Per la leaderboard, leggiamo direttamente il valore memorizzato nel DB.
 
-Creare `supabase/functions/balance-check-all/index.ts`:
-- Funzione cron che viene invocata periodicamente (ogni 6 ore, come rebalance-tick)
-- Carica tutti gli utenti wallet-based con `pe_used_pe > 0` (solo quelli con stake attivo)
-- Per ciascun utente, fetcha il bilancio $BIT da Solana RPC e ricalcola `pe_total_pe`
-- Se sotto-collateralizzato: purga le contributions e avvia rebalance (stessa logica di energy-refresh)
-- Rate limiting: processa max ~50 utenti per esecuzione per non sovraccaricare la Solana RPC
-- Logging dettagliato per monitorare lo stato
+### Deploy
+Deploy di `leaderboard-get` dopo le modifiche.
 
-Questo garantisce che anche gli utenti che non tornano sulla piattaforma vengano eventualmente ri-bilanciati.
-
-### 3. Deploy
-
-Deploy delle edge functions `leaderboard-get` e `balance-check-all`.
-
----
-
-### File da modificare/creare
+### File da modificare
 
 | File | Modifiche |
 |------|-----------|
-| `supabase/functions/leaderboard-get/index.ts` | Aggiungere `pe_used_pe` ai dati player |
-| `src/hooks/useLeaderboard.ts` | Aggiungere `peUsedPe` ai tipi entry |
-| `src/components/modals/LeaderboardModal.tsx` | PRO badge solo se `peUsedPe > 0` |
-| `supabase/functions/balance-check-all/index.ts` | **NUOVO** - Cron job per verificare bilanci wallet periodicamente |
-
+| `supabase/functions/leaderboard-get/index.ts` | Aggiungere `native_balance` ai dati player |
+| `src/hooks/useLeaderboard.ts` | Aggiungere `nativeBalance` ai tipi |
+| `src/components/modals/LeaderboardModal.tsx` | PRO badge se `nativeBalance >= 1` |
