@@ -1,82 +1,37 @@
 
-## Fix: Wallet Linking "Already in Use" + Account Merging
 
-### Root Cause
+## Rinominare "Virtual PE" / "Starter PE" in "VPE" ovunque
 
-The wallet `4J2kvqRR...` belongs to user **Bitplace_Team** (wallet-only, id `76f4ab9b`), while the Google login created a separate user **Fabio Capodagli** (google-only, id `cffbb852`). When trying to link the wallet to the Google account, `auth-verify` returns HTTP 409 "Wallet already in use by another account".
+Tutte le label visibili all'utente che dicono "Virtual PE", "Starter PE", "PE available", ecc. verranno sostituite con "VPE". I nomi interni delle variabili (come `virtualPeTotal`, `isVirtualPe`) restano invariati -- cambiano solo le stringhe mostrate nell'interfaccia.
 
-Two bugs:
-1. **Error message lost**: `supabase.functions.invoke` puts non-2xx response bodies in the `error` field, not `data`. Line 721 checks `authData?.error` but `authData` is null for 409 responses -- so the fallback "Server could not verify your signature" shows instead of the real error.
-2. **No account merging**: When the wallet-only user is the same person as the Google user, the backend should **merge** the accounts instead of blocking.
+### File da modificare
 
-### Fix 1: Surface correct error message in `linkWallet`
-**File:** `src/contexts/WalletContext.tsx` (lines 720-724)
+| File | Cosa cambia |
+|------|-------------|
+| `src/components/modals/UserMenuPanel.tsx` | "Starter PE" → "VPE" (2 occorrenze, righe 158 e 212). "PE available" → "VPE available" (riga 162). "Starter pixels expire after 72h" → "VPE pixels expire after 72h" (righe 170 e 218) |
+| `src/components/map/PixelInfoPanel.tsx` | "Starter Pixel" → "VPE Pixel" (riga 407). "No real PE staked. Anyone can paint over this pixel." → "No PE staked (VPE only). Anyone can paint over." (riga 414) |
+| `src/components/map/StatusStrip.tsx` | Commento "virtual PE" → "VPE" (righe 176, 203). Nessun testo utente da cambiare qui. |
+| `src/components/ui/vpe-icon.tsx` | JSDoc comment: "Virtual PE icon" → "VPE icon" (riga 9) |
+| `src/contexts/WalletContext.tsx` | Toast: "Starter PE active" → "VPE active" (riga 860). Toast: "Starter PE ready to use" → "VPE ready to use" (riga 861). Toast: "PE available" → "VPE available" (riga 539). Commenti interni aggiornati. |
 
-Parse the error from `supabase.functions.invoke` properly. When `authError` is set, extract the message from it (it may be a `FunctionsHttpError` with a JSON body).
+### Dettaglio modifiche
 
-### Fix 2: Account merging in `auth-verify`
-**File:** `supabase/functions/auth-verify/index.ts` (lines 178-191)
+**UserMenuPanel.tsx** (sezioni Google-only e 'both'):
+- `<span>Starter PE</span>` → `<span>VPE</span>` (2x)
+- `{energy.virtualPeAvailable.toLocaleString()} PE available` → `{energy.virtualPeAvailable.toLocaleString()} VPE available`
+- `Starter pixels expire after 72h` → `VPE pixels expire after 72h` (2x)
 
-When the wallet is already used by another user AND that user is wallet-only (`auth_provider = 'wallet'`), merge the two accounts:
-1. Transfer all pixels from the wallet-only user to the Google user
-2. Transfer all pixel_contributions
-3. Transfer notifications, user_follows, user_pins, places
-4. Copy stats (pixels_painted_total, pe_used_pe, takeover totals) to the Google user
-5. Set wallet_address and auth_provider='both' on the Google user
-6. Delete the old wallet-only user record
-7. Return the merged user with a new token
+**PixelInfoPanel.tsx** (blocco expiry):
+- `Starter Pixel` → `VPE Pixel`
+- `No real PE staked. Anyone can paint over this pixel.` → `No PE staked (VPE only). Anyone can paint over.`
 
-If the wallet user is NOT wallet-only (already 'both' or 'google'), reject with a clear error.
+**WalletContext.tsx** (toast messages):
+- `'Google linked! Wallet + Starter PE active'` → `'Google linked! Wallet + VPE active'`
+- `` `${virtualPeAvailable.toLocaleString()} Starter PE ready to use` `` → `` `${virtualPeAvailable.toLocaleString()} VPE ready to use` ``
+- `${data.peAvailable.toLocaleString()} PE available` → `${data.peAvailable.toLocaleString()} VPE available`
 
-### Fix 3: Correct error parsing in `linkWallet` 
-**File:** `src/contexts/WalletContext.tsx` (lines 720-724)
+**vpe-icon.tsx** (commento):
+- `Virtual PE icon` → `VPE icon`
 
-```
-if (authError) {
-  let errMsg = 'Server could not verify your signature';
-  try {
-    if (authError instanceof Response) {
-      const body = await authError.json();
-      errMsg = body?.error || errMsg;
-    } else if (typeof authError === 'object' && authError.message) {
-      errMsg = authError.message;
-    }
-  } catch {}
-  toast.error('Wallet linking failed', { description: errMsg });
-  setWalletState('AUTHENTICATED');
-  return;
-}
-```
+Nessuna modifica a variabili, tipi, o logica backend -- solo label e messaggi visibili all'utente.
 
-### Files to modify
-
-| File | Changes |
-|------|---------|
-| `supabase/functions/auth-verify/index.ts` | Replace "reject if wallet in use" with account merge logic |
-| `src/contexts/WalletContext.tsx` | Fix error message extraction from `supabase.functions.invoke` response |
-
-### Account merge logic (auth-verify)
-
-When `existingWalletUser.id !== linkPayload.userId`:
-
-```text
-1. Fetch existing wallet user to check auth_provider
-2. If auth_provider != 'wallet' -> reject (409, "Wallet linked to another multi-auth account")
-3. Transfer ownership:
-   - UPDATE pixels SET owner_user_id = googleUserId WHERE owner_user_id = walletUserId
-   - UPDATE pixel_contributions SET user_id = googleUserId WHERE user_id = walletUserId
-   - UPDATE notifications SET user_id = googleUserId WHERE user_id = walletUserId
-   - UPDATE user_follows SET follower_id/following_id accordingly
-   - UPDATE user_pins SET user_id = googleUserId WHERE user_id = walletUserId
-   - UPDATE places SET owner_user_id = googleUserId WHERE owner_user_id = walletUserId
-4. Merge stats on Google user:
-   - pixels_painted_total += walletUser.pixels_painted_total
-   - pe_used_pe += walletUser.pe_used_pe
-   - takeover_def_pe_total += walletUser.takeover_def_pe_total
-   - takeover_atk_pe_total += walletUser.takeover_atk_pe_total
-5. Set wallet_address, auth_provider='both', virtual_pe_total=300000 on Google user
-6. DELETE wallet-only user
-7. Return merged user + new JWT
-```
-
-This ensures the user's pixel history and PE stakes are preserved when merging their wallet account into their Google account.
