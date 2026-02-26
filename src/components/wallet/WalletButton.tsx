@@ -80,10 +80,15 @@ export function WalletButton() {
     );
   }
 
-  // Google authenticated state (Google-only shows STARTER, 'both' shows wallet address)
+  // Google authenticated state (Google-only shows STARTER, 'both' shows wallet + PRO)
   if (isGoogleAuth && isConnected && walletAddress && !isTrialMode) {
     const avatarUrl = user?.google_avatar_url || user?.avatar_url;
     const isBoth = user?.auth_provider === 'both';
+    const isPro = isBoth && energy.nativeBalance >= 1;
+    // Total PE = real PE + virtual PE available
+    const totalPeAvailable = isPro 
+      ? energy.peAvailable + energy.virtualPeAvailable 
+      : energy.peAvailable;
     return (
       <UserMenuPanel>
         <GlassPanel
@@ -96,7 +101,7 @@ export function WalletButton() {
           ) : (
             <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           )}
-          {isBoth && walletAddress ? (
+          {isBoth && walletAddress && !walletAddress.startsWith('google:') ? (
             <span className="font-mono text-xs text-foreground">
               {shortenAddress(walletAddress)}
             </span>
@@ -105,18 +110,17 @@ export function WalletButton() {
               {user?.display_name || user?.email?.split('@')[0] || 'Starter'}
             </span>
           )}
-          {isGoogleOnly && user?.auth_provider !== 'both' && (
+          {isPro ? (
+            <ProBadge shine size="sm" />
+          ) : isGoogleOnly ? (
             <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 shrink-0 flex items-center gap-0.5">
               <PixelIcon name="clock" className="h-2.5 w-2.5" />
               STARTER
             </span>
-          )}
-          {user?.auth_provider === 'both' && energy.nativeBalance >= 1 && (
-            <ProBadge shine size="sm" />
-          )}
+          ) : null}
           <span className="text-xs text-muted-foreground">•</span>
           <span className="text-xs font-medium text-foreground tabular-nums">
-            {energy.peAvailable.toLocaleString()} PE
+            {totalPeAvailable.toLocaleString()} PE
           </span>
           <PixelIcon name="chevronDown" size="xs" className="text-muted-foreground" />
         </GlassPanel>

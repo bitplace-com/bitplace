@@ -245,6 +245,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const signInFlightRef = useRef(false);
   const restoreInFlightRef = useRef(false);
   const googleSignInFlightRef = useRef(false);
+  const walletStateRef = useRef<WalletState>(walletState);
+  const userRef = useRef<User | null>(user);
   
   // Cooldown timestamps
   const lastConnectAttemptRef = useRef<number>(0);
@@ -257,6 +259,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   
   const isTrialModeRef = useRef(isTrialMode);
   useEffect(() => { isTrialModeRef.current = isTrialMode; }, [isTrialMode]);
+  useEffect(() => { walletStateRef.current = walletState; }, [walletState]);
+  useEffect(() => { userRef.current = user; }, [user]);
 
   // Derived state
   const isConnected = walletState === 'AUTHENTICATED' || isTrialMode;
@@ -528,7 +532,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       if (!data.stale && !data.isVirtualPe) {
         toast.success('Balance updated', { 
-          description: `${data.nativeBalance.toFixed(4)} ${data.nativeSymbol} = ${data.peTotal.toLocaleString()} PE`
+          description: `${data.nativeBalance.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ${data.nativeSymbol} = ${data.peTotal.toLocaleString()} PE`
         });
       } else if (!data.stale && data.isVirtualPe) {
         toast.success('Balance updated', { 
@@ -745,10 +749,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         const provider = session.user?.app_metadata?.provider;
         if (provider !== 'google') return;
         
-        // Guard: skip if already authenticated (restore already handled it)
-        if (walletState === 'AUTHENTICATED') {
-          walletDebug('supabase_auth_skip', { reason: 'already_authenticated' });
-          return;
+        // Guard: skip if already authenticated with Google/both (restore already handled it)
+        // But allow wallet-only users to upgrade to 'both'
+        if (walletStateRef.current === 'AUTHENTICATED') {
+          const currentProvider = userRef.current?.auth_provider || 
+            parseJwtPayload(getSessionToken() || '')?.authProvider;
+          if (currentProvider === 'google' || currentProvider === 'both') {
+            walletDebug('supabase_auth_skip', { reason: 'already_google_or_both' });
+            return;
+          }
+          // Wallet-only user -> allow upgrade to 'both' via Google callback
+          walletDebug('supabase_auth_upgrade', { reason: 'wallet_to_both' });
         }
         
         // Call auth-google edge function with the Supabase access token
@@ -783,29 +794,46 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           setLastError(null);
           restoreInFlightRef.current = false;
           
-          // Set virtual PE energy state
+          // Set energy state based on auth provider
           const virtualPeTotal = Number((googleUser as any).virtual_pe_total) || 300000;
           const virtualPeUsed = Number((googleUser as any).virtual_pe_used) || 0;
           const virtualPeAvailable = Math.max(0, virtualPeTotal - virtualPeUsed);
           
-          setEnergy({
-            ...defaultEnergyState,
-            peTotal: virtualPeTotal,
-            peUsed: virtualPeUsed,
-            peAvailable: virtualPeAvailable,
-            isVirtualPe: true,
-            virtualPeTotal,
-            virtualPeUsed,
-            virtualPeAvailable,
-            lastSyncAt: new Date(),
-            isRefreshing: false,
-            isStale: false,
-          });
+          if (googleUser.auth_provider === 'both') {
+            // 'both' user: preserve wallet energy, add virtual PE
+            updateEnergyFromUser(googleUser);
+            setEnergy(prev => ({
+              ...prev,
+              virtualPeTotal,
+              virtualPeUsed,
+              virtualPeAvailable,
+              isVirtualPe: false,
+              lastSyncAt: new Date(),
+              isRefreshing: false,
+              isStale: true, // will refresh from wallet shortly
+            }));
+          } else {
+            // Google-only user: virtual PE only
+            setEnergy({
+              ...defaultEnergyState,
+              peTotal: virtualPeTotal,
+              peUsed: virtualPeUsed,
+              peAvailable: virtualPeAvailable,
+              isVirtualPe: true,
+              virtualPeTotal,
+              virtualPeUsed,
+              virtualPeAvailable,
+              lastSyncAt: new Date(),
+              isRefreshing: false,
+              isStale: false,
+            });
+          }
           
-          walletDebug('google_auth_complete', { userId: googleUser.id });
-          toast.success('Signed in with Google!', { 
-            description: `${virtualPeAvailable.toLocaleString()} Starter PE ready to use` 
-          });
+          walletDebug('google_auth_complete', { userId: googleUser.id, provider: googleUser.auth_provider });
+          const toastMsg = googleUser.auth_provider === 'both' 
+            ? 'Google linked! Wallet + Starter PE active'
+            : `${virtualPeAvailable.toLocaleString()} Starter PE ready to use`;
+          toast.success('Signed in with Google!', { description: toastMsg });
           soundEngine.play('wallet_connect');
           
           // Warm up and refresh
