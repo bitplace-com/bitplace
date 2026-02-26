@@ -8,5 +8,5 @@ interface VPEIconProps {
 
 /** Virtual PE icon — uses the outline bolt to distinguish from real PE (filled bolt) */
 export function VPEIcon({ className, size = 'sm' }: VPEIconProps) {
-  return <PixelIcon name="clock" size={size} className={cn('text-blue-500 dark:text-blue-400', className)} />;
+  return <PixelIcon name="boltOutline" size={size} className={cn('text-foreground', className)} />;
 }

@@ -9,6 +9,7 @@ import { PixelEraser } from './custom/PixelEraser';
 import { PixelShield } from './custom/PixelShield';
 import { PixelSwords } from './custom/PixelSwords';
 import { PixelBolt } from './custom/PixelBolt';
+import { PixelBoltOutline } from './custom/PixelBoltOutline';
 import { PixelPlus } from './custom/PixelPlus';
 import { PixelMinus } from './custom/PixelMinus';
 import { PixelEye } from './custom/PixelEye';
@@ -102,6 +103,7 @@ export type IconName =
   | 'shield'
   | 'swords'
   | 'bolt'
+  | 'boltOutline'
   | 'plus'
   | 'minus'
   | 'eye'
@@ -197,6 +199,7 @@ export const icons: Record<IconName, PixelIconComponent> = {
   shield: PixelShield,
   swords: PixelSwords,
   bolt: PixelBolt,
+  boltOutline: PixelBoltOutline,
   plus: PixelPlus,
   minus: PixelMinus,
   eye: PixelEye,
