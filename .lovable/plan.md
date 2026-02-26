@@ -1,109 +1,129 @@
 
-## Nuovo sistema di collateralizzazione: check solo al login
 
-### Cambio di paradigma
+## VPE One-Click Renewal + Pixel Control Panel
 
-Attualmente il sistema esegue chiamate RPC Solana ogni 6 ore per controllare i wallet offline. Questo non scala. Il nuovo approccio:
+### Panoramica
 
-- **Check solo quando l'utente e online** e connette il wallet (gia gestito da `energy-refresh`)
-- **Grace period di 7 giorni** dall'ultimo check valido
-- **Decay progressivo in 72h** dopo la scadenza della grace period (tick orari, 72 step)
-- **Floor a 1 PE per pixel** (i pixel non vengono cancellati)
-- **DEF/ATK restano attive** durante il decay
-- **PRO badge permanente** una volta verificato >= 1 $BIT (fino a smentita al prossimo login)
+Aggiungiamo un sistema di rinnovo VPE con un click e un pannello di controllo completo per Pixel, PE e VPE accessibile dal menu utente. Il pannello mostra breakdown delle scadenze VPE in batch temporali e permette il rinnovo batch. Aggiorniamo anche la documentazione "How It Works".
 
-### Dettaglio tecnico
+---
 
-#### 1. Nuova colonna DB: `last_balance_verified_at`
+### 1. Edge Function: `vpe-renew`
 
-Migrazione per aggiungere un timestamp che traccia l'ultimo check valido del bilancio (distinto da `last_energy_sync_at` che e usato per rate limiting). Questo campo viene aggiornato da `energy-refresh` quando il bilancio viene effettivamente verificato via RPC.
+**File**: `supabase/functions/vpe-renew/index.ts` (nuovo)
 
-#### 2. Modifica `energy-refresh` (check online)
+- Autenticazione via `getClaims()` (stesso pattern delle altre funzioni)
+- Soglia di rinnovo: pixel con `expires_at < now() + interval '24 hours'` (almeno 48h trascorse delle 72h originali)
+- Query batch:
+  ```sql
+  UPDATE pixels 
+  SET expires_at = now() + interval '72 hours', updated_at = now() 
+  WHERE owner_user_id = $uid 
+    AND is_virtual_stake = true 
+    AND expires_at IS NOT NULL 
+    AND expires_at < now() + interval '24 hours'
+  ```
+- Ritorna `{ ok: true, renewed: N }`
+- Aggiunge entry in `supabase/config.toml`: `[functions.vpe-renew] verify_jwt = false`
 
-Quando un utente wallet si logga e il bilancio viene verificato con successo via RPC:
-- Aggiornare `last_balance_verified_at = now()`
-- Se l'utente era in rebalance ma ora e collateralizzato: fermare il rebalance, ripristinare `owner_health_multiplier = 1`
-- La logica di collateralizzazione esistente (purge contribuzioni, start rebalance) resta uguale
+### 2. Hook: `useVpeRenew`
 
-#### 3. Riscrittura completa di `rebalance-tick` (cron leggero, zero RPC)
+**File**: `src/hooks/useVpeRenew.ts` (nuovo)
 
-La funzione diventa un job puramente DB-based che gira ogni ora:
-- Query SOLO utenti con `rebalance_active = true` (gia in decay) oppure wallet users la cui `last_balance_verified_at` e scaduta (> 7 giorni fa)
-- **Per utenti con grace period scaduta**: avviare il rebalance. Il `rebalance_target_multiplier` viene calcolato come il rapporto che porta ogni pixel al floor di 1 PE. Usando la funzione DB `get_user_total_staked_pe(uid)` per ottenere lo stake totale senza caricare tutti i pixel.
-- **Per utenti gia in rebalance**: aggiornare il `owner_health_multiplier` con interpolazione lineare. 72h = 72 tick orari.
-- **Per utenti il cui decay e completato**: settare il multiplier finale. I pixel restano a 1 PE minimo.
-- Zero chiamate Solana RPC, solo operazioni DB.
+- Accetta `userId`
+- Espone:
+  - `expiringBatches`: oggetto con conteggi per finestra temporale:
+    - `urgent` (< 6h rimanenti)
+    - `soon` (6-24h rimanenti) 
+    - `upcoming` (24-48h rimanenti -- non ancora rinnovabili)
+    - `safe` (48h+ rimanenti)
+  - `renewableCount`: somma di `urgent + soon` (quelli con < 24h rimanenti)
+  - `totalVpePixels`: totale pixel VPE attivi
+  - `isRenewing`, `renewAll()`, `isLoading`
+- Query via `supabase.from('pixels').select('expires_at')` filtrata per `owner_user_id = userId` e `is_virtual_stake = true`
+- Calcola i batch lato client raggruppando per differenza tra `expires_at` e `now()`
+- Polling ogni 60s
+- `renewAll()` invoca `vpe-renew` e mostra toast di conferma
 
-#### 4. Rimozione di `balance-check-all`
+### 3. Pixel Control Panel
 
-La edge function `balance-check-all` viene eliminata. Il cron job `balance-check-all-cron` (jobid 3) viene rimosso. Non serve piu: il check avviene solo al login.
+**File**: `src/components/modals/PixelControlPanel.tsx` (nuovo)
 
-#### 5. Aggiornamento cron schedule
+Modal `GamePanel` con le seguenti sezioni:
 
-- **Rimuovere** il cron `balance-check-all-cron` (jobid 3)
-- **Aggiungere** un nuovo cron per `rebalance-tick` che gira **ogni ora** (`0 * * * *`)
+**A. Pixel Overview** (sempre visibile)
+- Grid 2x2 StatCard: Pixels Owned, PE Staked, Total Value, Pixels Painted
 
-#### 6. Aggiornamento costanti di decay
+**B. PE (Paint Energy)** (visibile per wallet users, valori 0 per chi non ha wallet)
+- PE Total, PE Available, PE Used
+- Info contestuale: "Your PE comes from the $ value of $BIT in your wallet. 1 PE = $0.001."
+- Se PE = 0: hint "Connect a wallet and add $BIT to get PE"
+- Se rebalance attivo: warning con health %, tempo rimasto, deficit
 
-- Grace period: 7 giorni (`GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000`)
-- Durata decay: 72 ore (`DECAY_DURATION_MS = 72 * 60 * 60 * 1000`)
-- Tick: ogni ora (72 step totali)
-- Target multiplier: calcolato come `1 / totalStakePerPixelMedio` per portare al floor di 1 PE, oppure piu semplicemente `numPixels / totalStake` (ogni pixel converge a 1 PE)
+**C. VPE (Virtual Paint Energy)** (visibile per google/both users, oppure con valori 0 e spiegazione)
+- VPE Available, VPE Used, Total VPE Pixels
+- **Expiration Breakdown** con batch colorati:
+  - Rosso pulsante: "X pixels expiring in < 6h" (urgente)
+  - Arancione: "X pixels expiring in 6-24h" (presto, rinnovabili)
+  - Giallo: "X pixels expiring in 24-48h" (non ancora rinnovabili)
+  - Verde: "X pixels safe (48h+ remaining)"
+- **Renew Button**: "Renew X VPE Pixels" con icona refresh
+  - Sotto: "Resets the 72h timer. Available for pixels with 48h+ elapsed."
+  - Disabilitato quando `renewableCount === 0`: "All VPE pixels up to date"
+- Info: "VPE pixels expire after 72h. After 48h you can renew all at once -- no need to repaint."
 
-#### 7. PRO badge
+**D. Collateralization** (visibile per wallet users con pixel)
+- Grace period status: "X days remaining" oppure "Expired -- decay active"
+- Health multiplier se in decay
+- Info: "Your pixel stakes stay valid for 7 days after your last wallet check. After that, stakes decay over 72h to a floor of 1 PE per pixel. Log in to reset."
 
-Nessuna modifica necessaria. Il campo `native_balance` viene aggiornato da `energy-refresh` al login. Una volta che `native_balance >= 1`, il badge PRO resta visibile finche l'utente non torna online con un bilancio inferiore.
+**E. Active Stakes** (visibile per wallet users)
+- DEF Total, ATK Total
 
-### Flusso completo
+Per sezioni non applicabili all'utente: valori 0 con spiegazione contestuale (es. "Sign in with Google to get free VPE" oppure "Connect a wallet to earn PE").
 
-```text
-Utente si logga con wallet
-        |
-        v
-  energy-refresh verifica $BIT via RPC
-        |
-        v
-  Aggiorna native_balance, pe_total_pe,
-  last_balance_verified_at = now()
-        |
-        +-- Se collateralizzato: tutto ok, ferma eventuale rebalance
-        +-- Se sotto-collateralizzato: avvia rebalance immediato (come ora)
-        
-        ... utente va offline ...
+### 4. Integrazione nel UserMenuPanel
 
-  Cron ogni ora (rebalance-tick):
-        |
-        v
-  Query utenti con:
-    - rebalance_active = true (aggiorna multiplier)
-    - last_balance_verified_at < now() - 7 giorni
-      E pe_used_pe > 0 (avvia rebalance per grace scaduta)
-        |
-        v
-  Per nuovi rebalance (grace scaduta):
-    - target = numPixels / totalStake (floor 1 PE/pixel)
-    - rebalance_active = true
-    - decay in 72h
-        |
-        v
-  Per rebalance in corso:
-    - Interpola multiplier linearly
-    - owner_health_multiplier decresce ogni ora
-        |
-        v
-  Utente torna, si logga:
-    - energy-refresh ri-verifica
-    - Se bilancio ok: rebalance_active = false, multiplier = 1
-    - Pixel tornano al valore originale
-```
+**File**: `src/components/modals/UserMenuPanel.tsx` (modifica)
+
+- Aggiungere stato `pixelControlOpen` e import di `PixelControlPanel`
+- Nuovo bottone "Pixel Control" con icona `grid3x3` tra "Leaderboard" e "Settings"
+- Se `renewableCount > 0`: badge dot arancione sul bottone
+- Aggiungere `useVpeRenew` hook per il conteggio badge
+- Montare `<PixelControlPanel>` come modal
+
+### 5. Alert VPE nella StatusStrip
+
+**File**: `src/components/map/StatusStrip.tsx` (modifica)
+
+- Quando ci sono pixel VPE urgenti (< 6h): chip ambra con icona clock
+- Testo: "X VPE expiring" 
+- Click dispatcha evento custom per aprire il Pixel Control Panel
+
+### 6. Aggiornamento RulesModal
+
+**File**: `src/components/modals/RulesModal.tsx` (modifica)
+
+Aggiornamenti:
+
+- **Sezione VPE**: aggiungere bullet "After 48h you can renew all your VPE pixels at once from Pixel Control -- no need to repaint"
+- **Sezione Decay**: aggiornare con nuovi parametri:
+  - "Your pixel stakes stay valid for 7 days after your last wallet verification. If you don't reconnect within 7 days, stakes gradually decay over 72h to a minimum of 1 PE per pixel. DEF and ATK contributions are not affected. Log in to reset the timer."
+- **Nuova sezione Collateralization** dopo Decay:
+  - Spiega grace period 7 giorni, decay lineare 72h, floor 1 PE, check solo al login
+- **Quick Reference**: aggiungere entry "VPE Renew" e "Grace Period"
+
+---
 
 ### File coinvolti
 
 | File | Azione |
 |------|--------|
-| Migrazione DB | Aggiungere `last_balance_verified_at` alla tabella `users` |
-| `supabase/functions/energy-refresh/index.ts` | Aggiornare `last_balance_verified_at` al check RPC |
-| `supabase/functions/rebalance-tick/index.ts` | Riscrittura: zero RPC, solo DB, grace period 7gg, decay 72h orario |
-| `supabase/functions/balance-check-all/index.ts` | Eliminare il file |
-| Cron jobs (SQL) | Rimuovere `balance-check-all-cron`, aggiungere `rebalance-tick` ogni ora |
-| `supabase/config.toml` | Rimuovere entry `balance-check-all` (automatico) |
+| `supabase/functions/vpe-renew/index.ts` | Nuovo -- edge function rinnovo batch |
+| `supabase/config.toml` | Aggiungere entry vpe-renew (automatico) |
+| `src/hooks/useVpeRenew.ts` | Nuovo -- hook conteggio batch + rinnovo |
+| `src/components/modals/PixelControlPanel.tsx` | Nuovo -- pannello di controllo completo |
+| `src/components/modals/UserMenuPanel.tsx` | Aggiungere bottone Pixel Control + badge |
+| `src/components/map/StatusStrip.tsx` | Aggiungere chip alert VPE expiring soon |
+| `src/components/modals/RulesModal.tsx` | Aggiornare VPE, Decay, aggiungere Collateralization |
+
