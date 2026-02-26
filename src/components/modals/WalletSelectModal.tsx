@@ -112,7 +112,7 @@ export function WalletSelectModal({
             Sign In
           </DialogTitle>
           <DialogDescription>
-            Choose how to play Bitplace. Each method gives you different Pixel Energy.
+            Choose how to play Bitplace. Each method gives you different Paint Energy.
           </DialogDescription>
         </DialogHeader>
 
