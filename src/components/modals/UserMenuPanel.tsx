@@ -18,7 +18,6 @@ import { getCountryByCode } from "@/lib/countries";
 import { AvatarFallback } from "@/components/ui/avatar-fallback-pattern";
 import { cn, formatUsd, formatNumber } from "@/lib/utils";
 import { SettingsModal } from "./SettingsModal";
-import { LeaderboardModal } from "./LeaderboardModal";
 import { ShopModal } from "./ShopModal";
 import { PixelControlPanel } from "./PixelControlPanel";
 import { useVpeRenew } from "@/hooks/useVpeRenew";
@@ -47,7 +46,6 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
   const { user, walletAddress, disconnect, energy, isTrialMode, connect, isGoogleAuth, isGoogleOnly, linkWallet, googleSignIn } = useWallet();
   const [copied, setCopied] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
   const [pixelControlOpen, setPixelControlOpen] = useState(false);
   const vpeRenew = useVpeRenew(user?.id);
@@ -364,14 +362,6 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
-            onClick={() => setLeaderboardOpen(true)}
-          >
-            <PixelIcon name="trophy" className="h-4 w-4" />
-            Leaderboard
-          </Button>
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
             onClick={() => setSettingsOpen(true)}
           >
             <PixelIcon name="settings" className="h-4 w-4" />
@@ -475,9 +465,6 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
       
       {/* Settings Modal */}
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
-      
-      {/* Leaderboard Modal */}
-      <LeaderboardModal open={leaderboardOpen} onOpenChange={setLeaderboardOpen} />
       
       {/* Shop Modal */}
       <ShopModal open={shopOpen} onOpenChange={setShopOpen} />

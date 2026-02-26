@@ -11,6 +11,8 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { StatusAlerts } from './StatusAlerts';
 import { PAINT_MAX_PIXELS } from './hooks/useDraftPaint';
 import { useVpeRenew } from '@/hooks/useVpeRenew';
+import { useLiveTick } from '@/hooks/useLiveTick';
+import { formatLiveCountdown } from '@/lib/formatLiveTime';
 
 interface StatusStripProps {
   userId?: string;
@@ -21,15 +23,7 @@ interface StatusStripProps {
   onHeightChange?: (ref: HTMLElement | null) => void;
 }
 
-function formatTimeRemaining(endsAt: Date): string {
-  const now = new Date();
-  const diff = endsAt.getTime() - now.getTime();
-  if (diff <= 0) return 'ending...';
-  const days = Math.floor(diff / (24 * 60 * 60 * 1000));
-  const hours = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-  if (days > 0) return `${days}d ${hours}h`;
-  return `${hours}h`;
-}
+// Removed — now using formatLiveCountdown from shared utility
 
 function formatLastSync(date: Date | null): string {
   if (!date) return 'Never';
@@ -51,6 +45,8 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
   const { isOnCooldown, formatCooldown } = usePaintCooldown(energy.paintCooldownUntil);
   // VPE renewal
   const vpeRenew = useVpeRenew(userId);
+  // Live tick for second-level countdowns
+  const now = useLiveTick();
 
   if (!userId) {
     return (
@@ -269,7 +265,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
                   <PixelIcon name="heart" className="h-3.5 w-3.5 text-destructive animate-pulse-soft" />
                   <span className="text-xs font-semibold text-destructive tabular-nums">{healthPercent}%</span>
                   {rebalanceEndsAt && (
-                    <span className="text-xs text-muted-foreground">· {formatTimeRemaining(rebalanceEndsAt)}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">· {formatLiveCountdown(rebalanceEndsAt, now)}</span>
                   )}
                 </div>
               </TooltipTrigger>
