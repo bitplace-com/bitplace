@@ -42,6 +42,32 @@ export function WhitePaperModal({
               <ActionCard icon={<PixelIcon name="swords" size="md" />} title="Attack" description="Drain energy from pixels you want to repaint. Each Attack weakens the pixel. When it's weak enough, you can paint over it." />
               <ActionCard icon={<PixelIcon name="bolt" size="md" />} title="Reinforce" description="Add more energy to pixels you already painted. Strengthens your stake and makes your artwork harder to take." />
             </div>
+           </section>
+
+          {/* Getting Started (Free) */}
+          <section className="space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">Getting started (free)</h2>
+            <p className="text-sm text-muted-foreground">
+              You don't need a wallet or tokens to start. Sign in with Google and you'll receive{" "}
+              <span className="text-foreground font-medium">300,000 VPE</span> (Virtual Pixel Energy) — free energy to paint pixels and explore the map.
+            </p>
+            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-3 flex-wrap">
+              <span className="px-3 py-1.5 rounded-lg bg-muted">Sign in with Google</span>
+              <span className="text-muted-foreground/50">→</span>
+              <span className="px-3 py-1.5 rounded-lg bg-muted">Get 300k VPE</span>
+              <span className="text-muted-foreground/50">→</span>
+              <span className="px-3 py-1.5 rounded-lg bg-muted">Paint (72h)</span>
+              <span className="text-muted-foreground/50">→</span>
+              <span className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-medium">Want permanent? Get $BIT</span>
+            </div>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p>
+                VPE pixels are temporary — they expire after <span className="text-foreground font-medium">72 hours</span> and anyone can paint over them for free. When that happens, your VPE is recycled and you can use it again.
+              </p>
+              <p>
+                To make your pixels permanent, defend them, or attack others — connect a Solana wallet with <span className="text-foreground font-medium">$BIT</span> tokens.
+              </p>
+            </div>
           </section>
 
           {/* Why It Matters */}

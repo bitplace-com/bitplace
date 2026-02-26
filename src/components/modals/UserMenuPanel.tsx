@@ -1,4 +1,5 @@
 import { PixelIcon } from "@/components/icons";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { PEIcon } from "@/components/ui/pe-icon";
 import { VPEIcon } from "@/components/ui/vpe-icon";
 import { ProBadge } from "@/components/ui/pro-badge";
@@ -241,6 +242,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
         <Separator className="bg-border" />
 
         {/* Stats - 4 gameplay-critical items */}
+        <TooltipProvider delayDuration={200}>
         <div className="p-4 grid grid-cols-2 gap-3">
           <div className="p-2.5 rounded-xl bg-accent border border-border">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
@@ -250,31 +252,52 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               {energy.pixelsOwned.toLocaleString()}
             </p>
           </div>
-          <div className="p-2.5 rounded-xl bg-accent border border-border">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              PE Staked
-            </p>
-            <p className="text-sm font-semibold text-foreground">
-              {energy.pixelStakeTotal.toLocaleString()}
-            </p>
-          </div>
-          <div className="p-2.5 rounded-xl bg-accent border border-border">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-              <PEIcon size="xs" /> PE Total
-            </p>
-            <p className="text-sm font-semibold text-foreground tabular-nums">
-              {energy.isVirtualPe ? '0' : energy.peTotal.toLocaleString()}
-            </p>
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                  PE Staked
+                </p>
+                <p className="text-sm font-semibold text-foreground">
+                  {energy.pixelStakeTotal.toLocaleString()}
+                </p>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-56 text-xs">
+              Total PE locked across all your pixels. This PE is committed and reduces your available balance.
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                  <PEIcon size="xs" /> PE Total
+                </p>
+                <p className="text-sm font-semibold text-foreground tabular-nums">
+                  {energy.isVirtualPe ? '0' : energy.peTotal.toLocaleString()}
+                </p>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-56 text-xs">
+              Your total Pixel Energy, calculated from the dollar value of $BIT in your wallet.
+            </TooltipContent>
+          </Tooltip>
           {energy.virtualPeTotal > 0 && (
-            <div className="p-2.5 rounded-xl bg-accent border border-border">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                <VPEIcon size="xs" className="text-muted-foreground" /> VPE Available
-              </p>
-              <p className="text-sm font-semibold text-foreground tabular-nums">
-                {energy.virtualPeAvailable.toLocaleString()}
-              </p>
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                    <VPEIcon size="xs" className="text-muted-foreground" /> VPE Available
+                  </p>
+                  <p className="text-sm font-semibold text-foreground tabular-nums">
+                    {energy.virtualPeAvailable.toLocaleString()}
+                  </p>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-56 text-xs">
+                Your remaining Virtual PE budget. VPE is recycled when your pixels expire or are painted over.
+              </TooltipContent>
+            </Tooltip>
           )}
           {!energy.isVirtualPe && (
             <div className="p-2.5 rounded-xl bg-accent border border-border">
@@ -287,6 +310,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             </div>
           )}
         </div>
+        </TooltipProvider>
 
         <Separator className="bg-border" />
 
