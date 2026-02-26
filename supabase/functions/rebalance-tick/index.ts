@@ -6,24 +6,11 @@ const corsHeaders = {
 };
 
 // Constants
-const REBALANCE_DURATION_MS = 3 * 24 * 60 * 60 * 1000; // 3 days in ms
-const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours in ms
-const TOTAL_TICKS = 12; // 12 ticks over 3 days
-
-interface UserStakeData {
-  id: string;
-  pe_total_pe: number;
-  owner_health_multiplier: number;
-  rebalance_active: boolean;
-  rebalance_started_at: string | null;
-  rebalance_ends_at: string | null;
-  rebalance_target_multiplier: number | null;
-  total_stake: number;
-}
+const GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const DECAY_DURATION_MS = 72 * 60 * 60 * 1000; // 72 hours
 
 /**
- * Calculate the current multiplier based on linear interpolation.
- * Goes from 1.0 at start to target_multiplier at end over 3 days.
+ * Linear interpolation from 1.0 to targetMultiplier over the decay period.
  */
 function calculateCurrentMultiplier(
   startedAt: Date,
@@ -33,13 +20,10 @@ function calculateCurrentMultiplier(
 ): number {
   const totalDuration = endsAt.getTime() - startedAt.getTime();
   const elapsed = now.getTime() - startedAt.getTime();
-  
-  if (elapsed >= totalDuration) {
-    return targetMultiplier;
-  }
-  
+
+  if (elapsed >= totalDuration) return targetMultiplier;
+
   const progress = elapsed / totalDuration;
-  // Linear interpolation from 1.0 to target
   return 1 - (1 - targetMultiplier) * progress;
 }
 
@@ -57,147 +41,114 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const now = new Date();
-
-    // Step 1: Get all users with their total stakes
-    // We need to identify who should start/stop/continue rebalancing
-    const { data: users, error: usersError } = await supabase
-      .from("users")
-      .select("id, pe_total_pe, owner_health_multiplier, rebalance_active, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier");
-
-    if (usersError) {
-      console.error("[rebalance-tick] Users fetch error:", usersError);
-      return new Response(JSON.stringify({ ok: false, error: "DB_ERROR" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Step 2: Get total stakes per user (sum of owner_stake_pe for owned pixels)
-    const { data: stakes, error: stakesError } = await supabase
-      .from("pixels")
-      .select("owner_user_id, owner_stake_pe");
-
-    if (stakesError) {
-      console.error("[rebalance-tick] Stakes fetch error:", stakesError);
-      return new Response(JSON.stringify({ ok: false, error: "DB_ERROR" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Aggregate stakes by user
-    const stakesByUser = new Map<string, number>();
-    (stakes || []).forEach(p => {
-      if (p.owner_user_id) {
-        const current = stakesByUser.get(p.owner_user_id) || 0;
-        stakesByUser.set(p.owner_user_id, current + (p.owner_stake_pe || 0));
-      }
-    });
+    const graceDeadline = new Date(now.getTime() - GRACE_PERIOD_MS).toISOString();
 
     let startedCount = 0;
     let stoppedCount = 0;
     let updatedCount = 0;
 
-    // Step 3: Process each user
-    for (const user of users || []) {
-      const totalStake = stakesByUser.get(user.id) || 0;
-      const isUnderCollateralized = totalStake > user.pe_total_pe;
+    // ── Part 1: Process users already in rebalance ──
+    const { data: activeUsers, error: activeError } = await supabase
+      .from("users")
+      .select("id, owner_health_multiplier, rebalance_started_at, rebalance_ends_at, rebalance_target_multiplier")
+      .eq("rebalance_active", true);
 
-      if (user.rebalance_active) {
-        // User is currently in rebalance mode
+    if (activeError) {
+      console.error("[rebalance-tick] Active users fetch error:", activeError);
+      return new Response(JSON.stringify({ ok: false, error: "DB_ERROR" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-        // Check if user has re-collateralized
-        if (!isUnderCollateralized) {
-          // Stop rebalance immediately, restore multiplier to 1
-          const { error } = await supabase
+    for (const user of activeUsers || []) {
+      // Check if decay period has ended
+      if (user.rebalance_ends_at && new Date(user.rebalance_ends_at) <= now) {
+        await supabase
+          .from("users")
+          .update({ owner_health_multiplier: user.rebalance_target_multiplier || 0 })
+          .eq("id", user.id);
+        updatedCount++;
+        console.log(`[rebalance-tick] Final multiplier for ${user.id}: ${user.rebalance_target_multiplier}`);
+        continue;
+      }
+
+      // Update multiplier via linear interpolation
+      if (user.rebalance_started_at && user.rebalance_ends_at && user.rebalance_target_multiplier !== null) {
+        const newMultiplier = calculateCurrentMultiplier(
+          new Date(user.rebalance_started_at),
+          new Date(user.rebalance_ends_at),
+          user.rebalance_target_multiplier,
+          now
+        );
+
+        if (Math.abs(newMultiplier - user.owner_health_multiplier) > 0.001) {
+          await supabase
             .from("users")
-            .update({
-              rebalance_active: false,
-              owner_health_multiplier: 1,
-              rebalance_started_at: null,
-              rebalance_ends_at: null,
-              rebalance_target_multiplier: null,
-            })
+            .update({ owner_health_multiplier: Math.max(0, Math.min(1, newMultiplier)) })
             .eq("id", user.id);
-
-          if (!error) {
-            stoppedCount++;
-            console.log(`[rebalance-tick] Stopped rebalance for user ${user.id} (re-collateralized)`);
-          }
-          continue;
-        }
-
-        // Check if rebalance period has ended
-        if (user.rebalance_ends_at && new Date(user.rebalance_ends_at) <= now) {
-          // Set final multiplier
-          const { error } = await supabase
-            .from("users")
-            .update({
-              owner_health_multiplier: user.rebalance_target_multiplier || 0,
-            })
-            .eq("id", user.id);
-
-          if (!error) {
-            updatedCount++;
-            console.log(`[rebalance-tick] Final multiplier set for user ${user.id}: ${user.rebalance_target_multiplier}`);
-          }
-          continue;
-        }
-
-        // Update multiplier based on time progress
-        if (user.rebalance_started_at && user.rebalance_ends_at && user.rebalance_target_multiplier !== null) {
-          const newMultiplier = calculateCurrentMultiplier(
-            new Date(user.rebalance_started_at),
-            new Date(user.rebalance_ends_at),
-            user.rebalance_target_multiplier,
-            now
-          );
-
-          // Only update if significantly different (avoid unnecessary writes)
-          if (Math.abs(newMultiplier - user.owner_health_multiplier) > 0.001) {
-            const { error } = await supabase
-              .from("users")
-              .update({
-                owner_health_multiplier: Math.max(0, Math.min(1, newMultiplier)),
-              })
-              .eq("id", user.id);
-
-            if (!error) {
-              updatedCount++;
-              console.log(`[rebalance-tick] Updated multiplier for user ${user.id}: ${user.owner_health_multiplier} -> ${newMultiplier.toFixed(4)}`);
-            }
-          }
-        }
-      } else {
-        // User is not in rebalance mode
-
-        // Check if user should start rebalancing
-        if (isUnderCollateralized && totalStake > 0) {
-          const targetMultiplier = Math.max(0, Math.min(1, user.pe_total_pe / totalStake));
-          const endsAt = new Date(now.getTime() + REBALANCE_DURATION_MS);
-
-          const { error } = await supabase
-            .from("users")
-            .update({
-              rebalance_active: true,
-              rebalance_started_at: now.toISOString(),
-              rebalance_ends_at: endsAt.toISOString(),
-              rebalance_target_multiplier: targetMultiplier,
-              // Multiplier starts at 1, will decrease over time
-              owner_health_multiplier: 1,
-            })
-            .eq("id", user.id);
-
-          if (!error) {
-            startedCount++;
-            console.log(`[rebalance-tick] Started rebalance for user ${user.id}: stake=${totalStake}, pe=${user.pe_total_pe}, target=${targetMultiplier.toFixed(4)}`);
-          }
+          updatedCount++;
+          console.log(`[rebalance-tick] Updated ${user.id}: ${user.owner_health_multiplier} -> ${newMultiplier.toFixed(4)}`);
         }
       }
     }
 
+    // ── Part 2: Start rebalance for users whose grace period expired ──
+    const { data: expiredUsers, error: expiredError } = await supabase
+      .from("users")
+      .select("id, pe_used_pe")
+      .eq("rebalance_active", false)
+      .gt("pe_used_pe", 0)
+      .in("auth_provider", ["wallet", "both"])
+      .lt("last_balance_verified_at", graceDeadline);
+
+    if (expiredError) {
+      console.error("[rebalance-tick] Expired users fetch error:", expiredError);
+    }
+
+    for (const user of expiredUsers || []) {
+      // Get total staked PE via RPC function (no pixel loading)
+      const { data: stakeData, error: stakeError } = await supabase
+        .rpc("get_user_total_staked_pe", { uid: user.id });
+
+      if (stakeError || !stakeData || stakeData.length === 0) {
+        console.error(`[rebalance-tick] Stake fetch error for ${user.id}:`, stakeError);
+        continue;
+      }
+
+      const pixelStakeTotal = Number(stakeData[0].pixel_stake_total) || 0;
+      if (pixelStakeTotal <= 0) continue;
+
+      // Count owned pixels to calculate floor target
+      const { count: numPixels } = await supabase
+        .from("pixels")
+        .select("*", { count: "exact", head: true })
+        .eq("owner_user_id", user.id);
+
+      if (!numPixels || numPixels <= 0) continue;
+
+      // Target multiplier: brings each pixel to floor of 1 PE
+      // If average stake = pixelStakeTotal/numPixels, target = 1/(avg) = numPixels/pixelStakeTotal
+      const targetMultiplier = Math.max(0, Math.min(1, numPixels / pixelStakeTotal));
+      const endsAt = new Date(now.getTime() + DECAY_DURATION_MS);
+
+      await supabase
+        .from("users")
+        .update({
+          rebalance_active: true,
+          rebalance_started_at: now.toISOString(),
+          rebalance_ends_at: endsAt.toISOString(),
+          rebalance_target_multiplier: targetMultiplier,
+          owner_health_multiplier: 1,
+        })
+        .eq("id", user.id);
+
+      startedCount++;
+      console.log(`[rebalance-tick] Started decay for ${user.id}: pixels=${numPixels}, stake=${pixelStakeTotal}, target=${targetMultiplier.toFixed(4)}`);
+    }
+
     const elapsed = Date.now() - startTime;
-    console.log(`[rebalance-tick] Complete in ${elapsed}ms: started=${startedCount}, stopped=${stoppedCount}, updated=${updatedCount}`);
+    console.log(`[rebalance-tick] Done in ${elapsed}ms: started=${startedCount}, stopped=${stoppedCount}, updated=${updatedCount}`);
 
     return new Response(JSON.stringify({
       ok: true,

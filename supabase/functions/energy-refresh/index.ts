@@ -464,6 +464,7 @@ Deno.serve(async (req) => {
         wallet_usd: walletUsd,
         pe_total_pe: peTotal,
         last_energy_sync_at: syncAt,
+        last_balance_verified_at: syncAt,
         ...rebalanceUpdate,
       })
       .eq("id", userId);
