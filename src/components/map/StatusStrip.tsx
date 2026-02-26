@@ -174,30 +174,44 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
           {/* PE Total / Used */}
           {energy.isVirtualPe ? (
             /* Google-only: show virtual PE with VPE icon */
-            <div className="flex items-center gap-2">
-              <VPEIcon size="md" />
-              <span className="text-sm font-semibold tabular-nums leading-tight">
-                {isLoading ? '...' : energy.virtualPeAvailable.toLocaleString()}
-              </span>
-              {energy.virtualPeUsed > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  (used {energy.virtualPeUsed.toLocaleString()})
-                </span>
-              )}
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2 cursor-help">
+                  <VPEIcon size="md" />
+                  <span className="text-sm font-semibold tabular-nums leading-tight">
+                    {isLoading ? '...' : energy.virtualPeAvailable.toLocaleString()}
+                  </span>
+                  {energy.virtualPeUsed > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      (used {energy.virtualPeUsed.toLocaleString()})
+                    </span>
+                  )}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-64 text-xs">
+                Virtual Pixel Energy (VPE): free energy for Starter accounts. VPE pixels expire after 72h and can be painted over by anyone.
+              </TooltipContent>
+            </Tooltip>
           ) : (
             /* Wallet user: show real PE */
-            <div className="flex items-center gap-2">
-              <PEIcon size="md" className="text-foreground" />
-              <span className="text-sm font-semibold tabular-nums leading-tight">
-                {isLoading ? '...' : energy.peTotal.toLocaleString()}
-              </span>
-              {peUsed > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  (used {peUsed.toLocaleString()})
-                </span>
-              )}
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2 cursor-help">
+                  <PEIcon size="md" className="text-foreground" />
+                  <span className="text-sm font-semibold tabular-nums leading-tight">
+                    {isLoading ? '...' : energy.peTotal.toLocaleString()}
+                  </span>
+                  {peUsed > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      (used {peUsed.toLocaleString()})
+                    </span>
+                  )}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-64 text-xs">
+                Pixel Energy (PE): your energy capacity based on your $BIT wallet value. 1 PE = $0.001.
+              </TooltipContent>
+            </Tooltip>
           )}
 
           {/* Virtual PE for 'both' users (separate section) */}

@@ -199,9 +199,9 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
 
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-muted/50 rounded-lg p-3">
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+               <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                 <PEIcon size="xs" />
-                <span>Owner Stake</span>
+                <span>PE Owner Stake</span>
               </div>
               <div className="text-lg font-semibold">
                 {pixel.owner_stake_pe.toLocaleString()}
@@ -210,9 +210,9 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
             </div>
             
             <div className="bg-muted/50 rounded-lg p-3">
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+               <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                 <PEIcon size="xs" />
-                <span>Total Stake</span>
+                <span>PE Total Stake</span>
               </div>
               <div className={cn(
                 "text-lg font-semibold",

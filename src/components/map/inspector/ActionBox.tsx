@@ -207,10 +207,10 @@ export function ActionBox({
         <div className="space-y-1.5 px-2 py-2 rounded-lg bg-muted/30">
           {/* Required PE */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <PEIcon size="xs" />
-              <span>{isWithdraw ? 'Refund' : 'Required'}</span>
-            </div>
+           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+               <PEIcon size="xs" />
+               <span>PE {isWithdraw ? 'Refund' : 'Required'}</span>
+             </div>
             <span className={cn("text-base font-semibold tabular-nums", isWithdraw && "text-emerald-500")}>
               {isWithdraw ? '+' : ''}{Math.abs(requiredPe).toLocaleString()}
             </span>

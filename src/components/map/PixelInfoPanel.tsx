@@ -345,12 +345,23 @@ export function PixelInfoPanel({
                    <div className="font-semibold text-foreground">{(pixel.owner?.pixels_painted_total ?? 0).toLocaleString()}</div>
                    <div className="text-[10px] text-muted-foreground">Pixels</div>
                  </div>
-                 <div className="flex-1 bg-muted/70 rounded-lg px-2.5 py-2 text-center">
-                   <div className="font-semibold text-foreground flex items-center justify-center gap-0.5">
-                     {pixel.isVirtualStake ? '0' : (pixel.owner?.total_staked_pe ?? 0).toLocaleString()} {pixel.isVirtualStake ? <VPEIcon size="xs" /> : <PEIcon size="xs" />}
-                   </div>
-                   <div className="text-[10px] text-muted-foreground">Staked</div>
-                 </div>
+                 <TooltipProvider delayDuration={200}>
+                   <Tooltip>
+                     <TooltipTrigger asChild>
+                       <div className="flex-1 bg-muted/70 rounded-lg px-2.5 py-2 text-center cursor-help">
+                         <div className="font-semibold text-foreground flex items-center justify-center gap-0.5">
+                           {pixel.isVirtualStake ? '0' : (pixel.owner?.total_staked_pe ?? 0).toLocaleString()} {pixel.isVirtualStake ? <VPEIcon size="xs" /> : <PEIcon size="xs" />}
+                         </div>
+                         <div className="text-[10px] text-muted-foreground">{pixel.isVirtualStake ? 'VPE' : 'PE'} Staked</div>
+                       </div>
+                     </TooltipTrigger>
+                     <TooltipContent side="bottom" className="max-w-56 text-xs">
+                       {pixel.isVirtualStake
+                         ? 'Virtual PE staked. VPE pixels have no real value and expire after 72h.'
+                         : 'Total PE locked across all pixels owned by this player.'}
+                     </TooltipContent>
+                   </Tooltip>
+                 </TooltipProvider>
                  <div className="flex-1 bg-muted/70 rounded-lg px-2.5 py-2 text-center">
                    <div className="font-semibold text-emerald-500">{pixel.isVirtualStake ? '~$0.00' : peToUsd(pixel.owner?.total_staked_pe ?? 0)}</div>
                    <div className="text-[10px] text-muted-foreground">Value</div>
@@ -361,42 +372,78 @@ export function PixelInfoPanel({
               <div className="bg-muted/70 rounded-lg p-3 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   {/* Owner Stake */}
-                  <div className="space-y-0.5">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      {pixel.isVirtualStake ? <VPEIcon size="xs" /> : <PEIcon size="xs" />} Owner Stake
-                    </span>
+                   <TooltipProvider delayDuration={200}>
+                   <Tooltip>
+                   <TooltipTrigger asChild>
+                   <div className="space-y-0.5 cursor-help">
+                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                       {pixel.isVirtualStake ? <VPEIcon size="xs" /> : <PEIcon size="xs" />} {pixel.isVirtualStake ? 'VPE' : 'PE'} Owner Stake
+                     </span>
                     <div className="text-sm font-semibold">
                       {pixel.isVirtualStake ? '0' : pixel.owner_stake_pe.toLocaleString()} PE
                     </div>
-                    <div className="text-[10px] text-emerald-500">
-                      {pixel.isVirtualStake ? '~$0.00' : peToUsd(pixel.owner_stake_pe)}
-                    </div>
-                  </div>
-                  {/* Total Stake */}
-                  <div className="space-y-0.5">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      {pixel.isVirtualStake ? <VPEIcon size="xs" /> : <PEIcon size="xs" />} Total Stake
-                    </span>
+                     <div className="text-[10px] text-emerald-500">
+                       {pixel.isVirtualStake ? '~$0.00' : peToUsd(pixel.owner_stake_pe)}
+                     </div>
+                   </div>
+                   </TooltipTrigger>
+                   <TooltipContent side="bottom" className="max-w-56 text-xs">
+                     The energy locked by the owner when painting this pixel. Higher stake = harder to take over.
+                   </TooltipContent>
+                   </Tooltip>
+                   </TooltipProvider>
+                   {/* Total Stake */}
+                   <TooltipProvider delayDuration={200}>
+                   <Tooltip>
+                   <TooltipTrigger asChild>
+                   <div className="space-y-0.5 cursor-help">
+                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                       {pixel.isVirtualStake ? <VPEIcon size="xs" /> : <PEIcon size="xs" />} {pixel.isVirtualStake ? 'VPE' : 'PE'} Total Stake
+                     </span>
                     <div className={cn('text-sm font-semibold', !pixel.isVirtualStake && pixel.vNow < 0 && 'text-destructive')}>
                       {pixel.isVirtualStake ? '0' : pixel.vNow.toLocaleString()} PE
                     </div>
-                    <div className="text-[10px] text-emerald-500">
-                      {pixel.isVirtualStake ? '~$0.00' : peToUsd(pixel.vNow)}
-                    </div>
-                  </div>
-                </div>
+                     <div className="text-[10px] text-emerald-500">
+                       {pixel.isVirtualStake ? '~$0.00' : peToUsd(pixel.vNow)}
+                     </div>
+                   </div>
+                   </TooltipTrigger>
+                   <TooltipContent side="bottom" className="max-w-56 text-xs">
+                     Total pixel strength: owner stake + defenders − attackers.
+                   </TooltipContent>
+                   </Tooltip>
+                   </TooltipProvider>
+                 </div>
 
-                {/* DEF / ATK row */}
-                <div className="flex items-center justify-center gap-4 pt-1 border-t border-border/40">
-                  <span className="text-xs text-emerald-500 flex items-center gap-1 font-medium">
-                    <PixelIcon name="shield" className="w-3 h-3" />
-                    DEF +{pixel.defTotal.toLocaleString()}
-                  </span>
-                  <span className="text-xs text-rose-500 flex items-center gap-1 font-medium">
-                    <PixelIcon name="swords" className="w-3 h-3" />
-                    ATK -{pixel.atkTotal.toLocaleString()}
-                  </span>
-                </div>
+                 {/* DEF / ATK row */}
+                 <div className="flex items-center justify-center gap-4 pt-1 border-t border-border/40">
+                   <TooltipProvider delayDuration={200}>
+                     <Tooltip>
+                       <TooltipTrigger asChild>
+                         <span className="text-xs text-emerald-500 flex items-center gap-1 font-medium cursor-help">
+                           <PixelIcon name="shield" className="w-3 h-3" />
+                           DEF +{pixel.defTotal.toLocaleString()}
+                         </span>
+                       </TooltipTrigger>
+                       <TooltipContent side="bottom" className="max-w-56 text-xs">
+                         Defenders: PE added by other players to protect this pixel. Increases pixel value.
+                       </TooltipContent>
+                     </Tooltip>
+                   </TooltipProvider>
+                   <TooltipProvider delayDuration={200}>
+                     <Tooltip>
+                       <TooltipTrigger asChild>
+                         <span className="text-xs text-rose-500 flex items-center gap-1 font-medium cursor-help">
+                           <PixelIcon name="swords" className="w-3 h-3" />
+                           ATK -{pixel.atkTotal.toLocaleString()}
+                         </span>
+                       </TooltipTrigger>
+                       <TooltipContent side="bottom" className="max-w-56 text-xs">
+                         Attackers: PE spent by others to weaken this pixel. Decreases pixel value.
+                       </TooltipContent>
+                     </Tooltip>
+                   </TooltipProvider>
+                 </div>
               </div>
 
               {/* ── Starter Pixel Expiry ── */}
@@ -420,7 +467,7 @@ export function PixelInfoPanel({
               {!isOwnPixel && (
                 <div className="bg-muted/70 rounded-lg p-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Takeover Cost</span>
+                    <span className="text-xs text-muted-foreground">PE Takeover Cost</span>
                     <div className="text-right">
                       <span className="text-sm font-semibold flex items-center gap-1">
                         {takeoverCost.toLocaleString()} <PEIcon size="xs" />
@@ -479,34 +526,32 @@ export function PixelInfoPanel({
               {/* ── Artwork ── */}
               {pixel.owner?.id && (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                      <PixelIcon name="brush" className="w-3 h-3" />
-                       Paints
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => shareArtwork(pixel.owner!.id!, pixel.owner!.display_name).then(ok => ok && toast.success('Link copied!'))}
-                        className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition-colors"
-                      >
-                        <PixelIcon name="share" className="w-3 h-3" />
-                        Share
-                      </button>
-                      <button
-                        onClick={() => setArtworkModalOpen(true)}
-                        className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition-colors"
-                      >
-                        <Expand className="w-3 h-3" />
-                        Expand
-                      </button>
-                    </div>
-                  </div>
-                  <UserMinimap
-                    userId={pixel.owner.id}
-                    height="5rem"
-                    showEmptyState={false}
-                    className="rounded-lg"
-                  />
+                   <div className="flex items-center justify-between">
+                     <span className="text-xs text-muted-foreground flex items-center gap-1">
+                       <PixelIcon name="brush" className="w-3 h-3" />
+                        Paints
+                     </span>
+                     <button
+                       onClick={() => setArtworkModalOpen(true)}
+                       className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition-colors"
+                     >
+                       <Expand className="w-3 h-3" />
+                       Expand
+                     </button>
+                   </div>
+                   <UserMinimap
+                     userId={pixel.owner.id}
+                     height="5rem"
+                     showEmptyState={false}
+                     className="rounded-lg"
+                   />
+                   <button
+                     onClick={() => shareArtwork(pixel.owner!.id!, pixel.owner!.display_name).then(ok => ok && toast.success('Link copied!'))}
+                     className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors w-full justify-center py-1"
+                   >
+                     <PixelIcon name="share" className="w-3 h-3" />
+                     Share artwork
+                   </button>
                 </div>
               )}
 

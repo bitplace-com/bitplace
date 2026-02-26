@@ -79,6 +79,29 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
               </p>
             </section>
 
+            {/* VPE */}
+            <section className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <PixelIcon name="boltOutline" size="sm" />
+                </div>
+                <h3 className="font-semibold">Virtual Pixel Energy (VPE)</h3>
+              </div>
+              <p className="text-muted-foreground pl-9">
+                Free energy available when you sign in with Google. You get 300,000 recyclable VPE to try the game without buying tokens.
+              </p>
+              <div className="pl-9 text-xs text-muted-foreground space-y-1">
+                <p>Key differences from PE:</p>
+                <ul className="list-disc list-inside pl-2 space-y-0.5">
+                  <li>VPE pixels have a value of 0 — anyone can paint over them for free</li>
+                  <li>VPE pixels expire after 72 hours</li>
+                  <li>When a VPE pixel expires or is painted over, the VPE is recycled back to you</li>
+                  <li>VPE cannot be used for Defend, Attack, or Reinforce</li>
+                  <li>To make pixels permanent, connect a wallet and use real PE</li>
+                </ul>
+              </div>
+            </section>
+
             {/* Stake */}
             <section className="space-y-2">
               <div className="flex items-center gap-2">
@@ -175,6 +198,10 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">Takeover</span>
               <span className="text-muted-foreground text-right">Claiming a pixel by staking more PE than its current value</span>
+            </div>
+            <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
+              <span className="font-medium">VPE</span>
+              <span className="text-muted-foreground text-right">Virtual PE — free energy for Starter accounts (72h expiry)</span>
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">Decay</span>
