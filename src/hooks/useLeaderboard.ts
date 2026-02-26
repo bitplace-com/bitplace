@@ -20,6 +20,7 @@ export interface PlayerPainterEntry {
   walletAddress: string | null;
   authProvider: string | null;
   peUsedPe: number;
+  nativeBalance: number;
 }
 
 export interface PlayerPeEntry {
@@ -37,6 +38,7 @@ export interface PlayerPeEntry {
   walletAddress: string | null;
   authProvider: string | null;
   peUsedPe: number;
+  nativeBalance: number;
 }
 
 export interface CountryPainterEntry {
