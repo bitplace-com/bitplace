@@ -283,6 +283,7 @@ async function executeCommit(
   const total = pixels.length;
   let affectedPixels = 0;
   const now = new Date().toISOString();
+  let totalVirtualPeCost = 0;
   
   // PROMPT 55: Track upserted pixels for changedPixels response
   let upsertedPixels: ChangedPixel[] | undefined = undefined;
@@ -528,7 +529,7 @@ async function executeCommit(
     
     const takeoverPreviousOwners: Array<{ ownerId: string; x: number; y: number }> = [];
     const takeoverPixelIds: number[] = [];
-    let totalVirtualPeCost = 0;
+    // totalVirtualPeCost declared at function scope (line 286)
     
     for (const pixel of pixelStates) {
       const isEmpty = !pixel.id;

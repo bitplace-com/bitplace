@@ -252,7 +252,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           </div>
           <div className="p-2.5 rounded-xl bg-accent border border-border">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              Total Staked
+              PE Staked
             </p>
             <p className="text-sm font-semibold text-foreground">
               {energy.pixelStakeTotal.toLocaleString()}
@@ -269,7 +269,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           {energy.virtualPeTotal > 0 && (
             <div className="p-2.5 rounded-xl bg-accent border border-border">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                <VPEIcon size="xs" className="text-muted-foreground" /> VPE Avail
+                <VPEIcon size="xs" className="text-muted-foreground" /> VPE Available
               </p>
               <p className="text-sm font-semibold text-foreground tabular-nums">
                 {energy.virtualPeAvailable.toLocaleString()}
