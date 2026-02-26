@@ -48,6 +48,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
   const [pixelControlOpen, setPixelControlOpen] = useState(false);
+  const [pixelAlertDismissed, setPixelAlertDismissed] = useState(false);
   const vpeRenew = useVpeRenew(user?.id);
   const { enabled: soundEnabled, toggle: toggleSound } = useSound();
 
@@ -176,9 +177,18 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               <span>Used</span>
               <span className="tabular-nums">{energy.virtualPeUsed.toLocaleString()} / {energy.virtualPeTotal.toLocaleString()}</span>
             </div>
-            <p className="text-[10px] text-amber-500">
-              Your pixels expire after 72h — renew them from Pixel Control to reset the timer
-            </p>
+            {!pixelAlertDismissed && (
+              <div className="mt-1 flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5">
+                <PixelIcon name="clock" className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">Pixels expire after 72h</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Open the Pixel Control Center to renew all your painted pixels at once and reset the 72h timer before they disappear.</p>
+                </div>
+                <button onClick={() => setPixelAlertDismissed(true)} className="shrink-0 p-0.5 rounded hover:bg-amber-500/20 transition-colors">
+                  <PixelIcon name="close" className="h-3 w-3 text-amber-500" />
+                </button>
+              </div>
+            )}
           </div>
         ) : user?.auth_provider === 'both' && !isTrialMode ? (
           <>
@@ -232,7 +242,18 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                   <span className="text-foreground tabular-nums">{energy.virtualPeAvailable.toLocaleString()} available</span>
                   <span className="text-muted-foreground tabular-nums">{energy.virtualPeUsed.toLocaleString()} / {energy.virtualPeTotal.toLocaleString()}</span>
                 </div>
-                <p className="text-[10px] text-amber-500">Your pixels expire after 72h — renew them from Pixel Control to reset the timer</p>
+                {!pixelAlertDismissed && (
+                  <div className="mt-1 flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5">
+                    <PixelIcon name="clock" className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">Pixels expire after 72h</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Open the Pixel Control Center to renew all your painted pixels at once and reset the 72h timer before they disappear.</p>
+                    </div>
+                    <button onClick={() => setPixelAlertDismissed(true)} className="shrink-0 p-0.5 rounded hover:bg-amber-500/20 transition-colors">
+                      <PixelIcon name="close" className="h-3 w-3 text-amber-500" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </>
