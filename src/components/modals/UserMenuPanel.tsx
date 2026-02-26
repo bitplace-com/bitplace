@@ -64,7 +64,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent
         align="end"
-        className="w-80 p-0 bg-popover/95 backdrop-blur-xl border-border rounded-2xl shadow-xl z-50"
+        className="w-80 max-h-[85vh] overflow-y-auto p-0 bg-popover/95 backdrop-blur-xl border-border rounded-2xl shadow-xl z-50"
       >
         {/* User Header */}
         <div className="p-4">
@@ -150,13 +150,21 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
 
         <Separator className="bg-border" />
 
+        <TooltipProvider delayDuration={200}>
         {/* Wallet Section */}
         {isGoogleOnly && !isTrialMode ? (
           <div className="p-4 space-y-2">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-              <VPEIcon size="sm" className="text-muted-foreground" />
-              <span className="uppercase tracking-wider font-medium">VPE</span>
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2 cursor-help">
+                  <VPEIcon size="sm" className="text-muted-foreground" />
+                  <span className="uppercase tracking-wider font-medium">VPE</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-56 text-xs">
+                Virtual Paint Energy — free energy for painting. VPE pixels expire after 72h but you can repaint them to reset the timer.
+              </TooltipContent>
+            </Tooltip>
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-foreground tabular-nums">
                 {energy.virtualPeAvailable.toLocaleString()} VPE available
@@ -167,7 +175,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               <span className="tabular-nums">{energy.virtualPeUsed.toLocaleString()} / {energy.virtualPeTotal.toLocaleString()}</span>
             </div>
             <p className="text-[10px] text-amber-500">
-              VPE pixels expire after 72h
+              VPE pixels expire after 72h — repaint to reset the timer
             </p>
           </div>
         ) : user?.auth_provider === 'both' && !isTrialMode ? (
@@ -207,15 +215,22 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             {/* Starter PE section */}
             {(energy.virtualPeTotal > 0) && (
               <div className="p-4 space-y-1">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                  <VPEIcon size="sm" className="text-muted-foreground" />
-                  <span className="uppercase tracking-wider font-medium">VPE</span>
-                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1 cursor-help">
+                      <VPEIcon size="sm" className="text-muted-foreground" />
+                      <span className="uppercase tracking-wider font-medium">VPE</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-56 text-xs">
+                    Virtual Paint Energy — free energy for painting. VPE pixels expire after 72h but you can repaint them to reset the timer.
+                  </TooltipContent>
+                </Tooltip>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-foreground tabular-nums">{energy.virtualPeAvailable.toLocaleString()} available</span>
                   <span className="text-muted-foreground tabular-nums">{energy.virtualPeUsed.toLocaleString()} / {energy.virtualPeTotal.toLocaleString()}</span>
                 </div>
-                <p className="text-[10px] text-amber-500">VPE pixels expire after 72h</p>
+                <p className="text-[10px] text-amber-500">VPE pixels expire after 72h — repaint to reset the timer</p>
               </div>
             )}
           </>
@@ -242,16 +257,23 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
         <Separator className="bg-border" />
 
         {/* Stats - 4 gameplay-critical items */}
-        <TooltipProvider delayDuration={200}>
+        
         <div className="p-4 grid grid-cols-2 gap-3">
-          <div className="p-2.5 rounded-xl bg-accent border border-border">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              Pixels Owned
-            </p>
-            <p className="text-sm font-semibold text-foreground">
-              {energy.pixelsOwned.toLocaleString()}
-            </p>
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                  Pixels Owned
+                </p>
+                <p className="text-sm font-semibold text-foreground">
+                  {energy.pixelsOwned.toLocaleString()}
+                </p>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-56 text-xs">
+              Total pixels you currently own on the map.
+            </TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
@@ -300,14 +322,21 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             </Tooltip>
           )}
           {!energy.isVirtualPe && (
-            <div className="p-2.5 rounded-xl bg-accent border border-border">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                <PEIcon size="xs" /> Available
-              </p>
-              <p className="text-sm font-semibold text-foreground tabular-nums">
-                {energy.peAvailable.toLocaleString()}
-              </p>
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                    <PEIcon size="xs" /> Available
+                  </p>
+                  <p className="text-sm font-semibold text-foreground tabular-nums">
+                    {energy.peAvailable.toLocaleString()}
+                  </p>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-56 text-xs">
+                PE you can spend right now on paint, defend, attack, or reinforce.
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
         </TooltipProvider>

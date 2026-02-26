@@ -62,7 +62,7 @@ export function WhitePaperModal({
             </div>
             <div className="space-y-2 text-sm text-muted-foreground">
               <p>
-                VPE pixels are temporary — they expire after <span className="text-foreground font-medium">72 hours</span> and anyone can paint over them for free. When that happens, your VPE is recycled and you can use it again.
+                VPE pixels are temporary — they expire after <span className="text-foreground font-medium">72 hours</span> and anyone can paint over them for free. But you can keep them alive: just repaint your pixel anytime before it expires and the <span className="text-foreground font-medium">72h timer resets</span>. Come back regularly to maintain your artwork. When a VPE pixel expires or is painted over, your VPE is recycled and you can use it again.
               </p>
               <p>
                 To make your pixels permanent, defend them, or attack others — connect a Solana wallet with <span className="text-foreground font-medium">$BIT</span> tokens.
