@@ -1,41 +1,84 @@
 
 
-## Fix icona Pixel Control Center + Miglioramento alert 72h
+## Fix icona Grid3x3 + Redesign sezione Pixel Balance
 
 ### 1. Fix icona Grid3x3
 
-L'icona `grid3x3` usa un viewBox `0 0 24 24` ma le coordinate dei poligoni partono da 1 e arrivano a 23, il che lascia solo 1px di margine su ogni lato. A dimensioni piccole (`h-4 w-4` = 16px) i dettagli si perdono e l'icona appare sgranata/rotta.
+Il problema: le celle 5x5 con offset asimmetrico (2px a sinistra, 3px a destra) e `shapeRendering: crispEdges` causano distorsione a 20px. 
 
-Soluzione: riscrivere `PixelGrid3x3.tsx` con coordinate che occupano meglio il viewBox, usando rettangoli semplici al posto dei poligoni complessi. 9 celle quadrate (5x5px ciascuna) con 1px di gap, centrate nel viewBox 24x24.
+Soluzione: riscrivere con celle 6x6, gap 2px, margine 1px simmetrico su ogni lato.
 
 File: `src/components/icons/custom/PixelGrid3x3.tsx`
 
-### 2. Miglioramento alert scadenza 72h nel UserMenuPanel
+```text
+Griglia perfettamente centrata in viewBox 24x24:
+Celle 6x6, gap 2px, margine 1px
 
-Attualmente il messaggio e solo una `<p>` con testo amber. Va trasformato in un alert card elegante e chiudibile.
+  x=1    x=9    x=17
+y=1  [6x6]  [6x6]  [6x6]
+y=9  [6x6]  [6x6]  [6x6]
+y=17 [6x6]  [6x6]  [6x6]
 
-Modifiche in `src/components/modals/UserMenuPanel.tsx`:
-
-- Aggiungere uno state `const [pixelAlertDismissed, setPixelAlertDismissed] = useState(false)` 
-- Sostituire le due righe `<p className="text-[10px] text-amber-500">` (linee 179-181 e 235) con un componente alert card:
-  - Background: `bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5`
-  - Riga superiore: icona clock + titolo "Pixels expire after 72h" + bottone X per chiudere
-  - Riga inferiore: testo esplicativo "Open the Pixel Control Center to renew all your painted pixels at once and reset the 72h timer before they disappear."
-  - Condizione: `{!pixelAlertDismissed && (...)}`
-- Il dismiss e locale alla sessione (useState), si resetta riaprendo il menu
-
-### Dettaglio tecnico
-
-**PixelGrid3x3.tsx** — Riscrittura con 9 `<rect>` semplici:
-```
-Griglia 3x3 con celle da 5px e gap da 2px
-Offset: x=2, y=2
-Celle: (2,2) (9,2) (16,2) / (2,9) (9,9) (16,9) / (2,16) (9,16) (16,16)
-Ogni rect: width=5 height=5
+Totale: 1 + 6 + 2 + 6 + 2 + 6 + 1 = 24 (perfetto)
 ```
 
-**UserMenuPanel.tsx** — Nuovo alert card (2 occorrenze: linea ~179 per google-only e linea ~235 per both):
-- State: `pixelAlertDismissed` (un singolo state per entrambe le occorrenze)
-- Layout: flex row con icona + testo + X button
-- Copy aggiornato con contesto su cosa fare nel Pixel Control Center
+### 2. Redesign sezione Pixel Balance nel PixelControlPanel
+
+Cambiamenti principali:
+
+**a) Rimuovere l'Expiration Breakdown con le righe colorate (urgent/soon/upcoming/safe)**
+Non serve mostrare "Safe (48h+ left) 128" quando tutto va bene. Troppo rumore visivo.
+
+**b) Aggiungere un timer countdown live sotto le stat box**
+Un alert compatto con icona clock che mostra:
+- "Next expiry in 2d 14h 32m 15s" (countdown live con `useLiveTick`)
+- Sotto: contesto breve tipo "128 pixels active -- renew available after 48h"
+- Se ci sono pixel urgenti (< 6h): variante rossa con "X pixels expiring soon!"
+
+Richiede aggiungere `earliestExpiry: Date | null` al hook `useVpeRenew` (calcolato dal min di `expires_at` gia fetchato).
+
+**c) Compattare la sezione Renew**
+Rimuovere il box dedicato con titolo + paragrafo + bottone + nota. Al suo posto:
+- Solo il bottone renew (full width, compatto, h-9 invece di h-11)
+- Sotto il bottone: una riga di testo piccolo con il contesto ("Resets 72h timer -- available after 48h from last paint")
+- Nessun titolo "Renew your painted pixels" e nessun paragrafo esplicativo
+
+### 3. Hook useVpeRenew -- aggiungere earliestExpiry
+
+File: `src/hooks/useVpeRenew.ts`
+
+Nella funzione `fetchBatches`, durante il loop su `data`, tracciare il `min(expires_at)` e esporlo come `earliestExpiry: Date | null` nell'interfaccia `VpeRenewState`.
+
+### Dettaglio tecnico per file
+
+| File | Modifica |
+|------|----------|
+| `src/components/icons/custom/PixelGrid3x3.tsx` | Riscrivere 9 rect con coordinate 6x6, gap 2, margine 1 |
+| `src/hooks/useVpeRenew.ts` | Aggiungere `earliestExpiry: Date \| null` alla state e al return. Calcolare durante fetchBatches |
+| `src/components/modals/PixelControlPanel.tsx` | Rimuovere Expiration Breakdown. Aggiungere timer countdown compatto. Compattare sezione renew |
+
+### Layout risultante della sezione Pixel Balance
+
+```text
+PIXEL BALANCE (brush icon)
++------------------------------------------+
+| Available  |   Used    |  Active Pixels   |
+| 299,872    |   128     |     128          |
++------------------------------------------+
+
+[clock icon] Next expiry in 2d 14h 32m 15s
+             128 active pixels -- renew available after 48h
+
+[====== All pixels up to date (disabled) ======]
+Resets 72h timer -- available after 48h from last paint
+```
+
+Quando ci sono pixel urgenti (< 6h):
+```text
+[clock icon, red] 3 pixels expiring soon!
+                  Earliest in 4h 12m 3s
+
+[====== Renew 3 Pixels (active, primary) ======]
+Timer resets to 72h from now for each renewed pixel
+```
 
