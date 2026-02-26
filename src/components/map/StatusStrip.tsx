@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { PixelIcon } from '@/components/icons';
 import { PEIcon } from '@/components/ui/pe-icon';
+import { VPEIcon } from '@/components/ui/vpe-icon';
 import { usePeBalance } from '@/hooks/usePeBalance';
 import { useWallet } from '@/contexts/WalletContext';
 import { usePaintCooldown } from '@/hooks/usePaintCooldown';
@@ -44,7 +45,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
   // Use usePeBalance for rebalance status only
   const { isLoading, rebalanceActive, healthMultiplier, rebalanceEndsAt } = usePeBalance(userId);
   // Use WalletContext for PE totals (server truth)
-  const { energy, refreshEnergy, needsSignature, signIn, isTrialMode } = useWallet();
+  const { energy, refreshEnergy, needsSignature, signIn, isTrialMode, isGoogleOnly, user } = useWallet();
   // Paint cooldown
   const { isOnCooldown, formatCooldown } = usePaintCooldown(energy.paintCooldownUntil);
 
@@ -133,18 +134,20 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             </div>
           )}
 
-          {/* BIT Balance */}
-          <div className="flex items-center gap-2">
-            <PixelIcon name="wallet" className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium tabular-nums leading-tight">
-              {isLoading || energy.isRefreshing ? '...' : `${energy.nativeBalance.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ${energy.nativeSymbol}`}
-            </span>
-            {energy.walletUsd > 0 && (
-              <span className="text-xs text-muted-foreground">
-                ≈ ${formatUsd(energy.walletUsd)}
+          {/* BIT Balance - hide for Google-only users */}
+          {!isGoogleOnly && (
+            <div className="flex items-center gap-2">
+              <PixelIcon name="wallet" className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium tabular-nums leading-tight">
+                {isLoading || energy.isRefreshing ? '...' : `${energy.nativeBalance.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ${energy.nativeSymbol}`}
               </span>
-            )}
-          </div>
+              {energy.walletUsd > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  ≈ ${formatUsd(energy.walletUsd)}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Cluster Badge (hidden in trial — TRIAL badge is enough) */}
           {energy.cluster && !isTrialMode && (
@@ -169,20 +172,46 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
         {/* Right side - PE & Status */}
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap sm:flex-nowrap justify-end">
           {/* PE Total / Used */}
-          <div className="flex items-center gap-2">
-            <PEIcon size="md" className="text-foreground" />
-            <span className="text-sm font-semibold tabular-nums leading-tight">
-              {isLoading ? '...' : energy.peTotal.toLocaleString()}
-            </span>
-            {peUsed > 0 && (
-              <span className="text-xs text-muted-foreground">
-                (used {peUsed.toLocaleString()})
+          {energy.isVirtualPe ? (
+            /* Google-only: show virtual PE with VPE icon */
+            <div className="flex items-center gap-2">
+              <VPEIcon size="md" />
+              <span className="text-sm font-semibold tabular-nums leading-tight">
+                {isLoading ? '...' : energy.virtualPeAvailable.toLocaleString()}
               </span>
-            )}
-          </div>
+              {energy.virtualPeUsed > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  (used {energy.virtualPeUsed.toLocaleString()})
+                </span>
+              )}
+            </div>
+          ) : (
+            /* Wallet user: show real PE */
+            <div className="flex items-center gap-2">
+              <PEIcon size="md" className="text-foreground" />
+              <span className="text-sm font-semibold tabular-nums leading-tight">
+                {isLoading ? '...' : energy.peTotal.toLocaleString()}
+              </span>
+              {peUsed > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  (used {peUsed.toLocaleString()})
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Virtual PE for 'both' users (separate section) */}
+          {!energy.isVirtualPe && user?.auth_provider === 'both' && energy.virtualPeTotal > 0 && (
+            <div className="flex items-center gap-2">
+              <VPEIcon size="md" />
+              <span className="text-sm font-medium tabular-nums leading-tight">
+                {energy.virtualPeAvailable.toLocaleString()}
+              </span>
+            </div>
+          )}
 
           {/* Available PE - smaller muted */}
-          {peAvailable > 0 && peAvailable !== energy.peTotal && (
+          {!energy.isVirtualPe && peAvailable > 0 && peAvailable !== energy.peTotal && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <span>avail</span>
               <span className="tabular-nums">{peAvailable.toLocaleString()}</span>

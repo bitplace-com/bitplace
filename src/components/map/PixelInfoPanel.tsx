@@ -4,6 +4,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { PEIcon } from '@/components/ui/pe-icon';
+import { VPEIcon } from '@/components/ui/vpe-icon';
 import { ProBadge } from '@/components/ui/pro-badge';
 import { AdminBadge } from '@/components/ui/admin-badge';
 import { getProTier, isAdmin } from '@/lib/userBadges';
@@ -346,12 +347,12 @@ export function PixelInfoPanel({
                  </div>
                  <div className="flex-1 bg-muted/70 rounded-lg px-2.5 py-2 text-center">
                    <div className="font-semibold text-foreground flex items-center justify-center gap-0.5">
-                     {(pixel.owner?.total_staked_pe ?? 0).toLocaleString()} <PEIcon size="xs" />
+                     {pixel.isVirtualStake ? '0' : (pixel.owner?.total_staked_pe ?? 0).toLocaleString()} {pixel.isVirtualStake ? <VPEIcon size="xs" /> : <PEIcon size="xs" />}
                    </div>
                    <div className="text-[10px] text-muted-foreground">Staked</div>
                  </div>
                  <div className="flex-1 bg-muted/70 rounded-lg px-2.5 py-2 text-center">
-                   <div className="font-semibold text-emerald-500">{peToUsd(pixel.owner?.total_staked_pe ?? 0)}</div>
+                   <div className="font-semibold text-emerald-500">{pixel.isVirtualStake ? '~$0.00' : peToUsd(pixel.owner?.total_staked_pe ?? 0)}</div>
                    <div className="text-[10px] text-muted-foreground">Value</div>
                  </div>
                </div>
@@ -362,20 +363,26 @@ export function PixelInfoPanel({
                   {/* Owner Stake */}
                   <div className="space-y-0.5">
                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      <PEIcon size="xs" /> Owner Stake
+                      {pixel.isVirtualStake ? <VPEIcon size="xs" /> : <PEIcon size="xs" />} Owner Stake
                     </span>
-                    <div className="text-sm font-semibold">{pixel.owner_stake_pe.toLocaleString()} PE</div>
-                    <div className="text-[10px] text-emerald-500">{peToUsd(pixel.owner_stake_pe)}</div>
+                    <div className="text-sm font-semibold">
+                      {pixel.isVirtualStake ? '0' : pixel.owner_stake_pe.toLocaleString()} PE
+                    </div>
+                    <div className="text-[10px] text-emerald-500">
+                      {pixel.isVirtualStake ? '~$0.00' : peToUsd(pixel.owner_stake_pe)}
+                    </div>
                   </div>
                   {/* Total Stake */}
                   <div className="space-y-0.5">
                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      <PEIcon size="xs" /> Total Stake
+                      {pixel.isVirtualStake ? <VPEIcon size="xs" /> : <PEIcon size="xs" />} Total Stake
                     </span>
-                    <div className={cn('text-sm font-semibold', pixel.vNow < 0 && 'text-destructive')}>
-                      {pixel.vNow.toLocaleString()} PE
+                    <div className={cn('text-sm font-semibold', !pixel.isVirtualStake && pixel.vNow < 0 && 'text-destructive')}>
+                      {pixel.isVirtualStake ? '0' : pixel.vNow.toLocaleString()} PE
                     </div>
-                    <div className="text-[10px] text-emerald-500">{peToUsd(pixel.vNow)}</div>
+                    <div className="text-[10px] text-emerald-500">
+                      {pixel.isVirtualStake ? '~$0.00' : peToUsd(pixel.vNow)}
+                    </div>
                   </div>
                 </div>
 
@@ -391,6 +398,23 @@ export function PixelInfoPanel({
                   </span>
                 </div>
               </div>
+
+              {/* ── Starter Pixel Expiry ── */}
+              {pixel.isVirtualStake && pixel.expiresAt && (
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1 font-medium">
+                      <VPEIcon size="xs" className="text-amber-600 dark:text-amber-400" /> Starter Pixel
+                    </span>
+                    <span className="font-semibold text-amber-600 dark:text-amber-400 tabular-nums">
+                      Expires in {formatTimeUntil(pixel.expiresAt)}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    No real PE staked. Anyone can paint over this pixel.
+                  </p>
+                </div>
+              )}
 
               {/* ── Takeover / Claim Cost ── */}
               {!isOwnPixel && (

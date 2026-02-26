@@ -98,7 +98,7 @@ interface WalletContextType {
   refreshUser: () => Promise<void>;
   refreshEnergy: () => Promise<void>;
   refreshPeStatus: () => Promise<void>;
-  updatePeStatus: (peStatus: { total: number; used: number; available: number }, cooldownUntil?: string) => void;
+  updatePeStatus: (peStatus: { total: number; used: number; available: number }, cooldownUntil?: string, isVirtualPe?: boolean) => void;
   
   // Google auth
   googleSignIn: () => Promise<void>;
@@ -595,16 +595,32 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   // Update PE status directly (called after game-commit response)
   const updatePeStatus = useCallback((
     peStatus: { total: number; used: number; available: number },
-    cooldownUntil?: string
+    cooldownUntil?: string,
+    isVirtualPe?: boolean
   ) => {
-    console.log('[WalletContext] updatePeStatus called:', peStatus, cooldownUntil);
-    setEnergy(prev => ({
-      ...prev,
-      peTotal: peStatus.total,
-      peUsed: peStatus.used,
-      peAvailable: peStatus.available,
-      paintCooldownUntil: cooldownUntil ? new Date(cooldownUntil) : prev.paintCooldownUntil,
-    }));
+    console.log('[WalletContext] updatePeStatus called:', peStatus, cooldownUntil, 'isVirtualPe:', isVirtualPe);
+    if (isVirtualPe) {
+      // Virtual PE: update virtual fields and mirror to main fields for StatusStrip
+      setEnergy(prev => ({
+        ...prev,
+        peTotal: peStatus.total,
+        peUsed: peStatus.used,
+        peAvailable: peStatus.available,
+        isVirtualPe: true,
+        virtualPeTotal: peStatus.total,
+        virtualPeUsed: peStatus.used,
+        virtualPeAvailable: peStatus.available,
+        paintCooldownUntil: cooldownUntil ? new Date(cooldownUntil) : prev.paintCooldownUntil,
+      }));
+    } else {
+      setEnergy(prev => ({
+        ...prev,
+        peTotal: peStatus.total,
+        peUsed: peStatus.used,
+        peAvailable: peStatus.available,
+        paintCooldownUntil: cooldownUntil ? new Date(cooldownUntil) : prev.paintCooldownUntil,
+      }));
+    }
     
     setUser(prev => prev ? { ...prev, pe_total_pe: peStatus.total } : null);
   }, []);

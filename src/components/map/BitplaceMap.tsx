@@ -1935,7 +1935,7 @@ export function BitplaceMap() {
           
           // PROMPT 55: Update PE status immediately from commit response (no extra API call)
           if (success.peStatus) {
-            updatePeStatus(success.peStatus, success.paintCooldownUntil);
+            updatePeStatus(success.peStatus, success.paintCooldownUntil, success.isVirtualPe);
           }
           
           clearDraft();
@@ -1958,7 +1958,7 @@ export function BitplaceMap() {
           
           // PROMPT 55: Update PE status from commit response
           if (success.peStatus) {
-            updatePeStatus(success.peStatus);
+            updatePeStatus(success.peStatus, undefined, success.isVirtualPe);
           }
           
           handleClearSelection();
@@ -1991,7 +1991,7 @@ export function BitplaceMap() {
         
         // PROMPT 55: Update PE status immediately from commit response
         if (success.peStatus) {
-          updatePeStatus(success.peStatus, success.paintCooldownUntil);
+          updatePeStatus(success.peStatus, success.paintCooldownUntil, success.isVirtualPe);
         }
         
         clearDraft();
@@ -2005,23 +2005,23 @@ export function BitplaceMap() {
         
         // PROMPT 55: Update PE status from commit response
         if (success.peStatus) {
-          updatePeStatus(success.peStatus);
+          updatePeStatus(success.peStatus, undefined, success.isVirtualPe);
         }
         
         playSound('erase_success');
         // Background reconciliation
         reconcileTiles(touchedTiles);
       } else if (gameMode === 'DEFEND') {
-        if (success.peStatus) updatePeStatus(success.peStatus);
+        if (success.peStatus) updatePeStatus(success.peStatus, undefined, success.isVirtualPe);
         playSound('defend_success');
       } else if (gameMode === 'ATTACK') {
-        if (success.peStatus) updatePeStatus(success.peStatus);
+        if (success.peStatus) updatePeStatus(success.peStatus, undefined, success.isVirtualPe);
         playSound('attack_success');
       } else if (gameMode === 'REINFORCE') {
-        if (success.peStatus) updatePeStatus(success.peStatus);
+        if (success.peStatus) updatePeStatus(success.peStatus, undefined, success.isVirtualPe);
         playSound('reinforce_success');
       } else if (gameMode === 'WITHDRAW_DEF' || gameMode === 'WITHDRAW_ATK' || gameMode === 'WITHDRAW_REINFORCE') {
-        if (success.peStatus) updatePeStatus(success.peStatus);
+        if (success.peStatus) updatePeStatus(success.peStatus, undefined, success.isVirtualPe);
         playSound('reinforce_success');
       }
       handleClearSelection();

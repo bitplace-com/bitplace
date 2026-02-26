@@ -96,6 +96,7 @@ export interface CommitResult {
     def_total: number;
     atk_total: number;
   }>;
+  isVirtualPe?: boolean;
   error?: string;
   message?: string;
   contributionsPurged?: boolean;
