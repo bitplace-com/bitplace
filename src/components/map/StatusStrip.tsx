@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { PixelIcon } from '@/components/icons';
 import { PEIcon } from '@/components/ui/pe-icon';
-import { VPEIcon } from '@/components/ui/vpe-icon';
+import { PixelBalanceIcon } from '@/components/ui/vpe-icon';
 import { usePeBalance } from '@/hooks/usePeBalance';
 import { useWallet } from '@/contexts/WalletContext';
 import { usePaintCooldown } from '@/hooks/usePaintCooldown';
@@ -23,8 +23,6 @@ interface StatusStripProps {
   onHeightChange?: (ref: HTMLElement | null) => void;
 }
 
-// Removed — now using formatLiveCountdown from shared utility
-
 function formatLastSync(date: Date | null): string {
   if (!date) return 'Never';
   const now = new Date();
@@ -37,15 +35,10 @@ function formatLastSync(date: Date | null): string {
 }
 
 export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = false, isFlushing = false, draftCount = 0, onHeightChange }: StatusStripProps) {
-  // Use usePeBalance for rebalance status only
   const { isLoading, rebalanceActive, healthMultiplier, rebalanceEndsAt } = usePeBalance(userId);
-  // Use WalletContext for PE totals (server truth)
   const { energy, refreshEnergy, needsSignature, signIn, isTrialMode, isGoogleOnly, user } = useWallet();
-  // Paint cooldown
   const { isOnCooldown, formatCooldown } = usePaintCooldown(energy.paintCooldownUntil);
-  // VPE renewal
   const vpeRenew = useVpeRenew(userId);
-  // Live tick for second-level countdowns
   const now = useLiveTick();
 
   if (!userId) {
@@ -116,7 +109,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             </div>
           )}
           
-          {/* Paint Queue Status (legacy, will be removed) */}
+          {/* Paint Queue Status (legacy) */}
           {(isSpacePainting || isFlushing) && draftCount === 0 && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg animate-pulse">
               {isFlushing ? (
@@ -148,7 +141,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             </div>
           )}
 
-          {/* Cluster Badge (hidden in trial — TRIAL badge is enough) */}
+          {/* Cluster Badge */}
           {energy.cluster && !isTrialMode && (
             <span className={cn(
               "px-1.5 py-0.5 text-[10px] font-semibold uppercase rounded",
@@ -172,11 +165,11 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap sm:flex-nowrap justify-end">
           {/* PE Total / Used */}
           {energy.isVirtualPe ? (
-            /* Google-only: show virtual PE with VPE icon */
+            /* Google-only: show pixel balance */
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex items-center gap-2 cursor-help">
-                  <VPEIcon size="md" />
+                  <PixelBalanceIcon size="md" />
                   <span className="text-sm font-semibold tabular-nums leading-tight">
                     {isLoading ? '...' : energy.virtualPeAvailable.toLocaleString()}
                   </span>
@@ -188,7 +181,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
                 </div>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-64 text-xs">
-                Virtual Paint Energy (VPE): free energy for Starter accounts. VPE pixels expire after 72h and can be painted over by anyone.
+                Pixel Balance: your free pixel budget. These pixels expire after 72h and can be painted over by anyone.
               </TooltipContent>
             </Tooltip>
           ) : (
@@ -213,10 +206,10 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             </Tooltip>
           )}
 
-          {/* Virtual PE for 'both' users (separate section) */}
+          {/* Pixel Balance for 'both' users (separate section) */}
           {!energy.isVirtualPe && user?.auth_provider === 'both' && energy.virtualPeTotal > 0 && (
             <div className="flex items-center gap-2">
-              <VPEIcon size="md" />
+              <PixelBalanceIcon size="md" />
               <span className="text-sm font-medium tabular-nums leading-tight">
                 {energy.virtualPeAvailable.toLocaleString()}
               </span>
@@ -231,7 +224,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             </div>
           )}
 
-          {/* VPE Expiring Alert */}
+          {/* Pixels Expiring Alert */}
           {vpeRenew.expiringBatches.urgent > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -240,16 +233,16 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
                   className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
                 >
                   <PixelIcon name="clock" className="h-3.5 w-3.5 animate-pulse" />
-                  {vpeRenew.expiringBatches.urgent} VPE expiring
+                  {vpeRenew.expiringBatches.urgent} pixels expiring
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top" className="text-xs">
-                {vpeRenew.expiringBatches.urgent} VPE pixels expire in less than 6h. Open Pixel Control to renew.
+                {vpeRenew.expiringBatches.urgent} pixels expire in less than 6h. Open Pixel Control to renew.
               </TooltipContent>
             </Tooltip>
           )}
 
-          {/* Status Alerts - actionable chips for Lost/Under Attack/Contested */}
+          {/* Status Alerts */}
           <StatusAlerts
             userId={userId} 
             onJumpToPixel={(x, y) => {
@@ -297,7 +290,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             </Tooltip>
           )}
 
-          {/* Refresh Button with tooltip */}
+          {/* Refresh Button */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

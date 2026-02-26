@@ -168,7 +168,7 @@ export function WalletSelectModal({
             <div className="flex-1 text-left">
               <div className="font-medium text-foreground">Sign in with Google</div>
               <div className="text-sm text-muted-foreground">
-                300,000 VPE (Virtual PE) — free, pixels expire after 72h
+                300,000 free Pixels — draw anywhere, expire after 72h
               </div>
             </div>
             <PixelIcon name="externalLink" size="md" className="text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />

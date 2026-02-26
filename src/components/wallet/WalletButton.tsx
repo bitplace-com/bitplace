@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { PixelIcon } from '@/components/icons';
-import { VPEIcon } from '@/components/ui/vpe-icon';
+import { PixelBalanceIcon } from '@/components/ui/vpe-icon';
 import { ProBadge } from '@/components/ui/pro-badge';
 import { Button } from '@/components/ui/button';
 import { GlassPanel } from '@/components/ui/glass-panel';
@@ -86,7 +86,7 @@ export function WalletButton() {
     const avatarUrl = user?.google_avatar_url || user?.avatar_url;
     const isBoth = user?.auth_provider === 'both';
     const isPro = isBoth && energy.nativeBalance >= 1;
-    // For display: show real PE + virtual PE separately
+    // For display: show real PE + pixels separately
     const realPeAvailable = isBoth ? energy.peAvailable : 0;
     const virtualPeAvailable = energy.virtualPeAvailable;
     return (
@@ -118,20 +118,20 @@ export function WalletButton() {
             </span>
           ) : null}
           <span className="text-xs text-muted-foreground">•</span>
-          {/* Dual PE display */}
+          {/* Dual PE + Pixels display */}
           {isBoth ? (
             <span className="text-xs font-medium text-foreground tabular-nums flex items-center gap-1.5">
               <span className="flex items-center gap-0.5">{realPeAvailable.toLocaleString()} PE</span>
               {virtualPeAvailable > 0 && (
                 <>
                   <span className="text-muted-foreground">+</span>
-                  <span className="flex items-center gap-0.5"><VPEIcon size="xs" />{virtualPeAvailable.toLocaleString()}</span>
+                  <span className="flex items-center gap-0.5"><PixelBalanceIcon size="xs" />{virtualPeAvailable.toLocaleString()}</span>
                 </>
               )}
             </span>
           ) : (
             <span className="text-xs font-medium text-foreground tabular-nums flex items-center gap-0.5">
-              <VPEIcon size="xs" />{virtualPeAvailable.toLocaleString()}
+              <PixelBalanceIcon size="xs" />{virtualPeAvailable.toLocaleString()} Pixels
             </span>
           )}
           <PixelIcon name="chevronDown" size="xs" className="text-muted-foreground" />
