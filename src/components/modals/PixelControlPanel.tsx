@@ -132,7 +132,7 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
             ) : (
               <div className="px-3 py-3 rounded-lg bg-muted/30 border border-border">
                 <p className="text-xs text-muted-foreground">
-                  Sign in with Google to get 300,000 free pixels — a recyclable budget to try the game.
+                  Sign in with Google to get 300,000 free pixels — a recyclable budget to start drawing on the map.
                 </p>
               </div>
             )}
@@ -251,7 +251,7 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
             ) : (
               <div className="px-3 py-3 rounded-lg bg-muted/30 border border-border">
                 <p className="text-xs text-muted-foreground">
-                  Connect a wallet and add $BIT to earn PE — your capacity to permanently claim pixels.
+                  Connect a wallet with $BIT to get PE — your power to permanently own and protect pixels on the map.
                 </p>
               </div>
             )}

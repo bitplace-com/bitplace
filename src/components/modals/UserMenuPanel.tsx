@@ -170,7 +170,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             </Tooltip>
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-foreground tabular-nums">
-                {energy.virtualPeAvailable.toLocaleString()} available to paint
+                {energy.virtualPeAvailable.toLocaleString()}
               </span>
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
