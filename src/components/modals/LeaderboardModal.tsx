@@ -106,7 +106,9 @@ function RankBadge({ rank }: { rank: number }) {
 function PlayerRow({ entry, subCategory, onPlayerClick }: { entry: PlayerPainterEntry | PlayerPeEntry; subCategory: LeaderboardSubCategory; onPlayerClick: (id: string) => void }) {
   const country = entry.countryCode ? getCountryByCode(entry.countryCode) : null;
   const displayName = entry.displayName || "Unknown";
-  const totalPeForBadge = subCategory !== "painters" ? (entry as PlayerPeEntry).totalPe : 0;
+  const hasActiveStake = subCategory !== "painters"
+    ? (entry as PlayerPeEntry).totalPe > 0
+    : (entry.peUsedPe ?? 0) > 0;
   
   const hasSocials = entry.socialX || entry.socialInstagram || entry.socialWebsite;
   const hasProfileInfo = entry.bio || hasSocials;
@@ -123,7 +125,7 @@ function PlayerRow({ entry, subCategory, onPlayerClick }: { entry: PlayerPainter
         <div className="flex items-center gap-1.5">
           <span className="font-medium text-sm truncate">{displayName}</span>
           {isAdmin(entry.walletAddress) && <AdminBadge />}
-          {!isAdmin(entry.walletAddress) && entry.walletAddress && <ProBadge shine size="sm" />}
+          {!isAdmin(entry.walletAddress) && entry.walletAddress && hasActiveStake && <ProBadge shine size="sm" />}
           {!isAdmin(entry.walletAddress) && !entry.walletAddress && <StarterBadge />}
           {entry.allianceTag && <span className="text-xs text-primary font-medium">[{entry.allianceTag}]</span>}
           {country && <span className="text-sm">{country.flag}</span>}
