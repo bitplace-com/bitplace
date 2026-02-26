@@ -1,49 +1,62 @@
 
 
-## Fix "Active Pixels" bloccato a 1000
+## Multi-area UI improvements
 
-### Problema
-Il hook `useVpeRenew` esegue una query `SELECT expires_at FROM pixels WHERE ...` e conta i risultati client-side con `data.length`. Supabase ha un limite predefinito di 1000 righe per query, quindi il conteggio non supera mai 1000.
+### 1. Google avatar as default Bitplace avatar
+- In `usePlayerProfile.ts`: fetch `google_avatar_url` from `public_user_profiles` or `public_pixel_owner_info`, and use it as fallback when `avatar_url` is null
+- In `PlayerProfileModal.tsx`: check `google_avatar_url` as fallback for avatar display
+- In `LeaderboardModal.tsx` (`PlayerRow`): check `google_avatar_url` from entry data as avatar fallback
+- The user can still override by uploading a custom avatar in Settings (existing flow unchanged)
 
-### Soluzione
+### 2. Remove brush icon from wallet button panel
+- In `WalletButton.tsx` (Google auth state, line ~133-134): remove `<PixelBalanceIcon size="xs" />` from the display, keep just `{virtualPeAvailable.toLocaleString()} Pixels`
 
-Modificare `src/hooks/useVpeRenew.ts` per usare due query separate:
+### 3. Change "available to paint" text in UserMenuPanel
+- In `UserMenuPanel.tsx` line ~172-174: change the available pixels display to `{number} * Available to use` format (dot separator + "Available to use")
 
-1. **Count totale**: usare `supabase.from('pixels').select('*', { count: 'exact', head: true })` per ottenere il conteggio totale senza fetchare righe (bypassa il limite di 1000).
+### 4. Pixel Control Center improvements
+- Remove redundant info (repetition between stats and countdown text)
+- Add status colors: emerald background for "all safe" countdown, amber for "soon", red for "urgent"
+- Change "to earn PE" to "to get PE" in wallet section text (line ~254)
+- Improve PE section text to explain: "$BIT holdings determine your PE capacity based on their dollar value. PE makes your drawings permanent and protectable."
 
-2. **Expiry batches**: per il calcolo delle fasce di scadenza (urgent/soon/upcoming/safe) e l'earliest expiry, fetchare solo i pixel con scadenza entro 72h (quelli rilevanti per il renew), ordinati per `expires_at` ascending con limit 1 per l'earliest. In alternativa, usare due query:
-   - Una `head: true` con count per il totale
-   - Una con `order('expires_at', { ascending: true }).limit(1)` per l'earliest expiry
-   - Per le fasce, usare filtri con `lt`/`gte` sulla data per contare ciascuna fascia server-side
+### 5. Player Profile tooltips
+- Add `TooltipProvider` wrapper to `PlayerProfileModal`
+- Wrap each `StatCard` label with tooltip explaining:
+  - Pixels Painted: "Total number of pixels this player has painted across all time"
+  - Pixels Owned: "Pixels currently owned by this player on the map"
+  - PE Used: "Paint Energy currently locked in pixel stakes" (was "PE Staked")
+  - PE Value: "Dollar value of staked PE at $0.001 per PE" (was "Staked Value")
+- Rename "PE Staked" to "PE Used" and "Staked Value" to "PE Value"
 
-### Approccio scelto (piu semplice e robusto)
+### 6. Starter badge in leaderboard
+- Replace `<StarterBadge />` component in `LeaderboardModal.tsx` (`PlayerRow`) with the same inline `<span>` chip used in `UserMenuPanel` (matching proportions: `px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-foreground/10 text-foreground border border-border`)
+- Add shine animation to match PRO badge
 
-Riscrivere `fetchBatches` in `useVpeRenew.ts`:
+### 7. WalletSelectModal revamp as 3-tier account system
+- Redesign as 3 clear tiers with visual hierarchy:
+  1. **Google** (Tier 1 - Starter): Use real Google "G" logo SVG (multicolor), subtitle "300,000 free Pixels -- draw anywhere, expire after 72h"
+  2. **Phantom** (Tier 2 - Pro): Use the uploaded Phantom ghost logo (copy `Phantom_logo.png` to `src/assets/phantom-logo.png`), subtitle "Permanent PE from $BIT holdings -- full ownership"
+  3. **Try Free** (Tier 3 - Demo): Keep sparkles icon, "Preview only -- 10,000 test Pixels, nothing saved"
+- Update description text to remove old "Paint Energy" references and use current terminology
+- Improve visual styling: each tier gets a subtle numbered badge or label ("Starter", "Pro", "Demo")
+- Fix copy: replace outdated text mentioning "PE" where it should say "Pixels" for Google tier
 
-- **Query 1**: `select('*', { count: 'exact', head: true })` con i filtri `owner_user_id`, `is_virtual_stake` -- restituisce solo il count, zero dati trasferiti
-- **Query 2**: `select('expires_at').order('expires_at', { ascending: true }).limit(1)` -- per l'earliest expiry
-- **Query 3-4**: Count con filtri temporali per urgent (< 6h) e soon (6-24h) usando `lt` e `gte` su `expires_at`
+### 8. Copy Phantom logo asset
+- Copy `user-uploads://Phantom_logo.png` to `src/assets/phantom-logo.png`
+- Import and use in `WalletSelectModal` as a rounded image instead of inline SVG
 
-Questo elimina completamente il problema del limite 1000 e riduce anche il traffico di rete (prima scaricava fino a 1000 righe di dati, ora solo conteggi).
+### Technical details per file
 
-### File modificato
-
-`src/hooks/useVpeRenew.ts` -- riscrittura di `fetchBatches` per usare count queries server-side invece di fetch + count client-side.
-
-### Dettaglio tecnico
-
-```text
-// Prima (broken):
-const { data } = await supabase.from('pixels').select('expires_at').eq(...)
-totalVpePixels = data.length  // max 1000!
-
-// Dopo (fixed):
-const { count } = await supabase.from('pixels').select('*', { count: 'exact', head: true }).eq(...)
-totalVpePixels = count  // numero reale, nessun limite
-```
-
-Per le fasce di scadenza, si useranno filtri temporali server-side:
-- `urgent`: `.lt('expires_at', now + 6h)`
-- `soon`: `.gte('expires_at', now + 6h).lt('expires_at', now + 24h)`
-- Per l'earliest expiry: `.order('expires_at').limit(1)`
+| File | Changes |
+|------|---------|
+| `src/assets/phantom-logo.png` | New file: copy from user upload |
+| `src/components/wallet/WalletButton.tsx` | Remove PixelBalanceIcon from Google auth display |
+| `src/components/modals/UserMenuPanel.tsx` | Change available text to "{n} * Available to use" |
+| `src/components/modals/PixelControlPanel.tsx` | Add status colors to countdown, fix PE section copy, remove redundancies |
+| `src/components/modals/PlayerProfileModal.tsx` | Add tooltips to stat cards, rename PE Staked/Staked Value, add TooltipProvider |
+| `src/components/modals/LeaderboardModal.tsx` | Improve StarterBadge styling + shine animation |
+| `src/components/modals/WalletSelectModal.tsx` | Full revamp: 3-tier design, real Google logo SVG, Phantom logo image, updated copy |
+| `src/hooks/usePlayerProfile.ts` | Fetch google_avatar_url, use as avatar fallback |
+| `src/components/ui/starter-badge.tsx` | Update styling to match UserMenuPanel chip + add shine |
 
