@@ -1,44 +1,36 @@
 
-# Pixel Control Center — Riordino e miglioramenti
 
-## Modifiche al file `src/components/modals/PixelControlPanel.tsx`
+# UI Polish: User Menu Panel — Icone e allineamento
 
-### 1. Riordinare le card PE per coerenza con Pixel Balance
+## Modifiche al file `src/components/modals/UserMenuPanel.tsx`
 
-Ordine attuale PE: Total, Available, Used
-Nuovo ordine (coerente con Pixel Balance): **Available, Used, Total**
+### 1. Rimuovere import inutilizzato di PixelBalanceIcon
+L'import `PixelBalanceIcon` (riga 4) non viene usato nel JSX ma e' ancora presente. Rimuoverlo per pulizia.
 
-Rinominare "Total" in qualcosa di piu' coerente: la sezione Pixel usa "Active Pixels", quindi per PE usiamo lo stesso pattern. L'ordine finale sara':
-- Pixel Balance: Available | Used | Active Pixels
-- Paint Energy: Available | Used | Total (come "Total PE")
+### 2. Aggiungere icona matita al titolo "Pixels Overview"
+Alla riga 259-261, aggiungere `<PixelBalanceIcon size="xs" />` (icona brush/matita) accanto al testo "Pixels Overview", coerente con come PE Overview ha l'icona PE.
 
-### 2. Rimuovere il pannello Collateralization
+```
+Pixels Overview  -->  [matita] Pixels Overview
+```
 
-Eliminare tutto il blocco righe 199-248 (il pannello con grace period / decay).
+Per farlo, mantenere l'import di `PixelBalanceIcon` ma usarlo nella sezione Pixels Overview.
 
-### 3. Rinominare "Active Stakes" in "USED PE ALLOCATION"
+### 3. Centrare il testo di PE Available
+Nella card "PE Available" (righe 339-345), aggiungere `text-center` al div contenitore per centrare sia il label che il valore, rendendolo visivamente distinto come elemento a larghezza piena.
 
-Cambiare il titolo da "Active Stakes" a "Used PE Allocation" (riga 252-253).
-
-### 4. Aggiungere Reinforce sotto Defend e Attack
-
-Trasformare il layout da `grid-cols-2` (DEF + ATK) a:
-- Riga 1: `grid-cols-2` con **Defend** e **Attack**
-- Riga 2: **Reinforce** da solo a larghezza piena
-
-Reinforce mostra il totale PE usato per rinforzare i propri pixel (valore "0" per ora, come ATK).
-
-### Risultato finale sezione PE (quando ha wallet)
+## Risultato visivo
 
 ```text
-PAINT ENERGY (PE)
-  [Available: X]  [Used: X]  [Total: X]
+PIXELS OVERVIEW  (con icona matita)
+  [Pixels Owned: X]  [Pixel Balance: X]
 
-USED PE ALLOCATION
-  [DEF Total: X]    [ATK Total: X]
-  [REINFORCE Total: X]              (full width)
+PE OVERVIEW  (con icona PE)
+  [PE Balance: X]     [PE Used: X]
+        [PE Available: X]           (centrato)
 ```
 
 ## File modificato
 
-1 solo file: `src/components/modals/PixelControlPanel.tsx`
+1 solo file: `src/components/modals/UserMenuPanel.tsx`
+
