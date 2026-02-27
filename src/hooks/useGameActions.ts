@@ -123,10 +123,11 @@ const MAX_STREAM_RETRIES = 1;    // At most 1 retry for cold start
 const BASE_TIMEOUT_MS = 45000; // 45s base timeout
 
 // PROMPT 57: Chunking for very large operations to prevent timeout
-const MAX_CHUNK_SIZE = 200; // Max pixels per chunk for sequential processing
+const MAX_CHUNK_SIZE = 500; // Max pixels per chunk for sequential processing
 
 // Calculate dynamic timeout based on pixel count
 function getTimeoutForPixelCount(count: number): number {
+  if (count >= 1000) return 300000; // 300s (5 min) for 1000 pixels
   if (count >= 500) return 240000; // 240s (4 min) for 500 pixels
   if (count >= 400) return 180000; // 180s (3 min) for 400+ pixels
   if (count >= 200) return 120000; // 120s for 200+ pixels
@@ -458,7 +459,7 @@ export function useGameActions() {
         if (data.error === 'MAX_PIXELS_EXCEEDED') {
           setLastError({
             code: 'MAX_PIXELS_EXCEEDED',
-            message: 'Maximum 300 pixels per paint',
+            message: 'Maximum 1000 pixels per paint',
             requestId: data.requestId,
             canRetry: false,
           });
