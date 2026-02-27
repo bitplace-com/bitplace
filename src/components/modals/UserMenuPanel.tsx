@@ -131,32 +131,37 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
         <TooltipProvider delayDuration={200}>
         {/* PIXELS section — Google-only and 'both' users */}
         {(isGoogleOnly || user?.auth_provider === 'both') && energy.virtualPeTotal > 0 && (
-          <div className="p-4 space-y-2">
+          <div className="p-4 space-y-3">
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2 cursor-help">
-                  <span className="uppercase tracking-wider font-medium">PIXELS</span>
-                </div>
+                <p className="text-[11px] uppercase tracking-wider font-medium text-muted-foreground cursor-help">
+                  Pixels
+                </p>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-56 text-xs">
                 Your free pixel budget. Pixels expire after 72h but you can renew them to reset the timer.
               </TooltipContent>
             </Tooltip>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-foreground tabular-nums">
-                {energy.virtualPeAvailable.toLocaleString()} <span className="text-xs text-muted-foreground font-normal">• Available to use</span>
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Used</span>
-              <span className="tabular-nums">{energy.virtualPeUsed.toLocaleString()} / {energy.virtualPeTotal.toLocaleString()}</span>
+            <div>
+              <p className="text-lg font-bold text-foreground tabular-nums leading-tight">
+                {energy.virtualPeAvailable.toLocaleString()}
+                <span className="text-xs text-muted-foreground font-normal ml-1.5">• Available to use</span>
+              </p>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-xs text-muted-foreground">Used</span>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {energy.virtualPeUsed.toLocaleString()} / {energy.virtualPeTotal.toLocaleString()}
+                </span>
+              </div>
             </div>
             {!pixelAlertDismissed && (
-              <div className="mt-3 flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5">
-                <PixelIcon name="clock" className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
+                <PixelIcon name="clock" className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">Pixels expire after 72h</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Open the Pixel Control Center to renew all your painted pixels at once and reset the 72h timer before they disappear.</p>
+                  <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">Pixels expire after 72h</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                    Open the Pixel Control Center to renew all your painted pixels at once and reset the 72h timer before they disappear.
+                  </p>
                 </div>
                 <button onClick={() => setPixelAlertDismissed(true)} className="shrink-0 p-0.5 rounded hover:bg-amber-500/20 transition-colors">
                   <PixelIcon name="close" className="h-3 w-3 text-amber-500" />
@@ -169,18 +174,18 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
         <Separator className="bg-border" />
 
         {/* WALLET section — always visible */}
-        <div className="p-4 space-y-2">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+        <div className="p-4 space-y-3">
+          <p className="text-[11px] uppercase tracking-wider font-medium text-muted-foreground flex items-center gap-1.5">
             <PixelIcon name="wallet" className="h-3.5 w-3.5" />
-            <span className="uppercase tracking-wider font-medium">Wallet</span>
-          </div>
+            Wallet
+          </p>
           {walletAddress ? (
-            <>
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-mono font-semibold text-foreground">
+                <span className="text-lg font-bold font-mono text-foreground tabular-nums leading-tight">
                   {formatNumber(energy.nativeBalance, 4)} {energy.nativeSymbol}
                 </span>
-                <span className="text-sm font-semibold text-emerald-500">
+                <span className="text-sm font-semibold text-emerald-500 tabular-nums">
                   ${formatUsd(energy.walletUsd)}
                 </span>
               </div>
@@ -195,13 +200,13 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                   <PixelIcon name="copy" className="h-3 w-3" />
                 )}
               </button>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-[11px] text-muted-foreground">
                 Synced {formatRelativeTime(energy.lastSyncAt)}
               </p>
-            </>
+            </div>
           ) : (
             <div className="space-y-2.5">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 Connect a Solana wallet to unlock Paint Energy, defend your pixels, and earn rewards.
               </p>
               <Button
