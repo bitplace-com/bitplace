@@ -4,7 +4,7 @@ const TOUR_SEEN_KEY = 'bitplace_tour_seen';
 
 export interface TourStep {
   id: string;
-  target: string; // data-tour attribute value
+  target: string; // data-tour attribute value, '__welcome__' for welcome, '__info__' for centered info
   title: string;
   description: string;
   position?: 'top' | 'bottom' | 'left' | 'right';
@@ -14,9 +14,23 @@ export interface TourStep {
 export const TOUR_STEPS: TourStep[] = [
   {
     id: 'welcome',
-    target: '__welcome__', // No target - centered dialog
+    target: '__welcome__',
     title: 'Welcome to Bitplace!',
-    description: 'Paint pixels on a real-world map, claim territory and compete with others. Ready for a quick tour?',
+    description: 'Paint pixels on a real-world map, claim territory and compete. Sign in to start drawing!',
+  },
+  {
+    id: 'sign-in',
+    target: 'wallet',
+    title: 'Sign In',
+    description: 'Tap Sign In to create your account. You need an account to paint on the map.',
+    position: 'left',
+    action: 'bitplace:tour-open-signin',
+  },
+  {
+    id: 'account-types',
+    target: '__info__',
+    title: 'Two Ways to Play',
+    description: '🟢 Google (Starter) — 300,000 free Pixels to draw anywhere. They expire after 72h unless renewed.\n\n🟣 Phantom Wallet (Pro) — Permanent Paint Energy (PE) powered by $BIT token. Full pixel ownership.\n\nStart free with Google and upgrade anytime by connecting a Phantom wallet.',
   },
   {
     id: 'toolbar',
@@ -62,14 +76,10 @@ export const TOUR_STEPS: TourStep[] = [
     description: 'Search for any location on the map and check your notifications here.',
     position: 'right',
   },
-  {
-    id: 'wallet',
-    target: 'wallet',
-    title: 'Your Wallet',
-    description: 'Connect your Phantom wallet to fund your PE (Paint Energy) — the energy you spend to paint, defend and attack on the map. Or try the Test Wallet to paint for free!',
-    position: 'left',
-  },
 ];
+
+/** Targets that render as centered dialogs instead of anchored tooltips */
+export const CENTERED_TARGETS = new Set(['__welcome__', '__info__']);
 
 export function useGuidedTour() {
   const [isActive, setIsActive] = useState(false);
@@ -80,7 +90,6 @@ export function useGuidedTour() {
   useEffect(() => {
     const seen = localStorage.getItem(TOUR_SEEN_KEY);
     if (!seen) {
-      // Small delay to let the map render first
       const timer = setTimeout(() => setShouldShow(true), 2000);
       return () => clearTimeout(timer);
     }
@@ -103,7 +112,6 @@ export function useGuidedTour() {
     if (currentStepIndex < TOUR_STEPS.length - 1) {
       setCurrentStepIndex(prev => prev + 1);
     } else {
-      // Tour complete
       setIsActive(false);
       setCurrentStepIndex(0);
       localStorage.setItem(TOUR_SEEN_KEY, '1');
@@ -114,7 +122,7 @@ export function useGuidedTour() {
 
   return {
     isActive,
-    shouldShow, // Show the welcome dialog
+    shouldShow,
     currentStep,
     currentStepIndex,
     totalSteps: TOUR_STEPS.length - 1, // Exclude welcome

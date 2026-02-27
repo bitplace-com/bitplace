@@ -230,6 +230,13 @@ export function BitplaceMap() {
     }
   }, [activeTemplateId, updateSettings]);
 
+  // Tour: listen for sign-in event to open the wallet modal
+  useEffect(() => {
+    const handler = () => setWalletModalOpen(true);
+    window.addEventListener('bitplace:tour-open-signin', handler);
+    return () => window.removeEventListener('bitplace:tour-open-signin', handler);
+  }, [setWalletModalOpen]);
+
   // Track if selection changed after validation (for auto-invalidation hint)
   const isSelectionChangedAfterValidation = useMemo(() => {
     if (paintState !== 'VALIDATED' || !frozenPayload) return false;
