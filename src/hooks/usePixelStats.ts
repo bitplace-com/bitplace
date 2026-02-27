@@ -34,7 +34,7 @@ export function usePixelStats(userId: string | undefined): UsePixelStatsReturn {
       // Query pixels owned
       const { data: owned, error: ownedError } = await supabase
         .from("pixels")
-        .select("id, owner_stake_pe")
+        .select("id, owner_stake_pe, is_virtual_stake")
         .eq("owner_user_id", userId);
 
       if (ownedError) {
@@ -52,7 +52,7 @@ export function usePixelStats(userId: string | undefined): UsePixelStatsReturn {
       }
 
       const pixelsOwned = owned?.length || 0;
-      const totalStaked = owned?.reduce((s, p) => s + Number(p.owner_stake_pe || 0), 0) || 0;
+      const totalStaked = owned?.filter(p => !p.is_virtual_stake).reduce((s, p) => s + Number(p.owner_stake_pe || 0), 0) || 0;
       const totalDefending = contribs
         ?.filter(c => c.side === "DEF")
         .reduce((s, c) => s + Number(c.amount_pe || 0), 0) || 0;

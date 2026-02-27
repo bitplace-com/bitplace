@@ -952,8 +952,10 @@ async function handleStreamingCommit(
 
         // Execute commit with progress callback
         // Determine if user paints with Virtual PE (VPE) for streaming path
-        const isVirtualPeStream = user.auth_provider === 'google' || 
-          (user.auth_provider === 'both' && !user.wallet_address);
+        // For PAINT mode, 'both' users always use virtual PE
+        const isVirtualPeStream = mode === 'PAINT'
+          ? (user.auth_provider === 'google' || user.auth_provider === 'both')
+          : (user.auth_provider === 'google' || (user.auth_provider === 'both' && !user.wallet_address));
 
         const result = await executeCommit(
           supabase,
@@ -1132,8 +1134,10 @@ Deno.serve(async (req) => {
     }
 
     // Determine if user paints with Virtual PE (VPE)
-    const isVirtualPe = user.auth_provider === 'google' || 
-      (user.auth_provider === 'both' && !user.wallet_address);
+    // For PAINT mode, 'both' users always use virtual PE (real PE is for DEFEND/ATTACK/REINFORCE)
+    const isVirtualPe = mode === 'PAINT'
+      ? (user.auth_provider === 'google' || user.auth_provider === 'both')
+      : (user.auth_provider === 'google' || (user.auth_provider === 'both' && !user.wallet_address));
 
     // Re-check PAINT cooldown
     if (mode === "PAINT" && user.paint_cooldown_until) {

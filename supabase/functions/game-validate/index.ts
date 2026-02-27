@@ -392,9 +392,9 @@ async function handlePaintFastPath(
     
     console.log(`[game-validate] Parallel fetch completed in ${tParallelEnd - tParallelStart}ms (user+pixels)`);
     
-    // Determine if user is using virtual PE (Google auth without wallet)
-    const isVirtualPe = user.auth_provider === 'google' || 
-      (user.auth_provider === 'both' && !user.wallet_address);
+    // Determine if user is using virtual PE
+    // For PAINT mode, 'both' users always use virtual PE (real PE is for DEFEND/ATTACK/REINFORCE)
+    const isVirtualPe = user.auth_provider === 'google' || user.auth_provider === 'both';
     
     // Step C: Cooldown check IMMEDIATELY (before any heavy processing)
     if (user.paint_cooldown_until) {

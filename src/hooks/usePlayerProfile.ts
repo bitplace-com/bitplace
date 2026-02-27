@@ -77,7 +77,7 @@ export function usePlayerProfile(playerId: string | null) {
       while (hasMore) {
         const { data, error: pErr } = await supabase
           .from('pixels')
-          .select('x, y, color, owner_stake_pe, created_at')
+          .select('x, y, color, owner_stake_pe, is_virtual_stake, created_at')
           .eq('owner_user_id', playerId)
           .range(offset, offset + PAGE_SIZE - 1);
 
@@ -93,10 +93,9 @@ export function usePlayerProfile(playerId: string | null) {
         color: p.color,
       }));
 
-      const totalStaked = (pixelsData || []).reduce(
-        (sum, p) => sum + Number(p.owner_stake_pe || 0),
-        0
-      );
+      const totalStaked = (pixelsData || [])
+        .filter(p => !p.is_virtual_stake)
+        .reduce((sum, p) => sum + Number(p.owner_stake_pe || 0), 0);
 
       const user = userData as Record<string, any>;
       const profile = profileData as Record<string, any> | null;
