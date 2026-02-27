@@ -257,6 +257,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
         {/* ═══ PIXELS OVERVIEW ═══ */}
         <div className="p-4 space-y-2">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1.5 px-0.5">
+            <PixelBalanceIcon size="xs" />
             Pixels Overview
           </p>
           <div className={cn("grid gap-2", energy.virtualPeTotal > 0 ? "grid-cols-2" : "grid-cols-1")}>
@@ -336,14 +337,14 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             </div>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                    PE Available
-                  </p>
-                  <p className="text-sm font-semibold text-foreground tabular-nums">
-                    {energy.peAvailable.toLocaleString()}
-                  </p>
-                </div>
+              <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                      PE Available
+                    </p>
+                    <p className="text-sm font-semibold text-foreground tabular-nums">
+                      {energy.peAvailable.toLocaleString()}
+                    </p>
+                  </div>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-56 text-xs">
                 PE you can spend right now on paint, defend, attack, or reinforce.
