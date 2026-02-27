@@ -271,89 +271,104 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
 
         <Separator className="bg-border" />
 
-        {/* Stats - 4 gameplay-critical items */}
-        
-        <div className="p-4 grid grid-cols-2 gap-3">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  Pixels Owned
-                </p>
-                <p className="text-sm font-semibold text-foreground">
-                  {energy.pixelsOwned.toLocaleString()}
-                </p>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-56 text-xs">
-              Total pixels you currently own on the map.
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  PE Used
-                </p>
-                <p className="text-sm font-semibold text-foreground">
-                  {energy.pixelStakeTotal.toLocaleString()}
-                </p>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-56 text-xs">
-              Total PE locked across all your pixels. This PE is committed and reduces your available balance.
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                  <PEIcon size="xs" /> PE Balance
-                </p>
-                <p className="text-sm font-semibold text-foreground tabular-nums">
-                  {energy.isVirtualPe ? '0' : energy.peTotal.toLocaleString()}
-                </p>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-56 text-xs">
-              Your total Paint Energy, calculated from the dollar value of $BIT in your wallet.
-            </TooltipContent>
-          </Tooltip>
-          {energy.virtualPeTotal > 0 && (
+        {/* ═══ PIXELS OVERVIEW ═══ */}
+        <div className="p-4 space-y-2">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1.5 px-0.5">
+            <PixelBalanceIcon size="xs" className="text-muted-foreground" />
+            Pixels Overview
+          </p>
+          <div className={cn("grid gap-2", energy.virtualPeTotal > 0 ? "grid-cols-2" : "grid-cols-1")}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                    <PixelBalanceIcon size="xs" className="text-muted-foreground" /> Pixel Balance
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                    Pixels Owned
                   </p>
                   <p className="text-sm font-semibold text-foreground tabular-nums">
-                    {energy.virtualPeAvailable.toLocaleString()}
+                    {energy.pixelsOwned.toLocaleString()}
                   </p>
                 </div>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-56 text-xs">
-                Your remaining pixel budget. Pixels are recycled when they expire or are painted over.
+                Total pixels you currently own on the map.
               </TooltipContent>
             </Tooltip>
-          )}
-          {!energy.isVirtualPe && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                    <PEIcon size="xs" /> Available
-                  </p>
-                  <p className="text-sm font-semibold text-foreground tabular-nums">
-                    {energy.peAvailable.toLocaleString()}
-                  </p>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-56 text-xs">
-                PE you can spend right now on paint, defend, attack, or reinforce.
-              </TooltipContent>
-            </Tooltip>
-          )}
+            {energy.virtualPeTotal > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                      Pixel Balance
+                    </p>
+                    <p className="text-sm font-semibold text-foreground tabular-nums">
+                      {energy.virtualPeAvailable.toLocaleString()}
+                    </p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-56 text-xs">
+                  Your remaining pixel budget. Pixels are recycled when they expire or are painted over.
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         </div>
+
+        {/* ═══ PE OVERVIEW ═══ */}
+        {!energy.isVirtualPe && (
+          <div className="px-4 pb-4 space-y-2">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1.5 px-0.5">
+              <PEIcon size="xs" />
+              PE Overview
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                      PE Balance
+                    </p>
+                    <p className="text-sm font-semibold text-foreground tabular-nums">
+                      {energy.peTotal.toLocaleString()}
+                    </p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-56 text-xs">
+                  Your total Paint Energy, calculated from the dollar value of $BIT in your wallet.
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                      PE Used
+                    </p>
+                    <p className="text-sm font-semibold text-foreground tabular-nums">
+                      {energy.pixelStakeTotal.toLocaleString()}
+                    </p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-56 text-xs">
+                  Total PE locked across all your pixels and contributions.
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                      PE Available
+                    </p>
+                    <p className="text-sm font-semibold text-foreground tabular-nums">
+                      {energy.peAvailable.toLocaleString()}
+                    </p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-56 text-xs">
+                  PE you can spend right now on paint, defend, attack, or reinforce.
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+        )}
         </TooltipProvider>
 
         <Separator className="bg-border" />
