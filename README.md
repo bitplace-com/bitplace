@@ -1,128 +1,106 @@
 # Bitplace
 
-**The world map is your canvas. Every pixel is a battlefield.**
+A real-time collaborative pixel canvas on top of a world map.
 
-Paint, defend, attack, and claim territory — pixel by pixel, anywhere on Earth.
-
-🌐 **Live:** [bitplace.com](https://bitplace.com)
+🌐 [bitplace.com](https://bitplace.com)
 
 ---
 
-## What is Bitplace?
+## The idea
 
-Bitplace is a persistent, real-time pixel canvas layered on top of a world map. Imagine r/place on Google Maps, powered by Solana.
+In 2017, Reddit ran an experiment called r/place. A blank canvas. Anyone could place one pixel every few minutes. No rules, no teams, no prizes. Over 72 hours, a million people showed up and created something remarkable - pixel art, flags, logos, memes, all emerging from pure coordination.
 
-Anyone can paint pixels on real geographic locations. But pixels aren't free — they carry value, can be defended by allies, attacked by rivals, and conquered through strategy. Communities naturally form around cities, landmarks, and territories. The map is always live, always evolving.
+The experiment lasted 72 hours and never came back in that form. But it proved something important: people genuinely enjoy building and defending things together, even when there's no prize. The coordination itself is the fun.
 
----
-
-## Getting Started
-
-Bitplace has two account tiers. You choose how deep you want to go.
-
-### Starter (Free)
-
-Sign in with **Google** — no wallet, no crypto, no friction.
-
-- **300,000 Virtual Paint Energy (VPE)** to paint with
-- Pixels expire after **72 hours**, then VPE is recycled back to your balance
-- Up to **1,000 pixels per operation**
-- Full access to all game mechanics (paint, defend, attack, reinforce)
-
-Starter is the easiest way to try Bitplace. Your drawings are temporary, but the gameplay is real.
-
-### Pro (Wallet)
-
-Connect a **Phantom** wallet holding **$BIT** tokens on Solana.
-
-- Your **Paint Energy (PE)** is calculated from your $BIT balance (1 PE = $0.001 USD equivalent)
-- Pixels painted with PE are **permanent** — they stay on the map until someone conquers them
-- True ownership: your pixels, your territory
-- $BIT is **never spent or transferred** — the platform only reads your balance
-
-Upgrade from Starter to Pro anytime by connecting your wallet.
+Bitplace builds on that insight. The canvas is persistent - it doesn't reset. It's layered on a world map, so where you paint carries geographic and cultural meaning. And pixels can hold value through the $BIT token, which introduces real stakes to what you create and defend.
 
 ---
 
-## Core Mechanics
+## The two forces
 
-Every pixel on the map has an owner, a stake value, and can be reinforced or attacked.
+Bitplace is built around two forces in constant tension: **collaboration** and **contestation**.
 
-### 🎨 Paint
+You can paint your own pixels. You can paint over someone else's pixels. And others can paint over yours. This is the core loop - creation and destruction, cooperation and griefing, all happening on the same canvas.
 
-Place pixels on empty spots or conquer existing ones. Each pixel costs PE based on the current owner's stake. Select up to 1,000 pixels at once — the app calculates the total cost automatically.
+The interesting part is what emerges. People coordinate to build artwork together. Communities claim territories around cities, landmarks, or symbols that matter to them. Rivals attack each other's pixels. Alliances form to defend shared creations. Political statements, memes, territorial disputes, local pride - all of it plays out on the map.
 
-### 🛡️ Defend
+Geography adds meaning. Painting over the Colosseum feels different than painting over an empty field. Claiming your hometown matters. The map isn't just a grid - it's a layer of social and cultural significance.
 
-Contribute PE to someone else's pixels to increase their value, making them harder to conquer. Defenders can withdraw their contribution at any time.
+---
 
-### ⚔️ Attack
+## How pixels work
 
-Stake PE against an enemy pixel to weaken it. When attack value exceeds the pixel's total defense, it becomes vulnerable to takeover. Attackers can withdraw at any time.
+Anyone can paint anywhere on the map - on empty spots or directly over someone else's pixels.
 
-### 💪 Reinforce
+**Starter accounts** (Google sign-in) get 300,000 Pixels for free. These pixels are temporary - they disappear after 72 hours. But you can renew them with one click if you want to keep your drawing. This creates a natural retention loop: if you care about what you made, you come back to maintain it.
 
-As the owner, add more PE to your own pixels to strengthen them against attacks. Higher stake = harder to conquer.
+**Pro accounts** (Phantom wallet) have access to Paint Energy (PE). PE makes pixels permanent. Your PE balance is calculated from the dollar value of $BIT tokens in your connected wallet - 1 PE equals $0.001 USD worth of $BIT. The platform only reads your balance, it never moves your tokens.
 
-### How Value Works
+A pixel with PE stays on the map until someone conquers it. A pixel without PE fades after 72 hours unless renewed.
 
-Every pixel's value is calculated as:
+---
 
-```
-V = owner_stake + DEF - ATK
-```
+## Mechanics
 
-When a pixel is conquered, the previous owner and defenders get their PE back. Attackers become defenders of the new owner. No PE is ever "burned" — it flows between players.
+There are four actions you can take with Paint Energy.
+
+**Paint** - Place a pixel on an empty spot, or paint over an existing pixel if your PE exceeds its current value. This is how you conquer territory. If someone's pixel has 10 PE staked, you need more than 10 PE to paint over it.
+
+**Attack** - Stake your PE against someone else's pixel to lower its effective value. You're not painting over it yet - you're weakening it so that you or someone else can conquer it more cheaply. Attackers can withdraw their PE at any time.
+
+**Defend** - Stake your PE on someone else's pixel to raise its value. This makes it harder for attackers to take it down. You're protecting their creation. Defenders can withdraw at any time.
+
+**Reinforce** - Add PE to your own pixels to make them harder to conquer. The more PE staked on a pixel, the more expensive it becomes to paint over.
+
+When a pixel is conquered, the previous owner and defenders get their PE back. Nothing is burned - value flows between players.
 
 ---
 
 ## Features
 
-- 🗺️ **World Map Canvas** — Paint on any location on Earth with a high-performance canvas overlay on MapLibre GL
-- ⚔️ **Territory Warfare** — Paint, Defend, Attack, and Reinforce mechanics with real-time value calculation
-- 👥 **Alliances** — Form teams with other players, coordinate territory control, share a tag
-- 📍 **Places** — Save and share points of interest on the map, like and bookmark community spots
-- 🏆 **Leaderboard** — Rankings for top painters, defenders, attackers, and investors
-- 🖼️ **Templates** — Upload images and use them as pixel-art guides for painting on the map
-- 🔊 **Sound & Haptics** — Audio feedback and vibration for painting actions
-- 📱 **Responsive** — Full experience on desktop and mobile
-- ⚡ **Real-time** — See every pixel change as it happens across the world
-- 🔐 **Two-Tier Access** — Free Starter for everyone, Pro with wallet for permanent ownership
+- World map canvas with MapLibre GL and OpenFreeMap tiles
+- Real-time pixel updates across all users
+- Alliances for coordinated territory control
+- Places - save and share points of interest
+- Templates - upload images as pixel-art painting guides
+- Leaderboard for painters, defenders, attackers
+- Sound and haptic feedback
+- Works on desktop and mobile
 
 ---
 
-## Tech Stack
+## Tech stack
 
-| Layer | Technology |
-|-------|------------|
-| **Frontend** | React 19 · TypeScript · Vite · Tailwind CSS · shadcn/ui |
-| **Map Engine** | MapLibre GL JS with OpenFreeMap vector tiles |
-| **Pixel Rendering** | HTML Canvas overlay (no DOM per-pixel) |
-| **Backend** | PostgreSQL · Realtime subscriptions · Edge Functions |
-| **Auth** | Google OAuth 2.0 · Phantom Wallet (Solana) |
-| **Blockchain** | Solana Mainnet (balance reads only) |
+| Layer | Tech |
+|-------|------|
+| Frontend | React 19, TypeScript, Vite, Tailwind, shadcn/ui |
+| Map | MapLibre GL JS, OpenFreeMap vector tiles |
+| Rendering | HTML Canvas overlay |
+| Backend | Supabase (PostgreSQL, Realtime, Edge Functions) |
+| Auth | Google OAuth 2.0, Phantom Wallet |
+| Blockchain | Solana Mainnet (read-only) |
 
 ---
 
 ## Token
 
-**$BIT** is the utility token that powers permanent pixel ownership on Bitplace.
+**$BIT** powers permanent pixel ownership.
 
 | | |
 |---|---|
-| **Contract** | `6az8wE4Gmns7bPLwfeR9Ed9pnGjqN5Cv9FJ3vs4Cpump` |
-| **Network** | Solana Mainnet |
-| **Utility** | Paint Energy (PE) calculation — 1 PE = $0.001 USD equivalent |
+| Contract | `6az8wE4Gmns7bPLwfeR9Ed9pnGjqN5Cv9FJ3vs4Cpump` |
+| Network | Solana Mainnet |
+| Utility | Paint Energy calculation - 1 PE = $0.001 USD equivalent |
 
-The platform **does not** buy, sell, transfer, or custody tokens. It reads your on-chain $BIT balance to calculate available Paint Energy. Your tokens stay in your wallet at all times.
+The platform does not custody, transfer, or transact tokens. It reads on-chain balances only.
 
 ---
 
 ## Links
 
-- 🌐 **Website:** [bitplace.com](https://bitplace.com)
-- 🐦 **Twitter:** [@Bitplace_com](https://twitter.com/Bitplace_com)
-- 🪙 **Token:** [pump.fun/coin/6az8...pump](https://pump.fun/coin/6az8wE4Gmns7bPLwfeR9Ed9pnGjqN5Cv9FJ3vs4Cpump)
+- [bitplace.com](https://bitplace.com)
+- [@Bitplace_com](https://twitter.com/Bitplace_com)
+- [Token on pump.fun](https://pump.fun/coin/6az8wE4Gmns7bPLwfeR9Ed9pnGjqN5Cv9FJ3vs4Cpump)
 
 ---
 
