@@ -230,11 +230,16 @@ export function BitplaceMap() {
     }
   }, [activeTemplateId, updateSettings]);
 
-  // Tour: listen for sign-in event to open the wallet modal
+  // Tour: listen for sign-in events to open/close the wallet modal
   useEffect(() => {
-    const handler = () => setWalletModalOpen(true);
-    window.addEventListener('bitplace:tour-open-signin', handler);
-    return () => window.removeEventListener('bitplace:tour-open-signin', handler);
+    const openHandler = () => setWalletModalOpen(true);
+    const closeHandler = () => setWalletModalOpen(false);
+    window.addEventListener('bitplace:tour-open-signin', openHandler);
+    window.addEventListener('bitplace:tour-close-signin', closeHandler);
+    return () => {
+      window.removeEventListener('bitplace:tour-open-signin', openHandler);
+      window.removeEventListener('bitplace:tour-close-signin', closeHandler);
+    };
   }, [setWalletModalOpen]);
 
   // Track if selection changed after validation (for auto-invalidation hint)

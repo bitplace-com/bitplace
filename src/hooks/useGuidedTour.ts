@@ -4,7 +4,7 @@ const TOUR_SEEN_KEY = 'bitplace_tour_seen';
 
 export interface TourStep {
   id: string;
-  target: string; // data-tour attribute value, '__welcome__' for welcome, '__info__' for centered info
+  target: string; // data-tour attribute value, '__welcome__' for welcome, '__wallet-modal__' for real modal
   title: string;
   description: string;
   position?: 'top' | 'bottom' | 'left' | 'right';
@@ -24,13 +24,14 @@ export const TOUR_STEPS: TourStep[] = [
     title: 'Sign In',
     description: 'Tap Sign In to create your account. You need an account to paint on the map.',
     position: 'left',
-    action: 'bitplace:tour-open-signin',
   },
   {
     id: 'account-types',
-    target: '__info__',
+    target: 'wallet-modal',
     title: 'Two Ways to Play',
-    description: '🟢 Google (Starter) — 300,000 free Pixels to draw anywhere. They expire after 72h unless renewed.\n\n🟣 Phantom Wallet (Pro) — Permanent Paint Energy (PE) powered by $BIT token. Full pixel ownership.\n\nStart free with Google and upgrade anytime by connecting a Phantom wallet.',
+    description: '🟢 Google (Starter) — 300,000 free Pixels to draw anywhere. They expire after 72h unless renewed.\n\n🟣 Phantom Wallet (Pro) — Permanent Paint Energy (PE) powered by $BIT token. Full pixel ownership.\n\nStart free with Google and upgrade anytime.',
+    position: 'right',
+    action: 'bitplace:tour-open-signin',
   },
   {
     id: 'toolbar',
@@ -38,6 +39,7 @@ export const TOUR_STEPS: TourStep[] = [
     title: 'Mode Bar',
     description: 'Switch between Paint, Defend, Attack and Reinforce modes to interact with pixels on the map.',
     position: 'bottom',
+    action: 'bitplace:tour-close-signin',
   },
   {
     id: 'action-tray-collapsed',
@@ -72,14 +74,21 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: 'quick-actions',
     target: 'quick-actions',
-    title: 'Search & Notifications',
-    description: 'Search for any location on the map and check your notifications here.',
+    title: 'Search & Leaderboard',
+    description: 'Search for any location on the map and check the leaderboard to see the top players.',
     position: 'right',
+  },
+  {
+    id: 'bottom-right-controls',
+    target: 'bottom-right-controls',
+    title: 'Notifications & Pixel Art',
+    description: 'Toggle pixel art opacity to see the map underneath, and check your notifications for attacks, alliance invites and more.',
+    position: 'left',
   },
 ];
 
 /** Targets that render as centered dialogs instead of anchored tooltips */
-export const CENTERED_TARGETS = new Set(['__welcome__', '__info__']);
+export const CENTERED_TARGETS = new Set(['__welcome__']);
 
 export function useGuidedTour() {
   const [isActive, setIsActive] = useState(false);
@@ -106,6 +115,8 @@ export function useGuidedTour() {
     setIsActive(false);
     setCurrentStepIndex(0);
     localStorage.setItem(TOUR_SEEN_KEY, '1');
+    // Close wallet modal if open during tour
+    window.dispatchEvent(new CustomEvent('bitplace:tour-close-signin'));
   }, []);
 
   const nextStep = useCallback(() => {
