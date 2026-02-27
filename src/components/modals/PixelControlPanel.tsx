@@ -163,7 +163,7 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
             <SectionTitle>
               <PEIcon size="xs" />
               <TT tip="Paint Energy — your capacity to permanently claim pixels. PE comes from the dollar value of $BIT in your wallet. 1 PE = $0.001.">
-                Paint Energy (PE)
+                Paint Energy Balance (PE)
               </TT>
             </SectionTitle>
 
@@ -182,10 +182,11 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                     value={formatNumber(energy.peUsed)}
                     tip="PE currently locked in pixel stakes and contributions."
                   />
-                  <StatBox
-                    label="Total PE"
-                    value={formatNumber(energy.peTotal)}
-                    tip="Total PE capacity based on the value of $BIT in your wallet."
+                   <StatBox
+                    label="Used PE Value"
+                    value={`$${formatNumber(energy.peUsed * 0.001, 3)}`}
+                    variant="default"
+                    tip="Dollar value of your currently used PE. 1 PE = $0.001."
                   />
                 </div>
 
@@ -200,7 +201,13 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium px-1">
                     Used PE Allocation
                   </p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
+                    <StatBox
+                      label="Reinforce"
+                      value="0"
+                      icon="bolt"
+                      tip="Total PE used to reinforce your pixels. Reinforcing boosts your pixel's defense without changing ownership."
+                    />
                     <StatBox
                       label="DEF Total"
                       value={formatNumber(peBalance.contributionTotal)}
@@ -214,12 +221,6 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                       tip="Total PE you've contributed to attack other players' pixels. ATK weakens the pixel's stake."
                     />
                   </div>
-                  <StatBox
-                    label="Staked & Reinforce"
-                    value="0"
-                    icon="bolt"
-                    tip="Total PE staked in your pixels plus PE used to reinforce them. Staking and reinforcing boost your pixel's defense without changing ownership."
-                  />
                 </div>
               </div>
             ) : (
