@@ -247,9 +247,9 @@ export function PixelInfoPanel({
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
                   {/* Avatar */}
-                  {pixel.owner?.avatar_url ? (
+                  {(pixel.owner?.avatar_url || pixel.owner?.google_avatar_url) ? (
                     <img
-                      src={pixel.owner.avatar_url}
+                      src={pixel.owner.avatar_url || pixel.owner.google_avatar_url}
                       alt="Avatar"
                       className="w-10 h-10 rounded-lg object-cover shrink-0"
                     />
@@ -339,7 +339,7 @@ export function PixelInfoPanel({
                <div className="flex items-center gap-2 text-xs">
                  <div className="flex-1 bg-muted/70 rounded-lg px-2.5 py-2 text-center">
                    <div className="font-semibold text-foreground">{(pixel.owner?.pixels_painted_total ?? 0).toLocaleString()}</div>
-                   <div className="text-[10px] text-muted-foreground">Total Pixels Painted</div>
+                   <div className="text-[10px] text-muted-foreground">Pixels Painted</div>
                  </div>
                  <TooltipProvider delayDuration={200}>
                    <Tooltip>
@@ -348,7 +348,7 @@ export function PixelInfoPanel({
                          <div className="font-semibold text-foreground flex items-center justify-center gap-0.5">
                            {pixel.isVirtualStake ? '0' : (pixel.owner?.total_staked_pe ?? 0).toLocaleString()} <PEIcon size="xs" />
                          </div>
-                         <div className="text-[10px] text-muted-foreground">Total PE Staked</div>
+                         <div className="text-[10px] text-muted-foreground">PE Staked</div>
                        </div>
                      </TooltipTrigger>
                      <TooltipContent side="bottom" className="max-w-56 text-xs">
@@ -360,7 +360,7 @@ export function PixelInfoPanel({
                  </TooltipProvider>
                  <div className="flex-1 bg-muted/70 rounded-lg px-2.5 py-2 text-center">
                    <div className="font-semibold text-emerald-500">{pixel.isVirtualStake ? '~$0.00' : peToUsd(pixel.owner?.total_staked_pe ?? 0)}</div>
-                   <div className="text-[10px] text-muted-foreground">Total PE Value</div>
+                   <div className="text-[10px] text-muted-foreground">PE Value</div>
                  </div>
                </div>
 
