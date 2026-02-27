@@ -155,11 +155,10 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
 
         </div>
 
-        {/* Right side - PE & Status */}
+        {/* Right side - Pixels first, then PE & Status */}
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap sm:flex-nowrap justify-end">
-          {/* PE Total / Used */}
-          {energy.isVirtualPe ? (
-            /* Google-only: show pixel balance */
+          {/* Pixel Balance — shown for virtual-only and 'both' users */}
+          {(energy.isVirtualPe || (user?.auth_provider === 'both' && energy.virtualPeTotal > 0)) && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex items-center gap-2 cursor-help">
@@ -178,8 +177,10 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
                 Pixel Balance: your free pixel budget. These pixels expire after 72h and can be painted over by anyone.
               </TooltipContent>
             </Tooltip>
-          ) : (
-            /* Wallet user: show real PE */
+          )}
+
+          {/* PE Total / Used — wallet users only */}
+          {!energy.isVirtualPe && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex items-center gap-2 cursor-help">
@@ -198,16 +199,6 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
                 Paint Energy (PE): your energy capacity based on your $BIT wallet value. 1 PE = $0.001.
               </TooltipContent>
             </Tooltip>
-          )}
-
-          {/* Pixel Balance for 'both' users (separate section) */}
-          {!energy.isVirtualPe && user?.auth_provider === 'both' && energy.virtualPeTotal > 0 && (
-            <div className="flex items-center gap-2">
-              <PixelBalanceIcon size="md" />
-              <span className="text-sm font-medium tabular-nums leading-tight">
-                {energy.virtualPeAvailable.toLocaleString()}
-              </span>
-            </div>
           )}
 
           {/* Available PE - smaller muted */}
