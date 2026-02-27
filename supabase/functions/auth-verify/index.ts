@@ -214,6 +214,9 @@ serve(async (req) => {
         // Transfer alliance membership
         await supabase.from('alliance_members').update({ user_id: googleUserId }).eq('user_id', walletUserId);
 
+        // Clear wallet_address on old user to avoid unique constraint violation
+        await supabase.from('users').update({ wallet_address: null }).eq('id', walletUserId);
+
         // Merge stats onto Google user
         const { data: googleUser } = await supabase.from('users').select('*').eq('id', googleUserId).single();
         if (!googleUser) {
