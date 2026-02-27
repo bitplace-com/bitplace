@@ -215,10 +215,10 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                     />
                   </div>
                   <StatBox
-                    label="Reinforce Total"
+                    label="Staked & Reinforce"
                     value="0"
                     icon="bolt"
-                    tip="Total PE you've used to reinforce your own pixels. Reinforce boosts your pixel's stake without changing ownership."
+                    tip="Total PE staked in your pixels plus PE used to reinforce them. Staking and reinforcing boost your pixel's defense without changing ownership."
                   />
                 </div>
               </div>

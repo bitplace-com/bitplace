@@ -168,39 +168,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           </div>
         ) : user?.auth_provider === 'both' ? (
           <>
-            {/* Wallet balance */}
-            <div className="p-4 space-y-2">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                <PixelIcon name="wallet" className="h-3.5 w-3.5" />
-                <span className="uppercase tracking-wider font-medium">Wallet</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-mono font-semibold text-foreground">
-                  {formatNumber(energy.nativeBalance, 4)} {energy.nativeSymbol}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  ${formatUsd(energy.walletUsd)}
-                </span>
-              </div>
-              {walletAddress && (
-                <button
-                  onClick={handleCopyAddress}
-                  className="flex items-center gap-1 text-xs text-muted-foreground font-mono hover:text-foreground transition-colors"
-                >
-                  {shortenAddress(walletAddress)}
-                  {copied ? (
-                    <PixelIcon name="check" className="h-3 w-3 text-emerald-500" />
-                  ) : (
-                    <PixelIcon name="copy" className="h-3 w-3" />
-                  )}
-                </button>
-              )}
-              <p className="text-[10px] text-muted-foreground">
-                Synced {formatRelativeTime(energy.lastSyncAt)}
-              </p>
-            </div>
-            <Separator className="bg-border" />
-            {/* Pixel Balance section for 'both' users */}
+            {/* Pixel Balance section for 'both' users — shown FIRST */}
             {(energy.virtualPeTotal > 0) && (
               <div className="p-4 space-y-1">
                 <Tooltip>
@@ -231,6 +199,38 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                 )}
               </div>
             )}
+            <Separator className="bg-border" />
+            {/* Wallet balance — shown AFTER pixels */}
+            <div className="p-4 space-y-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                <PixelIcon name="wallet" className="h-3.5 w-3.5" />
+                <span className="uppercase tracking-wider font-medium">Wallet</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-mono font-semibold text-foreground">
+                  {formatNumber(energy.nativeBalance, 4)} {energy.nativeSymbol}
+                </span>
+                <span className="text-sm font-semibold text-emerald-500">
+                  ${formatUsd(energy.walletUsd)}
+                </span>
+              </div>
+              {walletAddress && (
+                <button
+                  onClick={handleCopyAddress}
+                  className="flex items-center gap-1 text-xs text-muted-foreground font-mono hover:text-foreground transition-colors"
+                >
+                  {shortenAddress(walletAddress)}
+                  {copied ? (
+                    <PixelIcon name="check" className="h-3 w-3 text-emerald-500" />
+                  ) : (
+                    <PixelIcon name="copy" className="h-3 w-3" />
+                  )}
+                </button>
+              )}
+              <p className="text-[10px] text-muted-foreground">
+                Synced {formatRelativeTime(energy.lastSyncAt)}
+              </p>
+            </div>
           </>
         ) : (
           <div className="p-4 space-y-2">
@@ -242,7 +242,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               <span className="text-sm font-mono font-semibold text-foreground">
                 {formatNumber(energy.nativeBalance, 4)} {energy.nativeSymbol}
               </span>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm font-semibold text-emerald-500">
                 ${formatUsd(energy.walletUsd)}
               </span>
             </div>
@@ -335,9 +335,10 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                 </TooltipContent>
               </Tooltip>
             </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-              <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help text-center">
+            <div className="grid grid-cols-2 gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
                       PE Available
                     </p>
@@ -345,11 +346,27 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                       {energy.peAvailable.toLocaleString()}
                     </p>
                   </div>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-56 text-xs">
-                PE you can spend right now on paint, defend, attack, or reinforce.
-              </TooltipContent>
-            </Tooltip>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-56 text-xs">
+                  PE you can spend right now on paint, defend, attack, or reinforce.
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                      PE Value
+                    </p>
+                    <p className="text-sm font-semibold text-emerald-500 tabular-nums">
+                      ${formatUsd(energy.walletUsd)}
+                    </p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-56 text-xs">
+                  Dollar value of your total Paint Energy.
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
         )}
         </TooltipProvider>
