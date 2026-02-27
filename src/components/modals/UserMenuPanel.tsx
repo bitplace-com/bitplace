@@ -111,21 +111,6 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               {isGoogleAuth && user?.email && (
                 <p className="text-xs text-muted-foreground truncate">{user.email}</p>
               )}
-              <div className="flex items-center gap-1.5">
-                {walletAddress && !isGoogleOnly && (
-                  <button
-                    onClick={handleCopyAddress}
-                    className="flex items-center gap-1 text-xs text-muted-foreground font-mono hover:text-foreground transition-colors"
-                  >
-                    {shortenAddress(walletAddress)}
-                    {copied ? (
-                      <PixelIcon name="check" className="h-3 w-3 text-emerald-500" />
-                    ) : (
-                      <PixelIcon name="copy" className="h-3 w-3" />
-                    )}
-                  </button>
-                )}
-              </div>
               {country && (
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {country.flag} {country.name}
@@ -152,7 +137,6 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2 cursor-help">
-                  <PixelBalanceIcon size="sm" className="text-muted-foreground" />
                   <span className="uppercase tracking-wider font-medium">PIXELS</span>
                 </div>
               </TooltipTrigger>
@@ -170,7 +154,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               <span className="tabular-nums">{energy.virtualPeUsed.toLocaleString()} / {energy.virtualPeTotal.toLocaleString()}</span>
             </div>
             {!pixelAlertDismissed && (
-              <div className="mt-1 flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5">
+              <div className="mt-3 flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5">
                 <PixelIcon name="clock" className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">Pixels expire after 72h</p>
@@ -222,7 +206,6 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1 cursor-help">
-                      <PixelBalanceIcon size="sm" className="text-muted-foreground" />
                       <span className="uppercase tracking-wider font-medium">PIXELS</span>
                     </div>
                   </TooltipTrigger>
@@ -235,7 +218,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                   <span className="text-muted-foreground tabular-nums">{energy.virtualPeUsed.toLocaleString()} / {energy.virtualPeTotal.toLocaleString()}</span>
                 </div>
                 {!pixelAlertDismissed && (
-                  <div className="mt-1 flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5">
+                  <div className="mt-3 flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5">
                     <PixelIcon name="clock" className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">Pixels expire after 72h</p>
@@ -274,7 +257,6 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
         {/* ═══ PIXELS OVERVIEW ═══ */}
         <div className="p-4 space-y-2">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1.5 px-0.5">
-            <PixelBalanceIcon size="xs" className="text-muted-foreground" />
             Pixels Overview
           </p>
           <div className={cn("grid gap-2", energy.virtualPeTotal > 0 ? "grid-cols-2" : "grid-cols-1")}>
@@ -320,7 +302,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               <PEIcon size="xs" />
               PE Overview
             </p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
@@ -351,22 +333,22 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                   Total PE locked across all your pixels and contributions.
                 </TooltipContent>
               </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                      PE Available
-                    </p>
-                    <p className="text-sm font-semibold text-foreground tabular-nums">
-                      {energy.peAvailable.toLocaleString()}
-                    </p>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-56 text-xs">
-                  PE you can spend right now on paint, defend, attack, or reinforce.
-                </TooltipContent>
-              </Tooltip>
             </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="p-2.5 rounded-xl bg-accent border border-border cursor-help">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                    PE Available
+                  </p>
+                  <p className="text-sm font-semibold text-foreground tabular-nums">
+                    {energy.peAvailable.toLocaleString()}
+                  </p>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-56 text-xs">
+                PE you can spend right now on paint, defend, attack, or reinforce.
+              </TooltipContent>
+            </Tooltip>
           </div>
         )}
         </TooltipProvider>
