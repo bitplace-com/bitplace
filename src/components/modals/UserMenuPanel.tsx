@@ -129,8 +129,8 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
         <Separator className="bg-border" />
 
         <TooltipProvider delayDuration={200}>
-        {/* Wallet Section */}
-        {isGoogleOnly ? (
+        {/* PIXELS section — Google-only and 'both' users */}
+        {(isGoogleOnly || user?.auth_provider === 'both') && energy.virtualPeTotal > 0 && (
           <div className="p-4 space-y-2">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -164,46 +164,18 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               </div>
             )}
           </div>
-        ) : user?.auth_provider === 'both' ? (
-          <>
-            {/* Pixel Balance section for 'both' users — shown FIRST */}
-            {(energy.virtualPeTotal > 0) && (
-              <div className="p-4 space-y-1">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1 cursor-help">
-                      <span className="uppercase tracking-wider font-medium">PIXELS</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-56 text-xs">
-                    Your free pixel budget. Pixels expire after 72h but you can renew them to reset the timer.
-                  </TooltipContent>
-                </Tooltip>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-foreground tabular-nums">{energy.virtualPeAvailable.toLocaleString()} available</span>
-                  <span className="text-muted-foreground tabular-nums">{energy.virtualPeUsed.toLocaleString()} / {energy.virtualPeTotal.toLocaleString()}</span>
-                </div>
-                {!pixelAlertDismissed && (
-                  <div className="mt-3 flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5">
-                    <PixelIcon name="clock" className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">Pixels expire after 72h</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Open the Pixel Control Center to renew all your painted pixels at once and reset the 72h timer before they disappear.</p>
-                    </div>
-                    <button onClick={() => setPixelAlertDismissed(true)} className="shrink-0 p-0.5 rounded hover:bg-amber-500/20 transition-colors">
-                      <PixelIcon name="close" className="h-3 w-3 text-amber-500" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-            <Separator className="bg-border" />
-            {/* Wallet balance — shown AFTER pixels */}
-            <div className="p-4 space-y-2">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                <PixelIcon name="wallet" className="h-3.5 w-3.5" />
-                <span className="uppercase tracking-wider font-medium">Wallet</span>
-              </div>
+        )}
+
+        <Separator className="bg-border" />
+
+        {/* WALLET section — always visible */}
+        <div className="p-4 space-y-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+            <PixelIcon name="wallet" className="h-3.5 w-3.5" />
+            <span className="uppercase tracking-wider font-medium">Wallet</span>
+          </div>
+          {walletAddress ? (
+            <>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-mono font-semibold text-foreground">
                   {formatNumber(energy.nativeBalance, 4)} {energy.nativeSymbol}
@@ -212,43 +184,38 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                   ${formatUsd(energy.walletUsd)}
                 </span>
               </div>
-              {walletAddress && (
-                <button
-                  onClick={handleCopyAddress}
-                  className="flex items-center gap-1 text-xs text-muted-foreground font-mono hover:text-foreground transition-colors"
-                >
-                  {shortenAddress(walletAddress)}
-                  {copied ? (
-                    <PixelIcon name="check" className="h-3 w-3 text-emerald-500" />
-                  ) : (
-                    <PixelIcon name="copy" className="h-3 w-3" />
-                  )}
-                </button>
-              )}
+              <button
+                onClick={handleCopyAddress}
+                className="flex items-center gap-1 text-xs text-muted-foreground font-mono hover:text-foreground transition-colors"
+              >
+                {shortenAddress(walletAddress)}
+                {copied ? (
+                  <PixelIcon name="check" className="h-3 w-3 text-emerald-500" />
+                ) : (
+                  <PixelIcon name="copy" className="h-3 w-3" />
+                )}
+              </button>
               <p className="text-[10px] text-muted-foreground">
                 Synced {formatRelativeTime(energy.lastSyncAt)}
               </p>
+            </>
+          ) : (
+            <div className="space-y-2.5">
+              <p className="text-xs text-muted-foreground">
+                Connect a Solana wallet to unlock Paint Energy, defend your pixels, and earn rewards.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2 h-9 rounded-xl"
+                onClick={linkWallet}
+              >
+                <PixelIcon name="wallet" className="h-3.5 w-3.5" />
+                Connect Wallet
+              </Button>
             </div>
-          </>
-        ) : (
-          <div className="p-4 space-y-2">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-              <PixelIcon name="wallet" className="h-3.5 w-3.5" />
-              <span className="uppercase tracking-wider font-medium">Wallet</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-mono font-semibold text-foreground">
-                {formatNumber(energy.nativeBalance, 4)} {energy.nativeSymbol}
-              </span>
-              <span className="text-sm font-semibold text-emerald-500">
-                ${formatUsd(energy.walletUsd)}
-              </span>
-            </div>
-            <p className="text-[10px] text-muted-foreground">
-              Synced {formatRelativeTime(energy.lastSyncAt)}
-            </p>
-          </div>
-        )}
+          )}
+        </div>
 
         </TooltipProvider>
 
@@ -305,28 +272,19 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
 
         <Separator className="bg-border" />
 
-        {/* Disconnect / Connect Real Wallet */}
+        {/* Disconnect / Sign Out */}
         <div className="p-2">
-          {isGoogleOnly ? (
-            <>
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-3 h-10 rounded-xl text-foreground hover:bg-accent"
-                onClick={linkWallet}
-              >
-                <PixelIcon name="wallet" className="h-4 w-4" />
-                Connect Wallet
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-3 h-10 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={disconnect}
-              >
-                <PixelIcon name="logout" className="h-4 w-4" />
-                Sign Out
-              </Button>
-            </>
-          ) : (
+          {isGoogleOnly && !walletAddress && (
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 h-10 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={disconnect}
+            >
+              <PixelIcon name="logout" className="h-4 w-4" />
+              Sign Out
+            </Button>
+          )}
+          {!isGoogleOnly && (
             <>
               {user?.auth_provider !== 'both' && (
                 <Button
@@ -347,6 +305,16 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                 Disconnect
               </Button>
             </>
+          )}
+          {isGoogleOnly && walletAddress && (
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 h-10 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={disconnect}
+            >
+              <PixelIcon name="logout" className="h-4 w-4" />
+              Sign Out
+            </Button>
           )}
         </div>
       </PopoverContent>
