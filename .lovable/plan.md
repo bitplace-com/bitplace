@@ -1,32 +1,44 @@
 
+# Pixel Control Center — Riordino e miglioramenti
 
-# UI Polish: User Menu Panel
+## Modifiche al file `src/components/modals/PixelControlPanel.tsx`
 
-## Modifiche
+### 1. Riordinare le card PE per coerenza con Pixel Balance
 
-### 1. Rimuovere icona matita dal header "PIXELS" (UserMenuPanel.tsx)
+Ordine attuale PE: Total, Available, Used
+Nuovo ordine (coerente con Pixel Balance): **Available, Used, Total**
 
-Nella sezione "PIXELS" per utenti `both` (riga 224-226) e per utenti `isGoogleOnly` (riga 154-155), rimuovere l'icona `PixelBalanceIcon` dal titolo della sezione.
+Rinominare "Total" in qualcosa di piu' coerente: la sezione Pixel usa "Active Pixels", quindi per PE usiamo lo stesso pattern. L'ordine finale sara':
+- Pixel Balance: Available | Used | Active Pixels
+- Paint Energy: Available | Used | Total (come "Total PE")
 
-### 2. Rimuovere wallet address dall'header utente (UserMenuPanel.tsx)
+### 2. Rimuovere il pannello Collateralization
 
-Rimuovere il blocco righe 114-128 che mostra l'indirizzo wallet abbreviato sotto l'email nell'header. L'indirizzo wallet resta visibile nella sezione WALLET piu' sotto.
+Eliminare tutto il blocco righe 199-248 (il pannello con grace period / decay).
 
-### 3. Riordinare PE Overview: 2+1 layout (UserMenuPanel.tsx)
+### 3. Rinominare "Active Stakes" in "USED PE ALLOCATION"
 
-Cambiare la griglia PE da `grid-cols-3` (righe 323) a:
-- Riga 1: `grid-cols-2` con **PE Balance** e **PE Used**
-- Riga 2: **PE Available** da solo a larghezza piena
+Cambiare il titolo da "Active Stakes" a "Used PE Allocation" (riga 252-253).
 
-### 4. Aggiungere spazio sopra l'alert 72h (UserMenuPanel.tsx)
+### 4. Aggiungere Reinforce sotto Defend e Attack
 
-Nelle due sezioni con l'alert amber (righe 172 e 237), cambiare `mt-1` in `mt-3` per dare piu' respiro tra i dati e l'alert.
+Trasformare il layout da `grid-cols-2` (DEF + ATK) a:
+- Riga 1: `grid-cols-2` con **Defend** e **Attack**
+- Riga 2: **Reinforce** da solo a larghezza piena
 
-### 5. Riconciliazione account duplicati in classifica
+Reinforce mostra il totale PE usato per rinforzare i propri pixel (valore "0" per ora, come ATK).
 
-Ho verificato il database: **non ci sono duplicati**. La logica di merge in `auth-verify` gia' gestisce correttamente la riconciliazione quando un utente Google collega un wallet (o viceversa): trasferisce tutti i dati (pixel, contribuzioni, stats XP/takeover) nell'account unificato e cancella il record duplicato. La classifica quindi non puo' mostrare duplicati perche' l'utente vecchio viene eliminato.
+### Risultato finale sezione PE (quando ha wallet)
+
+```text
+PAINT ENERGY (PE)
+  [Available: X]  [Used: X]  [Total: X]
+
+USED PE ALLOCATION
+  [DEF Total: X]    [ATK Total: X]
+  [REINFORCE Total: X]              (full width)
+```
 
 ## File modificato
 
-1 solo file: `src/components/modals/UserMenuPanel.tsx`
-
+1 solo file: `src/components/modals/PixelControlPanel.tsx`
