@@ -134,7 +134,8 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           <div className="p-4 space-y-3">
             <Tooltip>
               <TooltipTrigger asChild>
-                <p className="text-[11px] uppercase tracking-wider font-medium text-muted-foreground cursor-help">
+                <p className="text-[11px] uppercase tracking-wider font-medium text-muted-foreground cursor-help flex items-center gap-1.5">
+                  <PixelIcon name="brush" className="h-3.5 w-3.5" />
                   Pixels
                 </p>
               </TooltipTrigger>
@@ -147,7 +148,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                 {energy.virtualPeAvailable.toLocaleString()}
                 <span className="text-xs text-muted-foreground font-normal ml-1.5">• Available to use</span>
               </p>
-              <div className="flex items-center justify-between mt-1">
+              <div className="flex items-center justify-between mt-2">
                 <span className="text-xs text-muted-foreground">Used</span>
                 <span className="text-xs text-muted-foreground tabular-nums">
                   {energy.virtualPeUsed.toLocaleString()} / {energy.virtualPeTotal.toLocaleString()}
@@ -182,8 +183,8 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
           {walletAddress ? (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-lg font-bold font-mono text-foreground tabular-nums leading-tight">
-                  {formatNumber(energy.nativeBalance, 4)} {energy.nativeSymbol}
+                <span className="text-lg font-bold text-foreground tabular-nums leading-tight">
+                  {formatNumber(energy.nativeBalance, 2)} {energy.nativeSymbol}
                 </span>
                 <span className="text-sm font-semibold text-emerald-500 tabular-nums">
                   ${formatUsd(energy.walletUsd)}
@@ -191,7 +192,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
               </div>
               <button
                 onClick={handleCopyAddress}
-                className="flex items-center gap-1 text-xs text-muted-foreground font-mono hover:text-foreground transition-colors"
+                className="flex items-center gap-1 text-xs text-muted-foreground font-mono hover:text-foreground transition-colors mt-1"
               >
                 {shortenAddress(walletAddress)}
                 {copied ? (
@@ -200,9 +201,6 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                   <PixelIcon name="copy" className="h-3 w-3" />
                 )}
               </button>
-              <p className="text-[11px] text-muted-foreground">
-                Synced {formatRelativeTime(energy.lastSyncAt)}
-              </p>
             </div>
           ) : (
             <div className="space-y-2.5">
