@@ -1,67 +1,51 @@
 
 
-# Aggiornamento Tour Guidato per Nuovi Utenti
+# Aumento limite pixel per operazione: da 300 a 1000
 
-## Cosa cambia e perche
+## Contesto
 
-Il tour attuale ha riferimenti obsoleti alla modalita Trial rimossa e non spiega il sistema di account a due livelli (Google Starter / Phantom Pro) ne la distinzione tra Pixel gratuiti e Paint Energy permanente. L'obiettivo e guidare il nuovo utente a capire subito come iniziare a giocare.
+Il limite attuale di 300 pixel per singola operazione PAINT viene portato a 1000. Questo riguarda sia il numero di pixel disegnabili che i PE utilizzabili per operazione.
 
-## Nuovo flusso del tour (9 step)
+## Perche' serve piu' tempo con piu' pixel
 
-```text
-1. Welcome         (dialog centrato, nessun target)
-2. Sign In         (target: wallet, apre WalletSelectModal)
-3. Account Types   (dialog centrato, spiega Starter vs Pro)
-4. Mode Bar        (target: toolbar)
-5. Drawing Panel   (target: action-tray, collassato)
-6. Colors & Tools  (target: action-tray, espanso)
-7. Menu            (target: menu)
-8. Templates       (target: templates)
-9. Search          (target: quick-actions)
-```
+Il backend esegue queste operazioni per ogni PAINT:
+- **1 query di lettura** (batch da 900 coord) per verificare lo stato attuale dei pixel
+- **N batch di scrittura** (100 pixel ciascuno, max 5 in parallelo) per salvare nel DB
+- Calcolo threshold e ownership per ogni pixel
 
-### Dettaglio step nuovi/modificati
+Con 300 pixel: 1 batch lettura + 3 batch scrittura = ~2-5s
+Con 1000 pixel: 2 batch lettura + 10 batch scrittura (2 round) = ~5-10s
 
-**Step 1 - Welcome** (invariato nel concetto, testo aggiornato)
-- "Paint pixels on a real-world map, claim territory and compete. Sign in to start drawing!"
+I timeout dinamici gia' presenti nel codice gestiscono questo scenario. Serve solo aggiungere una soglia per 1000 pixel.
 
-**Step 2 - Sign In** (NUOVO - target: `wallet`, action: `bitplace:tour-open-signin`)
-- Evidenzia il bottone Sign In in alto a destra
-- "Tap Sign In to create your account. You need an account to paint on the map."
-- L'action dispatcha un evento custom che apre la WalletSelectModal
-- Il tour si mette in pausa finche l'utente non chiude la modale (o passa allo step successivo)
+## Modifiche
 
-**Step 3 - Account Types** (NUOVO - dialog centrato, `__info__`)
-- Spiega le due opzioni senza puntare a un elemento specifico:
-  - Google (Starter): 300,000 free Pixels, expire in 72h
-  - Phantom Wallet (Pro): permanent Paint Energy (PE) from $BIT token
-- "You can start free with Google and upgrade anytime by connecting a Phantom wallet."
+### 1. Frontend - Limite draft (1 riga)
+**File:** `src/components/map/hooks/useDraftPaint.ts`
+- `PAINT_MAX_PIXELS`: 300 -> 1000
 
-**Step 8 - Wallet** (RIMOSSO come step separato - la spiegazione e gia coperta dagli step 2-3)
+### 2. Backend - Validazione (1 riga)
+**File:** `supabase/functions/game-validate/index.ts` (linea 56)
+- `MAX_PAINT_PIXELS`: 300 -> 1000
 
-### Step invariati (solo testo pulito)
-- Mode Bar, Drawing Panel, Colors & Tools, Menu, Templates, Search: rimangono uguali ma il testo dello step "wallet" originale viene eliminato.
+### 3. Backend - Commit (1 riga)
+**File:** `supabase/functions/game-commit/index.ts` (linea 55)
+- `MAX_PAINT_PIXELS`: 300 -> 1000
 
-## File da modificare
+### 4. Frontend - Timeout e chunking (2 righe)
+**File:** `src/hooks/useGameActions.ts`
+- `MAX_CHUNK_SIZE`: 200 -> 500 (meno round-trip: 2 chunk invece di 5)
+- Aggiunta soglia timeout: `if (count >= 1000) return 300000;` (5 minuti)
 
-### 1. `src/hooks/useGuidedTour.ts`
-- Riscrivere array `TOUR_STEPS` con i 9 step sopra
-- Aggiornare `totalSteps` di conseguenza
-- Aggiungere supporto per step di tipo "info" (centrato, senza target, come welcome)
+## Cosa NON cambia
 
-### 2. `src/components/map/GuidedTour.tsx`
-- Gestire il nuovo target speciale `__info__` come `__welcome__` (dialog centrato)
-- Nello step "sign-in", dopo il dispatch dell'action, il tooltip punta al bottone wallet
-- Aggiornare il rendering del dialog centrato per supportare step informativi mid-tour (non solo welcome)
+- Budget totale Starter (300.000 pixel) invariato
+- Cooldown 30 secondi invariato
+- Space Paint (batch da 200) invariato
+- Brush/rect selection (limite 10.000) invariato
+- Nessuna modifica al database
+- Nessuna modifica RLS
 
-### 3. `src/components/map/BitplaceMap.tsx` (o dove viene montato il GuidedTour)
-- Aggiungere listener per l'evento `bitplace:tour-open-signin` che apre la WalletSelectModal
-- Questo permette al tour di aprire programmaticamente la modale di sign in
+## Riepilogo
 
-## Dettagli tecnici
-
-- Lo step `__info__` usa lo stesso layout centrato del welcome ma con stile tooltip (step counter, next/skip)
-- L'action `bitplace:tour-open-signin` e un CustomEvent che il WalletButton/BitplaceMap ascolta per aprire la modale
-- Il tour continua normalmente se l'utente clicca "Next" senza fare sign in (non forza il login)
-- Nessuna modifica al backend, solo UI
-
+5 modifiche su 4 file. Zero rischi critici. Le infrastrutture esistenti (timeout dinamici, batching parallelo, warmup PING) gia' supportano operazioni di questa dimensione.
