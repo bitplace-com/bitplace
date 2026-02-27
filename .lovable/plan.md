@@ -1,82 +1,67 @@
 
-# Rimozione completa della modalità Trial (Demo)
 
-## Motivazione
-Con l'autenticazione Google che offre 300.000 pixel gratuiti, la modalità Trial (10.000 pixel locali, nulla salvato) non aggiunge valore e crea confusione. Rimuoverla semplifica il codice e l'esperienza utente.
+# Aggiornamento Tour Guidato per Nuovi Utenti
 
-## Rischi / Problemi
-Nessun rischio reale:
-- I dati Trial sono solo in `localStorage`/`sessionStorage` (nessuna tabella DB coinvolta)
-- Nessun utente perde dati permanenti (i pixel Trial non venivano mai salvati)
-- Il flusso di autenticazione Google + Phantom resta invariato
+## Cosa cambia e perche
 
-## File da modificare (14 file coinvolti)
+Il tour attuale ha riferimenti obsoleti alla modalita Trial rimossa e non spiega il sistema di account a due livelli (Google Starter / Phantom Pro) ne la distinzione tra Pixel gratuiti e Paint Energy permanente. L'obiettivo e guidare il nuovo utente a capire subito come iniziare a giocare.
 
-### 1. WalletContext.tsx — Rimuovere stato e logica Trial
-- Eliminare costanti: `TRIAL_MODE_KEY`, `TRIAL_WALLET_ADDRESS`, `TRIAL_PE_TOTAL`, `TRIAL_BIT_BALANCE`, `TRIAL_BIT_PRICE`, `trialEnergyState`
-- Eliminare stato `isTrialMode` e ref `isTrialModeRef`
-- Eliminare funzioni `activateTrialMode`, `exitTrialMode`, `updateTrialPe`
-- Rimuovere `isTrialMode` dal tipo del context e dal valore fornito
-- Semplificare `isConnected`, `isAuthenticated`, `needsSignature` (rimuovere check `isTrialMode`)
-- Rimuovere il branch trial dalla session restore
+## Nuovo flusso del tour (9 step)
 
-### 2. WalletSelectModal.tsx — Rimuovere Tier 3 (Demo)
-- Rimuovere la prop `onActivateTrial` e il suo blocco UI (icona sparkles, "Try Without Account")
-- Rimuovere il separatore "or" prima del Tier Demo
+```text
+1. Welcome         (dialog centrato, nessun target)
+2. Sign In         (target: wallet, apre WalletSelectModal)
+3. Account Types   (dialog centrato, spiega Starter vs Pro)
+4. Mode Bar        (target: toolbar)
+5. Drawing Panel   (target: action-tray, collassato)
+6. Colors & Tools  (target: action-tray, espanso)
+7. Menu            (target: menu)
+8. Templates       (target: templates)
+9. Search          (target: quick-actions)
+```
 
-### 3. WalletButton.tsx (desktop) — Rimuovere riferimenti Trial
-- Rimuovere prop `onActivateTrial` passata a `WalletSelectModal`
-- Rimuovere import/uso di `activateTrialMode` e `isTrialMode`
+### Dettaglio step nuovi/modificati
 
-### 4. MobileWalletButton.tsx — Stessa pulizia
-- Rimuovere `activateTrialMode` e `isTrialMode` dal destructuring di `useWallet()`
-- Rimuovere `onActivateTrial` dal `WalletSelectModal`
+**Step 1 - Welcome** (invariato nel concetto, testo aggiornato)
+- "Paint pixels on a real-world map, claim territory and compete. Sign in to start drawing!"
 
-### 5. UserMenuPanel.tsx — Rimuovere badge e sezioni Trial
-- Rimuovere il badge "TRIAL", il testo "Test session", il bottone "Exit Trial", il bottone "Connect Real Wallet"
-- Semplificare tutte le condizioni `!isTrialMode` (diventano sempre true, quindi rimuovibili)
+**Step 2 - Sign In** (NUOVO - target: `wallet`, action: `bitplace:tour-open-signin`)
+- Evidenzia il bottone Sign In in alto a destra
+- "Tap Sign In to create your account. You need an account to paint on the map."
+- L'action dispatcha un evento custom che apre la WalletSelectModal
+- Il tour si mette in pausa finche l'utente non chiude la modale (o passa allo step successivo)
 
-### 6. useWalletGate.ts — Rimuovere bypass Trial
-- Rimuovere `isTrialMode` dal destructuring e dalla prima riga di `requireWallet`
-- Rimuovere dalla dependency array del `useCallback`
+**Step 3 - Account Types** (NUOVO - dialog centrato, `__info__`)
+- Spiega le due opzioni senza puntare a un elemento specifico:
+  - Google (Starter): 300,000 free Pixels, expire in 72h
+  - Phantom Wallet (Pro): permanent Paint Energy (PE) from $BIT token
+- "You can start free with Google and upgrade anytime by connecting a Phantom wallet."
 
-### 7. BitplaceMap.tsx — Pulizia consistente
-- Rimuovere `isTrialMode`, `activateTrialMode`, `updateTrialPe` dal destructuring
-- Rimuovere `trialValidationRef`, `TRIAL_PIXELS_KEY`, `MAX_TRIAL_PIXELS`
-- Rimuovere `saveTrialPixelsToStorage` e l'effect di restore trial pixels
-- Rimuovere tutti i branch `if (isTrialMode)` nel flusso paint/validate/commit
-- Rimuovere `isTrialMode` passato a `usePaintQueue`
+**Step 8 - Wallet** (RIMOSSO come step separato - la spiegazione e gia coperta dagli step 2-3)
 
-### 8. usePaintQueue.ts — Rimuovere parametro Trial
-- Rimuovere il parametro `isTrialMode` dalla firma
-- Rimuovere i branch che saltano il backend in modalita Trial
+### Step invariati (solo testo pulito)
+- Mode Bar, Drawing Panel, Colors & Tools, Menu, Templates, Search: rimangono uguali ma il testo dello step "wallet" originale viene eliminato.
 
-### 9. useDraftPaint.ts — Rimuovere check Trial
-- Rimuovere `isTrialMode` da `useWallet()` e il branch che salta l'auth check
+## File da modificare
 
-### 10. usePixelDetails.ts — Rimuovere parametro e logica Trial
-- Rimuovere il parametro `isTrialMode` e tutta la logica "You (Trial)"
-- Rimuovere il lookup in `bitplace_trial_pixels` localStorage
+### 1. `src/hooks/useGuidedTour.ts`
+- Riscrivere array `TOUR_STEPS` con i 9 step sopra
+- Aggiornare `totalSteps` di conseguenza
+- Aggiungere supporto per step di tipo "info" (centrato, senza target, come welcome)
 
-### 11. StatusStrip.tsx — Rimuovere badge Trial
-- Rimuovere `isTrialMode` dal destructuring
-- Rimuovere il badge "TRIAL" e la condizione `!isTrialMode` su cluster badge
+### 2. `src/components/map/GuidedTour.tsx`
+- Gestire il nuovo target speciale `__info__` come `__welcome__` (dialog centrato)
+- Nello step "sign-in", dopo il dispatch dell'action, il tooltip punta al bottone wallet
+- Aggiornare il rendering del dialog centrato per supportare step informativi mid-tour (non solo welcome)
 
-### 12. TermsPage.tsx — Aggiornare copy
-- Rimuovere il riferimento a "trial experience" nel testo legale, mantenendo la descrizione VPE/Google
+### 3. `src/components/map/BitplaceMap.tsx` (o dove viene montato il GuidedTour)
+- Aggiungere listener per l'evento `bitplace:tour-open-signin` che apre la WalletSelectModal
+- Questo permette al tour di aprire programmaticamente la modale di sign in
 
-### 13. HudOverlay.tsx (o dove viene passato `isTrialMode` a `usePixelDetails`)
-- Rimuovere il passaggio del parametro `isTrialMode`
+## Dettagli tecnici
 
-### 14. Memory file — Eliminare o aggiornare
-- Rimuovere `memory/features/test-wallet-trial-mode` e `memory/gameplay/test-account-trial-limits`
+- Lo step `__info__` usa lo stesso layout centrato del welcome ma con stile tooltip (step counter, next/skip)
+- L'action `bitplace:tour-open-signin` e un CustomEvent che il WalletButton/BitplaceMap ascolta per aprire la modale
+- Il tour continua normalmente se l'utente clicca "Next" senza fare sign in (non forza il login)
+- Nessuna modifica al backend, solo UI
 
-## Ordine di implementazione
-1. `WalletContext.tsx` (cuore della logica)
-2. `WalletSelectModal.tsx` (UI modale)
-3. `WalletButton.tsx` + `MobileWalletButton.tsx` (bottoni)
-4. `BitplaceMap.tsx` + `usePaintQueue.ts` + `useDraftPaint.ts` (flusso paint)
-5. `useWalletGate.ts` + `usePixelDetails.ts` (hooks)
-6. `UserMenuPanel.tsx` + `StatusStrip.tsx` (UI)
-7. `TermsPage.tsx` (copy legale)
-8. Pulizia riferimenti rimanenti
