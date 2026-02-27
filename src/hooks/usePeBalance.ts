@@ -85,13 +85,12 @@ export function usePeBalance(userId: string | undefined): PeBalance {
 
       const { data: pixelStakes } = await supabase
         .from('pixels')
-        .select('owner_stake_pe')
+        .select('owner_stake_pe, is_virtual_stake')
         .eq('owner_user_id', userId);
 
-      const pixelStakeTotal = pixelStakes?.reduce(
-        (sum, p) => sum + Number(p.owner_stake_pe || 0),
-        0
-      ) || 0;
+      const pixelStakeTotal = pixelStakes
+        ?.filter(p => !p.is_virtual_stake)
+        .reduce((sum, p) => sum + Number(p.owner_stake_pe || 0), 0) || 0;
 
       const { data: contributions } = await supabase
         .from('pixel_contributions')
