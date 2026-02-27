@@ -172,12 +172,6 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-2">
                   <StatBox
-                    label="Total"
-                    value={formatNumber(energy.peTotal)}
-                    variant="primary"
-                    tip="Total PE capacity based on the value of $BIT in your wallet."
-                  />
-                  <StatBox
                     label="Available"
                     value={formatNumber(energy.peAvailable)}
                     variant="primary"
@@ -188,6 +182,11 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                     value={formatNumber(energy.peUsed)}
                     tip="PE currently locked in pixel stakes and contributions."
                   />
+                  <StatBox
+                    label="Total PE"
+                    value={formatNumber(energy.peTotal)}
+                    tip="Total PE capacity based on the value of $BIT in your wallet."
+                  />
                 </div>
 
                 {energy.peTotal === 0 && (
@@ -196,61 +195,10 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                   </p>
                 )}
 
-                {/* Collateralization */}
-                {energy.pixelsOwned > 0 && (
-                  <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1.5">
-                      <TT tip="Your pixel stakes stay valid for 7 days after your last wallet check. After that, stakes decay over 72h to a floor of 1 PE per pixel. Log in to reset.">
-                        Collateralization
-                      </TT>
-                    </p>
-
-                    {peBalance.rebalanceActive ? (
-                      <>
-                        <div className="flex items-center justify-between">
-                          <TT tip="The 7-day grace period has expired and your stakes are now losing value every tick.">
-                            <span className="text-xs font-medium text-destructive cursor-help">Grace period expired</span>
-                          </TT>
-                          <TT tip="Current health of your stakes. At 0% each pixel retains a floor of 1 PE.">
-                            <span className="text-xs text-destructive font-semibold tabular-nums cursor-help">
-                              Health: {Math.round(peBalance.healthMultiplier * 100)}%
-                            </span>
-                          </TT>
-                        </div>
-                        {peBalance.rebalanceEndsAt && (
-                          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                            <TT tip="Decay lasts 72h total. After this time all stakes reach the 1 PE floor.">
-                              <span className="cursor-help">Decay ends in</span>
-                            </TT>
-                            <span className="tabular-nums font-mono">
-                              {formatLiveCountdown(peBalance.rebalanceEndsAt, now)}
-                            </span>
-                          </div>
-                        )}
-                        <p className="text-[10px] text-muted-foreground">
-                          Stakes are decaying over 72h to a floor of 1 PE per pixel. Add $BIT to stop.
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex items-center justify-between">
-                          <TT tip="You have 7 days from your last wallet verification before decay begins.">
-                            <span className="text-xs font-medium text-foreground cursor-help">Grace period</span>
-                          </TT>
-                          <span className="text-xs text-emerald-500 font-semibold">Active</span>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground">
-                          Your pixel stakes stay valid for 7 days after your last wallet check. Log in to reset.
-                        </p>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {/* Active Stakes */}
+                {/* Used PE Allocation */}
                 <div className="space-y-1.5">
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium px-1">
-                    Active Stakes
+                    Used PE Allocation
                   </p>
                   <div className="grid grid-cols-2 gap-2">
                     <StatBox
@@ -266,6 +214,12 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                       tip="Total PE you've contributed to attack other players' pixels. ATK weakens the pixel's stake."
                     />
                   </div>
+                  <StatBox
+                    label="Reinforce Total"
+                    value="0"
+                    icon="bolt"
+                    tip="Total PE you've used to reinforce your own pixels. Reinforce boosts your pixel's stake without changing ownership."
+                  />
                 </div>
               </div>
             ) : (
