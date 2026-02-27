@@ -1,51 +1,36 @@
 
+# Aggiornamento README.md per GitHub
 
-# Aumento limite pixel per operazione: da 300 a 1000
+## Cosa cambia
 
-## Contesto
+Il file `README.md` viene riscritto per riflettere accuratamente lo stato attuale di Bitplace, con informazioni corrette e aggiornate.
 
-Il limite attuale di 300 pixel per singola operazione PAINT viene portato a 1000. Questo riguarda sia il numero di pixel disegnabili che i PE utilizzabili per operazione.
+## Correzioni rispetto alla bozza di Claude
 
-## Perche' serve piu' tempo con piu' pixel
+1. **Limite pixel per operazione**: aggiornato a 1000 (non 300, come appena modificato)
+2. **Sezione Features ampliata**: include Alliances, Places, Leaderboard, Templates, Sound/Haptics - tutte feature realmente implementate
+3. **Sezione "How Value Works"**: aggiunta spiegazione chiara che $BIT non viene mai speso, solo letto per calcolare PE
+4. **Getting Started migliorato**: flow Starter -> Pro spiegato meglio con VPE recycling e timer 72h
+5. **Mechanics section**: aggiunta spiegazione di Paint/Defend/Attack/Reinforce con contesto
+6. **Tech stack corretto**: aggiunto Tailwind CSS, shadcn/ui, canvas overlay specifics
+7. **Tono**: piu' diretto e coinvolgente, meno "lista della spesa"
+8. **Struttura**: sezioni ordinate per importanza - prima cosa e', poi come funziona, poi token, poi tech
 
-Il backend esegue queste operazioni per ogni PAINT:
-- **1 query di lettura** (batch da 900 coord) per verificare lo stato attuale dei pixel
-- **N batch di scrittura** (100 pixel ciascuno, max 5 in parallelo) per salvare nel DB
-- Calcolo threshold e ownership per ogni pixel
+## Contenuto del README
 
-Con 300 pixel: 1 batch lettura + 3 batch scrittura = ~2-5s
-Con 1000 pixel: 2 batch lettura + 10 batch scrittura (2 round) = ~5-10s
+Il file includera':
 
-I timeout dinamici gia' presenti nel codice gestiscono questo scenario. Serve solo aggiungere una soglia per 1000 pixel.
+- **Header**: nome, tagline, link live
+- **What is Bitplace**: descrizione concisa con paragone r/place + Google Maps
+- **Getting Started**: due tier (Starter gratuito / Pro con wallet), flow chiaro
+- **Core Mechanics**: Paint, Defend, Attack, Reinforce con spiegazioni
+- **How Value Works**: $BIT -> PE, token mai speso, solo letto
+- **Features**: lista completa delle feature implementate (Alliances, Places, Leaderboard, Templates, ecc.)
+- **Tech Stack**: tabella aggiornata e accurata
+- **Token**: info $BIT con contract address
+- **Links**: sito, Twitter, pump.fun
+- **License**: All rights reserved
 
-## Modifiche
+## File toccati
 
-### 1. Frontend - Limite draft (1 riga)
-**File:** `src/components/map/hooks/useDraftPaint.ts`
-- `PAINT_MAX_PIXELS`: 300 -> 1000
-
-### 2. Backend - Validazione (1 riga)
-**File:** `supabase/functions/game-validate/index.ts` (linea 56)
-- `MAX_PAINT_PIXELS`: 300 -> 1000
-
-### 3. Backend - Commit (1 riga)
-**File:** `supabase/functions/game-commit/index.ts` (linea 55)
-- `MAX_PAINT_PIXELS`: 300 -> 1000
-
-### 4. Frontend - Timeout e chunking (2 righe)
-**File:** `src/hooks/useGameActions.ts`
-- `MAX_CHUNK_SIZE`: 200 -> 500 (meno round-trip: 2 chunk invece di 5)
-- Aggiunta soglia timeout: `if (count >= 1000) return 300000;` (5 minuti)
-
-## Cosa NON cambia
-
-- Budget totale Starter (300.000 pixel) invariato
-- Cooldown 30 secondi invariato
-- Space Paint (batch da 200) invariato
-- Brush/rect selection (limite 10.000) invariato
-- Nessuna modifica al database
-- Nessuna modifica RLS
-
-## Riepilogo
-
-5 modifiche su 4 file. Zero rischi critici. Le infrastrutture esistenti (timeout dinamici, batching parallelo, warmup PING) gia' supportano operazioni di questa dimensione.
+1 file: `README.md`
