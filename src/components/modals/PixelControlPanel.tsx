@@ -48,7 +48,7 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
             {hasVpe ? (
               <div className="space-y-3">
                 {/* Stats row */}
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <StatBox
                     label="Available"
                     value={formatNumber(energy.virtualPeAvailable)}
@@ -59,11 +59,6 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                     label="Used"
                     value={formatNumber(energy.virtualPeUsed)}
                     tip="Pixels currently placed on the map. Recycled when they expire or are painted over."
-                  />
-                  <StatBox
-                    label="Active Pixels"
-                    value={formatNumber(vpeRenew.totalVpePixels)}
-                    tip="Pixels you painted using your budget that are still active on the map."
                   />
                 </div>
 
@@ -184,9 +179,10 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                   />
                    <StatBox
                     label="Used PE Value"
-                    value={`$${formatNumber(energy.peUsed * 0.001, 3)}`}
+                    value={`$${formatNumber(energy.peUsed * 0.001, 2)}`}
                     variant="default"
                     tip="Dollar value of your currently used PE. 1 PE = $0.001."
+                    valueClassName="text-emerald-500"
                   />
                 </div>
 
@@ -198,8 +194,10 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
 
                 {/* Used PE Allocation */}
                 <div className="space-y-1.5">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium px-1">
-                    Used PE Allocation
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium px-1 flex items-center gap-1.5">
+                    <TT tip="Breakdown of how your used PE is distributed across reinforce, defense (DEF), and attack (ATK) actions.">
+                      Used PE Allocation
+                    </TT>
                   </p>
                   <div className="grid grid-cols-3 gap-2">
                     <StatBox
@@ -294,12 +292,14 @@ function StatBox({
   icon,
   variant = "default",
   tip,
+  valueClassName,
 }: {
   label: string;
   value: string;
   icon?: string;
   variant?: "default" | "primary";
   tip?: string;
+  valueClassName?: string;
 }) {
   const inner = (
     <div
@@ -315,7 +315,7 @@ function StatBox({
         {icon && <PixelIcon name={icon as any} className="h-3 w-3" />}
         {label}
       </p>
-      <p className="text-sm font-semibold text-foreground tabular-nums mt-0.5">{value}</p>
+      <p className={cn("text-sm font-semibold text-foreground tabular-nums mt-0.5", valueClassName)}>{value}</p>
     </div>
   );
 
