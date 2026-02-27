@@ -17,7 +17,7 @@ interface PixelControlPanelProps {
 }
 
 export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps) {
-  const { user, energy, isGoogleOnly, isGoogleAuth } = useWallet();
+  const { user, energy, isGoogleOnly, isGoogleAuth, linkWallet, googleSignIn } = useWallet();
   const peBalance = usePeBalance(user?.id);
   const vpeRenew = useVpeRenew(user?.id);
   const now = useLiveTick();
@@ -127,10 +127,33 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                 )}
               </div>
             ) : (
-              <div className="px-3 py-3 rounded-lg bg-muted/30 border border-border">
-                <p className="text-xs text-muted-foreground">
-                  Sign in with Google to get 300,000 free pixels — a recyclable budget to start drawing on the map.
+              <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2.5">
+                <p className="text-xs font-semibold text-foreground">What is Pixel Balance?</p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Your free budget to start drawing on the map. Sign in with Google to get <span className="font-semibold text-foreground">300,000 pixels</span>.
                 </p>
+                <ul className="text-[11px] text-muted-foreground space-y-1">
+                  <li className="flex items-start gap-1.5">
+                    <PixelIcon name="brush" className="h-3 w-3 mt-0.5 shrink-0 text-primary" />
+                    Draw freely on the pixel map
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <PixelIcon name="clock" className="h-3 w-3 mt-0.5 shrink-0 text-amber-500" />
+                    Pixels expire after 72h — renew to keep them
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <PixelIcon name="refresh" className="h-3 w-3 mt-0.5 shrink-0 text-emerald-500" />
+                    Pixels are recycled when painted over or expired
+                  </li>
+                </ul>
+                <Button
+                  onClick={googleSignIn}
+                  className="w-full h-8 text-xs font-semibold gap-2"
+                  variant="outline"
+                >
+                  <PixelIcon name="google" className="h-3.5 w-3.5" />
+                  Sign in with Google
+                </Button>
               </div>
             )}
           </div>
@@ -246,10 +269,36 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                 </div>
               </div>
             ) : (
-              <div className="px-3 py-3 rounded-lg bg-muted/30 border border-border">
-                <p className="text-xs text-muted-foreground">
-                  Connect a wallet with $BIT to get PE. Your PE capacity is based on the dollar value of $BIT you hold. PE makes your drawings permanent and protectable on the map.
+              <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2.5">
+                <p className="text-xs font-semibold text-foreground">What is Paint Energy?</p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  PE lets you <span className="font-semibold text-foreground">permanently claim pixels</span> and protect your artwork on the map.
                 </p>
+                <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-primary/5 border border-primary/20">
+                  <PEIcon size="xs" className="text-primary" />
+                  <span className="text-[11px] font-medium text-foreground">1 PE = $0.001 of $BIT value</span>
+                </div>
+                <ul className="text-[11px] text-muted-foreground space-y-1">
+                  <li className="flex items-start gap-1.5">
+                    <PixelIcon name="brush" className="h-3 w-3 mt-0.5 shrink-0 text-primary" />
+                    Paint permanent pixels that don't expire
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <PixelIcon name="shield" className="h-3 w-3 mt-0.5 shrink-0 text-emerald-500" />
+                    Defend your artwork (DEF)
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <PixelIcon name="swords" className="h-3 w-3 mt-0.5 shrink-0 text-destructive" />
+                    Attack other pixels (ATK)
+                  </li>
+                </ul>
+                <Button
+                  onClick={linkWallet}
+                  className="w-full h-8 text-xs font-semibold gap-2"
+                >
+                  <PixelIcon name="wallet" className="h-3.5 w-3.5" />
+                  Connect Wallet
+                </Button>
               </div>
             )}
           </div>
