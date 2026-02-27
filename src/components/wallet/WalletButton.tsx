@@ -94,13 +94,13 @@ export function WalletButton() {
           {/* Dual PE + Pixels display */}
           {isBoth ? (
             <span className="text-xs font-medium text-foreground tabular-nums flex items-center gap-1.5">
-              <span className="flex items-center gap-0.5">{realPeAvailable.toLocaleString()} PE</span>
               {virtualPeAvailable > 0 && (
                 <>
+                  <span className="flex items-center gap-0.5">{virtualPeAvailable.toLocaleString()} Pixels</span>
                   <span className="text-muted-foreground">+</span>
-                  <span className="flex items-center gap-0.5"><PixelBalanceIcon size="xs" /> {virtualPeAvailable.toLocaleString()} Pixels</span>
                 </>
               )}
+              <span className="flex items-center gap-0.5">{realPeAvailable.toLocaleString()} PE</span>
             </span>
           ) : (
             <span className="text-xs font-medium text-foreground tabular-nums">
