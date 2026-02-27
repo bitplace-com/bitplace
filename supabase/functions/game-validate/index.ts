@@ -53,7 +53,7 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
 type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE" | "WITHDRAW_DEF" | "WITHDRAW_ATK" | "WITHDRAW_REINFORCE" | "PING";
 
 // Paint-specific limits
-const MAX_PAINT_PIXELS = 300;
+const MAX_PAINT_PIXELS = 1000;
 
 // Streaming thresholds
 const MIN_PIXELS_FOR_STREAMING = 50;

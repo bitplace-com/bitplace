@@ -4,7 +4,7 @@ import { warmupFunction } from '@/hooks/useGameActions';
 import { hapticsEngine } from '@/lib/hapticsEngine';
 
 // Max pixels per paint action - exported for UI display
-export const PAINT_MAX_PIXELS = 300;
+export const PAINT_MAX_PIXELS = 1000;
 const MAX_DRAFT = PAINT_MAX_PIXELS;
 
 export interface DraftPixel {
