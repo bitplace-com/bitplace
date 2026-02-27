@@ -87,7 +87,7 @@ export function WalletSelectModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-popover/95 backdrop-blur-xl border-border">
+      <DialogContent className="sm:max-w-md bg-popover/95 backdrop-blur-xl border-border" data-tour="wallet-modal">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PixelIcon name="user" size="md" />

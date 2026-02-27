@@ -26,7 +26,7 @@ export function ZoomControls({
 
   return (
     <>
-      <div className="flex flex-col gap-2 mb-safe">
+      <div className="flex flex-col gap-2 mb-safe" data-tour="bottom-right-controls">
         {/* Art Opacity Toggle */}
         <Tooltip>
           <TooltipTrigger asChild>

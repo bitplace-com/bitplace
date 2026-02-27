@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { PixelIcon } from '@/components/icons';
 import { BitplaceLogo } from '@/components/icons/BitplaceLogo';
 import { useGuidedTour, TOUR_STEPS, CENTERED_TARGETS } from '@/hooks/useGuidedTour';
-import { cn } from '@/lib/utils';
 
 /* ═══════════════════ Geometry helpers ═══════════════════ */
 
@@ -69,60 +68,6 @@ function getTooltipPosition(
         transform: 'translateX(-50%)',
       };
   }
-}
-
-/* ═══════════════════ Centered Info Dialog ═══════════════════ */
-
-function CenteredInfoDialog({
-  title,
-  description,
-  stepNumber,
-  totalSteps,
-  onNext,
-  onSkip,
-  isLastStep,
-}: {
-  title: string;
-  description: string;
-  stepNumber: number;
-  totalSteps: number;
-  onNext: () => void;
-  onSkip: () => void;
-  isLastStep: boolean;
-}) {
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-popover/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl p-6 max-w-sm mx-4 animate-in zoom-in-95 duration-300">
-        <div className="flex items-start justify-between gap-2 mb-3">
-          <h2 className="text-lg font-bold text-foreground">{title}</h2>
-          <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums mt-1">
-            {stepNumber}/{totalSteps}
-          </span>
-        </div>
-        <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line mb-5">
-          {description}
-        </p>
-        <div className="flex items-center justify-between">
-          <button
-            onClick={onSkip}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Skip tour
-          </button>
-          <Button size="sm" onClick={onNext} className="gap-1.5 h-8">
-            {isLastStep ? (
-              'Got it!'
-            ) : (
-              <>
-                Next
-                <PixelIcon name="chevronRight" size="xs" />
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 /* ═══════════════════ Main Component ═══════════════════ */
@@ -206,21 +151,6 @@ export function GuidedTour() {
 
   const isLastStep = currentStepIndex === TOUR_STEPS.length - 1;
   const stepNumber = currentStepIndex; // 1-indexed since we skip welcome
-
-  // ── Centered info step (mid-tour) ──
-  if (isCentered) {
-    return (
-      <CenteredInfoDialog
-        title={currentStep.title}
-        description={currentStep.description}
-        stepNumber={stepNumber}
-        totalSteps={totalSteps}
-        onNext={nextStep}
-        onSkip={skipTour}
-        isLastStep={isLastStep}
-      />
-    );
-  }
 
   // ── Anchored tooltip step ──
   const clipPath = targetRect
