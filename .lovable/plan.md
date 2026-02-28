@@ -1,51 +1,39 @@
 
 
-# Fix: Virtual PE not used for 'both' users when painting
+# Fix: Pixels not visible on initial map load
 
 ## Problem
-Users with `auth_provider: 'both'` (Google + Wallet) have both a virtual pixel budget and real PE. When they paint, the system incorrectly uses **real PE** instead of virtual pixels. This causes:
-- Pixels saved with `owner_stake_pe: 1` instead of `0`
-- `pe_used_pe` (real PE counter) incremented instead of `virtual_pe_used`
-- Profile shows PE Used and PE Value even though no real PE should have been spent
+When the map loads (especially from URL params like `?lat=45.5&lng=9.2&z=16`), the pixels are not visible and the "Zoom in to see pixels" message shows even though the map is already zoomed in enough. Two root causes:
 
-## Root Cause
-In `game-commit/index.ts` (line 1135-1136):
-```
-const isVirtualPe = user.auth_provider === 'google' || 
-  (user.auth_provider === 'both' && !user.wallet_address);
-```
-For 'both' users WITH a wallet, `isVirtualPe` is `false`. Same logic exists in the streaming path (line 955-956).
+1. **Zoom state stuck at 2**: The `useMapState` hook initializes `zoom: 2`, and it's only updated by `map.on('zoom', ...)` events. When the map loads directly at zoom 16, no zoom event fires, so `canPaint` stays `false` and the "Zoom in" prompt shows.
+
+2. **No initial tile fetch**: The `updateBounds()` function (which triggers `updateViewport` to fetch pixel tiles) is only bound to `moveend` and `zoomend` events, not called on initial load. So no `pixels-fetch-tiles` request is ever made until the user pans or zooms.
 
 ## Solution
+Add an initial sync inside the existing `map.on('load', ...)` callback in `BitplaceMap.tsx` (around line 532):
 
-### 1. Fix backend: game-commit edge function
-Change the `isVirtualPe` determination for PAINT mode. For 'both' users, painting should always use virtual PE regardless of wallet status. Real PE is only for DEFEND/ATTACK/REINFORCE.
+After `setMapReady(true)`, immediately:
+- Call `setZoomRef.current(map.getZoom())` to sync the zoom state
+- Call `updateBounds()` (by moving its definition before the `load` handler, or calling it inline) to trigger the first tile fetch
 
-Update both occurrences (non-streaming line ~1135 and streaming line ~955):
-```
-// For PAINT: 'both' users always use virtual PE
-const isVirtualPe = mode === 'PAINT' 
-  ? (user.auth_provider === 'google' || user.auth_provider === 'both')
-  : (user.auth_provider === 'google' || (user.auth_provider === 'both' && !user.wallet_address));
-```
+## Technical Details
 
-### 2. Fix backend: game-validate edge function
-Apply the same logic change so validation matches commit behavior.
+In `src/components/map/BitplaceMap.tsx`, the map initialization `useEffect` (line ~500-567):
 
-### 3. Fix existing data: SQL cleanup
-Run a migration to fix the 1000 pixels that were incorrectly saved as real PE:
-- Set `owner_stake_pe = 0`, `is_virtual_stake = true`, `virtual_pe_cost = 1`, and add `expires_at` (72h from now) on those pixels
-- Reset user's `pe_used_pe` back to 0
-- Set `virtual_pe_used = 1000` to reflect actual virtual PE consumption
+1. Move the `updateBounds` function definition **before** the `map.on('load', ...)` call
+2. Inside `map.on('load', ...)`, after `setMapReady(true)`, add:
+   ```typescript
+   setZoomRef.current(map.getZoom());
+   updateBounds();
+   ```
 
-### 4. Fix profile display: usePlayerProfile hook
-Update `totalStaked` calculation to exclude virtual pixels (`is_virtual_stake = true`) so PE Used/Value only reflects real PE stakes. Add `is_virtual_stake` to the pixel query select.
+This ensures:
+- The React zoom state matches the actual map zoom from the start
+- The `canPaint` flag is correct immediately
+- The first viewport tile fetch happens on load
+- The "Zoom in" message won't show incorrectly
+- Pixels will be visible immediately when the map loads at a paintable zoom level
 
-### 5. Fix other stats hooks
-Update `usePeBalance.ts` and `usePixelStats.ts` to also filter out virtual stakes when calculating `totalStaked`.
-
-## Impact
-- 'Both' users will correctly use virtual pixels when painting
-- Profile PE Used/Value will only reflect real PE consumption
-- Existing incorrect data will be corrected
+## Secondary Issue (not addressed here)
+The console logs show a Realtime channel connect/close loop. This is a separate issue (likely caused by the `reconnectAttempts` state being in the `setupRealtimeSubscription` dependency array, creating a feedback loop). This doesn't affect pixel visibility since initial rendering uses the tile fetch, not realtime.
 
