@@ -529,7 +529,7 @@ export function BitplaceMap() {
     // Disable touch rotation while keeping pinch-to-zoom
     map.touchZoomRotate.disableRotation();
 
-    const updateBounds = () => {
+    const updateBounds = (zoomOverride?: number) => {
       if (!map) return;
       const bounds = map.getBounds();
       const gridBounds = getViewportGridBounds(
@@ -538,7 +538,7 @@ export function BitplaceMap() {
         bounds.getNorth(),
         bounds.getSouth()
       );
-      updateViewportRef.current(gridBounds);
+      updateViewportRef.current(gridBounds, zoomOverride);
       
       // Update map center for Places modal
       const center = map.getCenter();
@@ -550,9 +550,10 @@ export function BitplaceMap() {
       setMapReady(true);
       
       // Sync zoom state immediately so canPaint is correct from the start
-      setZoomRef.current(map.getZoom());
-      // Trigger initial tile fetch so pixels are visible without user interaction
-      updateBounds();
+      const currentZoom = map.getZoom();
+      setZoomRef.current(currentZoom);
+      // Pass actual zoom to bypass state lag on first fetch
+      updateBounds(currentZoom);
       
       // Open inspector for URL pixel after a brief delay for map to settle
       if (urlPixelRef.current) {

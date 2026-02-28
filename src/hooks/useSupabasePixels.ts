@@ -39,6 +39,7 @@ export function useSupabasePixels(zoom: number) {
   
   // Realtime status tracking
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('disconnected');
+  const reconnectAttemptsRef = useRef(0);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -95,7 +96,8 @@ export function useSupabasePixels(zoom: number) {
       channelRef.current = null;
     }
 
-    console.log('[Realtime] Setting up subscription, attempt:', reconnectAttempts);
+    const currentAttempt = reconnectAttemptsRef.current;
+    console.log('[Realtime] Setting up subscription, attempt:', currentAttempt);
     
     const channel = supabase
       .channel('pixels-realtime')
@@ -111,9 +113,7 @@ export function useSupabasePixels(zoom: number) {
           
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const pixel = payload.new as DbPixel;
-            // Update tile cache
             updatePixelInCache(pixel.x, pixel.y, pixel.color);
-            // Update local state
             setDbPixels((prev) => {
               const next = new Map(prev);
               next.set(pixelKey(pixel.x, pixel.y), { color: pixel.color });
@@ -121,9 +121,7 @@ export function useSupabasePixels(zoom: number) {
             });
           } else if (payload.eventType === 'DELETE') {
             const pixel = payload.old as DbPixel;
-            // Update tile cache
             removePixelFromCache(pixel.x, pixel.y);
-            // Update local state
             setDbPixels((prev) => {
               const next = new Map(prev);
               next.delete(pixelKey(pixel.x, pixel.y));
@@ -137,6 +135,7 @@ export function useSupabasePixels(zoom: number) {
         
         if (status === 'SUBSCRIBED') {
           setRealtimeStatus('connected');
+          reconnectAttemptsRef.current = 0;
           setReconnectAttempts(0);
           console.log('[Realtime] Connected successfully');
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -145,8 +144,7 @@ export function useSupabasePixels(zoom: number) {
           scheduleReconnect();
         } else if (status === 'CLOSED') {
           console.warn('[Realtime] Channel closed');
-          // Only go to disconnected if we've exhausted retries
-          if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+          if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
             setRealtimeStatus('disconnected');
           } else {
             setRealtimeStatus('reconnecting');
@@ -156,29 +154,28 @@ export function useSupabasePixels(zoom: number) {
       });
 
     channelRef.current = channel;
-  }, [updatePixelInCache, removePixelFromCache, reconnectAttempts]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updatePixelInCache, removePixelFromCache]);
 
   // Schedule reconnection with backoff
   const scheduleReconnect = useCallback(() => {
-    // Clear any existing timeout
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-    }
+    if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
 
-    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
       console.warn('[Realtime] Max reconnect attempts reached, giving up');
       setRealtimeStatus('disconnected');
       return;
     }
 
-    const delay = getBackoffDelay(reconnectAttempts);
-    console.log(`[Realtime] Scheduling reconnect in ${delay}ms (attempt ${reconnectAttempts + 1})`);
+    const delay = getBackoffDelay(reconnectAttemptsRef.current);
+    console.log(`[Realtime] Scheduling reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1})`);
 
     reconnectTimeoutRef.current = setTimeout(() => {
-      setReconnectAttempts(prev => prev + 1);
+      reconnectAttemptsRef.current += 1;
+      setReconnectAttempts(reconnectAttemptsRef.current);
       setupRealtimeSubscription();
     }, delay);
-  }, [reconnectAttempts, setupRealtimeSubscription]);
+  }, [setupRealtimeSubscription]);
 
   // Initial realtime setup
   useEffect(() => {
@@ -243,7 +240,9 @@ export function useSupabasePixels(zoom: number) {
   }, [realtimeStatus, refetchTiles, checkIdle]);
 
   // Debounced viewport update using tile cache
-  const updateViewport = useCallback((bounds: ViewportBounds) => {
+  // zoomOverride allows the caller to pass the real map zoom to avoid
+  // the race where React state hasn't updated yet on first load.
+  const updateViewport = useCallback((bounds: ViewportBounds, zoomOverride?: number) => {
     // Mark activity
     markActivity();
     
@@ -256,9 +255,12 @@ export function useSupabasePixels(zoom: number) {
       abortFetch();
     }
 
+    // Use override zoom when provided (e.g. from map.getZoom() at load time)
+    const effectiveZoom = zoomOverride ?? zoomRef.current;
+
     // Reduced debounce for faster response (80ms instead of 200ms)
     debounceRef.current = setTimeout(async () => {
-      if (zoomRef.current < 12) {
+      if (effectiveZoom < 12) {
         setDbPixels(new Map());
         return;
       }
