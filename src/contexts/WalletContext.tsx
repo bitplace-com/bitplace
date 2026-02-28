@@ -777,7 +777,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     
     try {
       walletDebug('trusted_reconnect_start');
-      const response = await phantom.connect({ onlyIfTrusted: true });
+      const response = await Promise.race([
+        phantom.connect({ onlyIfTrusted: true }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Phantom trusted reconnect timeout')), 5000)
+        ),
+      ]);
       const wallet = response.publicKey.toBase58();
       walletDebug('trusted_reconnect_success', { wallet: wallet.substring(0, 8) });
       return wallet;
@@ -981,6 +986,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           }
         }
         
+        // Only try Phantom reconnect if there was a previous wallet session
+        if (!storedWallet) {
+          walletDebug('session_restore_skip_phantom', { reason: 'no_stored_wallet' });
+          setWalletState('DISCONNECTED');
+          restoreInFlightRef.current = false;
+          return;
+        }
+        
         setWalletState('CONNECTING');
         
         const phantomWallet = await attemptTrustedReconnect();
@@ -1142,7 +1155,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           publicKey = phantom.publicKey;
           walletDebug('connect_reuse', { publicKey: publicKey.toBase58().substring(0, 8) });
         } else {
-          const response = await phantom.connect({ onlyIfTrusted: false });
+          const response = await Promise.race([
+            phantom.connect({ onlyIfTrusted: false }),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('Phantom connect timeout')), 10000)
+            ),
+          ]);
           publicKey = response.publicKey;
           walletDebug('connect_success', { publicKey: publicKey.toBase58().substring(0, 8) });
         }
@@ -1168,6 +1186,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       
       if (!authSuccess) {
         walletDebug('connect_auth_failed');
+        // Ensure state is reset if still stuck in CONNECTING
+        if (walletStateRef.current === 'CONNECTING') {
+          setWalletState('AUTH_REQUIRED');
+        }
       }
 
     } catch (error: any) {
