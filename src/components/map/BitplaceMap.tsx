@@ -529,21 +529,6 @@ export function BitplaceMap() {
     // Disable touch rotation while keeping pinch-to-zoom
     map.touchZoomRotate.disableRotation();
 
-    map.on('load', () => {
-      mapRef.current = map;
-      setMapReady(true);
-      
-      // Open inspector for URL pixel after a brief delay for map to settle
-      if (urlPixelRef.current) {
-        setTimeout(() => {
-          setInspectedPixel(urlPixelRef.current);
-          urlPixelRef.current = null;
-        }, 500);
-      }
-    });
-
-    map.on('zoom', () => setZoomRef.current(map.getZoom()));
-
     const updateBounds = () => {
       if (!map) return;
       const bounds = map.getBounds();
@@ -559,6 +544,26 @@ export function BitplaceMap() {
       const center = map.getCenter();
       setMapCenter({ lat: center.lat, lng: center.lng });
     };
+
+    map.on('load', () => {
+      mapRef.current = map;
+      setMapReady(true);
+      
+      // Sync zoom state immediately so canPaint is correct from the start
+      setZoomRef.current(map.getZoom());
+      // Trigger initial tile fetch so pixels are visible without user interaction
+      updateBounds();
+      
+      // Open inspector for URL pixel after a brief delay for map to settle
+      if (urlPixelRef.current) {
+        setTimeout(() => {
+          setInspectedPixel(urlPixelRef.current);
+          urlPixelRef.current = null;
+        }, 500);
+      }
+    });
+
+    map.on('zoom', () => setZoomRef.current(map.getZoom()));
 
     map.on('moveend', updateBounds);
     map.on('zoomend', updateBounds);
