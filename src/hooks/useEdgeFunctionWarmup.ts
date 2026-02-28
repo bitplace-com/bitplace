@@ -1,6 +1,4 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { getAuthHeadersOrExpire } from '@/lib/authHelpers';
-
 // OPTIMIZATION: Reduced to 2 minutes to prevent DB cold start
 const WARMUP_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 const CRITICAL_FUNCTIONS = ['game-validate', 'game-commit'];
@@ -57,14 +55,22 @@ export async function warmupAuthenticatedFunctions(token: string): Promise<void>
 
 /**
  * Warmup with current auth token from localStorage.
- * This is used for periodic interval warmup when user is authenticated.
+ * PASSIVE: reads token directly without dispatching token_expired events.
  */
 async function warmupWithCurrentAuth(): Promise<void> {
-  const headers = getAuthHeadersOrExpire();
-  if (!headers) return; // Not authenticated
-  
-  const token = headers['Authorization']?.replace('Bearer ', '');
+  // Read token passively – do NOT call getAuthHeadersOrExpire() which
+  // dispatches TOKEN_EXPIRED_EVENT and causes console noise for unauth users.
+  const token = localStorage.getItem('bitplace_session_token');
   if (!token) return;
+  
+  // Quick expiry check (same as getValidSessionToken but without side-effects)
+  try {
+    const parts = token.split('.');
+    if (parts.length === 3) {
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      if (payload.exp && Date.now() > (payload.exp - 30000)) return; // expired
+    }
+  } catch { return; }
   
   await warmupAuthenticatedFunctions(token);
 }
@@ -108,8 +114,8 @@ export function useEdgeFunctionWarmup() {
   useEffect(() => {
     // Initial warmup on mount - try authenticated first, fallback to anonymous
     const initialWarmup = async () => {
-      const headers = getAuthHeadersOrExpire();
-      if (headers) {
+      const token = localStorage.getItem('bitplace_session_token');
+      if (token) {
         await warmupWithCurrentAuth();
       } else {
         await warmupAnonymous();
@@ -118,10 +124,10 @@ export function useEdgeFunctionWarmup() {
     
     initialWarmup();
 
-    // Periodic warmup every 3 minutes - prefer authenticated to warm DB
+    // Periodic warmup every 2 minutes - prefer authenticated to warm DB
     intervalRef.current = setInterval(async () => {
-      const headers = getAuthHeadersOrExpire();
-      if (headers) {
+      const token = localStorage.getItem('bitplace_session_token');
+      if (token) {
         // User is authenticated - do full warmup including DB
         await warmupWithCurrentAuth();
       } else {
@@ -157,11 +163,17 @@ export function useAuthenticatedWarmup() {
  * This masks the cold start delay by warming up during pixel selection.
  */
 export function triggerPredictiveWarmup(): void {
-  const headers = getAuthHeadersOrExpire();
-  if (!headers) return;
-  
-  const token = headers['Authorization']?.replace('Bearer ', '');
+  const token = localStorage.getItem('bitplace_session_token');
   if (!token) return;
+  
+  // Quick expiry check
+  try {
+    const parts = token.split('.');
+    if (parts.length === 3) {
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      if (payload.exp && Date.now() > (payload.exp - 30000)) return;
+    }
+  } catch { return; }
   
   // Fire and forget - don't await
   warmupAuthenticatedFunctions(token).catch(() => {
