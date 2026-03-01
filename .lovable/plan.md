@@ -1,21 +1,25 @@
 
-
-# Zoom out massimo della mappa come Wplace
+# Aggiornare il logo Google ovunque con il classico "G" multicolore
 
 ## Problema
-Lo zoom out attuale (`minZoom: 1`) non e' abbastanza basso. Su Wplace il mondo intero e' visibile sullo schermo con le aree polari bianche, e la mappa scorre solo orizzontalmente. Il nostro `minZoom: 1` mostra gia' molto ma non raggiunge il limite massimo di MapLibre.
+I bottoni "Sign in with Google" nel Pixel Control Panel e nel User Menu usano l'icona pixel-art (`PixelIcon name="google"`), mentre la modale di sign-in (WalletSelectModal) usa il vero logo multicolore di Google. Serve uniformare.
 
-## Modifiche (`src/components/map/BitplaceMap.tsx`)
+## Modifiche
 
-### 1. Ridurre minZoom a 0
-MapLibre supporta `minZoom: 0` -- a questo livello il mondo e' completamente visibile e non c'e' spazio per scrollare verticalmente. Cambio:
-- `minZoom: 1` → `minZoom: 0`
+### 1. Estrarre `GoogleLogo` in un componente condiviso
+Creare `src/components/icons/GoogleLogo.tsx` con il classico SVG multicolore "G" attualmente definito dentro `WalletSelectModal.tsx`. Accetta `className` e `size` per adattarsi ai diversi contesti.
 
-### 2. Restringere maxBounds verticalmente
-Con zoom 0 il mondo intero e' gia' contenuto nello schermo. Ridurre i limiti verticali per bloccare completamente il panning su/giu:
-- `maxBounds: [[-Infinity, -82], [Infinity, 82]]` → `maxBounds: [[-Infinity, -78], [Infinity, 78]]`
+### 2. Aggiornare `WalletSelectModal.tsx`
+Importare `GoogleLogo` dal nuovo file condiviso e rimuovere la definizione locale.
 
-Con latitudini piu' strette e minZoom 0, MapLibre non permette panning verticale perche' l'intero range e' gia' visibile. Lo scroll orizzontale infinito resta attivo grazie a `renderWorldCopies: true`.
+### 3. Aggiornare `PixelControlPanel.tsx`
+Sostituire `<PixelIcon name="google" className="h-3.5 w-3.5" />` con `<GoogleLogo className="h-3.5 w-3.5" />`.
 
-## File da modificare
-- `src/components/map/BitplaceMap.tsx` -- due valori: minZoom e maxBounds
+### 4. Aggiornare `UserMenuPanel.tsx`
+Sostituire `<PixelIcon name="google" className="h-4 w-4" />` con `<GoogleLogo className="h-4 w-4" />`.
+
+## File coinvolti
+- `src/components/icons/GoogleLogo.tsx` (nuovo)
+- `src/components/modals/WalletSelectModal.tsx` (import dal nuovo file)
+- `src/components/modals/PixelControlPanel.tsx` (sostituzione icona)
+- `src/components/modals/UserMenuPanel.tsx` (sostituzione icona)
