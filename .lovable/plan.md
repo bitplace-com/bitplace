@@ -1,25 +1,46 @@
 
-# Aggiornare il logo Google ovunque con il classico "G" multicolore
+# Spostare il bottone Pin tra Notifiche e Occhio + indicatore "nuovo"
 
-## Problema
-I bottoni "Sign in with Google" nel Pixel Control Panel e nel User Menu usano l'icona pixel-art (`PixelIcon name="google"`), mentre la modale di sign-in (WalletSelectModal) usa il vero logo multicolore di Google. Serve uniformare.
+## Cosa cambia
 
-## Modifiche
+### 1. Rimuovere il Pin da ActionTray
+Il `GlassIconButton` con l'icona `locationPin` e lo state `placesOpen` / `PlacesModal` vengono rimossi da `ActionTray.tsx`. Il pannello torna ad avere solo Esplora, Disegna e la freccia collapse, senza gap a sinistra.
 
-### 1. Estrarre `GoogleLogo` in un componente condiviso
-Creare `src/components/icons/GoogleLogo.tsx` con il classico SVG multicolore "G" attualmente definito dentro `WalletSelectModal.tsx`. Accetta `className` e `size` per adattarsi ai diversi contesti.
+### 2. Aggiungere il Pin in ZoomControls (tra Occhio e Notifiche)
+In `ZoomControls.tsx`, il bottone Pin viene inserito tra il bottone Art Opacity (occhio) e il bottone Notifications (campana). L'ordine dall'alto verso il basso diventa:
+1. Occhio (Art Opacity)
+2. Pin (Pinned Locations) -- NUOVO
+3. Campana (Notifications)
 
-### 2. Aggiornare `WalletSelectModal.tsx`
-Importare `GoogleLogo` dal nuovo file condiviso e rimuovere la definizione locale.
+Il componente importa `PlacesModal` e `usePinnedPlaces`, e gestisce lo state `placesOpen`.
 
-### 3. Aggiornare `PixelControlPanel.tsx`
-Sostituire `<PixelIcon name="google" className="h-3.5 w-3.5" />` con `<GoogleLogo className="h-3.5 w-3.5" />`.
+### 3. Indicatore "nuovo pin" (dot senza numero)
+- Viene tracciato in `localStorage` il conteggio di pin visti l'ultima volta (`bitplace-pins-seen-count`).
+- Quando `pins.length` supera il conteggio salvato, appare un piccolo dot rosso (senza numero) sul bottone Pin, simile al badge delle notifiche ma senza testo.
+- Quando l'utente apre la `PlacesModal`, il conteggio salvato viene aggiornato a `pins.length`, e il dot scompare.
 
-### 4. Aggiornare `UserMenuPanel.tsx`
-Sostituire `<PixelIcon name="google" className="h-4 w-4" />` con `<GoogleLogo className="h-4 w-4" />`.
+### 4. Props cleanup
+- `ActionTray` perde le props `currentLat` e `currentLng` (non servono piu per il Pin).
+- `ZoomControls` riceve `currentLat`, `currentLng`, `currentZoom` da `BitplaceMap` per passarli a `PlacesModal`.
 
 ## File coinvolti
-- `src/components/icons/GoogleLogo.tsx` (nuovo)
-- `src/components/modals/WalletSelectModal.tsx` (import dal nuovo file)
-- `src/components/modals/PixelControlPanel.tsx` (sostituzione icona)
-- `src/components/modals/UserMenuPanel.tsx` (sostituzione icona)
+- `src/components/map/ActionTray.tsx` -- rimuovere Pin button, PlacesModal, state, import
+- `src/components/map/ZoomControls.tsx` -- aggiungere Pin button con dot indicator, PlacesModal
+- `src/components/map/BitplaceMap.tsx` -- passare coordinate a ZoomControls, rimuovere currentLat/Lng da ActionTray
+
+## Dettaglio tecnico del dot indicator
+
+```typescript
+// In ZoomControls
+const SEEN_KEY = 'bitplace-pins-seen-count';
+const seenCount = Number(localStorage.getItem(SEEN_KEY) || '0');
+const hasNewPins = pins.length > seenCount;
+
+// Quando si apre PlacesModal:
+const handleOpenPlaces = () => {
+  setPlacesOpen(true);
+  localStorage.setItem(SEEN_KEY, String(pins.length));
+};
+```
+
+Il dot e' un semplice `<span>` rotondo di 8x8px con `bg-primary`, posizionato in alto a destra del bottone, identico al badge notifiche ma senza testo.
