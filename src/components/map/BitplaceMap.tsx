@@ -1888,7 +1888,7 @@ export function BitplaceMap() {
                 onToggle={() => setTemplatesPanelOpen(!templatesPanelOpen)}
                 hasActiveTemplate={!!activeTemplate}
               />
-              <QuickActions currentLat={mapCenter.lat} currentLng={mapCenter.lng} currentZoom={zoom} />
+              <QuickActions />
             </div>
           </HudSlot>
           <HudSlot position="top-center">

@@ -2,7 +2,8 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Hand } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PixelIcon } from '@/components/icons';
-
+import { GlassIconButton } from '@/components/ui/glass-icon-button';
+import { PlacesModal } from '@/components/modals/PlacesModal';
 import { BASE_PALETTE_GRID, ALL_COLORS } from '@/lib/palettes/basePaletteGrid';
 import { GRADIENT_ROWS } from '@/lib/palettes/gradientPalette';
 import { useSound } from '@/hooks/useSound';
@@ -108,7 +109,7 @@ export function ActionTray({
 }: ActionTrayProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [paletteTab, setPaletteTab] = useState<'colors' | 'gradients'>('colors');
-  
+  const [placesOpen, setPlacesOpen] = useState(false);
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const { play } = useSound();
   const isMobile = useIsMobile();
@@ -204,14 +205,24 @@ export function ActionTray({
           Zoom in to see pixels and paint
         </button>
       )}
-      <div 
-        className={cn(
-          "pointer-events-auto overflow-hidden transition-all duration-200 rounded-2xl shadow-lg",
-          "glass-hud-strong",
-          isExpanded && "w-full",
-          isEyedropperActive && "ring-2 ring-foreground"
-        )}
-      >
+      <div className="flex items-end gap-2 w-full">
+        {/* Pin button - standalone to the left of the panel */}
+        <GlassIconButton
+          onClick={() => setPlacesOpen(true)}
+          aria-label="Pinned Locations"
+          className="pointer-events-auto shrink-0 mb-1"
+        >
+          <PixelIcon name="locationPin" size="sm" />
+        </GlassIconButton>
+
+        <div 
+          className={cn(
+            "pointer-events-auto overflow-hidden transition-all duration-200 rounded-2xl shadow-lg flex-1 min-w-0",
+            "glass-hud-strong",
+            isExpanded && "w-full",
+            isEyedropperActive && "ring-2 ring-foreground"
+          )}
+        >
         {/* Header - always visible */}
         <div className="flex items-center justify-between gap-2 px-3 py-2">
           {/* Left: Interaction mode toggle */}
@@ -566,7 +577,15 @@ export function ActionTray({
         )}
       </div>
 
-    
+      {/* Places Modal */}
+      <PlacesModal
+        open={placesOpen}
+        onOpenChange={setPlacesOpen}
+        currentLat={currentLat}
+        currentLng={currentLng}
+        currentZoom={zoom}
+      />
+    </div>
     </div>
   );
 }
