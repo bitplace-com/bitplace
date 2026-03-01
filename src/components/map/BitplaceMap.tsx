@@ -515,13 +515,13 @@ export function BitplaceMap() {
       style: 'https://tiles.openfreemap.org/styles/liberty',
       center: urlPos ? [urlPos.lng, urlPos.lat] : [0, 20],
       zoom: urlPos ? urlPos.zoom : 2,
-      minZoom: 2,
+      minZoom: 1,
       maxZoom: 22,
       dragRotate: false,
       touchPitch: false,
       pitchWithRotate: false,
       renderWorldCopies: true,
-      maxBounds: [[-Infinity, -85], [Infinity, 85]] as any,
+      maxBounds: [[-Infinity, -82], [Infinity, 82]] as any,
       attributionControl: false,
       canvasContextAttributes: { preserveDrawingBuffer: true },
     } as maplibregl.MapOptions);
@@ -1808,7 +1808,7 @@ export function BitplaceMap() {
   return (
     <div className="relative w-full h-full flex flex-col">
       <div className="flex-1 relative overflow-hidden">
-        <div ref={containerRef} className="absolute inset-0" />
+        <div ref={containerRef} className="absolute inset-0 bg-background" />
 
         {/* Touch/Pointer interaction layer - captures touch events for mobile painting */}
         {mapReady && (canPaint || isMoveMode) && (
