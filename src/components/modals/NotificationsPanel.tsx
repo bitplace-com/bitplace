@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { PixelIcon } from "@/components/icons";
 import { GamePanel } from "./GamePanel";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@/contexts/WalletContext";
 import { useNotifications, type Notification, type NotificationType } from "@/hooks/useNotifications";
@@ -15,52 +14,36 @@ interface NotificationsPanelProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const typeIcons: Record<NotificationType, React.ReactNode> = {
-  ALLIANCE_INVITE: <PixelIcon name="users" className="h-4 w-4 text-primary" />,
-  PIXEL_TAKEOVER: <PixelIcon name="brush" className="h-4 w-4 text-destructive" />,
-  PIXEL_DEFENDED: <PixelIcon name="shield" className="h-4 w-4 text-emerald-500" />,
-  PIXEL_ATTACKED: <PixelIcon name="swords" className="h-4 w-4 text-amber-500" />,
-  SYSTEM: <PixelIcon name="bell" className="h-4 w-4 text-muted-foreground" />,
-};
-
-const typeColors: Record<NotificationType, string> = {
-  ALLIANCE_INVITE: "bg-primary/10",
-  PIXEL_TAKEOVER: "bg-destructive/10",
-  PIXEL_DEFENDED: "bg-emerald-500/10",
-  PIXEL_ATTACKED: "bg-amber-500/10",
-  SYSTEM: "bg-muted/50",
+const typeIcons: Record<NotificationType, { icon: string; color: string }> = {
+  ALLIANCE_INVITE: { icon: "users", color: "text-primary" },
+  PIXEL_TAKEOVER: { icon: "brush", color: "text-destructive" },
+  PIXEL_DEFENDED: { icon: "shield", color: "text-emerald-500" },
+  PIXEL_ATTACKED: { icon: "swords", color: "text-amber-500" },
+  SYSTEM: { icon: "bell", color: "text-muted-foreground" },
 };
 
 export function NotificationsPanel({ open, onOpenChange }: NotificationsPanelProps) {
   const { toast } = useToast();
   const { user, refreshUser } = useWallet();
-  const { 
-    notifications, 
-    unreadCount, 
-    isLoading, 
-    markAsRead, 
+  const {
+    notifications,
+    unreadCount,
+    isLoading,
+    markAsRead,
     markAllAsRead,
-    refetch 
+    refetch,
   } = useNotifications(user?.id);
-  
-  // Also fetch alliance invites for accept/decline actions
+
   const { invites, acceptInvite, declineInvite, refetch: refetchInvites } = useAllianceInvites(user?.id);
   const { refetch: refetchAlliance } = useAlliance(user?.id);
-  
-  const [processingId, setProcessingId] = useState<string | null>(null);
 
-  // Mark notifications as read when panel opens
-  useEffect(() => {
-    if (open && unreadCount > 0) {
-      // Don't auto-mark all as read immediately - let user see unread indicators
-    }
-  }, [open, unreadCount]);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const handleAcceptInvite = async (inviteId: string, allianceName: string, notificationId?: string) => {
     setProcessingId(inviteId);
     const success = await acceptInvite(inviteId);
     setProcessingId(null);
-    
+
     if (success) {
       toast({ title: `Joined ${allianceName}!` });
       await refetchAlliance();
@@ -77,7 +60,7 @@ export function NotificationsPanel({ open, onOpenChange }: NotificationsPanelPro
     setProcessingId(inviteId);
     const success = await declineInvite(inviteId);
     setProcessingId(null);
-    
+
     if (success) {
       toast({ title: "Invite declined" });
       if (notificationId) await markAsRead(notificationId);
@@ -92,32 +75,12 @@ export function NotificationsPanel({ open, onOpenChange }: NotificationsPanelPro
     if (!notification.isRead) {
       await markAsRead(notification.id);
     }
-    
-    // Navigate to pixel if it's a pixel notification
-    if (notification.meta?.pixel_x !== undefined && notification.meta?.pixel_y !== undefined) {
-      // Could implement navigation here
-    }
   };
 
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
+  // Combine notifications with alliance invites
+  const allianceInviteNotifications = notifications.filter(n => n.type === "ALLIANCE_INVITE");
+  const otherNotifications = notifications.filter(n => n.type !== "ALLIANCE_INVITE");
 
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
-  };
-
-  // Combine notifications with alliance invites that might not have notifications yet
-  const allianceInviteNotifications = notifications.filter(n => n.type === 'ALLIANCE_INVITE');
-  const otherNotifications = notifications.filter(n => n.type !== 'ALLIANCE_INVITE');
-  
-  // Match invites with notifications
   const invitesWithNotifications = invites.map(invite => {
     const matchingNotification = allianceInviteNotifications.find(
       n => n.meta?.invite_id === invite.id
@@ -136,15 +99,15 @@ export function NotificationsPanel({ open, onOpenChange }: NotificationsPanelPro
       icon={<PixelIcon name="bell" className="h-5 w-5" />}
       size="sm"
     >
-      <div className="space-y-4">
-        {/* Header with mark all as read */}
+      <div className="flex flex-col gap-1">
+        {/* Mark all as read */}
         {unreadCount > 0 && (
-          <div className="flex justify-end">
+          <div className="flex justify-end pb-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={markAllAsRead}
-              className="text-xs text-muted-foreground hover:text-foreground"
+              className="text-xs text-muted-foreground hover:text-foreground h-7 px-2"
             >
               <PixelIcon name="checkDouble" className="h-3.5 w-3.5 mr-1" />
               Mark all as read
@@ -162,123 +125,218 @@ export function NotificationsPanel({ open, onOpenChange }: NotificationsPanelPro
             <p className="text-sm">No notifications</p>
           </div>
         ) : (
-          <ScrollArea className="max-h-[400px]">
-            <div className="space-y-3">
-              {/* Alliance invites (actionable) */}
-              {invitesWithNotifications.map(({ invite, notification }) => (
-                <div
-                  key={invite.id}
-                  className={cn(
-                    "p-4 rounded-xl border border-border/50 space-y-3 transition-colors",
-                    notification && !notification.isRead 
-                      ? "bg-primary/5 border-primary/20" 
-                      : "bg-muted/30"
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={cn("p-2 rounded-lg", typeColors.ALLIANCE_INVITE)}>
-                      {typeIcons.ALLIANCE_INVITE}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium">Alliance Invite</p>
-                        {notification && !notification.isRead && (
-                          <span className="h-2 w-2 rounded-full bg-primary" />
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        <span className="font-medium text-foreground">[{invite.allianceTag}] {invite.allianceName}</span>
-                        {" "}wants you to join!
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Invited by {invite.invitedByName} • {formatTime(invite.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      className="flex-1 min-h-[44px]"
-                      onClick={() => handleAcceptInvite(invite.id, invite.allianceName, notification?.id)}
-                      disabled={processingId === invite.id}
-                    >
-                      {processingId === invite.id ? (
-                        <PixelIcon name="loader" className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <>
-                          <PixelIcon name="check" className="h-4 w-4 mr-1" />
-                          Accept
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 min-h-[44px]"
-                      onClick={() => handleDeclineInvite(invite.id, notification?.id)}
-                      disabled={processingId === invite.id}
-                    >
-                      {processingId === invite.id ? (
-                        <PixelIcon name="loader" className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <>
-                          <PixelIcon name="close" className="h-4 w-4 mr-1" />
-                          Decline
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              ))}
+          <div className="flex flex-col gap-1.5">
+            {/* Alliance invites (actionable) */}
+            {invitesWithNotifications.map(({ invite, notification }) => (
+              <AllianceInviteCard
+                key={invite.id}
+                invite={invite}
+                notification={notification}
+                processingId={processingId}
+                onAccept={handleAcceptInvite}
+                onDecline={handleDeclineInvite}
+              />
+            ))}
 
-              {/* Other notifications (info only) */}
-              {otherNotifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  onClick={() => handleNotificationClick(notification)}
-                  className={cn(
-                    "p-4 rounded-xl border border-border/50 cursor-pointer transition-colors hover:bg-accent/50",
-                    !notification.isRead 
-                      ? "bg-primary/5 border-primary/20" 
-                      : "bg-muted/30"
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={cn("p-2 rounded-lg", typeColors[notification.type])}>
-                      {typeIcons[notification.type]}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium">{notification.title}</p>
-                        {!notification.isRead && (
-                          <span className="h-2 w-2 rounded-full bg-primary" />
-                        )}
-                      </div>
-                      {notification.body && (
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                          {notification.body}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2 mt-1">
-                        <p className="text-xs text-muted-foreground">
-                          {formatTime(notification.createdAt)}
-                        </p>
-                        {notification.meta?.pixel_x !== undefined && (
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <PixelIcon name="pin" className="h-3 w-3" />
-                            ({notification.meta.pixel_x}, {notification.meta.pixel_y})
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
+            {/* Other notifications */}
+            {otherNotifications.map((notification) => (
+              <NotificationCard
+                key={notification.id}
+                notification={notification}
+                onClick={handleNotificationClick}
+              />
+            ))}
+          </div>
         )}
       </div>
     </GamePanel>
+  );
+}
+
+/* ═══════════════════════ Sub-components ═══════════════════════ */
+
+function formatTime(dateStr: string) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${diffDays}d ago`;
+}
+
+/** Extracts a clean body text removing duplicate coordinate info */
+function getCleanBody(notification: Notification): string | null {
+  const { body, meta } = notification;
+  if (!body) return null;
+
+  // If meta has pixel coordinates, strip them from the body to avoid duplication
+  if (meta?.pixel_x !== undefined && meta?.pixel_y !== undefined) {
+    // Remove patterns like "at (1102103, 750509)" or "at (1102103,750509)"
+    return body
+      .replace(/\s*at\s*\(\s*\d+\s*,\s*\d+\s*\)\s*$/i, "")
+      .replace(/\s*\(\s*\d+\s*,\s*\d+\s*\)\s*$/i, "")
+      .trim() || null;
+  }
+
+  return body;
+}
+
+function NotificationCard({
+  notification,
+  onClick,
+}: {
+  notification: Notification;
+  onClick: (n: Notification) => void;
+}) {
+  const typeInfo = typeIcons[notification.type] || typeIcons.SYSTEM;
+  const cleanBody = getCleanBody(notification);
+  const hasCoords = notification.meta?.pixel_x !== undefined;
+  const color = notification.meta?.color as string | undefined;
+
+  return (
+    <button
+      onClick={() => onClick(notification)}
+      className={cn(
+        "w-full text-left px-3 py-2.5 rounded-lg border transition-colors",
+        "hover:bg-accent/50 active:bg-accent/70",
+        !notification.isRead
+          ? "bg-primary/5 border-primary/20"
+          : "bg-transparent border-border/40"
+      )}
+    >
+      <div className="flex items-start gap-2.5">
+        {/* Icon */}
+        <div className="mt-0.5 shrink-0">
+          <PixelIcon name={typeInfo.icon as any} className={cn("h-4 w-4", typeInfo.color)} />
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-foreground truncate">
+              {notification.title}
+            </span>
+            {!notification.isRead && (
+              <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+            )}
+          </div>
+
+          {cleanBody && (
+            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
+              {cleanBody}
+            </p>
+          )}
+
+          {/* Meta row: time + coords + color swatch */}
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <span className="text-[10px] text-muted-foreground">
+              {formatTime(notification.createdAt)}
+            </span>
+
+            {hasCoords && (
+              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                <PixelIcon name="pin" className="h-2.5 w-2.5" />
+                ({notification.meta.pixel_x}, {notification.meta.pixel_y})
+              </span>
+            )}
+
+            {color && (
+              <span
+                className="h-2.5 w-2.5 rounded-sm border border-border/60 shrink-0"
+                style={{ backgroundColor: color }}
+                title={`Color: ${color}`}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function AllianceInviteCard({
+  invite,
+  notification,
+  processingId,
+  onAccept,
+  onDecline,
+}: {
+  invite: any;
+  notification?: Notification;
+  processingId: string | null;
+  onAccept: (inviteId: string, allianceName: string, notificationId?: string) => void;
+  onDecline: (inviteId: string, notificationId?: string) => void;
+}) {
+  const isProcessing = processingId === invite.id;
+
+  return (
+    <div
+      className={cn(
+        "px-3 py-3 rounded-lg border space-y-2.5 transition-colors",
+        notification && !notification.isRead
+          ? "bg-primary/5 border-primary/20"
+          : "bg-transparent border-border/40"
+      )}
+    >
+      <div className="flex items-start gap-2.5">
+        <div className="mt-0.5 shrink-0">
+          <PixelIcon name="users" className="h-4 w-4 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-foreground">Alliance Invite</span>
+            {notification && !notification.isRead && (
+              <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            <span className="font-medium text-foreground">[{invite.allianceTag}] {invite.allianceName}</span>
+            {" "}wants you to join!
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            Invited by {invite.invitedByName} · {formatTime(invite.createdAt)}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          className="flex-1 h-8 text-xs"
+          onClick={() => onAccept(invite.id, invite.allianceName, notification?.id)}
+          disabled={isProcessing}
+        >
+          {isProcessing ? (
+            <PixelIcon name="loader" className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <>
+              <PixelIcon name="check" className="h-3.5 w-3.5 mr-1" />
+              Accept
+            </>
+          )}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="flex-1 h-8 text-xs"
+          onClick={() => onDecline(invite.id, notification?.id)}
+          disabled={isProcessing}
+        >
+          {isProcessing ? (
+            <PixelIcon name="loader" className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <>
+              <PixelIcon name="close" className="h-3.5 w-3.5 mr-1" />
+              Decline
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
   );
 }
