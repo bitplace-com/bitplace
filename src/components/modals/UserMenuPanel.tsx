@@ -1,4 +1,5 @@
 import { PixelIcon } from "@/components/icons";
+import { GoogleLogo } from "@/components/icons/GoogleLogo";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { ProBadge } from "@/components/ui/pro-badge";
 import { useState } from "react";
@@ -295,7 +296,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                   className="w-full justify-start gap-3 h-10 rounded-xl text-foreground hover:bg-accent"
                   onClick={googleSignIn}
                 >
-                  <PixelIcon name="google" className="h-4 w-4" />
+                  <GoogleLogo className="h-4 w-4" />
                   Connect Google
                 </Button>
               )}
