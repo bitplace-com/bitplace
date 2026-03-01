@@ -2,14 +2,14 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Hand } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PixelIcon } from '@/components/icons';
-import { GlassIconButton } from '@/components/ui/glass-icon-button';
+
 import { BASE_PALETTE_GRID, ALL_COLORS } from '@/lib/palettes/basePaletteGrid';
 import { GRADIENT_ROWS } from '@/lib/palettes/gradientPalette';
 import { useSound } from '@/hooks/useSound';
 import { cn } from '@/lib/utils';
 import { PEIcon } from '@/components/ui/pe-icon';
 import { Input } from '@/components/ui/input';
-import { PlacesModal } from '@/components/modals/PlacesModal';
+
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { MapMode, InteractionMode, PaintTool, BrushSize } from './hooks/useMapState';
 
@@ -108,7 +108,7 @@ export function ActionTray({
 }: ActionTrayProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [paletteTab, setPaletteTab] = useState<'colors' | 'gradients'>('colors');
-  const [placesOpen, setPlacesOpen] = useState(false);
+  
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const { play } = useSound();
   const isMobile = useIsMobile();
@@ -214,21 +214,8 @@ export function ActionTray({
       >
         {/* Header - always visible */}
         <div className="flex items-center justify-between gap-2 px-3 py-2">
-          {/* Left: Pin button (standalone) + Interaction mode toggle */}
+          {/* Left: Interaction mode toggle */}
           <div className="flex items-center gap-1 shrink-0">
-            {/* Pin button for Places - visually standalone with extra spacing */}
-            <GlassIconButton
-              variant="ghost"
-              size="sm"
-              onClick={() => setPlacesOpen(true)}
-              title="Pinned Locations"
-              className="mr-1"
-            >
-              <PixelIcon name="locationPin" className="h-4 w-4" />
-            </GlassIconButton>
-            
-            {/* More prominent visual separator */}
-            <div className="w-px h-6 bg-border/70 mx-1" />
             
             {(
               <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5">
@@ -579,14 +566,7 @@ export function ActionTray({
         )}
       </div>
 
-      {/* Places Modal */}
-      <PlacesModal
-        open={placesOpen}
-        onOpenChange={setPlacesOpen}
-        currentLat={currentLat}
-        currentLng={currentLng}
-        currentZoom={zoom}
-      />
+    
     </div>
   );
 }
