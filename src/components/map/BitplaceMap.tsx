@@ -1898,7 +1898,7 @@ export function BitplaceMap() {
             {isMobile ? <MobileWalletButton /> : <WalletButton />}
           </HudSlot>
           <HudSlot position="bottom-right">
-            <ZoomControls artOpacity={artOpacity} onToggleArtOpacity={toggleArtOpacity} />
+            <ZoomControls artOpacity={artOpacity} onToggleArtOpacity={toggleArtOpacity} currentLat={mapCenter.lat} currentLng={mapCenter.lng} currentZoom={zoom} />
           </HudSlot>
         </HudOverlay>
 
