@@ -192,11 +192,11 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                   </p>
                 )}
 
-                {/* Used PE Allocation */}
+                {/* PE Allocation */}
                 <div className="space-y-1.5">
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium px-1 flex items-center gap-1.5">
                     <TT tip="Breakdown of how your used PE is distributed across reinforce, defense (DEF), and attack (ATK) actions.">
-                      Used PE Allocation
+                      PE Allocation
                     </TT>
                   </p>
                   <div className="grid grid-cols-3 gap-2">
