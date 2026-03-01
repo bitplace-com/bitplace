@@ -521,7 +521,7 @@ export function BitplaceMap() {
       touchPitch: false,
       pitchWithRotate: false,
       renderWorldCopies: true,
-      maxBounds: [[-Infinity, -78], [Infinity, 78]] as any,
+      maxBounds: [[-Infinity, -85], [Infinity, 85]] as any,
       attributionControl: false,
       canvasContextAttributes: { preserveDrawingBuffer: true },
     } as maplibregl.MapOptions);
