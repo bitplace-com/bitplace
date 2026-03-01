@@ -1,4 +1,5 @@
 import { PixelIcon } from "@/components/icons";
+import { GoogleLogo } from "@/components/icons/GoogleLogo";
 import { PEIcon } from "@/components/ui/pe-icon";
 import { PixelBalanceIcon } from "@/components/ui/vpe-icon";
 import { GamePanel } from "./GamePanel";
@@ -146,7 +147,7 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                   className="w-full h-8 text-xs font-semibold gap-2"
                   variant="outline"
                 >
-                  <PixelIcon name="google" className="h-3.5 w-3.5" />
+                  <GoogleLogo className="h-3.5 w-3.5" />
                   Sign in with Google
                 </Button>
               </div>
