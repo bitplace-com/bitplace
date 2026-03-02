@@ -2,6 +2,8 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { PixelIcon } from '@/components/icons';
 import { BitplaceLogo } from '@/components/icons/BitplaceLogo';
+import { GoogleLogo } from '@/components/icons/GoogleLogo';
+import phantomLogo from '@/assets/phantom-logo.png';
 import { useGuidedTour, TOUR_STEPS, CENTERED_TARGETS } from '@/hooks/useGuidedTour';
 
 /* ═══════════════════ Geometry helpers ═══════════════════ */
@@ -68,6 +70,33 @@ function getTooltipPosition(
         transform: 'translateX(-50%)',
       };
   }
+}
+
+/* ═══════════════════ Account Types Content ═══════════════════ */
+
+function AccountTypesContent() {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start gap-2.5">
+        <GoogleLogo className="w-5 h-5 shrink-0 mt-0.5" />
+        <div>
+          <span className="text-xs font-semibold text-foreground">Google (Starter)</span>
+          <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
+            300,000 free Pixels to draw anywhere. They expire after 72h, but you can renew them all with one click before they disappear.
+          </p>
+        </div>
+      </div>
+      <div className="flex items-start gap-2.5">
+        <img src={phantomLogo} alt="Phantom" className="w-5 h-5 shrink-0 mt-0.5 rounded-sm" />
+        <div>
+          <span className="text-xs font-semibold text-foreground">Phantom Wallet (Pro)</span>
+          <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
+            Permanent Paint Energy (PE) from $BIT token. Your pixels stay forever and no one can paint over them unless they stake more PE.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ═══════════════════ Main Component ═══════════════════ */
@@ -150,7 +179,53 @@ export function GuidedTour() {
   if (!isActive || !currentStep) return null;
 
   const isLastStep = currentStepIndex === TOUR_STEPS.length - 1;
-  const stepNumber = currentStepIndex; // 1-indexed since we skip welcome
+  const stepNumber = currentStepIndex;
+  const isAccountTypes = currentStep.id === 'account-types';
+
+  // ── Centered dialog step (welcome & account-types) ──
+  if (isCentered) {
+    return (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300 pointer-events-auto">
+        <div className="bg-popover/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl p-5 max-w-sm mx-4 animate-in zoom-in-95 duration-300">
+          <div className="flex items-start justify-between gap-2 mb-3">
+            <h3 className="text-sm font-semibold text-foreground">
+              {currentStep.title}
+            </h3>
+            <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
+              {stepNumber}/{totalSteps}
+            </span>
+          </div>
+
+          {isAccountTypes ? (
+            <AccountTypesContent />
+          ) : (
+            <p className="text-xs text-muted-foreground leading-relaxed mb-4 whitespace-pre-line">
+              {currentStep.description}
+            </p>
+          )}
+
+          <div className="flex items-center justify-between mt-4">
+            <button
+              onClick={skipTour}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Skip tour
+            </button>
+            <Button size="sm" onClick={nextStep} className="gap-1.5 h-8">
+              {isLastStep ? (
+                'Got it!'
+              ) : (
+                <>
+                  Next
+                  <PixelIcon name="chevronRight" size="xs" />
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── Anchored tooltip step ──
   const clipPath = targetRect

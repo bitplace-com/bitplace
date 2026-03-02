@@ -112,11 +112,16 @@ export function ActionTray({
   const { play } = useSound();
   const isMobile = useIsMobile();
 
-  // Listen for tour expand event
+  // Listen for tour expand/collapse events
   useEffect(() => {
     const handleTourExpand = () => setIsExpanded(true);
+    const handleTourCollapse = () => setIsExpanded(false);
     window.addEventListener('bitplace:tour-expand-tray', handleTourExpand);
-    return () => window.removeEventListener('bitplace:tour-expand-tray', handleTourExpand);
+    window.addEventListener('bitplace:tour-collapse-tray', handleTourCollapse);
+    return () => {
+      window.removeEventListener('bitplace:tour-expand-tray', handleTourExpand);
+      window.removeEventListener('bitplace:tour-collapse-tray', handleTourCollapse);
+    };
   }, []);
   
   // Use prop for external canPaint control
