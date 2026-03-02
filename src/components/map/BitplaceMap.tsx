@@ -1891,9 +1891,11 @@ export function BitplaceMap() {
               <QuickActions />
             </div>
           </HudSlot>
-          <HudSlot position="top-center">
-            <MapToolbar mode={mode} onModeChange={setMode} isGoogleOnly={isGoogleOnly} />
-          </HudSlot>
+          {!isMobile && (
+            <HudSlot position="top-center">
+              <MapToolbar mode={mode} onModeChange={setMode} isGoogleOnly={isGoogleOnly} />
+            </HudSlot>
+          )}
           <HudSlot position="top-right">
             {isMobile ? <MobileWalletButton /> : <WalletButton />}
           </HudSlot>
