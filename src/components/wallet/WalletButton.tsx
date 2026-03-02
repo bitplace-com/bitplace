@@ -75,19 +75,13 @@ export function WalletButton() {
           ) : (
             <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           )}
-          {isBoth && walletAddress && !walletAddress.startsWith('google:') ? (
-            <span className="font-mono text-xs text-foreground">
-              {shortenAddress(walletAddress)}
-            </span>
-          ) : (
-            <span className="text-xs font-medium text-foreground truncate max-w-[80px]">
-              {user?.display_name || user?.email?.split('@')[0] || 'Starter'}
-            </span>
-          )}
+          <span className="text-xs font-medium text-foreground truncate max-w-[100px]">
+            {user?.display_name || user?.email?.split('@')[0] || (walletAddress && !walletAddress.startsWith('google:') ? shortenAddress(walletAddress) : 'Starter')}
+          </span>
           {isPro ? (
             <ProBadge shine size="sm" />
           ) : isGoogleOnly ? (
-            <StarterBadge shine size="sm" />
+            <span className="text-[10px] font-bold tracking-wider text-slate-400 bg-slate-400/10 px-1.5 py-0.5 rounded animate-shine">STARTER</span>
           ) : null}
           <span className="text-xs text-muted-foreground">•</span>
           {/* Dual PE + Pixels display */}

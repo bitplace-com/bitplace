@@ -48,7 +48,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
   const [pixelControlOpen, setPixelControlOpen] = useState(false);
-  const [pixelAlertDismissed, setPixelAlertDismissed] = useState(false);
+  const [pixelAlertDismissed, setPixelAlertDismissed] = useState(() => localStorage.getItem('bitplace_pixel_alert_dismissed') === '1');
   const vpeRenew = useVpeRenew(user?.id);
   const { enabled: soundEnabled, toggle: toggleSound } = useSound();
 
@@ -164,7 +164,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                     Open the Pixel Control Center to renew all your painted pixels at once and reset the 72h timer before they disappear.
                   </p>
                 </div>
-                <button onClick={() => setPixelAlertDismissed(true)} className="shrink-0 p-0.5 rounded hover:bg-amber-500/20 transition-colors">
+                <button onClick={() => { setPixelAlertDismissed(true); localStorage.setItem('bitplace_pixel_alert_dismissed', '1'); }} className="shrink-0 p-0.5 rounded hover:bg-amber-500/20 transition-colors">
                   <PixelIcon name="close" className="h-3 w-3 text-amber-500" />
                 </button>
               </div>
@@ -180,7 +180,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
             <PixelIcon name="wallet" className="h-3.5 w-3.5" />
             Wallet
           </p>
-          {walletAddress ? (
+          {walletAddress && !walletAddress.startsWith('google:') ? (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-lg font-bold text-foreground tabular-nums leading-tight">

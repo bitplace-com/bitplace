@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { PixelIcon } from "@/components/icons";
 import { GoogleLogo } from "@/components/icons/GoogleLogo";
 import { PEIcon } from "@/components/ui/pe-icon";
@@ -11,6 +12,7 @@ import { useLiveTick } from "@/hooks/useLiveTick";
 import { formatLiveCountdown } from "@/lib/formatLiveTime";
 import { cn, formatNumber } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { PlayerProfileModal } from "./PlayerProfileModal";
 
 interface PixelControlPanelProps {
   open: boolean;
@@ -23,6 +25,7 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
   const vpeRenew = useVpeRenew(user?.id);
   const now = useLiveTick();
 
+  const [profileOpen, setProfileOpen] = useState(false);
   const hasWallet = !isGoogleOnly;
   const hasVpe = energy.virtualPeTotal > 0 || isGoogleOnly || isGoogleAuth;
 
@@ -226,24 +229,28 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
               <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2.5">
                 <p className="text-xs font-semibold text-foreground">What is Paint Energy?</p>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  PE lets you <span className="font-semibold text-foreground">permanently claim pixels</span> and protect your artwork on the map.
+                  PE lets you <span className="font-semibold text-foreground">permanently own pixels</span> on the map. Your $BIT token value is converted into PE at a rate of <span className="font-semibold text-foreground">1 PE = $0.001</span>.
                 </p>
                 <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-primary/5 border border-primary/20">
                   <PEIcon size="xs" className="text-primary" />
                   <span className="text-[11px] font-medium text-foreground">1 PE = $0.001 of $BIT value</span>
                 </div>
-                <ul className="text-[11px] text-muted-foreground space-y-1">
+                <ul className="text-[11px] text-muted-foreground space-y-1.5">
                   <li className="flex items-start gap-1.5">
                     <PixelIcon name="brush" className="h-3 w-3 mt-0.5 shrink-0 text-primary" />
-                    Paint permanent pixels that don't expire
+                    <span><span className="font-medium text-foreground">Paint</span> — Place pixels permanently. They stay yours unless someone uses more PE.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <PixelIcon name="bolt" className="h-3 w-3 mt-0.5 shrink-0 text-amber-500" />
+                    <span><span className="font-medium text-foreground">Reinforce</span> — Add extra PE to your own pixels to make them harder to take over.</span>
                   </li>
                   <li className="flex items-start gap-1.5">
                     <PixelIcon name="shield" className="h-3 w-3 mt-0.5 shrink-0 text-emerald-500" />
-                    Defend your artwork (DEF)
+                    <span><span className="font-medium text-foreground">Defend (DEF)</span> — Contribute PE to another player's pixel to strengthen its value.</span>
                   </li>
                   <li className="flex items-start gap-1.5">
                     <PixelIcon name="swords" className="h-3 w-3 mt-0.5 shrink-0 text-destructive" />
-                    Attack other pixels (ATK)
+                    <span><span className="font-medium text-foreground">Attack (ATK)</span> — Spend PE against a pixel to weaken it and attempt a takeover.</span>
                   </li>
                 </ul>
                 <Button
@@ -257,7 +264,23 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
             )}
           </div>
         </div>
+
+        {/* View Public Profile */}
+        {user?.id && (
+          <div className="pt-2 border-t border-border">
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
+              onClick={() => setProfileOpen(true)}
+            >
+              <PixelIcon name="user" className="h-4 w-4" />
+              View Public Profile
+            </Button>
+          </div>
+        )}
       </TooltipProvider>
+
+      <PlayerProfileModal open={profileOpen} onOpenChange={setProfileOpen} playerId={user?.id || null} />
     </GamePanel>
   );
 }
