@@ -86,7 +86,7 @@ function buildTourSteps(isMobile: boolean): TourStep[] {
       id: 'menu',
       target: 'menu',
       title: 'Menu',
-      description: 'Access Rules, Leaderboard, Alliance, Settings and more from this menu.',
+      description: 'Access Alliance, Rules, How It Works, Get $BIT and Settings from this menu.',
       position: 'right',
     },
     {
