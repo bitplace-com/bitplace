@@ -132,7 +132,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
                 <h3 className="font-semibold">Pixel Value</h3>
               </div>
               <p className="text-muted-foreground pl-9">
-                The total $ strength of a pixel. It equals the owner's stake plus any defense, minus any attacks received. An empty pixel has a value of $0.001 (1 PE). Any pixel can be taken over at any time — you just need to stake more PE than its current value. The lower the value, the cheaper it is to conquer.
+                The total $ strength of a pixel. It equals the owner's PE plus any defense, minus any attacks received. An empty pixel has a value of $0.001 (1 PE). Any pixel can be taken over at any time — you just need to use more PE than its current value. The lower the value, the cheaper it is to conquer.
               </p>
             </section>
 
@@ -144,7 +144,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
                 <h3 className="font-semibold">Takeover</h3>
               </div>
               <p className="text-muted-foreground pl-9">
-                When you paint over a pixel owned by someone else. To do it, you must stake more PE than the pixel's current value.
+                When you paint over a pixel owned by someone else. To do it, you must use more PE than the pixel's current value.
               </p>
               <div className="pl-9 text-xs text-muted-foreground space-y-1">
                 <p>When a takeover happens:</p>
@@ -165,7 +165,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
                 <h3 className="font-semibold">Decay</h3>
               </div>
               <p className="text-muted-foreground pl-9">
-                Your pixel stakes stay valid for 7 days after your last wallet verification. If you don't reconnect within 7 days, stakes gradually decay over 72h to a minimum of 1 PE per pixel. DEF and ATK contributions are not affected. Log in to reset the timer.
+                Your pixel PE stays valid for 7 days after your last wallet verification. If you don't reconnect within 7 days, PE gradually decays over 72h to a minimum of 1 PE per pixel. DEF and ATK contributions are not affected. Log in to reset the timer.
               </p>
             </section>
 
@@ -177,7 +177,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
                 <h3 className="font-semibold">Collateralization</h3>
               </div>
               <p className="text-muted-foreground pl-9">
-                Your wallet's $BIT value backs your pixel stakes. As long as your wallet value covers your total staked PE, your pixels remain at full strength. If your wallet drops below your total staked PE, a 7-day grace period begins. After that, stakes decay linearly over 72h to a floor of 1 PE per pixel. Restoring your balance stops the decay instantly.
+                Your wallet's $BIT value backs your pixel PE. As long as your wallet value covers your total used PE, your pixels remain at full strength. If your wallet drops below your total used PE, a 7-day grace period begins. After that, PE decays linearly over 72h to a floor of 1 PE per pixel. Restoring your balance stops the decay instantly.
               </p>
             </section>
           </div>
@@ -194,8 +194,8 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
               <span className="text-muted-foreground text-right">Paint Energy — your capacity to act on the map</span>
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
-              <span className="font-medium">Stake</span>
-              <span className="text-muted-foreground text-right">PE locked into a pixel to claim or strengthen it</span>
+              <span className="font-medium">Used PE</span>
+              <span className="text-muted-foreground text-right">PE placed on a pixel to claim or strengthen it</span>
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">DEF</span>
@@ -207,7 +207,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">Takeover</span>
-              <span className="text-muted-foreground text-right">Claiming a pixel by staking more PE than its current value</span>
+              <span className="text-muted-foreground text-right">Claiming a pixel by using more PE than its current value</span>
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">Pixel Balance</span>

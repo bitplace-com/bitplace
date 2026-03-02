@@ -106,8 +106,8 @@ function buildTourSteps(isMobile: boolean): TourStep[] {
     {
       id: 'bottom-right-controls',
       target: 'bottom-right-controls',
-      title: 'Notifications & Pixel Art',
-      description: 'Toggle pixel art opacity to see the map underneath, and check your notifications for attacks, alliance invites and more.',
+      title: 'Pixel Art, Pins & Notifications',
+      description: 'Toggle pixel art opacity to see the map underneath, save your favorite locations as Pins, and check your notifications for attacks, alliance invites and more.',
       position: 'left',
     },
   );

@@ -170,7 +170,7 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
                   </span>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Stake real PE (DEF) to make this pixel permanent
+                  Add real PE (DEF) to make this pixel permanent
                 </p>
               </div>
             );
@@ -188,7 +188,7 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
             <div className="bg-muted/50 rounded-lg p-3">
                <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                 <PEIcon size="xs" />
-                <span>PE Owner Stake</span>
+                <span>PE Owner</span>
               </div>
               <div className="text-lg font-semibold">
                 {pixel.owner_stake_pe.toLocaleString()}
@@ -287,7 +287,7 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
           </div>
 
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Owner's stake is losing value every tick until wallet is topped up.
+            Owner's PE is losing value every tick until wallet is topped up.
           </p>
           
           {pixel.nextTickTime && (

@@ -4,7 +4,7 @@ export const ADMIN_WALLET_SHORT = '4J2k...Za7C';
 export type ProTier = 'bronze' | 'silver' | 'gold';
 
 /**
- * Determine the Pro tier based on total staked PE.
+ * Determine the Pro tier based on total used PE.
  * 1 PE = $0.001, so thresholds in PE:
  *   gold   = $1000 → 1,000,000 PE
  *   silver = $500  →   500,000 PE

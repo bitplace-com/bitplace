@@ -235,7 +235,7 @@ function EmptyState({ scope, subCategory }: { scope: LeaderboardScope; subCatego
   };
   const subtitles: Record<LeaderboardSubCategory, string> = {
     painters: "Start painting to climb the ranks!",
-    investors: "Stake PE in your pixels to climb the ranks!",
+    investors: "Use PE on your pixels to climb the ranks!",
     defenders: "Defend pixels to climb the ranks!",
     attackers: "Attack pixels to climb the ranks!",
   };

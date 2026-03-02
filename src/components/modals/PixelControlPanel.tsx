@@ -176,7 +176,7 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                   <StatBox
                     label="Used"
                     value={formatNumber(energy.peUsed)}
-                    tip="PE currently locked in pixel stakes and contributions."
+                    tip="PE currently locked in pixels and contributions."
                   />
                    <StatBox
                     label="Used PE Value"
@@ -211,13 +211,13 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                       label="DEF Total"
                       value={formatNumber(peBalance.contributionTotal)}
                       icon="shield"
-                      tip="Total PE you've contributed to defend pixels. DEF strengthens the pixel's stake and makes it harder to take over."
+                      tip="Total PE you've contributed to defend pixels. DEF strengthens the pixel's value and makes it harder to take over."
                     />
                     <StatBox
                       label="ATK Total"
                       value="0"
                       icon="swords"
-                      tip="Total PE you've contributed to attack other players' pixels. ATK weakens the pixel's stake."
+                      tip="Total PE you've contributed to attack other players' pixels. ATK weakens the pixel's value."
                     />
                   </div>
                 </div>

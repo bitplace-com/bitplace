@@ -74,7 +74,7 @@ const RulesPage = () => {
             <div>
               <h4 className="text-sm font-semibold text-foreground mb-3">Takeover Threshold</h4>
               <div className="space-y-2 text-sm text-muted-foreground">
-                <p>To take over a pixel, you must stake more PE than the threshold:</p>
+                <p>To take over a pixel, you must use more PE than the threshold:</p>
                 <div className="mt-3 space-y-2">
                   <FormulaBlock variant="small">
                     Owner in rebalance: max(0, V_floor_next6h) + 1
