@@ -4,7 +4,8 @@ import { PixelIcon } from '@/components/icons';
 import { BitplaceLogo } from '@/components/icons/BitplaceLogo';
 import { GoogleLogo } from '@/components/icons/GoogleLogo';
 import phantomLogo from '@/assets/phantom-logo.png';
-import { useGuidedTour, TOUR_STEPS, CENTERED_TARGETS } from '@/hooks/useGuidedTour';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useGuidedTour, CENTERED_TARGETS } from '@/hooks/useGuidedTour';
 
 /* ═══════════════════ Geometry helpers ═══════════════════ */
 
@@ -102,6 +103,7 @@ function AccountTypesContent() {
 /* ═══════════════════ Main Component ═══════════════════ */
 
 export function GuidedTour() {
+  const isMobile = useIsMobile();
   const {
     isActive,
     shouldShow,
@@ -111,7 +113,7 @@ export function GuidedTour() {
     startTour,
     skipTour,
     nextStep,
-  } = useGuidedTour();
+  } = useGuidedTour(isMobile);
 
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
   const rafRef = useRef<number>(0);
@@ -178,7 +180,7 @@ export function GuidedTour() {
 
   if (!isActive || !currentStep) return null;
 
-  const isLastStep = currentStepIndex === TOUR_STEPS.length - 1;
+  const isLastStep = currentStepIndex === totalSteps;
   const stepNumber = currentStepIndex;
   const isAccountTypes = currentStep.id === 'account-types';
 
