@@ -280,9 +280,13 @@ export function GuidedTour() {
               {stepNumber}/{totalSteps}
             </span>
           </div>
-          <p className="text-xs text-muted-foreground leading-relaxed mb-4 whitespace-pre-line">
-            {currentStep.description}
-          </p>
+          {isAccountTypes ? (
+            <AccountTypesContent />
+          ) : (
+            <p className="text-xs text-muted-foreground leading-relaxed mb-4 whitespace-pre-line">
+              {currentStep.description}
+            </p>
+          )}
           <div className="flex items-center justify-between">
             <button
               onClick={skipTour}

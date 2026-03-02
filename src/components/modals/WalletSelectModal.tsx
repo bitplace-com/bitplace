@@ -3,8 +3,6 @@ import { PixelIcon } from '@/components/icons';
 import { GoogleLogo } from '@/components/icons/GoogleLogo';
 import { useWallet } from '@/contexts/WalletContext';
 import { Separator } from '@/components/ui/separator';
-import { StarterBadge } from '@/components/ui/starter-badge';
-import { ProBadge } from '@/components/ui/pro-badge';
 import {
   Dialog,
   DialogContent,
@@ -120,8 +118,8 @@ export function WalletSelectModal({
               </div>
             }
             title="Sign in with Google"
-            subtitle="300,000 free Pixels to draw anywhere — renew them all with one click"
-            badge={<StarterBadge shine size="sm" />}
+            subtitle="300,000 free Pixels to draw anywhere. They expire after 72h but you can renew them all with one click"
+            badge={<span className="text-[10px] font-bold tracking-wider text-slate-400 bg-slate-400/10 px-1.5 py-0.5 rounded">STARTER</span>}
           />
 
           {/* ── Tier 2: Phantom (Pro) ── */}
@@ -142,12 +140,12 @@ export function WalletSelectModal({
                   phantomInstalled === null
                     ? 'Detecting...'
                     : phantomInstalled
-                      ? 'Your $BIT gives you Paint Energy — use it for permanent pixels no one can overwrite'
+                    ? 'Your $BIT gives you Paint Energy (PE) — use it on pixels for permanent ownership unless someone uses more PE'
                       : isMobile
                         ? 'Open in Phantom app'
-                        : 'Install to get permanent pixels'
+                        : 'Install to unlock Paint Energy'
                 }
-                badge={<ProBadge shine size="sm" />}
+                badge={<span className="text-[10px] font-bold tracking-wider text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded">PRO</span>}
                 trailing={isConnecting ? <PixelIcon name="loader" size="md" className="animate-spin" /> : undefined}
               />
 
