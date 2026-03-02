@@ -1,65 +1,74 @@
 
+# Tour: Account-types step responsive + nuovo step "Sign In" su mobile
 
-# Fix del Tour Guidato: 7 problemi da risolvere
+## Cosa cambia
 
-## Problemi identificati
+### 1. Desktop: account-types ancorato a destra del login modal
+Attualmente lo step `account-types` usa `CENTERED_TARGETS` e appare come dialog centrato, coprendo il login modal sottostante. Su desktop, va rimosso da `CENTERED_TARGETS` e reso un tooltip ancorato al `wallet-modal` (data-tour gia' presente sul DialogContent del WalletSelectModal) con `position: 'right'`. Cosi' il login resta visibile a sinistra e la spiegazione appare a destra.
 
-1. **Pannello spiegazione login nascosto dietro la modale** -- Lo step "Two Ways to Play" si posiziona dietro il WalletSelectModal e non e' visibile
-2. **Emoji al posto dei loghi** -- Usa pallini verde/viola anziche' i loghi Google e Phantom
-3. **Mode Bar invisibile su mobile senza login** -- Nascosta con `!isMobile`, quindi il tour non puo' illuminarla
-4. **Pannello disegno rimane aperto** -- Quando si passa agli step successivi, il tray espanso resta visibile coprendo i bottoni
-5. **Copy Google da aggiornare** -- Aggiungere info sul rinnovo con un click
-6. **Copy Phantom da aggiornare** -- Chiarire permanenza del disegno e meccanica di protezione
-7. **Rimuovere "Start free with Google and upgrade anytime"**
+### 2. Mobile: account-types resta centrato + nuovo step "sign-in-modal"
+Su mobile lo schermo e' troppo stretto per ancorare a destra. Lo step resta centrato (come ora). Dopo di esso, si aggiunge un nuovo step `sign-in-modal` che mostra il login modal illuminandolo, con un testo breve tipo "This is your Sign In screen. Choose Google or Phantom to create your account." Questo step viene inserito solo su mobile.
 
-## Modifiche
+### 3. Logica responsive nel hook e nel componente
 
-### 1. `src/hooks/useGuidedTour.ts` -- Aggiornare step e aggiungere cleanup automatico
+**`src/hooks/useGuidedTour.ts`**:
+- Esportare `TOUR_STEPS` come funzione `getTourSteps(isMobile: boolean)` oppure rendere il hook consapevole di `isMobile`.
+- Su desktop: `account-types` ha target `wallet-modal`, position `right`. Nessun step extra.
+- Su mobile: `account-types` ha target `__account-types__` (centered). Dopo di esso si inserisce uno step `sign-in-modal` con target `wallet-modal`, position `bottom`, che dice "This is your Sign In screen. Choose Google or Phantom to get started."
+- Aggiornare `CENTERED_TARGETS` per NON includere `__account-types__` in modo statico; invece, nel componente GuidedTour, determinare se lo step corrente e' centered basandosi su `isMobile` e `currentStep.target`.
+- Aggiornare `STEP_CLEANUP` per gestire anche il nuovo step `sign-in-modal` (emette `bitplace:tour-close-signin` quando lo si lascia).
 
-- **Step "account-types"**: rendere target `__account-types__` (centered dialog, non ancorato al wallet-modal che sta sotto). Aggiungere a `CENTERED_TARGETS`. Rimuovere `position: 'right'`.
-- **Aggiornare la description**: Rimuovere emoji. Usare un formato speciale (tipo `{{google}}` e `{{phantom}}`) per indicare dove inserire i loghi nel rendering. Aggiornare i copy:
-  - Google: "300,000 free Pixels to draw anywhere. They expire after 72h, but you can renew them all with one click before they disappear."
-  - Phantom: "Permanent Paint Energy (PE) from $BIT token. Your pixels stay forever and no one can paint over them unless they stake more PE."
-  - Rimuovere "Start free with Google and upgrade anytime."
-- **Step "toolbar"**: aggiungere action `bitplace:tour-close-signin` (gia' presente, ok)
-- **Aggiungere azioni di cleanup**: Ogni step che segue il tray espanso deve emettere `bitplace:tour-collapse-tray` per chiudere il pannello. In pratica, lo step "menu" (id 6) deve avere `action: 'bitplace:tour-collapse-tray'`.
-- Meglio ancora: gestire il cleanup in modo generico nel hook, emettendo un evento `bitplace:tour-cleanup` ad ogni cambio step, e i componenti ascoltano per resettarsi.
-
-### 2. `src/components/map/GuidedTour.tsx` -- Rendering custom per step account-types
-
-- Importare `GoogleLogo` e `phantomLogo`
-- Per lo step `account-types` (centered), rendere un dialog custom con i loghi inline anziche' testo puro con emoji
-- Lo step sara' in `CENTERED_TARGETS` quindi verra' renderizzato come dialog centrato sopra tutto (z-index 9999), visibile sopra il WalletSelectModal
-
-### 3. `src/components/map/BitplaceMap.tsx` -- Mostrare MapToolbar sempre
-
-- Rimuovere il wrapper `!isMobile` attorno al `HudSlot` con `MapToolbar`. Mostrarlo sempre, sia su mobile che desktop, cosi' il tour puo' illuminarlo.
-
-### 4. `src/components/map/ActionTray.tsx` -- Ascoltare evento di collapse dal tour
-
-- Aggiungere listener per `bitplace:tour-collapse-tray` che chiude il pannello (`setIsExpanded(false)`).
-
-### 5. `src/hooks/useGuidedTour.ts` -- Cleanup generico tra step
-
-- Nel `nextStep`, emettere eventi di cleanup per lo step che si sta lasciando:
-  - Se si lascia lo step `action-tray-expanded`, emettere `bitplace:tour-collapse-tray`
-  - Se si lascia lo step `account-types`, emettere `bitplace:tour-close-signin`
-- Questo assicura che ogni pannello aperto dal tour venga chiuso quando si passa avanti.
-
-## Dettaglio tecnico dei copy aggiornati
-
-**Step account-types (nuovo):**
-```
-Google (Starter) -- 300,000 free Pixels to draw anywhere. They expire after 72h, but you can renew them all with one click before they disappear.
-
-Phantom Wallet (Pro) -- Permanent Paint Energy (PE) from $BIT token. Your pixels stay forever and no one can paint over them unless they stake more PE.
-```
-
-**Rendering:** Lo step `account-types` usa `CENTERED_TARGETS` e viene renderizzato come dialog custom in `GuidedTour.tsx` con `<GoogleLogo>` e `<img src={phantomLogo}>` al posto delle emoji.
+**`src/components/map/GuidedTour.tsx`**:
+- Importare `useIsMobile` da `@/hooks/use-mobile`.
+- Passare `isMobile` alla logica che determina se uno step e' centered: lo step e' centered se il target inizia con `__` (come `__welcome__`) OPPURE se e' `account-types` E siamo su mobile.
+- Il rendering dell'`AccountTypesContent` per lo step `account-types` funziona sia in modalita' centered (mobile) che ancorata (desktop).
 
 ## File coinvolti
-- `src/hooks/useGuidedTour.ts` -- Aggiornare step definitions, cleanup logic, CENTERED_TARGETS
-- `src/components/map/GuidedTour.tsx` -- Rendering custom per account-types con loghi
-- `src/components/map/BitplaceMap.tsx` -- Rimuovere `!isMobile` dal MapToolbar
-- `src/components/map/ActionTray.tsx` -- Aggiungere listener per collapse-tray
 
+### `src/hooks/useGuidedTour.ts`
+- Accettare `isMobile` come parametro del hook
+- Costruire la lista di step in modo dinamico:
+  - Desktop: `account-types` con target `wallet-modal`, position `right`
+  - Mobile: `account-types` con target `__account-types__` (centered), seguito da `sign-in-modal` con target `wallet-modal`
+- Aggiornare cleanup: `sign-in-modal` emette `bitplace:tour-close-signin`
+- `CENTERED_TARGETS` resta con solo `__welcome__` e `__account-types__` (usato solo su mobile)
+- Esportare `CENTERED_TARGETS` come Set statico (invariato), la logica responsive e' nel componente
+
+### `src/components/map/GuidedTour.tsx`
+- Importare `useIsMobile`
+- Passare `useIsMobile()` a `useGuidedTour(isMobile)`
+- Determinare `isCentered` come: `currentStep.target.startsWith('__')`
+- Per lo step `account-types`, renderizzare `AccountTypesContent` sia in centered che in anchored mode
+- Per il nuovo step `sign-in-modal`, renderizzare come tooltip ancorato standard con il suo testo
+
+## Dettaglio step su mobile vs desktop
+
+```text
+Desktop (10 step):
+  0. welcome (centered)
+  1. sign-in (wallet, left)
+  2. account-types (wallet-modal, right) -- ancorato accanto al login
+  3. toolbar ...
+  ...
+
+Mobile (11 step):
+  0. welcome (centered)
+  1. sign-in (wallet, left)
+  2. account-types (__account-types__, centered) -- sopra il login
+  3. sign-in-modal (wallet-modal, bottom) -- mostra il login
+  4. toolbar ...
+  ...
+```
+
+### Nuovo step (solo mobile)
+```typescript
+{
+  id: 'sign-in-modal',
+  target: 'wallet-modal',
+  title: 'Sign In Screen',
+  description: 'This is your Sign In screen. Choose Google or Phantom to create your account and start playing.',
+  position: 'bottom',
+}
+```
+
+Cleanup per `sign-in-modal`: emette `bitplace:tour-close-signin` quando lasciato.
