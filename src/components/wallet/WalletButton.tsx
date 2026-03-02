@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { PixelIcon } from '@/components/icons';
 import { PixelBalanceIcon } from '@/components/ui/vpe-icon';
 import { ProBadge } from '@/components/ui/pro-badge';
+import { StarterBadge } from '@/components/ui/starter-badge';
 import { Button } from '@/components/ui/button';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { UserMenuPanel } from '@/components/modals/UserMenuPanel';
@@ -86,9 +87,7 @@ export function WalletButton() {
           {isPro ? (
             <ProBadge shine size="sm" />
           ) : isGoogleOnly ? (
-            <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-foreground/10 text-foreground border border-border shrink-0">
-              STARTER
-            </span>
+            <StarterBadge shine size="sm" />
           ) : null}
           <span className="text-xs text-muted-foreground">•</span>
           {/* Dual PE + Pixels display */}

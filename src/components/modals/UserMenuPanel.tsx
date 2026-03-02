@@ -2,6 +2,7 @@ import { PixelIcon } from "@/components/icons";
 import { GoogleLogo } from "@/components/icons/GoogleLogo";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { ProBadge } from "@/components/ui/pro-badge";
+import { StarterBadge } from "@/components/ui/starter-badge";
 import { useState } from "react";
 import {
   Popover,
@@ -97,9 +98,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                 </p>
                 {isGoogleOnly && (
                   user?.auth_provider !== 'both' ? (
-                    <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-foreground/10 text-foreground border border-border shrink-0">
-                      STARTER
-                    </span>
+                    <StarterBadge shine size="sm" />
                   ) : null
                 )}
                 {energy.nativeBalance >= 1 && (

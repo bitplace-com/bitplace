@@ -1,19 +1,22 @@
+import { PixelStarter } from '@/components/icons/custom/PixelStarter';
 import { cn } from '@/lib/utils';
 
 interface StarterBadgeProps {
+  shine?: boolean;
+  size?: 'sm' | 'md';
   className?: string;
 }
 
-export function StarterBadge({ className }: StarterBadgeProps) {
+export function StarterBadge({ shine, size = 'sm', className }: StarterBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center px-1.5 py-0.5 rounded bg-muted text-muted-foreground text-[10px] font-medium leading-none',
+        'inline-flex items-center gap-0.5 text-slate-400',
         className
       )}
-      title="Starter — Playing with Virtual Paint Energy"
+      title="Starter — Playing with free Pixels"
     >
-      Starter
+      <PixelStarter shine={shine} className={size === 'md' ? 'w-5 h-5' : 'w-4 h-4'} />
     </span>
   );
 }
