@@ -327,7 +327,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       if (!data.stale && !data.isVirtualPe) {
         toast.success('Balance updated', { description: `${data.nativeBalance.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ${data.nativeSymbol} = ${data.peTotal.toLocaleString()} PE` });
       } else if (!data.stale && data.isVirtualPe) {
-        toast.success('Balance updated', { description: `${data.peAvailable.toLocaleString()} VPE available` });
+        toast.success('Balance updated', { description: `${data.peAvailable.toLocaleString()} Pixels available` });
       }
     } catch (err) { console.error('[WalletContext] Energy refresh exception:', err); setEnergy(prev => ({ ...prev, isRefreshing: false })); }
   }, [balance, isGoogleOnly]);
@@ -483,8 +483,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           setSessionToken(data.token);
           const googleUser = data.user as User;
           setUser(googleUser); setCachedUser(googleUser);
-          setWalletAddress(googleUser.wallet_address || `google:${googleUser.id.substring(0, 8)}`);
-          localStorage.setItem(WALLET_ADDRESS_KEY, googleUser.wallet_address || `google:${googleUser.id.substring(0, 8)}`);
+          const realWalletAddr = googleUser.wallet_address && !googleUser.wallet_address.startsWith('google:') ? googleUser.wallet_address : null;
+          const effectiveAddr = realWalletAddr || `google:${googleUser.id.substring(0, 8)}`;
+          setWalletAddress(effectiveAddr);
+          localStorage.setItem(WALLET_ADDRESS_KEY, effectiveAddr);
           setWalletState('AUTHENTICATED'); setLastError(null);
           restoreInFlightRef.current = false;
           const virtualPeTotal = Number((googleUser as any).virtual_pe_total) || 300000;
@@ -497,7 +499,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             setEnergy({ ...defaultEnergyState, peTotal: virtualPeTotal, peUsed: virtualPeUsed, peAvailable: virtualPeAvailable, isVirtualPe: true, virtualPeTotal, virtualPeUsed, virtualPeAvailable, lastSyncAt: new Date(), isRefreshing: false, isStale: false });
           }
           walletDebug('google_auth_complete', { userId: googleUser.id, provider: googleUser.auth_provider });
-          const toastMsg = googleUser.auth_provider === 'both' ? 'Google linked! Wallet + VPE active' : `${virtualPeAvailable.toLocaleString()} VPE ready to use`;
+          const toastMsg = googleUser.auth_provider === 'both' ? 'Google linked! Wallet + Pixels active' : `${virtualPeAvailable.toLocaleString()} Pixels ready to use`;
           toast.success('Signed in with Google!', { description: toastMsg });
           soundEngine.play('wallet_connect');
           warmupAuthenticatedFunctions(data.token).catch(err => walletDebug('warmup_error', err));
@@ -621,8 +623,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           if (payload && payload.exp > Date.now() && (payload.authProvider === 'google' || payload.authProvider === 'both')) {
             walletDebug('session_restore_google', { authProvider: payload.authProvider });
             setWalletState('AUTHENTICATED');
-            setWalletAddress(storedWallet || `google:${payload.userId.substring(0, 8)}`);
             const cachedUser = getCachedUser();
+            // For 'both' users, prefer real wallet from cached user over stored google: placeholder
+            const realWallet = cachedUser?.wallet_address && !cachedUser.wallet_address.startsWith('google:')
+              ? cachedUser.wallet_address
+              : storedWallet;
+            setWalletAddress(realWallet || `google:${payload.userId.substring(0, 8)}`);
             if (cachedUser) { setUser(cachedUser); updateEnergyFromUser(cachedUser); }
             warmupAuthenticatedFunctions(token).catch(err => walletDebug('warmup_error', err));
             Promise.all([refreshUser(), refreshEnergy(), refreshPeStatus()]).catch(err => walletDebug('session_restore_refresh_error', { error: err }));
