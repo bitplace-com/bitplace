@@ -271,8 +271,32 @@ export function ActionBox({
         </div>
       )}
 
-      {/* Inline error area - only shown when InvalidPixelList is NOT handling it */}
-      {validationResult && !validationResult.ok && !validationResult.partialValid && !(validationResult.invalidPixels?.length > 0) && (
+      {/* Insufficient PE - expanded info box */}
+      {validationResult && !validationResult.ok && !validationResult.partialValid && validationResult.error === 'INSUFFICIENT_PE' && (
+        <div className="space-y-3 px-3 py-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+            <span className="text-xs font-medium text-foreground">Not enough Paint Energy</span>
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-[11px] font-medium text-foreground">Free Pixels</p>
+            <p className="text-[11px] text-muted-foreground">
+              Sign in with Google to get 300,000 free pixels. They expire after 72h but you can renew them all with one click.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-[11px] font-medium text-foreground">Permanent Pixels</p>
+            <p className="text-[11px] text-muted-foreground">
+              Your $BIT tokens give you Paint Energy (PE) — use it to make pixels permanent unless someone uses more PE. Add $BIT to your wallet to get started.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Generic inline error - non-INSUFFICIENT_PE errors */}
+      {validationResult && !validationResult.ok && !validationResult.partialValid && validationResult.error !== 'INSUFFICIENT_PE' && !(validationResult.invalidPixels?.length > 0) && (
         <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-destructive/10 text-destructive text-[11px]">
           <AlertCircle className="h-3 w-3 flex-shrink-0" />
           <span className="truncate">
