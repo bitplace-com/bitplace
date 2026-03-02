@@ -4,12 +4,19 @@ const TOUR_SEEN_KEY = 'bitplace_tour_seen';
 
 export interface TourStep {
   id: string;
-  target: string; // data-tour attribute value, '__welcome__' for welcome, '__wallet-modal__' for real modal
+  target: string;
   title: string;
   description: string;
   position?: 'top' | 'bottom' | 'left' | 'right';
-  action?: string; // custom event to dispatch before showing step
+  action?: string;
 }
+
+/** Cleanup events to emit when leaving specific steps */
+const STEP_CLEANUP: Record<string, string[]> = {
+  'account-types': ['bitplace:tour-close-signin'],
+  'action-tray-expanded': ['bitplace:tour-collapse-tray'],
+  'action-tray-collapsed': ['bitplace:tour-collapse-tray'],
+};
 
 export const TOUR_STEPS: TourStep[] = [
   {
@@ -27,10 +34,9 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'account-types',
-    target: 'wallet-modal',
+    target: '__account-types__',
     title: 'Two Ways to Play',
-    description: '🟢 Google (Starter) — 300,000 free Pixels to draw anywhere. They expire after 72h unless renewed.\n\n🟣 Phantom Wallet (Pro) — Permanent Paint Energy (PE) powered by $BIT token. Full pixel ownership.\n\nStart free with Google and upgrade anytime.',
-    position: 'right',
+    description: '',
     action: 'bitplace:tour-open-signin',
   },
   {
@@ -88,14 +94,13 @@ export const TOUR_STEPS: TourStep[] = [
 ];
 
 /** Targets that render as centered dialogs instead of anchored tooltips */
-export const CENTERED_TARGETS = new Set(['__welcome__']);
+export const CENTERED_TARGETS = new Set(['__welcome__', '__account-types__']);
 
 export function useGuidedTour() {
   const [isActive, setIsActive] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [shouldShow, setShouldShow] = useState(false);
 
-  // Check if tour should be shown on mount
   useEffect(() => {
     const seen = localStorage.getItem(TOUR_SEEN_KEY);
     if (!seen) {
@@ -106,7 +111,7 @@ export function useGuidedTour() {
 
   const startTour = useCallback(() => {
     setShouldShow(false);
-    setCurrentStepIndex(1); // Skip welcome, go to first real step
+    setCurrentStepIndex(1);
     setIsActive(true);
   }, []);
 
@@ -115,11 +120,20 @@ export function useGuidedTour() {
     setIsActive(false);
     setCurrentStepIndex(0);
     localStorage.setItem(TOUR_SEEN_KEY, '1');
-    // Close wallet modal if open during tour
     window.dispatchEvent(new CustomEvent('bitplace:tour-close-signin'));
+    window.dispatchEvent(new CustomEvent('bitplace:tour-collapse-tray'));
   }, []);
 
   const nextStep = useCallback(() => {
+    // Emit cleanup events for the step we're leaving
+    const leavingStep = TOUR_STEPS[currentStepIndex];
+    if (leavingStep) {
+      const cleanups = STEP_CLEANUP[leavingStep.id];
+      if (cleanups) {
+        cleanups.forEach(evt => window.dispatchEvent(new CustomEvent(evt)));
+      }
+    }
+
     if (currentStepIndex < TOUR_STEPS.length - 1) {
       setCurrentStepIndex(prev => prev + 1);
     } else {
@@ -136,7 +150,7 @@ export function useGuidedTour() {
     shouldShow,
     currentStep,
     currentStepIndex,
-    totalSteps: TOUR_STEPS.length - 1, // Exclude welcome
+    totalSteps: TOUR_STEPS.length - 1,
     startTour,
     skipTour,
     nextStep,
