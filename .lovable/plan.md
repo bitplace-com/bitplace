@@ -1,74 +1,97 @@
 
-# Tour: Account-types step responsive + nuovo step "Sign In" su mobile
 
-## Cosa cambia
+# Sostituire "stake" con terminologia standard + aggiungere Pin al tour
 
-### 1. Desktop: account-types ancorato a destra del login modal
-Attualmente lo step `account-types` usa `CENTERED_TARGETS` e appare come dialog centrato, coprendo il login modal sottostante. Su desktop, va rimosso da `CENTERED_TARGETS` e reso un tooltip ancorato al `wallet-modal` (data-tour gia' presente sul DialogContent del WalletSelectModal) con `position: 'right'`. Cosi' il login resta visibile a sinistra e la spiegazione appare a destra.
+## 1. Sostituzione terminologia "stake" -> "use/spend/put"
 
-### 2. Mobile: account-types resta centrato + nuovo step "sign-in-modal"
-Su mobile lo schermo e' troppo stretto per ancorare a destra. Lo step resta centrato (come ora). Dopo di esso, si aggiunge un nuovo step `sign-in-modal` che mostra il login modal illuminandolo, con un testo breve tipo "This is your Sign In screen. Choose Google or Phantom to create your account." Questo step viene inserito solo su mobile.
+Cambiare tutte le occorrenze user-facing di "stake" con parole standard. Le variabili interne e i nomi di colonne DB restano invariati -- cambiamo solo il copy visibile agli utenti.
 
-### 3. Logica responsive nel hook e nel componente
+### Regole di sostituzione:
+- "stake more PE" -> "use more PE"
+- "staked/staking" (come azione) -> "used" / "using"
+- "stake energy" -> "use energy"
+- "owner's stake" -> "owner's PE" o "owner's energy"
+- "pixel stakes" -> "pixel PE" o "PE on pixels"
+- "staked PE" -> "used PE"
+- "PE Owner Stake" (label) -> "PE Owner"
+- "Stake" (glossario) -> riformulare come "PE used on a pixel"
+- "Real stakes" (WhitePaper) -> "Real consequences" (qui "stakes" e' metaforico, va bene cambiarlo)
 
-**`src/hooks/useGuidedTour.ts`**:
-- Esportare `TOUR_STEPS` come funzione `getTourSteps(isMobile: boolean)` oppure rendere il hook consapevole di `isMobile`.
-- Su desktop: `account-types` ha target `wallet-modal`, position `right`. Nessun step extra.
-- Su mobile: `account-types` ha target `__account-types__` (centered). Dopo di esso si inserisce uno step `sign-in-modal` con target `wallet-modal`, position `bottom`, che dice "This is your Sign In screen. Choose Google or Phantom to get started."
-- Aggiornare `CENTERED_TARGETS` per NON includere `__account-types__` in modo statico; invece, nel componente GuidedTour, determinare se lo step corrente e' centered basandosi su `isMobile` e `currentStep.target`.
-- Aggiornare `STEP_CLEANUP` per gestire anche il nuovo step `sign-in-modal` (emette `bitplace:tour-close-signin` quando lo si lascia).
+### File e modifiche specifiche:
 
-**`src/components/map/GuidedTour.tsx`**:
-- Importare `useIsMobile` da `@/hooks/use-mobile`.
-- Passare `isMobile` alla logica che determina se uno step e' centered: lo step e' centered se il target inizia con `__` (come `__welcome__`) OPPURE se e' `account-types` E siamo su mobile.
-- Il rendering dell'`AccountTypesContent` per lo step `account-types` funziona sia in modalita' centered (mobile) che ancorata (desktop).
+**`src/components/map/GuidedTour.tsx`** (riga 95):
+- "unless they stake more PE" -> "unless they use more PE than you"
 
-## File coinvolti
+**`src/components/modals/RulesModal.tsx`**:
+- Riga 135: "you just need to stake more PE" -> "you just need to use more PE"
+- Riga 147: "you must stake more PE" -> "you must use more PE"
+- Riga 168: "Your pixel stakes stay valid" -> "Your pixel PE stays valid"; "stakes gradually decay" -> "PE gradually decays"
+- Riga 180: "backs your pixel stakes" -> "backs your pixel PE"; "total staked PE" -> "total used PE" (x2); "stakes decay" -> "PE decays"
+- Riga 197-198: Quick Reference "Stake" -> "Used PE" con descrizione "PE placed on a pixel to claim or strengthen it"
+- Riga 210: "staking more PE" -> "using more PE"
 
-### `src/hooks/useGuidedTour.ts`
-- Accettare `isMobile` come parametro del hook
-- Costruire la lista di step in modo dinamico:
-  - Desktop: `account-types` con target `wallet-modal`, position `right`
-  - Mobile: `account-types` con target `__account-types__` (centered), seguito da `sign-in-modal` con target `wallet-modal`
-- Aggiornare cleanup: `sign-in-modal` emette `bitplace:tour-close-signin`
-- `CENTERED_TARGETS` resta con solo `__welcome__` e `__account-types__` (usato solo su mobile)
-- Esportare `CENTERED_TARGETS` come Set statico (invariato), la logica responsive e' nel componente
+**`src/pages/RulesPage.tsx`** (riga 77):
+- "you must stake more PE" -> "you must use more PE"
 
-### `src/components/map/GuidedTour.tsx`
-- Importare `useIsMobile`
-- Passare `useIsMobile()` a `useGuidedTour(isMobile)`
-- Determinare `isCentered` come: `currentStep.target.startsWith('__')`
-- Per lo step `account-types`, renderizzare `AccountTypesContent` sia in centered che in anchored mode
-- Per il nuovo step `sign-in-modal`, renderizzare come tooltip ancorato standard con il suo testo
+**`src/pages/WhitePaperPage.tsx`**:
+- Riga 27: "Stake energy to paint it" -> "Use energy to paint it"
+- Riga 32: "The more energy staked" -> "The more energy used"
+- Riga 42: "Strengthens your stake" -> "Strengthens your pixels"
+- Riga 60: "Real stakes" -> "Real consequences"
+- Riga 122-123: "stake more energy" -> "use more energy"
 
-## Dettaglio step su mobile vs desktop
+**`src/pages/TermsPage.tsx`**:
+- Riga 31: "stake Paint Energy" -> "use Paint Energy"
+- Riga 103: "PE is used to stake on pixels" -> "PE is used on pixels"
+- Riga 104: "Staked PE is locked" -> "Used PE is locked"
+- Riga 112: "defensive stake" -> "defensive energy"
+- Riga 184: "Staked PE may be" -> "Used PE may be"
 
-```text
-Desktop (10 step):
-  0. welcome (centered)
-  1. sign-in (wallet, left)
-  2. account-types (wallet-modal, right) -- ancorato accanto al login
-  3. toolbar ...
-  ...
+**`src/pages/SpecPage.tsx`**:
+- Riga 75: "PE staked by the owner" -> "PE placed by the owner"
+- Riga 106: "Remove stake from" -> "Withdraw PE from"
 
-Mobile (11 step):
-  0. welcome (centered)
-  1. sign-in (wallet, left)
-  2. account-types (__account-types__, centered) -- sopra il login
-  3. sign-in-modal (wallet-modal, bottom) -- mostra il login
-  4. toolbar ...
-  ...
-```
+**`src/components/map/inspector/PixelTab.tsx`**:
+- Riga 173: "Stake real PE (DEF)" -> "Add real PE (DEF)"
+- Riga 191: "PE Owner Stake" -> "PE Owner"
+- Riga 290: "Owner's stake is losing value" -> "Owner's PE is losing value"
 
-### Nuovo step (solo mobile)
-```typescript
-{
-  id: 'sign-in-modal',
-  target: 'wallet-modal',
-  title: 'Sign In Screen',
-  description: 'This is your Sign In screen. Choose Google or Phantom to create your account and start playing.',
-  position: 'bottom',
-}
-```
+**`src/components/map/StatusStrip.tsx`** (riga 261):
+- "Staked in X px" -> "Used in X px"
 
-Cleanup per `sign-in-modal`: emette `bitplace:tour-close-signin` quando lasciato.
+**`src/components/modals/PlayerProfileModal.tsx`** (riga 439):
+- "Dollar value of staked PE" -> "Dollar value of used PE"
+
+**`src/components/modals/LeaderboardModal.tsx`** (riga 238):
+- "Stake PE in your pixels" -> "Use PE on your pixels"
+
+**`src/components/modals/PixelControlPanel.tsx`**:
+- Riga 179: "locked in pixel stakes" -> "locked in pixels"
+- Riga 214: "strengthens the pixel's stake" -> "strengthens the pixel's value"
+- Riga 220: "weakens the pixel's stake" -> "weakens the pixel's value"
+
+**`src/lib/userBadges.ts`** (solo commenti, non user-facing -- opzionale):
+- "total staked PE" nel commento -> "total used PE" (solo per coerenza interna)
+
+## 2. Aggiungere Pin al tour step "bottom-right-controls"
+
+**`src/hooks/useGuidedTour.ts`** (righe 107-112):
+- Titolo: "Notifications & Pixel Art" -> "Pixel Art, Pins & Notifications"
+- Descrizione: aggiungere il concetto del Pin. Nuovo testo:
+  "Toggle pixel art opacity to see the map underneath, save your favorite locations as Pins, and check your notifications for attacks, alliance invites and more."
+
+## Riepilogo file coinvolti
+
+1. `src/hooks/useGuidedTour.ts` -- titolo e descrizione step Pin
+2. `src/components/map/GuidedTour.tsx` -- copy Phantom
+3. `src/components/modals/RulesModal.tsx` -- 6 modifiche di copy
+4. `src/pages/RulesPage.tsx` -- 1 modifica
+5. `src/pages/WhitePaperPage.tsx` -- 5 modifiche
+6. `src/pages/TermsPage.tsx` -- 4 modifiche
+7. `src/pages/SpecPage.tsx` -- 2 modifiche
+8. `src/components/map/inspector/PixelTab.tsx` -- 3 modifiche
+9. `src/components/map/StatusStrip.tsx` -- 1 modifica
+10. `src/components/modals/PlayerProfileModal.tsx` -- 1 modifica
+11. `src/components/modals/LeaderboardModal.tsx` -- 1 modifica
+12. `src/components/modals/PixelControlPanel.tsx` -- 3 modifiche
+
