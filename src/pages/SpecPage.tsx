@@ -72,7 +72,7 @@ export default function SpecPage() {
                 <tr><td className="py-2 font-mono text-xs">pixel_id</td><td className="py-2">bigint</td><td className="py-2">Unique identifier computed from x,y</td></tr>
                 <tr><td className="py-2 font-mono text-xs">color</td><td className="py-2">string</td><td className="py-2">Hex color code (e.g., #FF5733)</td></tr>
                 <tr><td className="py-2 font-mono text-xs">owner_user_id</td><td className="py-2">UUID</td><td className="py-2">Current owner's user ID</td></tr>
-                <tr><td className="py-2 font-mono text-xs">owner_stake_pe</td><td className="py-2">integer</td><td className="py-2">PE staked by the owner</td></tr>
+                <tr><td className="py-2 font-mono text-xs">owner_stake_pe</td><td className="py-2">integer</td><td className="py-2">PE placed by the owner</td></tr>
                 <tr><td className="py-2 font-mono text-xs">def_total</td><td className="py-2">integer</td><td className="py-2">Total PE from defenders</td></tr>
                 <tr><td className="py-2 font-mono text-xs">atk_total</td><td className="py-2">integer</td><td className="py-2">Total PE from attackers</td></tr>
               </tbody>
@@ -103,7 +103,7 @@ export default function SpecPage() {
                 <tr><td className="py-2 font-mono text-xs">ATK</td><td className="py-2">Add offensive PE to weaken others' pixels</td><td className="py-2">Others' pixels</td></tr>
                 <tr><td className="py-2 font-mono text-xs">REINFORCE</td><td className="py-2">Add PE to your own pixels</td><td className="py-2">Own pixels</td></tr>
                 <tr><td className="py-2 font-mono text-xs">ERASE</td><td className="py-2">Remove your DEF/ATK contributions</td><td className="py-2">Own contributions</td></tr>
-                <tr><td className="py-2 font-mono text-xs">WITHDRAW</td><td className="py-2">Remove stake from your pixels</td><td className="py-2">Own pixels</td></tr>
+                <tr><td className="py-2 font-mono text-xs">WITHDRAW</td><td className="py-2">Withdraw PE from your pixels</td><td className="py-2">Own pixels</td></tr>
               </tbody>
             </table>
           </div>

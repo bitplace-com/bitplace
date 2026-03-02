@@ -28,7 +28,7 @@ const TermsPage = () => {
               Welcome to Bitplace ("we", "our", "us"). By accessing or using our collaborative pixel art platform (the "Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, please do not use our Service.
             </p>
             <p>
-              Bitplace is a collaborative pixel art platform where users can place pixels on a world map, stake Paint Energy (PE), compete for territory, and participate in a creative on-chain community.
+              Bitplace is a collaborative pixel art platform where users can place pixels on a world map, use Paint Energy (PE), compete for territory, and participate in a creative on-chain community.
             </p>
           </div>
         </SectionCard>
@@ -100,8 +100,8 @@ const TermsPage = () => {
             <p>Important information about the virtual economy:</p>
             <ul className="list-disc pl-5 space-y-1">
               <li>$BIT is a blockchain-based token; its value may fluctuate</li>
-              <li>PE is used to stake on pixels and participate in map activities</li>
-              <li>Staked PE is locked until withdrawn or released through gameplay mechanics</li>
+              <li>PE is used on pixels and to participate in map activities</li>
+              <li>Used PE is locked until withdrawn or released through gameplay mechanics</li>
               <li>We do not guarantee any specific monetary value for $BIT or PE</li>
               <li>Token economics and conversion rates may be adjusted to maintain platform balance</li>
               <li>PE cannot be transferred between accounts outside of gameplay mechanics</li>
@@ -109,7 +109,7 @@ const TermsPage = () => {
             <p>PE can be used to:</p>
             <ul className="list-disc pl-5 space-y-1">
               <li>Paint pixels on the world map (claiming territory)</li>
-              <li>Defend owned pixels by adding defensive stake</li>
+              <li>Defend owned pixels by adding defensive energy</li>
               <li>Attack enemy pixels to weaken their value</li>
               <li>Reinforce your own pixels to increase their resilience</li>
             </ul>
@@ -181,7 +181,7 @@ const TermsPage = () => {
             <ul className="list-disc pl-5 space-y-1">
               <li>You will lose access to your account and associated in-platform assets</li>
               <li>Your User Content may remain visible on the platform</li>
-              <li>Staked PE may be subject to forfeiture as per gameplay mechanics</li>
+              <li>Used PE may be subject to forfeiture as per gameplay mechanics</li>
               <li>You must cease all use of the Service</li>
             </ul>
           </div>

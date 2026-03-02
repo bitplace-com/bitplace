@@ -436,7 +436,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId, onJumpToPixel
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="max-w-56 text-xs">
-                    Dollar value of staked PE at $0.001 per PE.
+                    Dollar value of used PE at $0.001 per PE.
                   </TooltipContent>
                 </Tooltip>
               </div>

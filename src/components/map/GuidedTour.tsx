@@ -92,7 +92,7 @@ function AccountTypesContent() {
         <div>
           <span className="text-xs font-semibold text-foreground">Phantom Wallet (Pro)</span>
           <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
-            Permanent Paint Energy (PE) from $BIT token. Your pixels stay forever and no one can paint over them unless they stake more PE.
+            Permanent Paint Energy (PE) from $BIT token. Your pixels stay forever and no one can paint over them unless they use more PE than you.
           </p>
         </div>
       </div>

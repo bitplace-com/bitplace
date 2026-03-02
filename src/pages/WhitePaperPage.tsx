@@ -24,12 +24,12 @@ const WhitePaperPage = () => {
             <ActionCard
               icon={<PixelIcon name="brush" size="md" />}
               title="Paint"
-              description="Color any pixel on the map. Stake energy to paint it. Your mark stays until someone paints over it."
+              description="Color any pixel on the map. Use energy to paint it. Your mark stays until someone paints over it."
             />
             <ActionCard
               icon={<PixelIcon name="shield" size="md" />}
               title="Defend"
-              description="Add energy to protect any pixel. The more energy staked, the harder it is to Attack."
+              description="Add energy to protect any pixel. The more energy used, the harder it is to Attack."
             />
             <ActionCard
               icon={<PixelIcon name="swords" size="md" />}
@@ -39,7 +39,7 @@ const WhitePaperPage = () => {
             <ActionCard
               icon={<PixelIcon name="bolt" size="md" />}
               title="Reinforce"
-              description="Add more energy to pixels you already painted. Strengthens your stake and makes your artwork harder to take."
+              description="Add more energy to pixels you already painted. Strengthens your pixels and makes your artwork harder to take."
             />
           </div>
         </section>
@@ -57,7 +57,7 @@ const WhitePaperPage = () => {
               description="Every action costs energy. You can see who cares about what."
             />
             <ReasonRow
-              title="Real stakes"
+              title="Real consequences"
               description="When someone paints over your pixel, you feel it. When you defend one, it means something."
             />
             <ReasonRow
@@ -120,7 +120,7 @@ const WhitePaperPage = () => {
             </p>
             <p>
               Here's the twist: when someone paints over your pixel, it stings. But to do it, they had to 
-              stake more energy than was already there. That means more $BIT locked, more utility, more 
+              use more energy than was already there. That means more $BIT locked, more utility, more 
               value for everyone who holds.
             </p>
             <p>

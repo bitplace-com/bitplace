@@ -258,7 +258,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
                     <span className="text-foreground">{energy.peTotal.toLocaleString()} PE <span className="text-muted-foreground">(${formatUsd(energy.peTotal * 0.01)})</span></span>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <span>Staked in {energy.pixelsOwned} px</span>
+                    <span>Used in {energy.pixelsOwned} px</span>
                     <span className="text-foreground">{energy.pixelStakeTotal.toLocaleString()} PE <span className="text-muted-foreground">(${formatUsd(energy.pixelStakeTotal * 0.01)})</span></span>
                   </div>
                   {energy.pixelStakeTotal > energy.peTotal && (
