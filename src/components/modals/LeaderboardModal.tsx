@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { PixelIcon } from "@/components/icons";
 import { ProBadge } from "@/components/ui/pro-badge";
+import { StarterBadge } from "@/components/ui/starter-badge";
 import { AdminBadge } from "@/components/ui/admin-badge";
 
 import { getProTier, isAdmin } from "@/lib/userBadges";
@@ -127,9 +128,7 @@ function PlayerRow({ entry, subCategory, onPlayerClick }: { entry: PlayerPainter
           {isAdmin(entry.walletAddress) && <AdminBadge />}
           {!isAdmin(entry.walletAddress) && entry.walletAddress && isPro && <ProBadge shine size="sm" />}
           {!isAdmin(entry.walletAddress) && !entry.walletAddress && (
-            <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-foreground/10 text-foreground border border-border shrink-0 animate-shine">
-              STARTER
-            </span>
+            <StarterBadge shine size="sm" />
           )}
           {entry.allianceTag && <span className="text-xs text-primary font-medium">[{entry.allianceTag}]</span>}
           {country && <span className="text-sm">{country.flag}</span>}

@@ -3,6 +3,8 @@ import { PixelIcon } from '@/components/icons';
 import { GoogleLogo } from '@/components/icons/GoogleLogo';
 import { useWallet } from '@/contexts/WalletContext';
 import { Separator } from '@/components/ui/separator';
+import { StarterBadge } from '@/components/ui/starter-badge';
+import { ProBadge } from '@/components/ui/pro-badge';
 import {
   Dialog,
   DialogContent,
@@ -118,8 +120,8 @@ export function WalletSelectModal({
               </div>
             }
             title="Sign in with Google"
-            subtitle="300,000 free Pixels — draw anywhere, expire after 72h unless renewed"
-            badge={<TierBadge label="STARTER" />}
+            subtitle="300,000 free Pixels to draw anywhere — renew them all with one click"
+            badge={<StarterBadge shine size="sm" />}
           />
 
           {/* ── Tier 2: Phantom (Pro) ── */}
@@ -140,12 +142,12 @@ export function WalletSelectModal({
                   phantomInstalled === null
                     ? 'Detecting...'
                     : phantomInstalled
-                      ? 'Permanent PE from $BIT holdings — full pixel ownership'
+                      ? 'Your $BIT gives you Paint Energy — use it for permanent pixels no one can overwrite'
                       : isMobile
                         ? 'Open in Phantom app'
-                        : 'Install to get permanent PE'
+                        : 'Install to get permanent pixels'
                 }
-                badge={<TierBadge label="PRO" variant="pro" />}
+                badge={<ProBadge shine size="sm" />}
                 trailing={isConnecting ? <PixelIcon name="loader" size="md" className="animate-spin" /> : undefined}
               />
 
@@ -205,18 +207,5 @@ function TierCard({
         <PixelIcon name="chevronRight" size="md" className="text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
       )}
     </button>
-  );
-}
-
-function TierBadge({ label, variant = 'default' }: { label: string; variant?: 'default' | 'pro' | 'muted' }) {
-  const styles = {
-    default: 'bg-foreground/10 text-foreground border-border',
-    pro: 'bg-primary/10 text-primary border-primary/20',
-    muted: 'bg-muted text-muted-foreground border-border/50',
-  };
-  return (
-    <span className={`px-1.5 py-0.5 text-[10px] font-bold uppercase rounded border shrink-0 ${styles[variant]}`}>
-      {label}
-    </span>
   );
 }
