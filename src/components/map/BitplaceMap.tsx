@@ -174,6 +174,7 @@ export function BitplaceMap() {
   const { templates, activeTemplateId, activeTemplate, addTemplate, removeTemplate, selectTemplate, updateSettings, isMoveMode, toggleMoveMode, updatePosition } = useTemplates(walletAddress);
   const [templatesPanelOpen, setTemplatesPanelOpen] = useState(false);
   const [templateGuideColors, setTemplateGuideColors] = useState<string[]>([]);
+  const [templateRawColors, setTemplateRawColors] = useState<string[]>([]);
   const [templateQuantizedPixels, setTemplateQuantizedPixels] = useState<import('@/lib/paletteQuantizer').QuantizedPixel[]>([]);
   const templateDragOffsetRef = useRef<{ dx: number; dy: number } | null>(null);
   const pendingScaleRef = useRef<number | null>(null);
@@ -1862,6 +1863,7 @@ export function BitplaceMap() {
             template={activeTemplate} 
             selectedColor={selectedColor}
             onGuideColorsChange={setTemplateGuideColors}
+            onRawColorsChange={setTemplateRawColors}
             onQuantizedPixelsChange={setTemplateQuantizedPixels}
           />
         )}
@@ -1992,7 +1994,7 @@ export function BitplaceMap() {
           onBrushSizeChange={setBrushSize}
           onInteractionModeChange={setInteractionMode}
           onPePerPixelChange={setPePerPixel}
-          templateGuideColors={templateGuideColors}
+          templateGuideColors={templateRawColors.length > 0 ? templateRawColors : templateGuideColors}
           filterToGuideColors={activeTemplate?.mode === 'pixelGuide' && activeTemplate?.filterPaletteColors}
           actionDirection={actionDirection}
           onActionDirectionChange={setActionDirection}

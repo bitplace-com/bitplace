@@ -241,3 +241,69 @@ export function getGuideDimensions(
     height: Math.max(1, Math.round(imageHeight * scale / 100)),
   };
 }
+
+/**
+ * Extract the actual dominant colors from an image (no palette matching).
+ * Draws to a small canvas for speed, builds a frequency map, merges
+ * near-duplicate colors (Euclidean RGB distance < mergeDelta), and
+ * returns the top N hex colors sorted by frequency.
+ */
+export async function extractImageColors(
+  image: HTMLImageElement,
+  maxColors = 50,
+  mergeDelta = 12
+): Promise<string[]> {
+  const MAX_W = 200;
+  const aspectRatio = image.height / image.width;
+  const w = Math.min(image.width, MAX_W);
+  const h = Math.max(1, Math.round(w * aspectRatio));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return [];
+
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(image, 0, 0, w, h);
+  const { data } = ctx.getImageData(0, 0, w, h);
+
+  // Build frequency map
+  const counts = new Map<string, { rgb: RGB; count: number }>();
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 25) continue; // skip transparent
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    const hex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
+    const entry = counts.get(hex);
+    if (entry) {
+      entry.count++;
+    } else {
+      counts.set(hex, { rgb: { r, g, b }, count: 1 });
+    }
+  }
+
+  // Sort by frequency descending
+  const sorted = Array.from(counts.entries()).sort((a, b) => b[1].count - a[1].count);
+
+  // Merge similar colors into the most frequent representative
+  const merged: { hex: string; rgb: RGB; count: number }[] = [];
+  const deltaSq = mergeDelta * mergeDelta;
+
+  for (const [hex, { rgb, count }] of sorted) {
+    let wasMerged = false;
+    for (const existing of merged) {
+      if (colorDistanceSq(rgb, existing.rgb) < deltaSq) {
+        existing.count += count;
+        wasMerged = true;
+        break;
+      }
+    }
+    if (!wasMerged) {
+      merged.push({ hex, rgb, count });
+    }
+  }
+
+  // Re-sort after merging and return top N
+  merged.sort((a, b) => b.count - a.count);
+  return merged.slice(0, maxColors).map(e => e.hex);
+}
