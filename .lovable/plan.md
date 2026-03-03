@@ -1,18 +1,14 @@
 
 
-# Pannelli centrati -- Conferma scope
+# Ripristinare il menù con slide da sinistra
 
-Confermo: il pannello di conferma disegno (`ActionConfirmDialog`) usa già un `Dialog` centrato standard e **non viene toccato**. Le modifiche riguardano solo:
+Riportare `MapMenuDrawer` al comportamento precedente: Sheet che scorre da sinistra con la stessa UI interna.
 
-- **GlassSheet** (desktop mode) -- tutti i pannelli che attualmente fanno slide da destra: Rules, Shop, Alliance, Settings, Notifications, Leaderboard, PlayerProfile, Search, Places
-- **MapMenuDrawer** -- attualmente slide da sinistra
+## Modifica
 
-Entrambi diventano modali centrati con fade+scale. Il piano resta identico a quello già approvato.
+**File: `src/components/map/MapMenuDrawer.tsx`**
 
-## File coinvolti
+Sostituire `Dialog`/`DialogContent`/`DialogHeader`/`DialogTitle` con `Sheet`/`SheetContent` (side="left") dal componente `src/components/ui/sheet.tsx`, mantenendo la stessa struttura interna (header "Bitplace", sezioni Home/Basics, footer Settings/Theme). Lo stile glass (`bg-background/95 backdrop-blur-xl`) e la struttura nav restano identici, solo il contenitore cambia da Dialog centrato a Sheet laterale sinistro.
 
-1. **`src/components/ui/glass-sheet.tsx`** -- desktop: da side-panel destro a modale centrato con overlay
-2. **`src/components/map/MapMenuDrawer.tsx`** -- da Sheet left-slide a Dialog centrato
-
-Nessun altro file cambia. Templates e ActionConfirmDialog restano invariati.
+Un solo file da modificare.
 
