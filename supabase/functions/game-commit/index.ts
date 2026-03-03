@@ -299,6 +299,15 @@ async function executeCommit(
       .map(p => p.id!);
     
     if (ownedPixelIds.length > 0) {
+      // Fetch virtual_pe_cost before deleting (for refund)
+      const { data: virtualCosts } = await supabase
+        .from("pixels")
+        .select("virtual_pe_cost")
+        .in("id", ownedPixelIds);
+
+      const totalVirtualRefund = (virtualCosts || [])
+        .reduce((sum: number, p: any) => sum + (p.virtual_pe_cost || 0), 0);
+
       // Batch delete contributions
       await supabase
         .from("pixel_contributions")
@@ -313,6 +322,21 @@ async function executeCommit(
         .eq("owner_user_id", userId);
       
       affectedPixels = ownedPixelIds.length;
+
+      // Refund virtual_pe_used for erased virtual pixels
+      if (totalVirtualRefund > 0) {
+        const { data: currentUserData } = await supabase
+          .from("users")
+          .select("virtual_pe_used")
+          .eq("id", userId)
+          .single();
+        const currentUsed = currentUserData?.virtual_pe_used || 0;
+        await supabase
+          .from("users")
+          .update({ virtual_pe_used: Math.max(0, currentUsed - totalVirtualRefund) })
+          .eq("id", userId);
+        console.log(`[game-commit] ERASE: refunded ${totalVirtualRefund} virtual_pe_used for user ${userId}`);
+      }
     }
   } else if (mode === "REINFORCE") {
     // OPTIMIZED: Parallel batch updates for REINFORCE
