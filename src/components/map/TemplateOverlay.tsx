@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import type maplibregl from 'maplibre-gl';
 import type { Template } from '@/hooks/useTemplates';
 import { lngLatToGridFloat, lngLatToGridInt, getCellSize } from '@/lib/pixelGrid';
-import { quantizeImageAsync, getGuideColors, type QuantizedPixel } from '@/lib/paletteQuantizer';
+import { quantizeImageAsync, getGuideColors, extractImageColors, type QuantizedPixel } from '@/lib/paletteQuantizer';
 import { cn } from '@/lib/utils';
 
 interface TemplateOverlayProps {
@@ -10,10 +10,11 @@ interface TemplateOverlayProps {
   template: Template;
   selectedColor?: string | null;
   onGuideColorsChange?: (colors: string[]) => void;
+  onRawColorsChange?: (colors: string[]) => void;
   onQuantizedPixelsChange?: (pixels: QuantizedPixel[]) => void;
 }
 
-export function TemplateOverlay({ map, template, selectedColor, onGuideColorsChange, onQuantizedPixelsChange }: TemplateOverlayProps) {
+export function TemplateOverlay({ map, template, selectedColor, onGuideColorsChange, onRawColorsChange, onQuantizedPixelsChange }: TemplateOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -72,6 +73,19 @@ export function TemplateOverlay({ map, template, selectedColor, onGuideColorsCha
   useEffect(() => {
     onGuideColorsChange?.(guideColors);
   }, [guideColors, onGuideColorsChange]);
+
+  // Extract raw (exact) image colors — runs once when image loads
+  useEffect(() => {
+    if (!imageLoaded || !imageRef.current) {
+      onRawColorsChange?.([]);
+      return;
+    }
+    let cancelled = false;
+    extractImageColors(imageRef.current, 50).then(colors => {
+      if (!cancelled) onRawColorsChange?.(colors);
+    });
+    return () => { cancelled = true; };
+  }, [imageLoaded, onRawColorsChange]);
 
   // Notify parent of quantized pixels
   useEffect(() => {
