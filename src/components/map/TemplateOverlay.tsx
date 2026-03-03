@@ -8,11 +8,12 @@ import { cn } from '@/lib/utils';
 interface TemplateOverlayProps {
   map: maplibregl.Map | null;
   template: Template;
-  selectedColor?: string | null;  // Current palette color for highlighting
-  onGuideColorsChange?: (colors: string[]) => void;  // Callback for guide colors
+  selectedColor?: string | null;
+  onGuideColorsChange?: (colors: string[]) => void;
+  onQuantizedPixelsChange?: (pixels: QuantizedPixel[]) => void;
 }
 
-export function TemplateOverlay({ map, template, selectedColor, onGuideColorsChange }: TemplateOverlayProps) {
+export function TemplateOverlay({ map, template, selectedColor, onGuideColorsChange, onQuantizedPixelsChange }: TemplateOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -71,6 +72,11 @@ export function TemplateOverlay({ map, template, selectedColor, onGuideColorsCha
   useEffect(() => {
     onGuideColorsChange?.(guideColors);
   }, [guideColors, onGuideColorsChange]);
+
+  // Notify parent of quantized pixels
+  useEffect(() => {
+    onQuantizedPixelsChange?.(quantizedPixels);
+  }, [quantizedPixels, onQuantizedPixelsChange]);
 
   // Render Image mode
   const renderImageMode = useCallback(() => {

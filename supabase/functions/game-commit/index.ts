@@ -51,8 +51,12 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
 
 type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE" | "WITHDRAW_DEF" | "WITHDRAW_ATK" | "WITHDRAW_REINFORCE" | "PING";
 
+// Admin emails bypass cooldown + pixel limits
+const ADMIN_EMAILS = ["team@bitplace.com"];
+
 // Paint-specific limits
 const MAX_PAINT_PIXELS = 1000;
+const MAX_PAINT_PIXELS_ADMIN = 50000;
 const PAINT_COOLDOWN_SECONDS = 30;
 
 // Streaming batch sizes
@@ -793,11 +797,18 @@ async function executeCommit(
       }
     }
     newPixelsPaintedTotal = (user.pixels_painted_total || 0) + leaderboardPixels;
-    paintCooldownUntil = new Date(Date.now() + PAINT_COOLDOWN_SECONDS * 1000);
+    
+    // Admin bypass: skip cooldown
+    const commitAdminEmail = user.email || '';
+    const isCommitAdmin = ADMIN_EMAILS.includes(commitAdminEmail);
+    
+    if (!isCommitAdmin) {
+      paintCooldownUntil = new Date(Date.now() + PAINT_COOLDOWN_SECONDS * 1000);
+    }
     
     const userUpdate: Record<string, unknown> = {
       pixels_painted_total: newPixelsPaintedTotal, 
-      paint_cooldown_until: paintCooldownUntil.toISOString(),
+      ...(paintCooldownUntil ? { paint_cooldown_until: paintCooldownUntil.toISOString() } : {}),
     };
     
     // For virtual PE: manually increment virtual_pe_used (DB triggers won't handle stake=0)
@@ -1110,13 +1121,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // PAINT-specific limits
-    if (mode === "PAINT" && pixels.length > MAX_PAINT_PIXELS) {
+    // PAINT-specific limits (raised pre-auth; per-user limit after user fetch)
+    if (mode === "PAINT" && pixels.length > MAX_PAINT_PIXELS_ADMIN) {
       return new Response(JSON.stringify({
         ok: false,
         error: "MAX_PIXELS_EXCEEDED",
-        message: `Maximum ${MAX_PAINT_PIXELS} pixels per paint`,
-        max: MAX_PAINT_PIXELS,
+        message: `Maximum ${MAX_PAINT_PIXELS_ADMIN} pixels per paint`,
+        max: MAX_PAINT_PIXELS_ADMIN,
       }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1146,7 +1157,7 @@ Deno.serve(async (req) => {
     // Fetch user data
     const { data: user, error: userError } = await supabase
       .from("users")
-      .select("id, pe_total_pe, pixels_painted_total, level, paint_cooldown_until, auth_provider, wallet_address, virtual_pe_total, virtual_pe_used")
+      .select("id, pe_total_pe, pixels_painted_total, level, paint_cooldown_until, auth_provider, wallet_address, virtual_pe_total, virtual_pe_used, email")
       .eq("id", userId)
       .single();
 
@@ -1163,8 +1174,25 @@ Deno.serve(async (req) => {
       ? (user.auth_provider === 'google' || user.auth_provider === 'both')
       : (user.auth_provider === 'google' || (user.auth_provider === 'both' && !user.wallet_address));
 
-    // Re-check PAINT cooldown
-    if (mode === "PAINT" && user.paint_cooldown_until) {
+    // Admin bypass check
+    const userEmail = user.email || '';
+    const isAdminUser = ADMIN_EMAILS.includes(userEmail);
+    
+    // Enforce pixel limit for non-admins
+    if (!isAdminUser && mode === "PAINT" && pixels.length > MAX_PAINT_PIXELS) {
+      return new Response(JSON.stringify({
+        ok: false,
+        error: "MAX_PIXELS_EXCEEDED",
+        message: `Maximum ${MAX_PAINT_PIXELS} pixels per paint`,
+        max: MAX_PAINT_PIXELS,
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Re-check PAINT cooldown (skip for admin)
+    if (!isAdminUser && mode === "PAINT" && user.paint_cooldown_until) {
       const cooldownUntil = new Date(user.paint_cooldown_until);
       const now = new Date();
       if (now < cooldownUntil) {

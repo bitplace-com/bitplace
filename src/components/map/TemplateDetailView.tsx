@@ -4,11 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
+import { Progress } from '@/components/ui/progress';
 import { PixelIcon } from '@/components/icons/PixelIcon';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { getGuideDimensions } from '@/lib/paletteQuantizer';
 import type { Template, TemplateSettings } from '@/hooks/useTemplates';
+import type { AutoPaintProgress } from '@/hooks/useAutoPaint';
 
 interface TemplateDetailViewProps {
   template: Template;
@@ -18,6 +20,12 @@ interface TemplateDetailViewProps {
   onUpdateSettings: (settings: Partial<TemplateSettings>) => void;
   isMoveMode: boolean;
   onToggleMoveMode: () => void;
+  // Auto-paint (admin only)
+  isAdmin?: boolean;
+  onAutoPaint?: () => void;
+  onCancelAutoPaint?: () => void;
+  autoPaintProgress?: AutoPaintProgress | null;
+  isAutoPainting?: boolean;
 }
 
 export function TemplateDetailView({
@@ -28,6 +36,11 @@ export function TemplateDetailView({
   onUpdateSettings,
   isMoveMode,
   onToggleMoveMode,
+  isAdmin,
+  onAutoPaint,
+  onCancelAutoPaint,
+  autoPaintProgress,
+  isAutoPainting,
 }: TemplateDetailViewProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Relative scale: 100 = size at load. Convert to/from absolute scale.
@@ -66,6 +79,10 @@ export function TemplateDetailView({
   const guideDimensions = useMemo(() => {
     return getGuideDimensions(template.width, template.height, template.scale);
   }, [template.width, template.height, template.scale]);
+
+  const progressPct = autoPaintProgress
+    ? (autoPaintProgress.pixelsProcessed / autoPaintProgress.pixelsTotal) * 100
+    : 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -142,6 +159,55 @@ export function TemplateDetailView({
         <PixelIcon name="startups" size="sm" />
         Recenter
       </Button>
+
+      {/* Auto-Paint (Admin only, Pixel Guide mode) */}
+      {isAdmin && template.mode === 'pixelGuide' && (
+        <div className="space-y-2">
+          {isAutoPainting ? (
+            <>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    {autoPaintProgress?.phase === 'validate' ? 'Validating' : 
+                     autoPaintProgress?.phase === 'commit' ? 'Painting' :
+                     autoPaintProgress?.phase === 'done' ? 'Done!' : 'Error'}
+                    {autoPaintProgress?.totalBatches && autoPaintProgress.totalBatches > 1 
+                      ? ` (batch ${autoPaintProgress.currentBatch}/${autoPaintProgress.totalBatches})`
+                      : ''}
+                  </span>
+                  <span className="font-mono tabular-nums text-muted-foreground">
+                    {(autoPaintProgress?.pixelsProcessed ?? 0).toLocaleString()} / {(autoPaintProgress?.pixelsTotal ?? 0).toLocaleString()}
+                  </span>
+                </div>
+                <Progress value={progressPct} className="h-2" />
+              </div>
+              {autoPaintProgress?.phase === 'error' && (
+                <p className="text-xs text-destructive">{autoPaintProgress.error}</p>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onCancelAutoPaint}
+                className="w-full gap-2"
+                disabled={autoPaintProgress?.phase === 'done'}
+              >
+                <PixelIcon name="close" size="sm" />
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={onAutoPaint}
+              className="w-full gap-2"
+            >
+              <PixelIcon name="brush" size="sm" />
+              Auto-Paint
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Position Section */}
       <div className="space-y-2">
