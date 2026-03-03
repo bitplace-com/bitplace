@@ -140,6 +140,11 @@ export function ShopModal({ open, onOpenChange }: ShopModalProps) {
             Your $BIT balance determines your Paint Energy. More $BIT means more PE, which means more
             actions on the map — painting, defending, attacking, and reinforcing pixels.
           </p>
+          <p className="text-sm text-muted-foreground">
+            Pixels painted with PE are permanent and protected. No one can paint over them unless they
+            place more PE than you have on that pixel. The more energy you put on a pixel, the harder
+            it is for others to take it.
+          </p>
           <div className="flex gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
             <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 mt-0.5">
               <PixelIcon name="check" className="h-4 w-4" />
