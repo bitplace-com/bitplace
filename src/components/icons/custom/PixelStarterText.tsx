@@ -11,7 +11,7 @@ export function PixelStarterText({ shine, className, ...props }: PixelStarterTex
 
   return (
     <svg
-      viewBox="0 0 52 14"
+      viewBox="0 0 68 14"
       fill="currentColor"
       xmlns="http://www.w3.org/2000/svg"
       className={cn('shrink-0', className)}
@@ -27,15 +27,15 @@ export function PixelStarterText({ shine, className, ...props }: PixelStarterTex
             <stop offset="60%" stopColor="#cbd5e1" />
             <stop offset="75%" stopColor="#94a3b8" />
             <stop offset="100%" stopColor="#64748b" />
-            <animate attributeName="x1" from="-20" to="52" dur="2s" repeatCount="indefinite" />
-            <animate attributeName="y1" from="-8" to="16" dur="2s" repeatCount="indefinite" />
-            <animate attributeName="x2" from="0" to="72" dur="2s" repeatCount="indefinite" />
-            <animate attributeName="y2" from="0" to="24" dur="2s" repeatCount="indefinite" />
+            <animate attributeName="x1" from="-20" to="68" dur="3.5s" repeatCount="indefinite" />
+            <animate attributeName="y1" from="-8" to="16" dur="3.5s" repeatCount="indefinite" />
+            <animate attributeName="x2" from="0" to="88" dur="3.5s" repeatCount="indefinite" />
+            <animate attributeName="y2" from="0" to="24" dur="3.5s" repeatCount="indefinite" />
           </linearGradient>
         </defs>
       )}
       <text
-        x="26"
+        x="34"
         y="11"
         textAnchor="middle"
         fontFamily="ui-monospace, SFMono-Regular, monospace"
@@ -44,7 +44,7 @@ export function PixelStarterText({ shine, className, ...props }: PixelStarterTex
         letterSpacing="1.5"
         fill={shine ? `url(#${gradientId})` : 'currentColor'}
       >
-        STARTER
+        BITPLACER
       </text>
     </svg>
   );

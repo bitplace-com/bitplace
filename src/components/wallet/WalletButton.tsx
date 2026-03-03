@@ -76,7 +76,7 @@ export function WalletButton() {
             <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           )}
           <span className="text-xs font-medium text-foreground truncate max-w-[100px]">
-            {user?.display_name || user?.email?.split('@')[0] || (walletAddress && !walletAddress.startsWith('google:') ? shortenAddress(walletAddress) : 'Starter')}
+            {user?.display_name || user?.email?.split('@')[0] || (walletAddress && !walletAddress.startsWith('google:') ? shortenAddress(walletAddress) : 'Bitplacer')}
           </span>
           {isPro ? (
             <ProBadge shine size="sm" />

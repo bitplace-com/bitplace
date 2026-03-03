@@ -81,7 +81,7 @@ function AccountTypesContent() {
       <div className="flex items-start gap-2.5">
         <GoogleLogo className="w-5 h-5 shrink-0 mt-0.5" />
         <div>
-          <span className="text-xs font-semibold text-foreground">Google (Starter)</span>
+          <span className="text-xs font-semibold text-foreground">Google (Bitplacer)</span>
           <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
             300,000 free Pixels to draw anywhere. They expire after 72h, but you can renew them all with one click before they disappear.
           </p>

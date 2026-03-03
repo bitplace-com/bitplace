@@ -211,7 +211,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">Pixel Balance</span>
-              <span className="text-muted-foreground text-right">Free pixel budget for Starter accounts (72h expiry)</span>
+              <span className="text-muted-foreground text-right">Free pixel budget for Bitplacer accounts (72h expiry)</span>
             </div>
             <div className="flex justify-between px-3 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">Pixel Renew</span>
