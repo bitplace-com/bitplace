@@ -52,8 +52,12 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
 
 type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE" | "WITHDRAW_DEF" | "WITHDRAW_ATK" | "WITHDRAW_REINFORCE" | "PING";
 
+// Admin emails bypass cooldown + pixel limits
+const ADMIN_EMAILS = ["team@bitplace.com"];
+
 // Paint-specific limits
 const MAX_PAINT_PIXELS = 1000;
+const MAX_PAINT_PIXELS_ADMIN = 50000;
 
 // Streaming thresholds
 const MIN_PIXELS_FOR_STREAMING = 50;
@@ -368,7 +372,7 @@ async function handlePaintFastPath(
     // Launch both queries in parallel
     const userPromise = supabase
       .from("users")
-      .select("id, pe_total_pe, pe_used_pe, paint_cooldown_until, auth_provider, virtual_pe_total, virtual_pe_used")
+      .select("id, pe_total_pe, pe_used_pe, paint_cooldown_until, auth_provider, virtual_pe_total, virtual_pe_used, email")
       .eq("id", userId)
       .single();
     
@@ -396,8 +400,21 @@ async function handlePaintFastPath(
     // For PAINT mode, 'both' users always use virtual PE (real PE is for DEFEND/ATTACK/REINFORCE)
     const isVirtualPe = user.auth_provider === 'google' || user.auth_provider === 'both';
     
-    // Step C: Cooldown check IMMEDIATELY (before any heavy processing)
-    if (user.paint_cooldown_until) {
+    // Admin bypass check
+    const userEmail = user.email || '';
+    const isAdminUser = ADMIN_EMAILS.includes(userEmail);
+    
+    // Enforce pixel limit for non-admins (admins can paint up to MAX_PAINT_PIXELS_ADMIN)
+    if (!isAdminUser && total > MAX_PAINT_PIXELS) {
+      throw {
+        httpStatus: 400,
+        error: "MAX_PIXELS_EXCEEDED",
+        message: `Maximum ${MAX_PAINT_PIXELS} pixels per paint`,
+      };
+    }
+    
+    // Step C: Cooldown check IMMEDIATELY (skip for admin)
+    if (!isAdminUser && user.paint_cooldown_until) {
       const cooldownUntil = new Date(user.paint_cooldown_until);
       const now = new Date();
       if (now < cooldownUntil) {
@@ -1162,24 +1179,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const maxPixels = mode === "PAINT" ? MAX_PAINT_PIXELS : 10000;
+    // Pre-auth sanity limit (raised to support admin batches; per-user limit enforced after user fetch)
+    const maxPixels = mode === "PAINT" ? MAX_PAINT_PIXELS_ADMIN : 10000;
     if (pixels.length > maxPixels) {
       return new Response(JSON.stringify({ ok: false, error: "TOO_MANY_PIXELS", message: `Max ${maxPixels} pixels per request`, requestId }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // PAINT-specific limits
-    if (mode === "PAINT" && pixels.length > MAX_PAINT_PIXELS) {
-      return new Response(JSON.stringify({
-        ok: false,
-        error: "MAX_PIXELS_EXCEEDED",
-        message: `Maximum ${MAX_PAINT_PIXELS} pixels per paint`,
-        max: MAX_PAINT_PIXELS,
-        requested: pixels.length,
-        requestId,
-      }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

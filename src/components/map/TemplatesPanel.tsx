@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { PixelIcon } from '@/components/icons/PixelIcon';
 import { TemplateDetailView } from './TemplateDetailView';
 import type { Template, TemplateSettings } from '@/hooks/useTemplates';
+import type { AutoPaintProgress } from '@/hooks/useAutoPaint';
 
 interface TemplatesPanelProps {
   open: boolean;
@@ -20,6 +21,12 @@ interface TemplatesPanelProps {
   onUpdateSettings: (id: string, settings: Partial<TemplateSettings>) => void;
   onRecenter: () => void;
   onToggleMoveMode: () => void;
+  // Auto-paint (admin only)
+  isAdmin?: boolean;
+  onAutoPaint?: () => void;
+  onCancelAutoPaint?: () => void;
+  autoPaintProgress?: AutoPaintProgress | null;
+  isAutoPainting?: boolean;
 }
 
 function TemplateListView({
@@ -130,6 +137,11 @@ function TemplatesPanelContent({
   onUpdateSettings,
   onRecenter,
   onToggleMoveMode,
+  isAdmin,
+  onAutoPaint,
+  onCancelAutoPaint,
+  autoPaintProgress,
+  isAutoPainting,
 }: Omit<TemplatesPanelProps, 'open' | 'onOpenChange'>) {
   const activeTemplate = templates.find(t => t.id === activeTemplateId);
 
@@ -144,6 +156,11 @@ function TemplatesPanelContent({
         onUpdateSettings={(settings) => onUpdateSettings(activeTemplate.id, settings)}
         isMoveMode={isMoveMode}
         onToggleMoveMode={onToggleMoveMode}
+        isAdmin={isAdmin}
+        onAutoPaint={onAutoPaint}
+        onCancelAutoPaint={onCancelAutoPaint}
+        autoPaintProgress={autoPaintProgress}
+        isAutoPainting={isAutoPainting}
       />
     );
   }

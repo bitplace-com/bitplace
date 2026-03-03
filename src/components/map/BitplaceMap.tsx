@@ -46,6 +46,7 @@ import { useSound } from '@/hooks/useSound';
 import { usePeBalance } from '@/hooks/usePeBalance';
 import { useStatusStripHeight } from '@/hooks/useStatusStripHeight';
 import { useTemplates } from '@/hooks/useTemplates';
+import { useAutoPaint } from '@/hooks/useAutoPaint';
 import { getValidSessionToken } from '@/lib/authHelpers';
 import { computePixelHash } from '@/lib/pixelHash';
 import { lngLatToGridInt, gridIntToLngLat, getViewportGridBounds, Z_SHOW_PAINTS, getCellSize, canInteractAtZoom } from '@/lib/pixelGrid';
@@ -173,8 +174,16 @@ export function BitplaceMap() {
   const { templates, activeTemplateId, activeTemplate, addTemplate, removeTemplate, selectTemplate, updateSettings, isMoveMode, toggleMoveMode, updatePosition } = useTemplates(walletAddress);
   const [templatesPanelOpen, setTemplatesPanelOpen] = useState(false);
   const [templateGuideColors, setTemplateGuideColors] = useState<string[]>([]);
+  const [templateQuantizedPixels, setTemplateQuantizedPixels] = useState<import('@/lib/paletteQuantizer').QuantizedPixel[]>([]);
   const templateDragOffsetRef = useRef<{ dx: number; dy: number } | null>(null);
   const pendingScaleRef = useRef<number | null>(null);
+  const { startAutoPaint, cancelAutoPaint, resetProgress, progress: autoPaintProgress, isRunning: isAutoPainting } = useAutoPaint();
+  const isAdminUser = user?.email === 'team@bitplace.com';
+
+  const handleAutoPaint = useCallback(() => {
+    if (!activeTemplate || templateQuantizedPixels.length === 0) return;
+    startAutoPaint(templateQuantizedPixels, activeTemplate.positionX, activeTemplate.positionY);
+  }, [activeTemplate, templateQuantizedPixels, startAutoPaint]);
 
   // Auto-center and auto-scale template on add
   const handleAddTemplate = useCallback(async (file: File) => {
@@ -1853,6 +1862,7 @@ export function BitplaceMap() {
             template={activeTemplate} 
             selectedColor={selectedColor}
             onGuideColorsChange={setTemplateGuideColors}
+            onQuantizedPixelsChange={setTemplateQuantizedPixels}
           />
         )}
 
@@ -1876,6 +1886,11 @@ export function BitplaceMap() {
             }
           }}
           onToggleMoveMode={toggleMoveMode}
+          isAdmin={isAdminUser}
+          onAutoPaint={handleAutoPaint}
+          onCancelAutoPaint={cancelAutoPaint}
+          autoPaintProgress={autoPaintProgress}
+          isAutoPainting={isAutoPainting}
         />
 
         {/* HUD Overlay */}
