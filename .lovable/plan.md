@@ -1,37 +1,36 @@
 
 
-# Extract exact image colors for Custom tab
+# Fix auto-paint to use exact image colors + fix swatch selection border
 
-## Problem
-`TemplateOverlay` uses `quantizeImageAsync` which maps every pixel to the nearest **palette** color. The "From template" section in Custom tab therefore only shows palette colors, never the actual image colors.
+## Problem 1: Auto-paint uses palette colors
+`quantizeImageAsync` maps every pixel to the nearest Bitplace palette color. Auto-paint feeds from `templateQuantizedPixels` (output of this function), so painted pixels use palette colors instead of the image's actual colors.
 
-## Fix
+## Problem 2: White swatch selection border
+The `ring-2 ring-foreground` selection indicator looks broken on light-colored swatches (especially white) because there's no base border/shadow to provide contrast.
 
-### 1. `src/lib/paletteQuantizer.ts` — Add `extractImageColors`
-New function that reads raw pixel data from the image, counts color frequency, and returns the top N most-used exact hex colors (e.g. top 50). No palette matching. Uses the existing `prepareImageData` helper.
+## Changes
 
-```ts
-export async function extractImageColors(
-  image: HTMLImageElement,
-  maxColors?: number // default 50
-): Promise<string[]>
-```
+### `src/lib/paletteQuantizer.ts`
+Add `quantizeImageRawAsync` — identical to `quantizeImageAsync` but skips palette matching, using the pixel's actual `#RRGGBB` hex as `hexColor`. This gives auto-paint the exact image colors.
 
-Logic: draw image to small canvas (~200px wide for speed), read pixels, build frequency map of `#RRGGBB`, sort by count descending, return top N. Optionally merge very similar colors (delta < 10) to avoid near-duplicates.
+### `src/components/map/TemplateOverlay.tsx`
+- Add a second quantization effect that runs `quantizeImageRawAsync` when in pixelGuide mode
+- Expose via new callback prop `onRawQuantizedPixelsChange?: (pixels: QuantizedPixel[]) => void`
+- Keep the palette-quantized version for the guide overlay rendering (visual circles on map still snap to palette for consistency with manual painting)
 
-### 2. `src/components/map/TemplateOverlay.tsx` — Extract raw colors
-- Add a new effect that runs `extractImageColors` when image loads (regardless of mode — works in both image and pixelGuide mode)
-- Pass result up via a new prop `onRawColorsChange?: (colors: string[]) => void`
+### `src/components/map/BitplaceMap.tsx`
+- Add `templateRawQuantizedPixels` state
+- Pass it to `TemplateOverlay` via the new callback
+- Change `handleAutoPaint` to use `templateRawQuantizedPixels` instead of `templateQuantizedPixels`
 
-### 3. `src/components/map/BitplaceMap.tsx` — Wire new prop
-- Add `templateRawColors` state, pass setter to `TemplateOverlay`, pass value to `ActionTray` as `templateGuideColors` (replacing the palette-quantized version)
-
-### Result
-The "From template" section in Custom tab will show the **actual dominant colors** from the uploaded image, sorted by how frequently they appear.
+### `src/components/map/ActionTray.tsx`
+- Add `shadow-[inset_0_0_0_1px_rgba(0,0,0,0.15)]` (or `ring-1 ring-black/10`) as a base style on all color swatches in the "From template" and "Recent" sections so light colors (white) have a visible boundary
+- The selection indicator `ring-2 ring-foreground` then sits cleanly on top
 
 | File | Change |
 |------|--------|
-| `src/lib/paletteQuantizer.ts` | Add `extractImageColors` function |
-| `src/components/map/TemplateOverlay.tsx` | Call `extractImageColors`, expose via new callback prop |
-| `src/components/map/BitplaceMap.tsx` | Wire raw colors to ActionTray instead of palette-quantized colors |
+| `src/lib/paletteQuantizer.ts` | Add `quantizeImageRawAsync` (no palette mapping) |
+| `src/components/map/TemplateOverlay.tsx` | Run raw quantization, expose via new callback |
+| `src/components/map/BitplaceMap.tsx` | Wire raw quantized pixels to auto-paint |
+| `src/components/map/ActionTray.tsx` | Fix swatch borders for light colors |
 
