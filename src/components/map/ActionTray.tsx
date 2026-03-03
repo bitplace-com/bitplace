@@ -107,7 +107,14 @@ export function ActionTray({
   onPePerPixelChange,
 }: ActionTrayProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [paletteTab, setPaletteTab] = useState<'colors' | 'gradients'>('colors');
+  const [paletteTab, setPaletteTab] = useState<'colors' | 'gradients' | 'custom'>('colors');
+  const [customHex, setCustomHex] = useState('#ff0000');
+  const [recentCustomColors, setRecentCustomColors] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('bitplace-custom-colors');
+      return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+  });
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const { play } = useSound();
   const isMobile = useIsMobile();
@@ -159,6 +166,24 @@ export function ActionTray({
       onPaintToolChange('BRUSH');
     }
   }, [canPaint, onColorSelect, paintTool, onPaintToolChange]);
+
+  const addRecentCustomColor = useCallback((color: string) => {
+    setRecentCustomColors(prev => {
+      const upper = color.toUpperCase();
+      const next = [upper, ...prev.filter(c => c !== upper)].slice(0, 10);
+      localStorage.setItem('bitplace-custom-colors', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const handleCustomColorApply = useCallback((hex: string) => {
+    const clean = hex.startsWith('#') ? hex : `#${hex}`;
+    if (/^#[0-9a-fA-F]{6}$/.test(clean)) {
+      handleColorClick(clean);
+      addRecentCustomColor(clean);
+      setCustomHex(clean);
+    }
+  }, [handleColorClick, addRecentCustomColor]);
 
   const handleToolClick = useCallback((tool: PaintTool, size?: BrushSize) => {
     // Auto-switch to draw mode when selecting a tool
@@ -384,6 +409,18 @@ export function ActionTray({
                   >
                     Gradients
                   </button>
+                  <button
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => setPaletteTab('custom')}
+                    className={cn(
+                      "px-2.5 py-1 text-[11px] rounded-md transition-colors",
+                      paletteTab === 'custom' 
+                        ? "bg-foreground text-background" 
+                        : "bg-muted/70 text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Custom
+                  </button>
                   </div>
                 </div>
 
@@ -417,7 +454,7 @@ export function ActionTray({
                         );
                       })}
                     </div>
-                  ) : (
+                  ) : paletteTab === 'gradients' ? (
                     /* Gradients palette */
                     <div className="space-y-2 py-0.5">
                       {GRADIENT_ROWS.map((row) => (
@@ -449,6 +486,87 @@ export function ActionTray({
                           </div>
                         </div>
                       ))}
+                    </div>
+                  ) : (
+                    /* Custom color picker */
+                    <div className="space-y-3 py-1">
+                      {/* Picker + preview row */}
+                      <div className="flex items-center gap-3">
+                        {/* Native color input styled as a swatch */}
+                        <label className="relative w-12 h-12 rounded-lg border-2 border-border cursor-pointer overflow-hidden shrink-0">
+                          <input
+                            type="color"
+                            value={customHex}
+                            onChange={(e) => {
+                              setCustomHex(e.target.value);
+                              setHoveredColor(e.target.value);
+                            }}
+                            onBlur={() => setHoveredColor(null)}
+                            className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
+                          />
+                          <div className="w-full h-full" style={{ backgroundColor: customHex }} />
+                        </label>
+
+                        {/* Hex input */}
+                        <div className="flex items-center gap-1.5 flex-1">
+                          <span className="text-xs text-muted-foreground font-mono">#</span>
+                          <Input
+                            value={customHex.replace('#', '').toUpperCase()}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+                              setCustomHex(`#${val}`);
+                              if (val.length === 6) setHoveredColor(`#${val}`);
+                            }}
+                            onBlur={() => setHoveredColor(null)}
+                            maxLength={6}
+                            className="h-9 font-mono text-sm tracking-wider"
+                            placeholder="FF0000"
+                          />
+                        </div>
+
+                        {/* Apply button */}
+                        <button
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => handleCustomColorApply(customHex)}
+                          disabled={!canPaint || !/^#[0-9a-fA-F]{6}$/.test(customHex)}
+                          className={cn(
+                            "h-9 px-3 rounded-md text-xs font-medium transition-colors shrink-0",
+                            "bg-foreground text-background hover:bg-foreground/90",
+                            "disabled:opacity-40 disabled:cursor-not-allowed"
+                          )}
+                        >
+                          Apply
+                        </button>
+                      </div>
+
+                      {/* Recent custom colors */}
+                      {recentCustomColors.length > 0 && (
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] text-muted-foreground">Recent</span>
+                          <div className="flex gap-1 flex-wrap">
+                            {recentCustomColors.map((color) => {
+                              const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
+                              return (
+                                <button
+                                  key={color}
+                                  onClick={() => handleCustomColorApply(color)}
+                                  onMouseEnter={() => setHoveredColor(color)}
+                                  onMouseLeave={() => setHoveredColor(null)}
+                                  disabled={!canPaint}
+                                  className={cn(
+                                    "w-8 h-8 sm:w-6 sm:h-6 rounded-md transition-all duration-100 focus:outline-none touch-target",
+                                    canPaint && "hover:ring-1 hover:ring-foreground/30",
+                                    isSelected && "ring-2 ring-foreground scale-105 z-10",
+                                    !canPaint && "opacity-40 cursor-not-allowed"
+                                  )}
+                                  style={{ backgroundColor: color }}
+                                  title={color}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
