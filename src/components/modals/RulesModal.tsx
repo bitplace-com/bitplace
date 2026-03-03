@@ -76,7 +76,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             <RuleItem
               icon="grid2x2"
               title="Pixel Balance"
-              description="Free pixel budget for Bitplacer accounts. You get 300,000 recyclable pixels. They have a PE value of 0 (anyone can paint over them), expire after 72h, and can't be used for Defend, Attack, or Reinforce. After 48h you can batch-renew all pixels from Pixel Control."
+              description="A free budget of 300,000 recyclable pixels for Bitplacer accounts. They have no PE value (anyone can paint over them) and expire after 72 hours. Before they expire, you can renew all your pixels at once with a single click from the Pixel Control Center — no need to repaint them one by one."
             />
           </div>
         </div>
