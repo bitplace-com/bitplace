@@ -1,87 +1,47 @@
 
 
-# Uniformare animazione STARTER a quella PRO (SVG linearGradient animate)
+# Rallentare animazione STARTER e rinominare in BITPLACER
 
-## Problema
+## 1. Rallentare animazione SVG
 
-PRO usa un'animazione SVG nativa: un `<linearGradient>` con `<animate>` che muove le coordinate del gradiente (sweep diagonale dorato). STARTER usa un'animazione CSS completamente diversa (`background-clip: text` + `background-position` keyframe). Sono due tecniche diverse e producono effetti visivamente diversi.
+**File: `src/components/icons/custom/PixelStarterText.tsx`**
 
-## Soluzione
+- Cambiare `dur="2s"` a `dur="3.5s"` sui 4 `<animate>` (stessa cosa per `PixelStarter.tsx`)
+- Aggiornare il testo SVG da `STARTER` a `BITPLACER`
+- Allargare il viewBox da `0 0 52 14` a `0 0 68 14` per il testo piu' lungo, e centrare `x="34"`
 
-Convertire il badge STARTER da testo HTML con CSS shine a un componente SVG che usa **esattamente la stessa struttura** di `PixelPro`: un `<linearGradient>` con `<animate>` sugli attributi `x1/y1/x2/y2`, ma con colori slate invece di gold.
+**File: `src/components/icons/custom/PixelStarter.tsx`**
 
-### 1. Creare `PixelStarterText` -- icona SVG con testo "STARTER"
+- Cambiare `dur="2s"` a `dur="3.5s"` sui 4 `<animate>` (icona penna usata nella leaderboard)
 
-**Nuovo file: `src/components/icons/custom/PixelStarterText.tsx`**
+## 2. Rinominare STARTER -> BITPLACER ovunque
 
-Un SVG che contiene il testo "STARTER" come `<text>` element, con lo stesso pattern di gradiente animato di PixelPro ma in colori slate:
+**File: `src/components/wallet/WalletButton.tsx`** (riga 79)
+- Fallback testo: `'Starter'` -> `'Bitplacer'`
 
-```tsx
-import { PixelSVG, PixelSVGProps } from './base';
+**File: `src/components/modals/WalletSelectModal.tsx`** (riga 122)
+- Badge inline: `STARTER` -> `BITPLACER`
 
-interface Props extends PixelSVGProps {
-  shine?: boolean;
-}
+**File: `src/components/modals/GuidedTour.tsx`** (riga 84)
+- Label: `"Google (Starter)"` -> `"Google (Bitplacer)"`
 
-export function PixelStarterText({ shine, ...props }: Props) {
-  const gradientId = 'starter-shine-grad';
-  return (
-    <svg viewBox="0 0 52 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...svgProps}>
-      {shine && (
-        <defs>
-          <linearGradient id={gradientId} gradientUnits="userSpaceOnUse"
-            x1="-20" y1="-8" x2="0" y2="0">
-            <!-- same stops as PixelPro but slate colors -->
-            <stop offset="0%" stopColor="#64748b" />
-            <stop offset="25%" stopColor="#94a3b8" />
-            <stop offset="40%" stopColor="#cbd5e1" />
-            <stop offset="50%" stopColor="#ffffff" stopOpacity="0.8" />
-            <stop offset="60%" stopColor="#cbd5e1" />
-            <stop offset="75%" stopColor="#94a3b8" />
-            <stop offset="100%" stopColor="#64748b" />
-            <animate attributeName="x1" from="-20" to="52" dur="2s" repeatCount="indefinite" />
-            <animate attributeName="y1" from="-8" to="16" dur="2s" repeatCount="indefinite" />
-            <animate attributeName="x2" from="0" to="72" dur="2s" repeatCount="indefinite" />
-            <animate attributeName="y2" from="0" to="24" dur="2s" repeatCount="indefinite" />
-          </linearGradient>
-        </defs>
-      )}
-      <text x="26" y="12" textAnchor="middle"
-        fontFamily="monospace" fontSize="11" fontWeight="bold" letterSpacing="1"
-        fill={shine ? `url(#${gradientId})` : 'currentColor'}
-      >STARTER</text>
-    </svg>
-  );
-}
-```
+**File: `src/components/modals/RulesModal.tsx`** (riga 214)
+- Descrizione: `"Starter accounts"` -> `"Bitplacer accounts"`
 
-### 2. Aggiornare WalletButton
+**File: `src/components/map/inspector/ActionBox.tsx`** (riga 100)
+- Testo: `"Starter accounts"` -> `"Bitplacer accounts"`
 
-**File: `src/components/wallet/WalletButton.tsx`** (riga 84)
-
-Sostituire lo `<span>` con testo + CSS con il nuovo componente SVG dentro un contenitore con sfondo:
-
-```tsx
-// Da:
-<span className="text-[10px] font-bold tracking-wider bg-slate-400/10 px-1.5 py-0.5 rounded starter-badge-shine">STARTER</span>
-
-// A:
-<span className="inline-flex items-center bg-slate-400/10 px-1.5 py-0.5 rounded text-slate-400">
-  <PixelStarterText shine className="h-3 w-auto" />
-</span>
-```
-
-### 3. Pulizia CSS (opzionale)
-
-La classe `.starter-badge-shine` e il `@keyframes starter-text-shine` in `src/index.css` non saranno piu' usati e possono essere rimossi.
-
-## Risultato
-
-Entrambi i badge (PRO e STARTER) useranno **esattamente la stessa tecnica di animazione**: SVG `<linearGradient>` con `<animate>` che muove il gradiente diagonalmente attraverso l'icona. L'unica differenza sara' la palette colori (gold per PRO, slate/silver per STARTER).
+**File: `src/components/ui/starter-badge.tsx`** (riga 17)
+- Title: `"Starter — Playing with free Pixels"` -> `"Bitplacer — Playing with free Pixels"`
 
 ## File coinvolti
 
-1. **`src/components/icons/custom/PixelStarterText.tsx`** -- nuovo componente SVG
-2. **`src/components/wallet/WalletButton.tsx`** -- usare il nuovo componente
-3. **`src/index.css`** -- rimuovere `.starter-badge-shine` e `@keyframes starter-text-shine`
+1. `src/components/icons/custom/PixelStarterText.tsx` -- rallentare + testo BITPLACER
+2. `src/components/icons/custom/PixelStarter.tsx` -- rallentare animazione
+3. `src/components/wallet/WalletButton.tsx` -- rinominare fallback
+4. `src/components/modals/WalletSelectModal.tsx` -- rinominare badge
+5. `src/components/map/GuidedTour.tsx` -- rinominare label
+6. `src/components/modals/RulesModal.tsx` -- rinominare descrizione
+7. `src/components/map/inspector/ActionBox.tsx` -- rinominare testo
+8. `src/components/ui/starter-badge.tsx` -- rinominare title
 
