@@ -1,39 +1,34 @@
 
 
-# Fix cluster clipping + map tile background
+# Add Custom Color Picker Tab
 
-## Problems
-1. **Hover ring clipped**: The `hover:ring-2` on `ClusterCanvas` gets cut off by the `ScrollArea`'s overflow:hidden — need padding inside the scroll container.
-2. **Map background**: User wants the actual map portion behind each artwork instead of the plain beige/grid background.
+## Analysis
+
+**Backend safety**: Both `game-validate` and `game-commit` use `isValidPaintId()` which accepts **any** valid `#RRGGBB` hex string. No palette whitelist exists server-side, so custom colors work out of the box with zero backend changes.
+
+**Risk**: None. The palette arrays are only used for rendering the UI swatches. The backend doesn't care which color is sent as long as it's a valid 6-digit hex.
 
 ## Approach
 
-### 1. Fix clipping (`PlayerProfileModal.tsx`)
-Add `p-1` padding inside the ScrollArea's content wrapper and on the single-cluster container so the ring outline has room to render without being clipped.
+Add a third tab **"Custom"** alongside "Colors" and "Gradients" in `ActionTray.tsx`.
 
-### 2. Map tile background (`OwnerArtworkModal.tsx` — `ClusterCanvas`)
+### Custom Tab UI
+- A simple **HSL color wheel/slider** built with native HTML `<input type="color">` plus manual hex input field
+- Show the selected custom color as a large swatch preview
+- A **hex input** field (`#RRGGBB`) for precise entry
+- A **"Recent" row** (last 8-10 custom colors used, stored in `localStorage`) so users can quickly reuse their picks
+- Selecting a custom color calls the same `handleColorClick(color)` — no other changes needed
 
-Use the cluster's center coordinates to compute an OpenStreetMap raster tile URL, load it as an `Image`, and draw it as the canvas background before rendering pixels on top.
-
-- Convert cluster center (grid int) → lng/lat via `gridIntToLngLat`
-- Compute OSM tile coordinates at a suitable zoom (z=14–16 depending on cluster spread)
-- Load tile from `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
-- Draw the tile image (cropped/centered on the exact position) as background
-- Then draw the pixel artwork on top with slight opacity or as-is
-- Fallback to the current beige background if tile fails to load
-
-Tile math:
-```
-tileX = floor((lng + 180) / 360 * 2^z)
-tileY = floor((1 - ln(tan(latRad) + 1/cos(latRad)) / π) / 2 * 2^z)
-```
-
-The tile image is 256×256. We calculate the fractional position within the tile to center the drawing correctly.
-
-### Files modified
+### Changes
 
 | File | Change |
 |------|--------|
-| `src/components/map/OwnerArtworkModal.tsx` | Load OSM raster tile as canvas background in `ClusterCanvas`; import `gridIntToLngLat` |
-| `src/components/modals/PlayerProfileModal.tsx` | Add padding inside ScrollArea and single-cluster wrapper to prevent ring clipping |
+| `src/components/map/ActionTray.tsx` | Add `'custom'` to `paletteTab` type, add third tab button, render custom picker UI when active |
+
+The custom picker section would contain:
+1. Native `<input type="color">` for visual picking (works on all browsers/mobile)
+2. Hex text input for manual entry with validation
+3. Row of recent custom colors from localStorage
+
+No new dependencies needed — the native color input provides a full color picker on all platforms. The palette tab state just gains a third option.
 
