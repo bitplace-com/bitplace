@@ -1,52 +1,37 @@
 
 
-# Fix: Pixels reappear after ERASE on large selections
+# Extract exact image colors for Custom tab
 
-## Root Cause
-
-The ERASE logic in `game-commit` uses `.in("id", ownedPixelIds)` without batching. When erasing hundreds or thousands of pixels (common after admin auto-paint), PostgREST's URL length limit (~8KB) silently truncates the ID list. This means:
-
-- The first ~400-500 pixel IDs fit in the URL and get deleted
-- The remaining IDs are silently dropped — those pixels stay in the database
-- The frontend optimistically removes them from the tile cache
-- On the next viewport move/zoom, `refetchTiles` or `updateViewport` reloads tiles from the server, and the un-deleted pixels reappear
-
-The same truncation issue affects the `virtual_pe_cost` SELECT and the contributions DELETE in the ERASE block.
+## Problem
+`TemplateOverlay` uses `quantizeImageAsync` which maps every pixel to the nearest **palette** color. The "From template" section in Custom tab therefore only shows palette colors, never the actual image colors.
 
 ## Fix
 
-### `supabase/functions/game-commit/index.ts` — Batch ERASE operations
+### 1. `src/lib/paletteQuantizer.ts` — Add `extractImageColors`
+New function that reads raw pixel data from the image, counts color frequency, and returns the top N most-used exact hex colors (e.g. top 50). No palette matching. Uses the existing `prepareImageData` helper.
 
-Chunk all `.in()` calls in the ERASE block into batches of 500 IDs (matching the existing PAINT batch size pattern):
-
-```
-const ERASE_BATCH_SIZE = 500;
-
-// 1. Fetch virtual_pe_cost in batches
-for (let i = 0; i < ownedPixelIds.length; i += ERASE_BATCH_SIZE) {
-  const batch = ownedPixelIds.slice(i, i + ERASE_BATCH_SIZE);
-  const { data } = await supabase.from("pixels").select("virtual_pe_cost").in("id", batch);
-  // accumulate...
-}
-
-// 2. Delete contributions in batches
-for (let i = 0; i < ownedPixelIds.length; i += ERASE_BATCH_SIZE) {
-  const batch = ownedPixelIds.slice(i, i + ERASE_BATCH_SIZE);
-  await supabase.from("pixel_contributions").delete().in("pixel_id", batch);
-}
-
-// 3. Delete pixels in batches
-for (let i = 0; i < ownedPixelIds.length; i += ERASE_BATCH_SIZE) {
-  const batch = ownedPixelIds.slice(i, i + ERASE_BATCH_SIZE);
-  await supabase.from("pixels").delete().in("id", batch).eq("owner_user_id", userId);
-}
+```ts
+export async function extractImageColors(
+  image: HTMLImageElement,
+  maxColors?: number // default 50
+): Promise<string[]>
 ```
 
-### Files modified
+Logic: draw image to small canvas (~200px wide for speed), read pixels, build frequency map of `#RRGGBB`, sort by count descending, return top N. Optionally merge very similar colors (delta < 10) to avoid near-duplicates.
+
+### 2. `src/components/map/TemplateOverlay.tsx` — Extract raw colors
+- Add a new effect that runs `extractImageColors` when image loads (regardless of mode — works in both image and pixelGuide mode)
+- Pass result up via a new prop `onRawColorsChange?: (colors: string[]) => void`
+
+### 3. `src/components/map/BitplaceMap.tsx` — Wire new prop
+- Add `templateRawColors` state, pass setter to `TemplateOverlay`, pass value to `ActionTray` as `templateGuideColors` (replacing the palette-quantized version)
+
+### Result
+The "From template" section in Custom tab will show the **actual dominant colors** from the uploaded image, sorted by how frequently they appear.
 
 | File | Change |
 |------|--------|
-| `supabase/functions/game-commit/index.ts` | Batch all `.in()` calls in ERASE block into chunks of 500 to avoid PostgREST URL length truncation |
-
-No frontend changes needed — the optimistic removal and reconciliation logic is correct. The bug is entirely server-side: pixels aren't actually being deleted from the database.
+| `src/lib/paletteQuantizer.ts` | Add `extractImageColors` function |
+| `src/components/map/TemplateOverlay.tsx` | Call `extractImageColors`, expose via new callback prop |
+| `src/components/map/BitplaceMap.tsx` | Wire raw colors to ActionTray instead of palette-quantized colors |
 
