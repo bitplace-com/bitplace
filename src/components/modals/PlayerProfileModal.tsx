@@ -298,7 +298,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId, onJumpToPixel
                   <p className="text-sm text-muted-foreground">No pixels owned yet</p>
                 </div>
               ) : clusters.length === 1 ? (
-                <div className="flex flex-col items-center gap-1">
+                <div className="flex flex-col items-center gap-1 p-1">
                   <ClusterCanvas
                     cluster={clusters[0]}
                     onClick={() => {
@@ -313,7 +313,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId, onJumpToPixel
                 </div>
               ) : (
                 <ScrollArea className="max-h-52">
-                  <div className="grid grid-cols-2 gap-2 pr-2">
+                  <div className="grid grid-cols-2 gap-2 p-1 pr-3">
                     {clusters.map((cluster, i) => (
                       <div key={i} className="flex flex-col items-center gap-1">
                         <ClusterCanvas

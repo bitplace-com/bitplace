@@ -90,7 +90,7 @@ export function clusterPixels(pixels: PixelData[], gap = 3): Cluster[] {
     .sort((a, b) => b.pixels.length - a.pixels.length);
 }
 
-/** Mini canvas that renders a cluster */
+/** Mini canvas that renders a cluster with real map tile background */
 export function ClusterCanvas({
   cluster,
   onClick,
@@ -113,41 +113,74 @@ export function ClusterCanvas({
     canvas.height = size * dpr;
     ctx.scale(dpr, dpr);
 
+    // Fallback background
     const isDark = document.documentElement.classList.contains('dark');
     ctx.fillStyle = isDark ? '#2a2a2a' : '#e8e0d8';
     ctx.fillRect(0, 0, size, size);
 
-    // Subtle grid lines for map-like feel
-    ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)';
-    ctx.lineWidth = 0.5;
-    const gridStep = 10;
-    for (let gx = 0; gx < size; gx += gridStep) {
-      ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, size); ctx.stroke();
-    }
-    for (let gy = 0; gy < size; gy += gridStep) {
-      ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(size, gy); ctx.stroke();
-    }
+    const drawPixels = () => {
+      const { minX, maxX, minY, maxY, pixels } = cluster;
+      const rangeX = maxX - minX + 1;
+      const rangeY = maxY - minY + 1;
+      const padding = 4;
+      const available = size - padding * 2;
+      const pixelSize = Math.max(1, Math.min(available / rangeX, available / rangeY, 10));
+      const drawW = rangeX * pixelSize;
+      const drawH = rangeY * pixelSize;
+      const offX = (size - drawW) / 2;
+      const offY = (size - drawH) / 2;
 
-    const { minX, maxX, minY, maxY, pixels } = cluster;
-    const rangeX = maxX - minX + 1;
-    const rangeY = maxY - minY + 1;
-    const padding = 4;
-    const available = size - padding * 2;
-    const pixelSize = Math.max(1, Math.min(available / rangeX, available / rangeY, 10));
-    const drawW = rangeX * pixelSize;
-    const drawH = rangeY * pixelSize;
-    const offX = (size - drawW) / 2;
-    const offY = (size - drawH) / 2;
+      pixels.forEach(p => {
+        ctx.fillStyle = p.color || '#888888';
+        ctx.fillRect(
+          offX + (p.x - minX) * pixelSize,
+          offY + (p.y - minY) * pixelSize,
+          pixelSize - 0.3,
+          pixelSize - 0.3,
+        );
+      });
+    };
 
-    pixels.forEach(p => {
-      ctx.fillStyle = p.color || '#888888';
-      ctx.fillRect(
-        offX + (p.x - minX) * pixelSize,
-        offY + (p.y - minY) * pixelSize,
-        pixelSize - 0.3,
-        pixelSize - 0.3,
-      );
-    });
+    // Load OSM tile as background
+    const { lng, lat } = gridIntToLngLat(cluster.centerX, cluster.centerY);
+    // Choose tile zoom based on cluster spread
+    const spread = Math.max(cluster.maxX - cluster.minX, cluster.maxY - cluster.minY);
+    const tileZoom = spread > 200 ? 10 : spread > 50 ? 12 : spread > 10 ? 14 : 16;
+    const n = Math.pow(2, tileZoom);
+    const tileX = Math.floor((lng + 180) / 360 * n);
+    const latRad = lat * Math.PI / 180;
+    const tileY = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+
+    // Fractional position within tile for centering
+    const fracX = ((lng + 180) / 360 * n) - tileX;
+    const fracY = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n) - tileY;
+
+    const tileImg = new Image();
+    tileImg.crossOrigin = 'anonymous';
+    tileImg.onload = () => {
+      // Draw tile centered on cluster position
+      const tileW = 256;
+      const srcX = fracX * tileW - size / 2;
+      const srcY = fracY * tileW - size / 2;
+
+      // Clear and draw tile
+      ctx.clearRect(0, 0, size, size);
+      ctx.drawImage(tileImg, -srcX, -srcY, tileW, tileW);
+
+      // Darken overlay for contrast
+      ctx.fillStyle = isDark ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.25)';
+      ctx.fillRect(0, 0, size, size);
+
+      drawPixels();
+    };
+    tileImg.onerror = () => {
+      // Fallback: just draw pixels on plain background
+      drawPixels();
+    };
+    tileImg.src = `https://tile.openstreetmap.org/${tileZoom}/${tileX}/${tileY}.png`;
+
+    // Also draw pixels immediately (will be overwritten when tile loads)
+    drawPixels();
   }, [cluster, size]);
 
   return (
