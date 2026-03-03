@@ -1,73 +1,39 @@
 
 
-# Replace global mini-map with inline cluster cards + map-style background
+# Fix cluster clipping + map tile background
 
-## Problem
-The single combined `PixelMiniMap` in the player profile shows all pixels squashed together on a black background, making artwork unrecognizable. The user wants individual cluster artworks shown directly in the profile (like the expanded Paints modal), with the map's actual appearance as background instead of solid black.
+## Problems
+1. **Hover ring clipped**: The `hover:ring-2` on `ClusterCanvas` gets cut off by the `ScrollArea`'s overflow:hidden — need padding inside the scroll container.
+2. **Map background**: User wants the actual map portion behind each artwork instead of the plain beige/grid background.
 
 ## Approach
 
-### File: `src/components/modals/PlayerProfileModal.tsx`
+### 1. Fix clipping (`PlayerProfileModal.tsx`)
+Add `p-1` padding inside the ScrollArea's content wrapper and on the single-cluster container so the ring outline has room to render without being clipped.
 
-1. **Remove `PixelMiniMap` component** (lines 37-111) — replace with inline cluster rendering using the existing `clusterPixels` algorithm from `OwnerArtworkModal.tsx`.
+### 2. Map tile background (`OwnerArtworkModal.tsx` — `ClusterCanvas`)
 
-2. **Import `clusterPixels` from OwnerArtworkModal** — extract it to a shared util or import directly. Since `clusterPixels` is not exported, we'll either export it or duplicate the clustering inline. Cleaner: export it from `OwnerArtworkModal.tsx`.
+Use the cluster's center coordinates to compute an OpenStreetMap raster tile URL, load it as an `Image`, and draw it as the canvas background before rendering pixels on top.
 
-3. **New inline "Paints" section** replaces `PixelMiniMap`:
-   - Use `useMemo` to compute clusters from `profile.pixels`
-   - Show clusters in a horizontal scroll or 2-column grid (max height with scroll)
-   - Each cluster rendered as a `ClusterCanvas`-style canvas
-   - If single cluster: show larger, centered
-   - If multiple: show grid of thumbnails, each clickable to jump
+- Convert cluster center (grid int) → lng/lat via `gridIntToLngLat`
+- Compute OSM tile coordinates at a suitable zoom (z=14–16 depending on cluster spread)
+- Load tile from `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
+- Draw the tile image (cropped/centered on the exact position) as background
+- Then draw the pixel artwork on top with slight opacity or as-is
+- Fallback to the current beige background if tile fails to load
 
-4. **Map-style background for cluster canvases**: 
-   - Fetching actual map tiles for arbitrary coordinates is complex and slow. Instead, use a **light neutral background** that matches the map's base appearance (light beige/gray like OpenStreetMap) rather than `hsl(var(--muted))` which resolves to black in canvas context.
-   - Set canvas background to `#e8e0d8` (light mode map tone) or detect theme and use appropriate neutral. This gives a "map-like" feel without expensive tile fetching.
-   - Apply a subtle grid pattern (1px lines every N pixels) to evoke the pixel grid on the map.
-
-### File: `src/components/map/OwnerArtworkModal.tsx`
-
-- **Export `clusterPixels`** function and **`ClusterCanvas`** component so they can be reused in `PlayerProfileModal`.
-
-### Changes in `PlayerProfileModal.tsx` Paints section (lines 344-376):
-
-Replace `PixelMiniMap` with:
-```tsx
-const clusters = useMemo(() => clusterPixels(profile.pixels, 5), [profile.pixels]);
-
-// In JSX: show clusters inline
-{clusters.length === 0 ? (
-  <div>No pixels owned yet</div>
-) : clusters.length === 1 ? (
-  <ClusterCanvas cluster={clusters[0]} size={240} onClick={...} />
-) : (
-  <ScrollArea className="max-h-48">
-    <div className="grid grid-cols-2 gap-2">
-      {clusters.map((c, i) => <ClusterCanvas key={i} cluster={c} size={140} onClick={...} />)}
-    </div>
-  </ScrollArea>
-)}
+Tile math:
+```
+tileX = floor((lng + 180) / 360 * 2^z)
+tileY = floor((1 - ln(tan(latRad) + 1/cos(latRad)) / π) / 2 * 2^z)
 ```
 
-### ClusterCanvas background fix (OwnerArtworkModal.tsx line 116-117):
+The tile image is 256×256. We calculate the fractional position within the tile to center the drawing correctly.
 
-Change from:
-```tsx
-ctx.fillStyle = 'hsl(var(--muted))';  // doesn't work in canvas
-```
-To:
-```tsx
-// Use a map-like neutral background
-const isDark = document.documentElement.classList.contains('dark');
-ctx.fillStyle = isDark ? '#2a2a2a' : '#e8e0d8';
-```
-
-Add subtle grid lines after the background fill to give a map/grid feel.
-
-## Files modified
+### Files modified
 
 | File | Change |
 |------|--------|
-| `src/components/map/OwnerArtworkModal.tsx` | Export `clusterPixels` + `ClusterCanvas`, fix background color |
-| `src/components/modals/PlayerProfileModal.tsx` | Replace `PixelMiniMap` with inline clusters using shared components |
+| `src/components/map/OwnerArtworkModal.tsx` | Load OSM raster tile as canvas background in `ClusterCanvas`; import `gridIntToLngLat` |
+| `src/components/modals/PlayerProfileModal.tsx` | Add padding inside ScrollArea and single-cluster wrapper to prevent ring clipping |
 
