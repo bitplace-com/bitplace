@@ -499,8 +499,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             setEnergy({ ...defaultEnergyState, peTotal: virtualPeTotal, peUsed: virtualPeUsed, peAvailable: virtualPeAvailable, isVirtualPe: true, virtualPeTotal, virtualPeUsed, virtualPeAvailable, lastSyncAt: new Date(), isRefreshing: false, isStale: false });
           }
           walletDebug('google_auth_complete', { userId: googleUser.id, provider: googleUser.auth_provider });
-          const toastMsg = googleUser.auth_provider === 'both' ? 'Google linked! Wallet + Pixels active' : `${virtualPeAvailable.toLocaleString()} Pixels ready to use`;
-          toast.success('Signed in with Google!', { description: toastMsg });
+          toast.success('Signed in with Google!');
+          setTimeout(() => {
+            if (googleUser.auth_provider === 'both') {
+              toast.success('Google linked!', { description: 'Wallet + Pixels active' });
+            } else {
+              toast.success('300,000 Pixels credited!', {
+                description: 'Free pixels to draw anywhere. They expire after 72h but you can renew them.'
+              });
+            }
+          }, 800);
           soundEngine.play('wallet_connect');
           warmupAuthenticatedFunctions(data.token).catch(err => walletDebug('warmup_error', err));
           setTimeout(() => { refreshEnergy(); refreshPeStatus(); }, 500);

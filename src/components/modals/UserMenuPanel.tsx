@@ -164,7 +164,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                     Open the Pixel Control Center to renew all your painted pixels at once and reset the 72h timer before they disappear.
                   </p>
                 </div>
-                <button onClick={() => { setPixelAlertDismissed(true); localStorage.setItem('bitplace_pixel_alert_dismissed', '1'); }} className="shrink-0 p-0.5 rounded hover:bg-amber-500/20 transition-colors">
+                <button onClick={() => { setPixelAlertDismissed(true); localStorage.setItem('bitplace_pixel_alert_dismissed', '1'); }} className="shrink-0 p-0.5 rounded hover:bg-amber-500/20 transition-colors focus:outline-none">
                   <PixelIcon name="close" className="h-3 w-3 text-amber-500" />
                 </button>
               </div>
