@@ -400,7 +400,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline">Privacy Policy</a>
           </p>
           <p className="text-[10px] text-muted-foreground/60 mt-1">
-            v1.0.0 • Made with ❤️ by Bitplace Team
+            Made with 🖤 by Bitplace Team
           </p>
         </div>
       </div>
