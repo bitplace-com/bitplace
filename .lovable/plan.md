@@ -1,47 +1,110 @@
 
 
-# Rallentare animazione STARTER e rinominare in BITPLACER
+# Admin Privileges for team@bitplace.com + Auto-Paint Templates
 
-## 1. Rallentare animazione SVG
+## Overview
 
-**File: `src/components/icons/custom/PixelStarterText.tsx`**
+Three changes: (1) give 1M pixels to the admin account, (2) bypass cooldown and pixel limits on the backend, (3) add an "Auto-Paint" button in the Templates panel that automatically paints all template pixels with a progress bar.
 
-- Cambiare `dur="2s"` a `dur="3.5s"` sui 4 `<animate>` (stessa cosa per `PixelStarter.tsx`)
-- Aggiornare il testo SVG da `STARTER` a `BITPLACER`
-- Allargare il viewBox da `0 0 52 14` a `0 0 68 14` per il testo piu' lungo, e centrare `x="34"`
+## 1. Load 1M Pixels for team@bitplace.com
 
-**File: `src/components/icons/custom/PixelStarter.tsx`**
+**Database update** (via insert tool):
+```sql
+UPDATE users SET virtual_pe_total = 1000000 WHERE email = 'team@bitplace.com';
+```
 
-- Cambiare `dur="2s"` a `dur="3.5s"` sui 4 `<animate>` (icona penna usata nella leaderboard)
+## 2. Backend: Admin Bypass for Cooldown + Pixel Limits
 
-## 2. Rinominare STARTER -> BITPLACER ovunque
+Add `ADMIN_EMAILS` list to both edge functions. Look up user email to determine admin status.
 
-**File: `src/components/wallet/WalletButton.tsx`** (riga 79)
-- Fallback testo: `'Starter'` -> `'Bitplacer'`
+**File: `supabase/functions/game-validate/index.ts`**
+- Add `const ADMIN_EMAILS = ["team@bitplace.com"];`
+- After fetching user data in `handlePaintFastPath`, also fetch `email` column
+- If admin: skip cooldown check, raise `MAX_PAINT_PIXELS` to 50,000
+- In main entry: skip `MAX_PAINT_PIXELS` check for admin (need to fetch email before the limit check, or move limit check after user fetch)
 
-**File: `src/components/modals/WalletSelectModal.tsx`** (riga 122)
-- Badge inline: `STARTER` -> `BITPLACER`
+**File: `supabase/functions/game-commit/index.ts`**
+- Add `const ADMIN_EMAILS = ["team@bitplace.com"];`
+- After fetching user, also select `email`
+- If admin: skip cooldown check, skip `MAX_PAINT_PIXELS` limit, skip `PAINT_COOLDOWN_SECONDS` (don't set `paint_cooldown_until`)
 
-**File: `src/components/modals/GuidedTour.tsx`** (riga 84)
-- Label: `"Google (Starter)"` -> `"Google (Bitplacer)"`
+Implementation detail: In game-validate, the MAX_PAINT_PIXELS check happens before user fetch. We'll move the pixel count check inside `handlePaintFastPath` (after user fetch) for PAINT mode, or fetch the email early. Simplest: fetch email in a lightweight query before the limit check, or just increase the pre-auth limit to 50,000 globally and enforce 1,000 per-user inside the fast path for non-admins.
 
-**File: `src/components/modals/RulesModal.tsx`** (riga 214)
-- Descrizione: `"Starter accounts"` -> `"Bitplacer accounts"`
+Best approach: Change the pre-auth limit from 1,000 to 50,000 for PAINT globally (this is just an input sanity check). Inside `handlePaintFastPath`, after fetching user+email, enforce `MAX_PAINT_PIXELS=1000` for non-admins only. Same for game-commit.
 
-**File: `src/components/map/inspector/ActionBox.tsx`** (riga 100)
-- Testo: `"Starter accounts"` -> `"Bitplacer accounts"`
+## 3. Frontend: Auto-Paint Template Feature
 
-**File: `src/components/ui/starter-badge.tsx`** (riga 17)
-- Title: `"Starter — Playing with free Pixels"` -> `"Bitplacer — Playing with free Pixels"`
+### 3a. New Hook: `useAutoPaint`
 
-## File coinvolti
+**New file: `src/hooks/useAutoPaint.ts`**
 
-1. `src/components/icons/custom/PixelStarterText.tsx` -- rallentare + testo BITPLACER
-2. `src/components/icons/custom/PixelStarter.tsx` -- rallentare animazione
-3. `src/components/wallet/WalletButton.tsx` -- rinominare fallback
-4. `src/components/modals/WalletSelectModal.tsx` -- rinominare badge
-5. `src/components/map/GuidedTour.tsx` -- rinominare label
-6. `src/components/modals/RulesModal.tsx` -- rinominare descrizione
-7. `src/components/map/inspector/ActionBox.tsx` -- rinominare testo
-8. `src/components/ui/starter-badge.tsx` -- rinominare title
+A hook that:
+- Takes quantized pixels (from template) + template position
+- Calls validate → commit in chunked batches (1,000 pixels per batch for non-admin, but admin will handle more)
+- Tracks overall progress: `{ phase, currentBatch, totalBatches, pixelsProcessed, pixelsTotal }`
+- Exposes `startAutoPaint()`, `cancelAutoPaint()`, `progress`, `isRunning`
+
+Flow per batch:
+1. Build pixel array with absolute grid coordinates (template.positionX + dx, template.positionY + dy) and per-pixel color
+2. Call `game-validate` with mode PAINT, get snapshotHash
+3. Call `game-commit` with snapshotHash
+4. Update progress, move to next batch
+5. On error: stop and report
+
+### 3b. Auto-Paint Button in TemplateDetailView
+
+**File: `src/components/map/TemplateDetailView.tsx`**
+
+Add a new button "Auto-Paint" below "Recenter" when the template is in `pixelGuide` mode:
+- Only visible if user email === admin email (check from WalletContext user object)
+- On click: calls `startAutoPaint(quantizedPixels)`
+- While running: shows a progress bar (using the existing `Progress` component) with text like "Painting... 1,240 / 5,000 pixels"
+- Cancel button to abort
+
+### 3c. Wire Up in Parent Components
+
+The TemplateDetailView needs access to:
+- The quantized pixels from TemplateOverlay (already computed and available)
+- The game actions (validate/commit)
+
+Pass `onAutoPaint` callback and `autoPaintProgress` state from MapPage/BitplaceMap down through TemplatesPanel → TemplateDetailView.
+
+### 3d. Frontend Draft Limit Bypass
+
+**File: `src/components/map/hooks/useDraftPaint.ts`**
+
+Not needed for auto-paint (it bypasses the draft system entirely). The auto-paint calls validate/commit directly.
+
+## Technical Details
+
+### Admin Detection
+
+- Backend: `ADMIN_EMAILS` array checked against user.email after DB fetch
+- Frontend: Check `user?.email === 'team@bitplace.com'` from WalletContext (already available)
+
+### Chunking Strategy
+
+- Default chunk size: 1,000 pixels (matches existing MAX_PAINT_PIXELS)
+- For admin: chunk size can be raised to 5,000 for faster throughput
+- Sequential processing (batch N must complete before batch N+1)
+- No cooldown between batches for admin
+
+### Progress Bar
+
+Using the existing `Progress` component from `src/components/ui/progress.tsx`:
+```tsx
+<Progress value={(pixelsProcessed / pixelsTotal) * 100} />
+<p className="text-xs text-muted-foreground">
+  Painting... {pixelsProcessed.toLocaleString()} / {pixelsTotal.toLocaleString()}
+</p>
+```
+
+## Files to Create/Edit
+
+1. **`supabase/functions/game-validate/index.ts`** -- admin bypass for cooldown + pixel limit
+2. **`supabase/functions/game-commit/index.ts`** -- admin bypass for cooldown + pixel limit + no cooldown set after paint
+3. **`src/hooks/useAutoPaint.ts`** -- new hook for chunked auto-paint
+4. **`src/components/map/TemplateDetailView.tsx`** -- add Auto-Paint button + progress bar
+5. **`src/components/map/TemplatesPanel.tsx`** -- pass new props through
+6. **DB update** -- set virtual_pe_total = 1,000,000 for team@bitplace.com
 
