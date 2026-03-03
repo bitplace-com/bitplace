@@ -176,6 +176,14 @@ export function ActionTray({
     });
   }, []);
 
+  const removeRecentCustomColor = useCallback((color: string) => {
+    setRecentCustomColors(prev => {
+      const next = prev.filter(c => c !== color.toUpperCase());
+      localStorage.setItem('bitplace-custom-colors', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const handleCustomColorApply = useCallback((hex: string) => {
     const clean = hex.startsWith('#') ? hex : `#${hex}`;
     if (/^#[0-9a-fA-F]{6}$/.test(clean)) {
@@ -539,12 +547,12 @@ export function ActionTray({
                         </button>
                       </div>
 
-                      {/* Recent custom colors */}
-                      {recentCustomColors.length > 0 && (
+                      {/* Template-detected colors */}
+                      {templateGuideColors.length > 0 && (
                         <div className="space-y-1.5">
-                          <span className="text-[10px] text-muted-foreground">Recent</span>
-                          <div className="flex gap-1 flex-wrap">
-                            {recentCustomColors.map((color) => {
+                          <span className="text-[10px] text-muted-foreground">From template</span>
+                          <div className="flex gap-1 flex-wrap max-h-24 overflow-y-auto">
+                            {templateGuideColors.slice(0, 30).map((color) => {
                               const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
                               return (
                                 <button
@@ -562,6 +570,43 @@ export function ActionTray({
                                   style={{ backgroundColor: color }}
                                   title={color}
                                 />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recent custom colors */}
+                      {recentCustomColors.length > 0 && (
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] text-muted-foreground">Recent</span>
+                          <div className="flex gap-1 flex-wrap">
+                            {recentCustomColors.map((color) => {
+                              const isSelected = selectedColor?.toUpperCase() === color.toUpperCase();
+                              return (
+                                <div key={color} className="relative group">
+                                  <button
+                                    onClick={() => handleCustomColorApply(color)}
+                                    onMouseEnter={() => setHoveredColor(color)}
+                                    onMouseLeave={() => setHoveredColor(null)}
+                                    disabled={!canPaint}
+                                    className={cn(
+                                      "w-8 h-8 sm:w-6 sm:h-6 rounded-md transition-all duration-100 focus:outline-none touch-target",
+                                      canPaint && "hover:ring-1 hover:ring-foreground/30",
+                                      isSelected && "ring-2 ring-foreground scale-105 z-10",
+                                      !canPaint && "opacity-40 cursor-not-allowed"
+                                    )}
+                                    style={{ backgroundColor: color }}
+                                    title={color}
+                                  />
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); removeRecentCustomColor(color); }}
+                                    className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-background border border-border text-muted-foreground text-[8px] leading-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:text-foreground"
+                                    title="Remove"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
                               );
                             })}
                           </div>
