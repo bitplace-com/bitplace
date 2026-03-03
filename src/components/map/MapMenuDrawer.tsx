@@ -55,7 +55,7 @@ export function MapMenuDrawer() {
         <SheetContent
           side="left"
           className={cn(
-            "w-[280px] sm:max-w-[280px] p-0 gap-0",
+            "w-[280px] sm:max-w-[280px] p-0 gap-0 flex flex-col",
             "glass-hud-strong border-r border-hud-border shadow-2xl",
             "bg-background/95 backdrop-blur-xl"
           )}
@@ -133,7 +133,7 @@ export function MapMenuDrawer() {
           </nav>
 
           {/* Footer */}
-          <div className="flex flex-col gap-1 px-3 pb-4 pt-3 border-t border-border/30">
+          <div className="mt-auto flex flex-col gap-1 px-3 pb-4 pt-3 border-t border-border/30">
             <Button
               variant="ghost"
               onClick={() => setSettingsOpen(true)}
