@@ -2,12 +2,7 @@ import { useState } from "react";
 import { PixelIcon } from "@/components/icons";
 import { useTheme } from "next-themes";
 import { useNavigate, useLocation } from "react-router-dom";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { GlassIconButton } from "@/components/ui/glass-icon-button";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -56,19 +51,20 @@ export function MapMenuDrawer() {
         <PixelIcon name="menu" size="md" />
       </GlassIconButton>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent
+          side="left"
           className={cn(
-            "max-w-xs w-full p-0 gap-0 rounded-2xl",
-            "glass-hud-strong border border-hud-border shadow-2xl",
+            "w-[280px] sm:max-w-[280px] p-0 gap-0",
+            "glass-hud-strong border-r border-hud-border shadow-2xl",
             "bg-background/95 backdrop-blur-xl"
           )}
         >
-          <DialogHeader className="px-5 pt-5 pb-3 text-left">
-            <DialogTitle className="text-lg font-semibold text-foreground">
+          <div className="px-5 pt-5 pb-3 text-left">
+            <h2 className="text-lg font-semibold text-foreground">
               Bitplace
-            </DialogTitle>
-          </DialogHeader>
+            </h2>
+          </div>
 
           <nav className="px-3 pb-3 space-y-4">
             {/* HOME section */}
@@ -148,8 +144,8 @@ export function MapMenuDrawer() {
             </Button>
             <ThemeToggleButton />
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       <RulesModal open={rulesOpen} onOpenChange={setRulesOpen} />
       <ShopModal open={shopOpen} onOpenChange={setShopOpen} />
