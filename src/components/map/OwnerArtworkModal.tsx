@@ -15,7 +15,7 @@ interface PixelData {
   color: string;
 }
 
-interface Cluster {
+export interface Cluster {
   pixels: PixelData[];
   minX: number;
   maxX: number;
@@ -34,7 +34,7 @@ interface OwnerArtworkModalProps {
 }
 
 /** Union-Find for clustering nearby pixels */
-function clusterPixels(pixels: PixelData[], gap = 3): Cluster[] {
+export function clusterPixels(pixels: PixelData[], gap = 3): Cluster[] {
   if (pixels.length === 0) return [];
 
   const keyMap = new Map<string, number>();
@@ -91,7 +91,7 @@ function clusterPixels(pixels: PixelData[], gap = 3): Cluster[] {
 }
 
 /** Mini canvas that renders a cluster */
-function ClusterCanvas({
+export function ClusterCanvas({
   cluster,
   onClick,
   size = 120,
@@ -113,8 +113,20 @@ function ClusterCanvas({
     canvas.height = size * dpr;
     ctx.scale(dpr, dpr);
 
-    ctx.fillStyle = 'hsl(var(--muted))';
+    const isDark = document.documentElement.classList.contains('dark');
+    ctx.fillStyle = isDark ? '#2a2a2a' : '#e8e0d8';
     ctx.fillRect(0, 0, size, size);
+
+    // Subtle grid lines for map-like feel
+    ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)';
+    ctx.lineWidth = 0.5;
+    const gridStep = 10;
+    for (let gx = 0; gx < size; gx += gridStep) {
+      ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, size); ctx.stroke();
+    }
+    for (let gy = 0; gy < size; gy += gridStep) {
+      ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(size, gy); ctx.stroke();
+    }
 
     const { minX, maxX, minY, maxY, pixels } = cluster;
     const rangeX = maxX - minX + 1;

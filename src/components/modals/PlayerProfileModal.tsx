@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useMemo } from "react";
 import { PixelIcon } from "@/components/icons";
 import { ProBadge } from "@/components/ui/pro-badge";
 import { AdminBadge } from "@/components/ui/admin-badge";
@@ -13,7 +13,8 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { usePlayerProfile, PlayerPixel } from "@/hooks/usePlayerProfile";
 import { useFollows, useFollowerCount } from "@/hooks/useFollows";
 import { useWallet } from "@/contexts/WalletContext";
-import { OwnerArtworkModal } from "@/components/map/OwnerArtworkModal";
+import { OwnerArtworkModal, clusterPixels, ClusterCanvas } from "@/components/map/OwnerArtworkModal";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { AvatarFallback } from "@/components/ui/avatar-fallback-pattern";
 import { getCountryByCode } from "@/lib/countries";
 import { cn } from "@/lib/utils";
@@ -33,83 +34,7 @@ function peToUsd(pe: number): string {
   return usd < 0.01 ? `$${usd.toFixed(3)}` : `$${usd.toFixed(2)}`;
 }
 
-// Mini-map component that shows player's pixels
-function PixelMiniMap({ pixels, onClick }: { pixels: PlayerPixel[]; onClick?: () => void }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || pixels.length === 0) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const displayWidth = canvas.clientWidth;
-    const displayHeight = canvas.clientHeight;
-    
-    canvas.width = displayWidth * dpr;
-    canvas.height = displayHeight * dpr;
-    ctx.scale(dpr, dpr);
-
-    ctx.fillStyle = 'hsl(var(--muted))';
-    ctx.fillRect(0, 0, displayWidth, displayHeight);
-
-    if (pixels.length === 0) return;
-
-    const xs = pixels.map(p => p.x);
-    const ys = pixels.map(p => p.y);
-    const minX = Math.min(...xs);
-    const maxX = Math.max(...xs);
-    const minY = Math.min(...ys);
-    const maxY = Math.max(...ys);
-
-    const rangeX = maxX - minX + 1;
-    const rangeY = maxY - minY + 1;
-    
-    const padding = 10;
-    const availableWidth = displayWidth - padding * 2;
-    const availableHeight = displayHeight - padding * 2;
-    
-    const pixelSize = Math.max(2, Math.min(
-      availableWidth / rangeX,
-      availableHeight / rangeY,
-      8
-    ));
-
-    const drawWidth = rangeX * pixelSize;
-    const drawHeight = rangeY * pixelSize;
-    const offsetX = (displayWidth - drawWidth) / 2;
-    const offsetY = (displayHeight - drawHeight) / 2;
-
-    pixels.forEach(pixel => {
-      const x = offsetX + (pixel.x - minX) * pixelSize;
-      const y = offsetY + (pixel.y - minY) * pixelSize;
-      ctx.fillStyle = pixel.color || '#888888';
-      ctx.fillRect(x, y, pixelSize - 0.5, pixelSize - 0.5);
-    });
-  }, [pixels]);
-
-  if (pixels.length === 0) {
-    return (
-      <div className="w-full h-32 rounded-lg bg-muted flex items-center justify-center">
-        <p className="text-sm text-muted-foreground">No pixels owned yet</p>
-      </div>
-    );
-  }
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className={cn(
-        "w-full h-32 rounded-lg",
-        onClick && "cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
-      )}
-      style={{ imageRendering: 'pixelated' }}
-      onClick={onClick}
-    />
-  );
-}
+// PixelMiniMap removed — replaced by inline cluster rendering using ClusterCanvas
 
 function StatCard({ 
   label, 
@@ -152,6 +77,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId, onJumpToPixel
   const [artworkModalOpen, setArtworkModalOpen] = useState(false);
 
   const isOwnProfile = userId && playerId === userId;
+  const clusters = useMemo(() => profile ? clusterPixels(profile.pixels, 5) : [], [profile]);
   const following = playerId ? isFollowing(playerId) : false;
 
   const handleFollowToggle = async () => {
@@ -340,7 +266,7 @@ export function PlayerProfileModal({ open, onOpenChange, playerId, onJumpToPixel
 
             <Separator />
 
-            {/* Mini-map - clickable to open Paints modal */}
+            {/* Paints - inline clusters */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-medium flex items-center gap-1.5">
@@ -366,10 +292,50 @@ export function PlayerProfileModal({ open, onOpenChange, playerId, onJumpToPixel
                   </div>
                 )}
               </div>
-              <PixelMiniMap
-                pixels={profile.pixels}
-                onClick={profile.pixels.length > 0 ? () => setArtworkModalOpen(true) : undefined}
-              />
+
+              {clusters.length === 0 ? (
+                <div className="w-full h-32 rounded-lg bg-muted flex items-center justify-center">
+                  <p className="text-sm text-muted-foreground">No pixels owned yet</p>
+                </div>
+              ) : clusters.length === 1 ? (
+                <div className="flex flex-col items-center gap-1">
+                  <ClusterCanvas
+                    cluster={clusters[0]}
+                    onClick={() => {
+                      const { lng, lat } = gridIntToLngLat(clusters[0].centerX, clusters[0].centerY);
+                      window.dispatchEvent(new CustomEvent('bitplace:navigate', {
+                        detail: { lat, lng, zoom: 18, pixelX: clusters[0].centerX, pixelY: clusters[0].centerY }
+                      }));
+                      onOpenChange(false);
+                    }}
+                    size={240}
+                  />
+                </div>
+              ) : (
+                <ScrollArea className="max-h-52">
+                  <div className="grid grid-cols-2 gap-2 pr-2">
+                    {clusters.map((cluster, i) => (
+                      <div key={i} className="flex flex-col items-center gap-1">
+                        <ClusterCanvas
+                          cluster={cluster}
+                          onClick={() => {
+                            const { lng, lat } = gridIntToLngLat(cluster.centerX, cluster.centerY);
+                            window.dispatchEvent(new CustomEvent('bitplace:navigate', {
+                              detail: { lat, lng, zoom: 18, pixelX: cluster.centerX, pixelY: cluster.centerY }
+                            }));
+                            onOpenChange(false);
+                          }}
+                          size={140}
+                        />
+                        <span className="text-[10px] text-muted-foreground">
+                          {cluster.pixels.length.toLocaleString()} px
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+
               <span className="text-xs text-muted-foreground">
                 {profile.totalPixelsOwned} pixel{profile.totalPixelsOwned !== 1 ? 's' : ''} owned
               </span>
