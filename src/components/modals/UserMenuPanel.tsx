@@ -96,11 +96,6 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                 <p className="font-semibold text-foreground truncate">
                   {user?.display_name || "Anonymous"}
                 </p>
-                {isGoogleOnly && (
-                  user?.auth_provider !== 'both' ? (
-                    <StarterBadge shine size="sm" />
-                  ) : null
-                )}
                 {energy.nativeBalance >= 1 && (
                   <ProBadge shine size="sm" />
                 )}
