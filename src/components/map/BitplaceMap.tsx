@@ -176,15 +176,18 @@ export function BitplaceMap() {
   const [templateGuideColors, setTemplateGuideColors] = useState<string[]>([]);
   const [templateRawColors, setTemplateRawColors] = useState<string[]>([]);
   const [templateQuantizedPixels, setTemplateQuantizedPixels] = useState<import('@/lib/paletteQuantizer').QuantizedPixel[]>([]);
+  const [templateRawQuantizedPixels, setTemplateRawQuantizedPixels] = useState<import('@/lib/paletteQuantizer').QuantizedPixel[]>([]);
   const templateDragOffsetRef = useRef<{ dx: number; dy: number } | null>(null);
   const pendingScaleRef = useRef<number | null>(null);
   const { startAutoPaint, cancelAutoPaint, resetProgress, progress: autoPaintProgress, isRunning: isAutoPainting } = useAutoPaint();
   const isAdminUser = user?.email === 'team@bitplace.com';
 
   const handleAutoPaint = useCallback(() => {
-    if (!activeTemplate || templateQuantizedPixels.length === 0) return;
-    startAutoPaint(templateQuantizedPixels, activeTemplate.positionX, activeTemplate.positionY);
-  }, [activeTemplate, templateQuantizedPixels, startAutoPaint]);
+    if (!activeTemplate) return;
+    const pixels = templateRawQuantizedPixels.length > 0 ? templateRawQuantizedPixels : templateQuantizedPixels;
+    if (pixels.length === 0) return;
+    startAutoPaint(pixels, activeTemplate.positionX, activeTemplate.positionY);
+  }, [activeTemplate, templateRawQuantizedPixels, templateQuantizedPixels, startAutoPaint]);
 
   // Auto-center and auto-scale template on add
   const handleAddTemplate = useCallback(async (file: File) => {
@@ -1865,6 +1868,7 @@ export function BitplaceMap() {
             onGuideColorsChange={setTemplateGuideColors}
             onRawColorsChange={setTemplateRawColors}
             onQuantizedPixelsChange={setTemplateQuantizedPixels}
+            onRawQuantizedPixelsChange={setTemplateRawQuantizedPixels}
           />
         )}
 

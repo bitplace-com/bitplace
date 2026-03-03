@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import type maplibregl from 'maplibre-gl';
 import type { Template } from '@/hooks/useTemplates';
 import { lngLatToGridFloat, lngLatToGridInt, getCellSize } from '@/lib/pixelGrid';
-import { quantizeImageAsync, getGuideColors, extractImageColors, type QuantizedPixel } from '@/lib/paletteQuantizer';
+import { quantizeImageAsync, quantizeImageRawAsync, getGuideColors, extractImageColors, type QuantizedPixel } from '@/lib/paletteQuantizer';
 import { cn } from '@/lib/utils';
 
 interface TemplateOverlayProps {
@@ -12,9 +12,10 @@ interface TemplateOverlayProps {
   onGuideColorsChange?: (colors: string[]) => void;
   onRawColorsChange?: (colors: string[]) => void;
   onQuantizedPixelsChange?: (pixels: QuantizedPixel[]) => void;
+  onRawQuantizedPixelsChange?: (pixels: QuantizedPixel[]) => void;
 }
 
-export function TemplateOverlay({ map, template, selectedColor, onGuideColorsChange, onRawColorsChange, onQuantizedPixelsChange }: TemplateOverlayProps) {
+export function TemplateOverlay({ map, template, selectedColor, onGuideColorsChange, onRawColorsChange, onQuantizedPixelsChange, onRawQuantizedPixelsChange }: TemplateOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -91,6 +92,35 @@ export function TemplateOverlay({ map, template, selectedColor, onGuideColorsCha
   useEffect(() => {
     onQuantizedPixelsChange?.(quantizedPixels);
   }, [quantizedPixels, onQuantizedPixelsChange]);
+
+  // Raw quantization (exact image colors) for auto-paint
+  const rawQuantizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!imageLoaded || !imageRef.current || template.mode !== 'pixelGuide') {
+      onRawQuantizedPixelsChange?.([]);
+      return;
+    }
+
+    let cancelled = false;
+    const img = imageRef.current;
+    const scale = template.scale;
+
+    if (rawQuantizeTimerRef.current) clearTimeout(rawQuantizeTimerRef.current);
+
+    rawQuantizeTimerRef.current = setTimeout(() => {
+      if (cancelled) return;
+      quantizeImageRawAsync(img, scale)
+        .then(pixels => {
+          if (!cancelled) onRawQuantizedPixelsChange?.(pixels);
+        });
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      if (rawQuantizeTimerRef.current) clearTimeout(rawQuantizeTimerRef.current);
+    };
+  }, [imageLoaded, template.mode, template.scale, onRawQuantizedPixelsChange]);
 
   // Render Image mode
   const renderImageMode = useCallback(() => {
