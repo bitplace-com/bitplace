@@ -1,14 +1,30 @@
 
 
-# Aggiunta spiegazione permanenza pixel con PE
+# Fix copy e dettagli UI
 
-## Modifica
+## Modifiche
 
-**File: `src/components/modals/ShopModal.tsx`**
+### 1. `src/components/modals/RulesModal.tsx` — Pixel Balance copy (riga 79)
 
-Dopo il paragrafo "How it connects to the game" (riga 141), prima del callout "$BIT is never spent", aggiungere un secondo paragrafo che spiega:
+Riscrivere la description del Pixel Balance:
+- Rimuovere "Pixel Balance pixels" (suona ridondante)
+- Spiegare chiaramente che i pixel si possono rinnovare tutti con un solo click prima della scadenza
+- Linguaggio più semplice e diretto
 
-> Pixels painted with PE are permanent and protected. No one can paint over them unless they place more PE than you have on that pixel. The more energy you put on a pixel, the harder it is for others to take it.
+Nuovo copy: `"A free budget of 300,000 recyclable pixels for Bitplacer accounts. They have no PE value (anyone can paint over them) and expire after 72 hours. Before they expire, you can renew all your pixels at once with a single click from the Pixel Control Center — no need to repaint them one by one."`
 
-Inserito come nuovo `<p>` tra riga 141 e 143, stesso stile `text-sm text-muted-foreground`.
+### 2. `src/components/modals/ShopModal.tsx` — Sezione Pixel Balance (se presente, cercare)
+
+Verificare se c'è menzione del Pixel Balance anche qui e aggiornare con lo stesso copy migliorato sulla rinnovabilità.
+
+### 3. `src/components/modals/SettingsModal.tsx` — Footer (riga 402-404)
+
+- Rimuovere `v1.0.0 •` dalla riga
+- Cambiare `❤️` (cuore rosso) in `🖤` (cuore nero)
+
+Risultato: `Made with 🖤 by Bitplace Team`
+
+### 4. `src/components/modals/WhitePaperModal.tsx` — Pixel Balance copy
+
+Cercare e aggiornare la menzione "Pixel Balance pixels" anche qui con copy migliorato, includendo il rinnovo con un click.
 
