@@ -562,7 +562,7 @@ export function ActionTray({
                                   onMouseLeave={() => setHoveredColor(null)}
                                   disabled={!canPaint}
                                   className={cn(
-                                    "w-8 h-8 sm:w-6 sm:h-6 rounded-md transition-all duration-100 focus:outline-none touch-target",
+                                    "w-8 h-8 sm:w-6 sm:h-6 rounded-md transition-all duration-100 focus:outline-none touch-target shadow-[inset_0_0_0_1px_rgba(0,0,0,0.15)]",
                                     canPaint && "hover:ring-1 hover:ring-foreground/30",
                                     isSelected && "ring-2 ring-foreground scale-105 z-10",
                                     !canPaint && "opacity-40 cursor-not-allowed"
@@ -591,7 +591,7 @@ export function ActionTray({
                                     onMouseLeave={() => setHoveredColor(null)}
                                     disabled={!canPaint}
                                     className={cn(
-                                      "w-8 h-8 sm:w-6 sm:h-6 rounded-md transition-all duration-100 focus:outline-none touch-target",
+                                      "w-8 h-8 sm:w-6 sm:h-6 rounded-md transition-all duration-100 focus:outline-none touch-target shadow-[inset_0_0_0_1px_rgba(0,0,0,0.15)]",
                                       canPaint && "hover:ring-1 hover:ring-foreground/30",
                                       isSelected && "ring-2 ring-foreground scale-105 z-10",
                                       !canPaint && "opacity-40 cursor-not-allowed"

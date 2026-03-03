@@ -156,6 +156,53 @@ export function quantizeImage(
 }
 
 /**
+ * Quantize an image using raw pixel colors (no palette matching).
+ * Each pixel keeps its actual #RRGGBB hex. Used by auto-paint.
+ */
+export async function quantizeImageRawAsync(
+  image: HTMLImageElement,
+  scale: number,
+  options?: QuantizeOptions,
+  onProgress?: (percent: number) => void
+): Promise<QuantizedPixel[]> {
+  const alphaThreshold = options?.alphaThreshold ?? 25;
+  const prepared = prepareImageData(image, scale, alphaThreshold);
+  if (!prepared) return [];
+
+  const { data, guideW, guideH } = prepared;
+  const totalPixels = guideW * guideH;
+  const BATCH_SIZE = 50_000;
+  const pixels: QuantizedPixel[] = [];
+
+  for (let offset = 0; offset < totalPixels; offset += BATCH_SIZE) {
+    const end = Math.min(offset + BATCH_SIZE, totalPixels);
+
+    for (let idx = offset; idx < end; idx++) {
+      const i = idx * 4;
+      const a = data[i + 3];
+      if (a < alphaThreshold) continue;
+
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const hexColor = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
+
+      const dx = idx % guideW;
+      const dy = Math.floor(idx / guideW);
+      pixels.push({ dx, dy, hexColor });
+    }
+
+    if (end < totalPixels) {
+      await new Promise(r => setTimeout(r, 0));
+      onProgress?.(Math.round(end / totalPixels * 100));
+    }
+  }
+
+  onProgress?.(100);
+  return pixels;
+}
+
+/**
  * Quantize an image to palette colors (async batched - prevents UI freeze)
  */
 export async function quantizeImageAsync(
