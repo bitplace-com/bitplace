@@ -1,5 +1,5 @@
 import * as React from "react";
-import * as SheetPrimitive from "@radix-ui/react-dialog";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -76,58 +76,79 @@ export function GlassSheet({
     );
   }
 
-  // Desktop: Side sheet (no overlay)
+  // Desktop: Centered modal
   return (
-    <SheetPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <SheetPrimitive.Portal>
-        {/* No overlay - map stays interactive */}
-        <SheetPrimitive.Content
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        {/* Overlay */}
+        <DialogPrimitive.Overlay
           className={cn(
-            // Position & layout
-            "fixed inset-y-0 right-0 z-50 h-full w-full flex flex-col",
-            // Sizing
-            sizeClasses[size],
-            // Glass styling
-            "glass-hud-strong",
-            "border-l border-hud-border",
-            // Animation
+            "fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]",
             "data-[state=open]:animate-in data-[state=closed]:animate-out",
-            "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
-            "data-[state=closed]:duration-300 data-[state=open]:duration-300",
-            className
+            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+            "data-[state=closed]:duration-200 data-[state=open]:duration-200"
+          )}
+        />
+
+        {/* Centered content */}
+        <DialogPrimitive.Content
+          className={cn(
+            "fixed inset-0 z-50 flex items-center justify-center p-4",
+            // Disable default Radix positioning
+            "!translate-x-0 !translate-y-0 !top-0 !left-0"
           )}
         >
-          {/* Header */}
-          <div className="shrink-0 px-6 pt-6 pb-4 border-b border-hud-border/50">
-            <div className="flex items-center gap-3">
-              {icon && (
-                <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-primary/10 text-primary">
-                  {icon}
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <SheetPrimitive.Title className="text-lg font-semibold text-foreground">
-                  {title}
-                </SheetPrimitive.Title>
-                {description && (
-                  <SheetPrimitive.Description className="text-sm text-muted-foreground mt-0.5">
-                    {description}
-                  </SheetPrimitive.Description>
+          <div
+            className={cn(
+              // Size & layout
+              "w-full flex flex-col",
+              sizeClasses[size],
+              "max-h-[85vh]",
+              // Glass styling
+              "glass-hud-strong",
+              "rounded-2xl border border-hud-border",
+              "shadow-2xl",
+              // Animation
+              "data-[state=open]:animate-in data-[state=closed]:animate-out",
+              "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+              "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+              "data-[state=closed]:duration-200 data-[state=open]:duration-200",
+              className
+            )}
+            data-state={open ? "open" : "closed"}
+          >
+            {/* Header */}
+            <div className="shrink-0 px-6 pt-6 pb-4 border-b border-hud-border/50">
+              <div className="flex items-center gap-3">
+                {icon && (
+                  <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-primary/10 text-primary">
+                    {icon}
+                  </div>
                 )}
+                <div className="flex-1 min-w-0">
+                  <DialogPrimitive.Title className="text-lg font-semibold text-foreground">
+                    {title}
+                  </DialogPrimitive.Title>
+                  {description && (
+                    <DialogPrimitive.Description className="text-sm text-muted-foreground mt-0.5">
+                      {description}
+                    </DialogPrimitive.Description>
+                  )}
+                </div>
+                <DialogPrimitive.Close className="rounded-full p-2 hover:bg-foreground/10 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50">
+                  <X className="h-5 w-5" />
+                  <span className="sr-only">Close</span>
+                </DialogPrimitive.Close>
               </div>
-              <SheetPrimitive.Close className="rounded-full p-2 hover:bg-foreground/10 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <X className="h-5 w-5" />
-                <span className="sr-only">Close</span>
-              </SheetPrimitive.Close>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {children}
             </div>
           </div>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto px-6 py-4">
-            {children}
-          </div>
-        </SheetPrimitive.Content>
-      </SheetPrimitive.Portal>
-    </SheetPrimitive.Root>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
