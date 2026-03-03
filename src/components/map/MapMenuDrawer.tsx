@@ -3,12 +3,11 @@ import { PixelIcon } from "@/components/icons";
 import { useTheme } from "next-themes";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { GlassIconButton } from "@/components/ui/glass-icon-button";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -53,30 +52,31 @@ export function MapMenuDrawer() {
 
   return (
     <>
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
-          <GlassIconButton size="lg" aria-label="Open menu" data-tour="menu">
-            <PixelIcon name="menu" size="md" />
-          </GlassIconButton>
-        </SheetTrigger>
-        <SheetContent
-          side="left"
-          className="w-72 flex flex-col"
-          hideOverlay
+      <GlassIconButton size="lg" aria-label="Open menu" data-tour="menu" onClick={() => setOpen(true)}>
+        <PixelIcon name="menu" size="md" />
+      </GlassIconButton>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent
+          className={cn(
+            "max-w-xs w-full p-0 gap-0 rounded-2xl",
+            "glass-hud-strong border border-hud-border shadow-2xl",
+            "bg-background/95 backdrop-blur-xl"
+          )}
         >
-          <SheetHeader className="text-left">
-            <SheetTitle className="text-lg font-semibold text-foreground">
+          <DialogHeader className="px-5 pt-5 pb-3 text-left">
+            <DialogTitle className="text-lg font-semibold text-foreground">
               Bitplace
-            </SheetTitle>
-          </SheetHeader>
-          <nav className="mt-3 space-y-4 flex-1">
+            </DialogTitle>
+          </DialogHeader>
+
+          <nav className="px-3 pb-3 space-y-4">
             {/* HOME section */}
             <div>
               <p className="px-3 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
                 Home
               </p>
               <div className="space-y-1">
-                {/* Map */}
                 <Button
                   variant="ghost"
                   onClick={handleNavigateToMap}
@@ -89,7 +89,6 @@ export function MapMenuDrawer() {
                   Map
                 </Button>
 
-                {/* Alliance */}
                 <Button
                   variant="ghost"
                   onClick={() => setAllianceOpen(true)}
@@ -99,7 +98,6 @@ export function MapMenuDrawer() {
                   Alliance
                 </Button>
 
-                {/* Get $BIT */}
                 <Button
                   variant="ghost"
                   onClick={() => setShopOpen(true)}
@@ -117,7 +115,6 @@ export function MapMenuDrawer() {
                 Basics
               </p>
               <div className="space-y-1">
-                {/* How It Works */}
                 <Button
                   variant="ghost"
                   onClick={() => setWhitePaperOpen(true)}
@@ -127,7 +124,6 @@ export function MapMenuDrawer() {
                   How It Works
                 </Button>
 
-                {/* Glossary */}
                 <Button
                   variant="ghost"
                   onClick={() => setRulesOpen(true)}
@@ -136,13 +132,12 @@ export function MapMenuDrawer() {
                   <PixelIcon name="info" size="md" />
                   Rules
                 </Button>
-
               </div>
             </div>
           </nav>
 
-          {/* Footer with Settings and Theme */}
-          <div className="flex flex-col gap-1 mt-auto pt-4 border-t border-border/30">
+          {/* Footer */}
+          <div className="flex flex-col gap-1 px-3 pb-4 pt-3 border-t border-border/30">
             <Button
               variant="ghost"
               onClick={() => setSettingsOpen(true)}
@@ -153,8 +148,8 @@ export function MapMenuDrawer() {
             </Button>
             <ThemeToggleButton />
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       <RulesModal open={rulesOpen} onOpenChange={setRulesOpen} />
       <ShopModal open={shopOpen} onOpenChange={setShopOpen} />
