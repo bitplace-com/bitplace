@@ -1,16 +1,17 @@
 
 
-# Fix: Settings e Theme Toggle in fondo al menù
+# Menu drawer più spazioso
 
-Il problema è che il footer (Settings + Day/Night) non è ancorato in fondo al pannello. Il contenitore Sheet ha altezza piena (`h-[100dvh]`) ma manca il layout flex per spingere il footer in basso.
+Il pannello è attualmente fissato a `w-[280px]`. Guardando lo screenshot, effettivamente gli elementi sono compressi. Serve aumentare la larghezza e lo spacing interno.
 
-## Modifica
+## Modifiche in `src/components/map/MapMenuDrawer.tsx`
 
-**File: `src/components/map/MapMenuDrawer.tsx`**
+1. **Larghezza**: da `w-[280px] sm:max-w-[280px]` a `w-[320px] sm:max-w-[320px]`
+2. **Header**: padding più generoso, da `px-5 pt-5 pb-3` a `px-6 pt-6 pb-4`
+3. **Nav**: da `px-3 pb-3 space-y-4` a `px-4 pb-4 space-y-5`
+4. **Section labels**: da `px-3 mb-2` a `px-3 mb-2.5`
+5. **Bottoni nav**: da `h-11` a `h-12` per più respiro verticale
+6. **Footer**: da `px-3 pb-4 pt-3` a `px-4 pb-5 pt-4`
 
-Due cambi minimi:
-1. Aggiungere `flex flex-col` al className di `SheetContent` -- così i figli si distribuiscono verticalmente
-2. Aggiungere `mt-auto` al div footer (riga 136) -- così Settings e ThemeToggle vengono spinti in fondo al pannello
-
-Risultato: il menù sarà identico a prima con Settings e Day/Night Mode sempre ancorati in basso.
+Un solo file, modifiche puramente di spacing/sizing.
 
