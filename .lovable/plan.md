@@ -1,14 +1,16 @@
 
 
-# Ripristinare il menù con slide da sinistra
+# Fix: Settings e Theme Toggle in fondo al menù
 
-Riportare `MapMenuDrawer` al comportamento precedente: Sheet che scorre da sinistra con la stessa UI interna.
+Il problema è che il footer (Settings + Day/Night) non è ancorato in fondo al pannello. Il contenitore Sheet ha altezza piena (`h-[100dvh]`) ma manca il layout flex per spingere il footer in basso.
 
 ## Modifica
 
 **File: `src/components/map/MapMenuDrawer.tsx`**
 
-Sostituire `Dialog`/`DialogContent`/`DialogHeader`/`DialogTitle` con `Sheet`/`SheetContent` (side="left") dal componente `src/components/ui/sheet.tsx`, mantenendo la stessa struttura interna (header "Bitplace", sezioni Home/Basics, footer Settings/Theme). Lo stile glass (`bg-background/95 backdrop-blur-xl`) e la struttura nav restano identici, solo il contenitore cambia da Dialog centrato a Sheet laterale sinistro.
+Due cambi minimi:
+1. Aggiungere `flex flex-col` al className di `SheetContent` -- così i figli si distribuiscono verticalmente
+2. Aggiungere `mt-auto` al div footer (riga 136) -- così Settings e ThemeToggle vengono spinti in fondo al pannello
 
-Un solo file da modificare.
+Risultato: il menù sarà identico a prima con Settings e Day/Night Mode sempre ancorati in basso.
 
