@@ -1,34 +1,52 @@
 
 
-# Show template-detected colors in Custom tab + removable recent colors
+# Fix: Pixels reappear after ERASE on large selections
 
-## What changes
+## Root Cause
 
-### `src/components/map/ActionTray.tsx`
+The ERASE logic in `game-commit` uses `.in("id", ownedPixelIds)` without batching. When erasing hundreds or thousands of pixels (common after admin auto-paint), PostgREST's URL length limit (~8KB) silently truncates the ID list. This means:
 
-1. **Template suggested colors section** in the Custom tab:
-   - When `templateGuideColors` has entries, show a "From template" label followed by a scrollable row of color swatches (extracted from the loaded template image)
-   - Each swatch is clickable (applies via `handleCustomColorApply` so it also gets added to recents)
-   - Limit display to ~30 unique colors to avoid overwhelming the UI; sort by frequency if possible (but frequency data isn't available here — show as-is from the prop)
+- The first ~400-500 pixel IDs fit in the URL and get deleted
+- The remaining IDs are silently dropped — those pixels stay in the database
+- The frontend optimistically removes them from the tile cache
+- On the next viewport move/zoom, `refetchTiles` or `updateViewport` reloads tiles from the server, and the un-deleted pixels reappear
 
-2. **Removable recent colors**:
-   - Each recent color swatch gets a small `×` button (absolute positioned top-right corner) that removes it from `recentCustomColors` and updates `localStorage`
-   - Add a `removeRecentCustomColor` callback that filters the color out of state and persists
+The same truncation issue affects the `virtual_pe_cost` SELECT and the contributions DELETE in the ERASE block.
 
-### Flow
-- User loads a template image → `TemplateOverlay` quantizes it → `guideColors` array flows up to `BitplaceMap` → passed as `templateGuideColors` to `ActionTray`
-- In Custom tab, those colors appear as "From template" swatches above the "Recent" row
-- Clicking a template color applies it and adds it to recents
-- User can remove any recent color with the × button
+## Fix
 
-### Layout in Custom tab (top to bottom):
-1. Color picker + hex input + Apply (existing)
-2. **"From template"** row (only if templateGuideColors.length > 0)
-3. **"Recent"** row with × on each swatch (existing, enhanced)
+### `supabase/functions/game-commit/index.ts` — Batch ERASE operations
 
-No new files, no backend changes, no new dependencies.
+Chunk all `.in()` calls in the ERASE block into batches of 500 IDs (matching the existing PAINT batch size pattern):
+
+```
+const ERASE_BATCH_SIZE = 500;
+
+// 1. Fetch virtual_pe_cost in batches
+for (let i = 0; i < ownedPixelIds.length; i += ERASE_BATCH_SIZE) {
+  const batch = ownedPixelIds.slice(i, i + ERASE_BATCH_SIZE);
+  const { data } = await supabase.from("pixels").select("virtual_pe_cost").in("id", batch);
+  // accumulate...
+}
+
+// 2. Delete contributions in batches
+for (let i = 0; i < ownedPixelIds.length; i += ERASE_BATCH_SIZE) {
+  const batch = ownedPixelIds.slice(i, i + ERASE_BATCH_SIZE);
+  await supabase.from("pixel_contributions").delete().in("pixel_id", batch);
+}
+
+// 3. Delete pixels in batches
+for (let i = 0; i < ownedPixelIds.length; i += ERASE_BATCH_SIZE) {
+  const batch = ownedPixelIds.slice(i, i + ERASE_BATCH_SIZE);
+  await supabase.from("pixels").delete().in("id", batch).eq("owner_user_id", userId);
+}
+```
+
+### Files modified
 
 | File | Change |
 |------|--------|
-| `src/components/map/ActionTray.tsx` | Add template colors section in custom tab; add × remove button on recent swatches |
+| `supabase/functions/game-commit/index.ts` | Batch all `.in()` calls in ERASE block into chunks of 500 to avoid PostgREST URL length truncation |
+
+No frontend changes needed — the optimistic removal and reconciliation logic is correct. The bug is entirely server-side: pixels aren't actually being deleted from the database.
 
