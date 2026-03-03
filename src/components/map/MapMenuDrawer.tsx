@@ -20,7 +20,7 @@ function ThemeToggleButton() {
     <Button
       variant="ghost"
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
+      className="w-full justify-start gap-3 h-12 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
     >
       <PixelIcon name={isDark ? "sun" : "moon"} size="md" />
       {isDark ? "Day Mode" : "Night Mode"}
@@ -55,21 +55,21 @@ export function MapMenuDrawer() {
         <SheetContent
           side="left"
           className={cn(
-            "w-[280px] sm:max-w-[280px] p-0 gap-0 flex flex-col",
+            "w-[320px] sm:max-w-[320px] p-0 gap-0 flex flex-col",
             "glass-hud-strong border-r border-hud-border shadow-2xl",
             "bg-background/95 backdrop-blur-xl"
           )}
         >
-          <div className="px-5 pt-5 pb-3 text-left">
+          <div className="px-6 pt-6 pb-4 text-left">
             <h2 className="text-lg font-semibold text-foreground">
               Bitplace
             </h2>
           </div>
 
-          <nav className="px-3 pb-3 space-y-4">
+          <nav className="px-4 pb-4 space-y-5">
             {/* HOME section */}
             <div>
-              <p className="px-3 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+              <p className="px-3 mb-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
                 Home
               </p>
               <div className="space-y-1">
@@ -77,7 +77,7 @@ export function MapMenuDrawer() {
                   variant="ghost"
                   onClick={handleNavigateToMap}
                   className={cn(
-                    "w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8",
+                    "w-full justify-start gap-3 h-12 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8",
                     location.pathname === "/" && "bg-foreground/10 text-foreground font-medium hover:bg-foreground/15"
                   )}
                 >
@@ -88,7 +88,7 @@ export function MapMenuDrawer() {
                 <Button
                   variant="ghost"
                   onClick={() => setAllianceOpen(true)}
-                  className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
+                  className="w-full justify-start gap-3 h-12 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
                 >
                   <PixelIcon name="usersCrown" size="md" />
                   Alliance
@@ -97,7 +97,7 @@ export function MapMenuDrawer() {
                 <Button
                   variant="ghost"
                   onClick={() => setShopOpen(true)}
-                  className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
+                  className="w-full justify-start gap-3 h-12 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
                 >
                   <PixelIcon name="cart" size="md" />
                   Get $BIT
@@ -107,14 +107,14 @@ export function MapMenuDrawer() {
 
             {/* BASICS section */}
             <div>
-              <p className="px-3 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+              <p className="px-3 mb-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
                 Basics
               </p>
               <div className="space-y-1">
                 <Button
                   variant="ghost"
                   onClick={() => setWhitePaperOpen(true)}
-                  className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
+                  className="w-full justify-start gap-3 h-12 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
                 >
                   <PixelIcon name="book" size="md" />
                   How It Works
@@ -123,7 +123,7 @@ export function MapMenuDrawer() {
                 <Button
                   variant="ghost"
                   onClick={() => setRulesOpen(true)}
-                  className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
+                  className="w-full justify-start gap-3 h-12 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
                 >
                   <PixelIcon name="info" size="md" />
                   Rules
@@ -133,11 +133,11 @@ export function MapMenuDrawer() {
           </nav>
 
           {/* Footer */}
-          <div className="mt-auto flex flex-col gap-1 px-3 pb-4 pt-3 border-t border-border/30">
+          <div className="mt-auto flex flex-col gap-1 px-4 pb-5 pt-4 border-t border-border/30">
             <Button
               variant="ghost"
               onClick={() => setSettingsOpen(true)}
-              className="w-full justify-start gap-3 h-11 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
+              className="w-full justify-start gap-3 h-12 rounded-xl text-foreground/80 hover:text-foreground hover:bg-foreground/8"
             >
               <PixelIcon name="settings" size="md" />
               Settings
