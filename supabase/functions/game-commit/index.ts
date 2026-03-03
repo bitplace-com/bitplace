@@ -297,33 +297,45 @@ async function executeCommit(
   onProgress?.(Math.floor(total * 0.3), total);
 
   if (mode === "ERASE") {
-    // OPTIMIZED: Batch delete for ERASE
+    // OPTIMIZED: Batch delete for ERASE — chunk .in() calls to avoid PostgREST URL length limits
+    const ERASE_BATCH_SIZE = 500;
     const ownedPixelIds = pixelStates
       .filter(p => p.id && p.owner_user_id === userId)
       .map(p => p.id!);
     
     if (ownedPixelIds.length > 0) {
-      // Fetch virtual_pe_cost before deleting (for refund)
-      const { data: virtualCosts } = await supabase
-        .from("pixels")
-        .select("virtual_pe_cost")
-        .in("id", ownedPixelIds);
+      console.log(`[game-commit] ERASE: ${ownedPixelIds.length} pixels to delete, batching by ${ERASE_BATCH_SIZE}`);
 
-      const totalVirtualRefund = (virtualCosts || [])
-        .reduce((sum: number, p: any) => sum + (p.virtual_pe_cost || 0), 0);
+      // 1. Fetch virtual_pe_cost in batches before deleting (for refund)
+      let totalVirtualRefund = 0;
+      for (let i = 0; i < ownedPixelIds.length; i += ERASE_BATCH_SIZE) {
+        const batch = ownedPixelIds.slice(i, i + ERASE_BATCH_SIZE);
+        const { data: virtualCosts } = await supabase
+          .from("pixels")
+          .select("virtual_pe_cost")
+          .in("id", batch);
+        totalVirtualRefund += (virtualCosts || [])
+          .reduce((sum: number, p: any) => sum + (p.virtual_pe_cost || 0), 0);
+      }
 
-      // Batch delete contributions
-      await supabase
-        .from("pixel_contributions")
-        .delete()
-        .in("pixel_id", ownedPixelIds);
+      // 2. Delete contributions in batches
+      for (let i = 0; i < ownedPixelIds.length; i += ERASE_BATCH_SIZE) {
+        const batch = ownedPixelIds.slice(i, i + ERASE_BATCH_SIZE);
+        await supabase
+          .from("pixel_contributions")
+          .delete()
+          .in("pixel_id", batch);
+      }
       
-      // Batch delete pixels
-      await supabase
-        .from("pixels")
-        .delete()
-        .in("id", ownedPixelIds)
-        .eq("owner_user_id", userId);
+      // 3. Delete pixels in batches
+      for (let i = 0; i < ownedPixelIds.length; i += ERASE_BATCH_SIZE) {
+        const batch = ownedPixelIds.slice(i, i + ERASE_BATCH_SIZE);
+        await supabase
+          .from("pixels")
+          .delete()
+          .in("id", batch)
+          .eq("owner_user_id", userId);
+      }
       
       affectedPixels = ownedPixelIds.length;
 
