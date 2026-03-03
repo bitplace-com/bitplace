@@ -81,7 +81,7 @@ export function WalletButton() {
           {isPro ? (
             <ProBadge shine size="sm" />
           ) : isGoogleOnly ? (
-            <span className="text-[10px] font-bold tracking-wider text-slate-400 bg-slate-400/10 px-1.5 py-0.5 rounded animate-shine">STARTER</span>
+            <span className="text-[10px] font-bold tracking-wider bg-slate-400/10 px-1.5 py-0.5 rounded starter-badge-shine">STARTER</span>
           ) : null}
           <span className="text-xs text-muted-foreground">•</span>
           {/* Dual PE + Pixels display */}
