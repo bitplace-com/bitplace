@@ -97,7 +97,7 @@ export function ActionBox({
             Connect your wallet to {mode === 'DEFEND' ? 'defend' : mode === 'ATTACK' ? 'attack' : 'reinforce'} pixels
           </p>
           <p className="text-xs text-muted-foreground">
-            Starter accounts can only paint. Connect a Solana wallet to unlock all actions.
+            Bitplacer accounts can only paint. Connect a Solana wallet to unlock all actions.
           </p>
           {onLinkWallet && (
             <Button size="sm" className="w-full gap-2" onClick={onLinkWallet}>

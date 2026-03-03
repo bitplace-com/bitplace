@@ -14,7 +14,7 @@ export function StarterBadge({ shine, size = 'sm', className }: StarterBadgeProp
         'inline-flex items-center gap-0.5 text-slate-400',
         className
       )}
-      title="Starter — Playing with free Pixels"
+      title="Bitplacer — Playing with free Pixels"
     >
       <PixelStarter shine={shine} className={size === 'md' ? 'w-5 h-5' : 'w-4 h-4'} />
     </span>

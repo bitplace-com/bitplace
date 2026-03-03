@@ -19,10 +19,10 @@ export function PixelStarter({ shine, ...props }: PixelStarterProps) {
             <stop offset="60%" stopColor="#cbd5e1" />
             <stop offset="75%" stopColor="#94a3b8" />
             <stop offset="100%" stopColor="#64748b" />
-            <animate attributeName="x1" from="-12" to="24" dur="2s" repeatCount="indefinite" />
-            <animate attributeName="y1" from="-12" to="24" dur="2s" repeatCount="indefinite" />
-            <animate attributeName="x2" from="0" to="36" dur="2s" repeatCount="indefinite" />
-            <animate attributeName="y2" from="0" to="36" dur="2s" repeatCount="indefinite" />
+            <animate attributeName="x1" from="-12" to="24" dur="3.5s" repeatCount="indefinite" />
+            <animate attributeName="y1" from="-12" to="24" dur="3.5s" repeatCount="indefinite" />
+            <animate attributeName="x2" from="0" to="36" dur="3.5s" repeatCount="indefinite" />
+            <animate attributeName="y2" from="0" to="36" dur="3.5s" repeatCount="indefinite" />
           </linearGradient>
         </defs>
       )}
