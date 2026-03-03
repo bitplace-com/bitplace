@@ -97,8 +97,12 @@ export function GlassSheet({
             // Disable default Radix positioning
             "!translate-x-0 !translate-y-0 !top-0 !left-0"
           )}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) onOpenChange(false);
+          }}
         >
           <div
+            onClick={(e) => e.stopPropagation()}
             className={cn(
               // Size & layout
               "w-full flex flex-col",
