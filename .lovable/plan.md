@@ -1,34 +1,34 @@
 
 
-# Add Custom Color Picker Tab
+# Show template-detected colors in Custom tab + removable recent colors
 
-## Analysis
+## What changes
 
-**Backend safety**: Both `game-validate` and `game-commit` use `isValidPaintId()` which accepts **any** valid `#RRGGBB` hex string. No palette whitelist exists server-side, so custom colors work out of the box with zero backend changes.
+### `src/components/map/ActionTray.tsx`
 
-**Risk**: None. The palette arrays are only used for rendering the UI swatches. The backend doesn't care which color is sent as long as it's a valid 6-digit hex.
+1. **Template suggested colors section** in the Custom tab:
+   - When `templateGuideColors` has entries, show a "From template" label followed by a scrollable row of color swatches (extracted from the loaded template image)
+   - Each swatch is clickable (applies via `handleCustomColorApply` so it also gets added to recents)
+   - Limit display to ~30 unique colors to avoid overwhelming the UI; sort by frequency if possible (but frequency data isn't available here — show as-is from the prop)
 
-## Approach
+2. **Removable recent colors**:
+   - Each recent color swatch gets a small `×` button (absolute positioned top-right corner) that removes it from `recentCustomColors` and updates `localStorage`
+   - Add a `removeRecentCustomColor` callback that filters the color out of state and persists
 
-Add a third tab **"Custom"** alongside "Colors" and "Gradients" in `ActionTray.tsx`.
+### Flow
+- User loads a template image → `TemplateOverlay` quantizes it → `guideColors` array flows up to `BitplaceMap` → passed as `templateGuideColors` to `ActionTray`
+- In Custom tab, those colors appear as "From template" swatches above the "Recent" row
+- Clicking a template color applies it and adds it to recents
+- User can remove any recent color with the × button
 
-### Custom Tab UI
-- A simple **HSL color wheel/slider** built with native HTML `<input type="color">` plus manual hex input field
-- Show the selected custom color as a large swatch preview
-- A **hex input** field (`#RRGGBB`) for precise entry
-- A **"Recent" row** (last 8-10 custom colors used, stored in `localStorage`) so users can quickly reuse their picks
-- Selecting a custom color calls the same `handleColorClick(color)` — no other changes needed
+### Layout in Custom tab (top to bottom):
+1. Color picker + hex input + Apply (existing)
+2. **"From template"** row (only if templateGuideColors.length > 0)
+3. **"Recent"** row with × on each swatch (existing, enhanced)
 
-### Changes
+No new files, no backend changes, no new dependencies.
 
 | File | Change |
 |------|--------|
-| `src/components/map/ActionTray.tsx` | Add `'custom'` to `paletteTab` type, add third tab button, render custom picker UI when active |
-
-The custom picker section would contain:
-1. Native `<input type="color">` for visual picking (works on all browsers/mobile)
-2. Hex text input for manual entry with validation
-3. Row of recent custom colors from localStorage
-
-No new dependencies needed — the native color input provides a full color picker on all platforms. The palette tab state just gains a third option.
+| `src/components/map/ActionTray.tsx` | Add template colors section in custom tab; add × remove button on recent swatches |
 
