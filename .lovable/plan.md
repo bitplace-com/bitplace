@@ -1,83 +1,77 @@
 
 
-# Fix ERASE virtual_pe_used refund + toast Google + focus ring sulla X
+# Fix STARTER badge animation + rimuovere icona penna
 
-## 1. ERASE non rimborsa virtual_pe_used
+## Problemi
 
-**File: `supabase/functions/game-commit/index.ts`** (righe 295-316)
+1. Il badge STARTER nella barra wallet usa `animate-shine` (flash bianco tipo leaderboard). Deve usare lo stesso tipo di animazione del badge PRO (sweep gradiente dorato tipo SVG), ma con i colori slate del STARTER.
+2. L'icona della penna brillante (`StarterBadge` con `PixelStarter`) appare accanto al nome utente nel pannello -- va rimossa.
 
-Prima di cancellare i pixel, recuperare la somma di `virtual_pe_cost`, poi dopo la cancellazione decrementare `virtual_pe_used`:
+## Modifiche
 
-```typescript
-if (mode === "ERASE") {
-  const ownedPixels = pixelStates
-    .filter(p => p.id && p.owner_user_id === userId);
-  const ownedPixelIds = ownedPixels.map(p => p.id!);
+### 1. Nuova animazione CSS per STARTER (stile PRO)
 
-  if (ownedPixelIds.length > 0) {
-    // Fetch virtual_pe_cost before deleting
-    const { data: virtualCosts } = await supabase
-      .from("pixels")
-      .select("virtual_pe_cost")
-      .in("id", ownedPixelIds);
+**File: `src/index.css`**
 
-    const totalVirtualRefund = (virtualCosts || [])
-      .reduce((sum: number, p: any) => sum + (p.virtual_pe_cost || 0), 0);
+Aggiungere una nuova classe `.starter-badge-shine` che usa `background-clip: text` con un gradiente slate animato (sweep da sinistra a destra, come il gradiente SVG di PixelPro ma in argento/slate):
 
-    await supabase.from("pixel_contributions").delete().in("pixel_id", ownedPixelIds);
-    await supabase.from("pixels").delete().in("id", ownedPixelIds).eq("owner_user_id", userId);
-    affectedPixels = ownedPixelIds.length;
+```css
+@keyframes starter-text-shine {
+  0% { background-position: -100% center; }
+  100% { background-position: 200% center; }
+}
 
-    if (totalVirtualRefund > 0) {
-      const currentUser = await supabase.from("users").select("virtual_pe_used").eq("id", userId).single();
-      const currentUsed = currentUser.data?.virtual_pe_used || 0;
-      await supabase.from("users")
-        .update({ virtual_pe_used: Math.max(0, currentUsed - totalVirtualRefund) })
-        .eq("id", userId);
-    }
-  }
+.starter-badge-shine {
+  background: linear-gradient(
+    90deg,
+    #64748b 0%,
+    #94a3b8 25%,
+    #cbd5e1 40%,
+    #ffffff 50%,
+    #cbd5e1 60%,
+    #94a3b8 75%,
+    #64748b 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: starter-text-shine 2s linear infinite;
 }
 ```
 
-Dopo il deploy, correggeremo il dato orfano dell'utente corrente con una query DB.
+### 2. WalletButton: usare nuova animazione
 
-## 2. Toast Google sign-in con accredito 300,000 Pixel
-
-**File: `src/contexts/WalletContext.tsx`** (righe 502-503)
-
-Sostituire il toast singolo con due toast sequenziali:
-
-```typescript
-toast.success('Signed in with Google!');
-setTimeout(() => {
-  if (googleUser.auth_provider === 'both') {
-    toast.success('Google linked!', { description: 'Wallet + Pixels active' });
-  } else {
-    toast.success('300,000 Pixels credited!', {
-      description: 'Free pixels to draw anywhere. They expire after 72h but you can renew them.'
-    });
-  }
-}, 800);
-```
-
-## 3. Rimuovere focus ring blu dalla X dell'alert 72h
-
-**File: `src/components/modals/UserMenuPanel.tsx`** (riga 167)
-
-Il `<button>` che chiude l'alert ha il focus ring di default del browser (il quadrato azzurro). Aggiungere `focus:outline-none` alla classe:
+**File: `src/components/wallet/WalletButton.tsx`** (riga 84)
 
 Da:
+```tsx
+<span className="text-[10px] font-bold tracking-wider text-slate-400 bg-slate-400/10 px-1.5 py-0.5 rounded animate-shine">STARTER</span>
 ```
-className="shrink-0 p-0.5 rounded hover:bg-amber-500/20 transition-colors"
-```
+
 A:
+```tsx
+<span className="text-[10px] font-bold tracking-wider bg-slate-400/10 px-1.5 py-0.5 rounded starter-badge-shine">STARTER</span>
 ```
-className="shrink-0 p-0.5 rounded hover:bg-amber-500/20 transition-colors focus:outline-none"
+
+### 3. UserMenuPanel: rimuovere icona penna
+
+**File: `src/components/modals/UserMenuPanel.tsx`** (righe 99-103)
+
+Rimuovere completamente il blocco `StarterBadge`:
+
+```tsx
+{isGoogleOnly && (
+  user?.auth_provider !== 'both' ? (
+    <StarterBadge shine size="sm" />
+  ) : null
+)}
 ```
+
+Questo elimina l'icona penna brillante dal nome utente nel pannello popover.
 
 ## File coinvolti
 
-1. `supabase/functions/game-commit/index.ts` -- rimborso virtual_pe_used nel blocco ERASE
-2. `src/contexts/WalletContext.tsx` -- toast sequenziali Google sign-in
-3. `src/components/modals/UserMenuPanel.tsx` -- rimuovere focus ring dalla X
-
+1. `src/index.css` -- nuova classe `starter-badge-shine`
+2. `src/components/wallet/WalletButton.tsx` -- usare `starter-badge-shine` invece di `animate-shine`
+3. `src/components/modals/UserMenuPanel.tsx` -- rimuovere `StarterBadge` dal nome utente
