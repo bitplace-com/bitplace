@@ -125,6 +125,9 @@ export function useGuidedTour(isMobile: boolean) {
   useEffect(() => {
     const seen = localStorage.getItem(TOUR_SEEN_KEY);
     if (!seen) {
+      // Suppress tour when arriving via pixel deep-link
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('px') && params.has('py')) return;
       const timer = setTimeout(() => setShouldShow(true), 2000);
       return () => clearTimeout(timer);
     }

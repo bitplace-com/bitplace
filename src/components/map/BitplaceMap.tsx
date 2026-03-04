@@ -106,6 +106,9 @@ export function BitplaceMap() {
     }
     return null;
   })());
+  // Detect pixel-link arrival to suppress auto-switch and force drag mode
+  const isPixelLink = useRef(!!(initialUrlPos.current?.pixelX !== undefined && initialUrlPos.current?.pixelY !== undefined));
+  const [fromPixelLink, setFromPixelLink] = useState(isPixelLink.current);
   const interactionLayerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -272,8 +275,8 @@ export function BitplaceMap() {
       // Zoomed out beyond threshold → auto-switch to drag, remember
       wasDrawBeforeAutoSwitch.current = true;
       setInteractionMode('drag');
-    } else if (interactionMode === 'drag' && canInteract && wasDrawBeforeAutoSwitch.current) {
-      // Zoomed back in → restore draw
+    } else if (interactionMode === 'drag' && canInteract && wasDrawBeforeAutoSwitch.current && !isPixelLink.current) {
+      // Zoomed back in → restore draw (skip if pixel link arrival)
       wasDrawBeforeAutoSwitch.current = false;
       setInteractionMode('draw');
     }
@@ -286,6 +289,17 @@ export function BitplaceMap() {
       wasDrawBeforeAutoSwitch.current = false;
     }
   }, [interactionMode, zoom]);
+
+  // Clear pixel-link flag on first manual mode change
+  useEffect(() => {
+    if (isPixelLink.current) {
+      // Any mode change after initial load clears the flag
+      const timer = setTimeout(() => {
+        isPixelLink.current = false;
+      }, 3000); // Give 3s for initial zoom animation to settle
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   // Reset to default brush when wallet disconnects (keep BRUSH tool, not ERASER)
   useEffect(() => {
@@ -2008,6 +2022,7 @@ export function BitplaceMap() {
         <PixelInspectorDrawer
           pixel={inspectedPixel}
           onClose={handleCloseInspector}
+          fromPixelLink={fromPixelLink}
           currentUserId={user?.id}
           actionSelectionCount={pendingPixels.length + draftCount}
           onJumpToPixel={(targetX, targetY) => {
