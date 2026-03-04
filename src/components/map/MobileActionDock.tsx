@@ -55,6 +55,8 @@ interface MobileActionDockProps {
   onRetryValidate?: () => void;
   // Dynamic positioning based on StatusStrip height
   statusStripHeight?: number;
+  // Eraser: total area selected (including empty/other users' pixels)
+  eraserAreaCount?: number;
 }
 
 export function MobileActionDock({
@@ -86,6 +88,7 @@ export function MobileActionDock({
   lastError,
   onRetryValidate,
   statusStripHeight = 48,
+  eraserAreaCount = 0,
 }: MobileActionDockProps) {
   const [dockState, setDockState] = useState<DockState>('hidden');
   const [withdrawStats, setWithdrawStats] = useState<WithdrawStats | null>(null);
@@ -248,7 +251,9 @@ export function MobileActionDock({
             <div className="flex items-center justify-between px-4 py-3 border-b border-border/20">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">
-                  {effectiveCount.toLocaleString()} pixel{effectiveCount !== 1 ? 's' : ''}
+                  {mode === 'ERASE' && eraserAreaCount > 0
+                    ? `${effectiveCount.toLocaleString()} owned / ${eraserAreaCount.toLocaleString()} area`
+                    : `${effectiveCount.toLocaleString()} pixel${effectiveCount !== 1 ? 's' : ''}`}
                 </span>
                 <span className="text-xs text-muted-foreground">selected</span>
               </div>
