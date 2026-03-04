@@ -53,6 +53,21 @@ import { lngLatToGridInt, gridIntToLngLat, getViewportGridBounds, Z_SHOW_PAINTS,
 import { hapticsEngine } from '@/lib/hapticsEngine';
 import { markMapMountStart } from '@/lib/perfMetrics';
 
+// Helper: fetch only pixels owned by a specific user within a bounding box
+const fetchOwnedPixelsInBounds = async (
+  minX: number, maxX: number, minY: number, maxY: number, userId: string
+): Promise<{ x: number; y: number }[]> => {
+  const { data, error } = await supabase
+    .from('pixels')
+    .select('x, y')
+    .eq('owner_user_id', userId)
+    .gte('x', minX).lte('x', maxX)
+    .gte('y', minY).lte('y', maxY)
+    .limit(MAX_BRUSH_SELECTION);
+  if (error || !data) return [];
+  return data.map(p => ({ x: Number(p.x), y: Number(p.y) }));
+};
+
 // Helper to get snapped 2x2 block coordinates
 const getSnapped2x2Block = (x: number, y: number): { x: number; y: number }[] => {
   const topLeftX = x - (x % 2);
@@ -363,16 +378,16 @@ export function BitplaceMap() {
       playSound('pixel_select');
       hapticsEngine.trigger('light'); // Haptic feedback for paint
     }
-    // Eraser
+    // Eraser — only start selection if pixel exists in DB
     else if (paintTool === 'ERASER') {
       const draftKey = `${x}:${y}`;
       if (draftPixels.has(draftKey)) {
         removeFromDraft(x, y);
         playSound('pixel_deselect');
-        hapticsEngine.trigger('light'); // Haptic feedback for erase
-      } else {
+        hapticsEngine.trigger('light');
+      } else if (dbPixels.has(draftKey)) {
         startBrushSelection(x, y);
-        hapticsEngine.trigger('medium'); // Haptic feedback for selection
+        hapticsEngine.trigger('medium');
       }
       isTouchPaintingRef.current = true;
     }
@@ -411,13 +426,14 @@ export function BitplaceMap() {
         }
       }
     }
-    // Eraser (continuous)
+    // Eraser (continuous) — only select pixels that exist in DB (user-owned check happens at commit)
     else if (paintTool === 'ERASER') {
       const draftKey = `${x}:${y}`;
       if (draftPixels.has(draftKey)) {
         removeFromDraft(x, y);
         hapticsEngine.trigger('light');
-      } else {
+      } else if (dbPixels.has(draftKey)) {
+        // Only add to eraser selection if a pixel actually exists on the map
         addToBrushSelection(x, y);
       }
     }
@@ -425,7 +441,7 @@ export function BitplaceMap() {
     else if (['defend', 'attack', 'reinforce'].includes(mode)) {
       addToBrushSelection(x, y);
     }
-  }, [mode, paintTool, selectedColor, brushSize, addToDraft, removeFromDraft, addToBrushSelection, draftPixels, draftRemainingCapacity]);
+  }, [mode, paintTool, selectedColor, brushSize, addToDraft, removeFromDraft, addToBrushSelection, draftPixels, dbPixels, draftRemainingCapacity]);
 
   const handleTouchPaintEnd = useCallback((x: number, y: number, wasTap: boolean) => {
     isTouchPaintingRef.current = false;
@@ -442,12 +458,17 @@ export function BitplaceMap() {
         selectedPixels.forEach(({ x, y }) => {
           const key = `${x}:${y}`;
           if (!draftPixels.has(key)) {
-            committedPixels.push({ x, y });
+            // Only include pixels that actually exist in the DB
+            if (dbPixels.has(key)) {
+              committedPixels.push({ x, y });
+            }
           }
         });
         if (committedPixels.length > 0) {
           setPendingPixels(committedPixels);
           clearValidation();
+        } else {
+          toast.info('No pixels to erase in this area');
         }
         clearBrushSelection();
       } else if (selectedPixels.length > 0) {
@@ -938,16 +959,23 @@ export function BitplaceMap() {
         if (isNonPaintAction) {
           // Build pixel array from rect selection if available (same as HAND mode)
           let selectedPixels: { x: number; y: number }[] = [];
+          let isRectSelection = false;
+          let rectMinX = 0, rectMaxX = 0, rectMinY = 0, rectMaxY = 0;
           if (rectAnchorRef.current && rectPreview) {
             const start = rectAnchorRef.current;
             const end = rectPreview.end;
-            const minX = Math.min(start.x, end.x);
-            const maxX = Math.max(start.x, end.x);
-            const minY = Math.min(start.y, end.y);
-            const maxY = Math.max(start.y, end.y);
-            for (let x = minX; x <= maxX && selectedPixels.length < MAX_BRUSH_SELECTION; x++) {
-              for (let y = minY; y <= maxY && selectedPixels.length < MAX_BRUSH_SELECTION; y++) {
-                selectedPixels.push({ x, y });
+            rectMinX = Math.min(start.x, end.x);
+            rectMaxX = Math.max(start.x, end.x);
+            rectMinY = Math.min(start.y, end.y);
+            rectMaxY = Math.max(start.y, end.y);
+            isRectSelection = true;
+
+            if (paintTool !== 'ERASER' || !user) {
+              // Non-ERASER: enumerate all coords as before
+              for (let x = rectMinX; x <= rectMaxX && selectedPixels.length < MAX_BRUSH_SELECTION; x++) {
+                for (let y = rectMinY; y <= rectMaxY && selectedPixels.length < MAX_BRUSH_SELECTION; y++) {
+                  selectedPixels.push({ x, y });
+                }
               }
             }
             rectAnchorRef.current = null;
@@ -958,35 +986,66 @@ export function BitplaceMap() {
             selectedPixels = getBrushSelectedPixels();
           }
           
-          // ERASER mode: Auto-remove draft pixels immediately on SPACE release
-          if (paintTool === 'ERASER' && selectedPixels.length > 0) {
+          // ERASER mode with rect selection: async query for owned pixels only
+          if (paintTool === 'ERASER' && isRectSelection && user) {
+            // Query DB for only user-owned pixels in the bounding box
+            fetchOwnedPixelsInBounds(rectMinX, rectMaxX, rectMinY, rectMaxY, user.id).then(ownedPixels => {
+              let removedCount = 0;
+              const committedPixels: { x: number; y: number }[] = [];
+
+              ownedPixels.forEach(({ x, y }) => {
+                const key = `${x}:${y}`;
+                if (draftPixels.has(key)) {
+                  removeFromDraft(x, y);
+                  removedCount++;
+                } else {
+                  committedPixels.push({ x, y });
+                }
+              });
+
+              if (committedPixels.length > 0) {
+                setPendingPixels(committedPixels);
+                clearValidation();
+                setPreviewHiddenPixels(new Set());
+                setValidatedActionPixels(null);
+              } else if (removedCount === 0) {
+                toast.info('No pixels to erase in this area');
+                clearBrushSelection();
+              } else {
+                clearBrushSelection();
+              }
+              if (removedCount > 0) {
+                playSound('pixel_deselect');
+              }
+            });
+          }
+          // ERASER mode with brush selection (non-rect): filter against dbPixels
+          else if (paintTool === 'ERASER' && selectedPixels.length > 0) {
             let removedCount = 0;
             const committedPixels: { x: number; y: number }[] = [];
             
             selectedPixels.forEach(({ x, y }) => {
               const key = `${x}:${y}`;
               if (draftPixels.has(key)) {
-                // Pixel is in draft → remove immediately
                 removeFromDraft(x, y);
                 removedCount++;
-              } else {
-                // Pixel is committed → add to pending for validate flow
+              } else if (dbPixels.has(key)) {
                 committedPixels.push({ x, y });
               }
             });
             
-            // Only committed pixels go to validate flow
             if (committedPixels.length > 0) {
               setPendingPixels(committedPixels);
               clearValidation();
               setPreviewHiddenPixels(new Set());
               setValidatedActionPixels(null);
+            } else if (removedCount === 0) {
+              toast.info('No pixels to erase in this area');
+              clearBrushSelection();
             } else {
-              // All were draft pixels, clear selection
               clearBrushSelection();
             }
             
-            // Sound feedback if draft pixels were removed
             if (removedCount > 0) {
               playSound('pixel_deselect');
             }
