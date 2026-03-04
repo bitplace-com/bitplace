@@ -1,36 +1,44 @@
 
 
-# Fix auto-paint to use exact image colors + fix swatch selection border
+# Shorter pixel share links
 
-## Problem 1: Auto-paint uses palette colors
-`quantizeImageAsync` maps every pixel to the nearest Bitplace palette color. Auto-paint feeds from `templateQuantizedPixels` (output of this function), so painted pixels use palette colors instead of the image's actual colors.
+## Current format
+```
+https://bitplace.com/?lat=37.77228&lng=-122.39053&z=18&px=335599&py=810612
+```
+72 characters of path+query. The `lat`, `lng`, and `z` params are redundant — they can be derived from `px` and `py` via `gridIntToLngLat`, and zoom is always 18 for shared pixels.
 
-## Problem 2: White swatch selection border
-The `ring-2 ring-foreground` selection indicator looks broken on light-colored swatches (especially white) because there's no base border/shadow to provide contrast.
+## New format
+```
+https://bitplace.com/p/335599:810612
+https://bitplace.com/p/335599:810612?player=abc123
+```
+~20 characters of path. Clean, memorable, easy to share.
 
 ## Changes
 
-### `src/lib/paletteQuantizer.ts`
-Add `quantizeImageRawAsync` — identical to `quantizeImageAsync` but skips palette matching, using the pixel's actual `#RRGGBB` hex as `hexColor`. This gives auto-paint the exact image colors.
+### 1. `src/App.tsx` — Add `/p/:coords` route
+Add a new route `/p/:coords` that extracts `x:y` from the path, converts to lat/lng, and redirects to `/?lat=...&lng=...&z=18&px=X&py=Y` (preserving `?player` if present). This keeps all existing deep-link logic in `BitplaceMap` working without changes.
 
-### `src/components/map/TemplateOverlay.tsx`
-- Add a second quantization effect that runs `quantizeImageRawAsync` when in pixelGuide mode
-- Expose via new callback prop `onRawQuantizedPixelsChange?: (pixels: QuantizedPixel[]) => void`
-- Keep the palette-quantized version for the guide overlay rendering (visual circles on map still snap to palette for consistency with manual painting)
+```tsx
+function PixelRedirect() {
+  const { coords } = useParams();
+  // parse "335599:810612" → x=335599, y=810612
+  // convert to lat/lng via gridIntToLngLat
+  // redirect to /?lat=...&lng=...&z=18&px=X&py=Y
+}
 
-### `src/components/map/BitplaceMap.tsx`
-- Add `templateRawQuantizedPixels` state
-- Pass it to `TemplateOverlay` via the new callback
-- Change `handleAutoPaint` to use `templateRawQuantizedPixels` instead of `templateQuantizedPixels`
+<Route path="/p/:coords" element={<PixelRedirect />} />
+```
 
-### `src/components/map/ActionTray.tsx`
-- Add `shadow-[inset_0_0_0_1px_rgba(0,0,0,0.15)]` (or `ring-1 ring-black/10`) as a base style on all color swatches in the "From template" and "Recent" sections so light colors (white) have a visible boundary
-- The selection indicator `ring-2 ring-foreground` then sits cleanly on top
+### 2. `src/lib/shareLink.ts` — Generate short URLs
+Update `generatePixelShareLink` to produce `/p/X:Y` format instead of the query-string format. Profile links with `?player=` are appended as a query param.
+
+### 3. Backward compatibility
+The existing `/?lat=...&lng=...&px=...&py=...` format continues to work unchanged — we're only adding a new route, not removing the old parsing logic.
 
 | File | Change |
 |------|--------|
-| `src/lib/paletteQuantizer.ts` | Add `quantizeImageRawAsync` (no palette mapping) |
-| `src/components/map/TemplateOverlay.tsx` | Run raw quantization, expose via new callback |
-| `src/components/map/BitplaceMap.tsx` | Wire raw quantized pixels to auto-paint |
-| `src/components/map/ActionTray.tsx` | Fix swatch borders for light colors |
+| `src/App.tsx` | Add `/p/:coords` route with redirect component |
+| `src/lib/shareLink.ts` | Generate `/p/X:Y` short links |
 
