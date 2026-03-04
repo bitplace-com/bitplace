@@ -834,9 +834,13 @@ async function executeCommit(
       .eq("id", userId);
   }
 
-  // Decrement pixels_painted_total on ERASE to prevent leaderboard inflation
+  // Decrement pixels_painted_total on ERASE, but never below current owned count
   if (mode === "ERASE" && affectedPixels > 0) {
-    newPixelsPaintedTotal = Math.max(0, (user.pixels_painted_total || 0) - affectedPixels);
+    const { count: currentOwned } = await supabase
+      .from("pixels")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_user_id", userId);
+    newPixelsPaintedTotal = Math.max(currentOwned || 0, (user.pixels_painted_total || 0) - affectedPixels);
     await supabase
       .from("users")
       .update({ pixels_painted_total: newPixelsPaintedTotal })
