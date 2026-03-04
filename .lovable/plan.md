@@ -1,41 +1,30 @@
 
-Diagnosi rapida
-- Il comportamento “si ferma a 1000” è coerente con l’attuale implementazione: in `BitplaceMap.tsx` la funzione `fetchOwnedPixelsInBounds` usa una singola query con `.limit(10000)`, ma la risposta lato API è comunque paginata/cappata a 1000 righe per richiesta.
-- Quindi la selezione ERASER rettangolare oggi non arriva mai realmente a 10.000 pixel owned, anche quando nell’area ce ne sono molti di più.
 
-Obiettivo
-- Applicare il limite 10.000 solo ai pixel effettivamente cancellabili (esistenti + owned dall’utente), non all’area geometrica.
-- Scartare automaticamente vuoti/non-owned prima che finiscano nel counter/selection operativa.
+# Show total area count alongside owned pixel count in ERASER mode
 
-Implementazione proposta
+## Problem
+After the smart ERASER update, the sidebar counter (`Selected: X px`) only shows owned pixels (the ones that will actually be erased). The user wants to also see the total area selected (including empty/other users' pixels) for context.
 
-1) `src/components/map/BitplaceMap.tsx` — paginazione reale della selezione owned in bbox
-- Riscrivere `fetchOwnedPixelsInBounds(...)` in modalità paginata:
-  - page size = 1000
-  - loop con `.range(offset, offset + pageSize - 1)` + filtri bbox + `owner_user_id = user.id`
-  - accumulo fino a `MAX_BRUSH_SELECTION` (10.000) o fine dati
-- Questo elimina il collo di bottiglia dei 1000 e rende il cap 10.000 effettivo.
+## Approach
+Track a separate `eraserTotalAreaCount` state that captures the full rectangle/brush area size before filtering. Display both counts in the ActionTray when in ERASER mode: e.g. `Selected: 2,400 / 10,000 px` (owned / total area).
 
-2) `src/components/map/BitplaceMap.tsx` — path SPACE rettangolare ERASER
-- Mantenere la logica attuale “rettangolo -> query owned”, ma usare la nuova funzione paginata.
-- `pendingPixels` deve essere popolato solo con il risultato owned effettivo (max 10.000).
-- Se 0 risultati: toast “No pixels to erase in this area”.
+## Changes
 
-3) `src/components/map/BitplaceMap.tsx` — path brush/touch ERASER (auto-scarto non-owned)
-- Aggiungere filtro ownership anche per selezioni non-rettangolari (touch/brush), non solo `dbPixels.has(...)`.
-- Implementare helper batch su coordinate selezionate (chunk <= 900) via RPC `fetch_pixels_by_coords`, filtrando `owner_user_id === user.id`.
-- Usare questo filtro prima di `setPendingPixels(...)`, così il counter mostra solo pixel realmente cancellabili (coerente con la richiesta “scartare automaticamente non disegnati/non miei”).
+### 1. `src/components/map/BitplaceMap.tsx`
+- Add state: `const [eraserAreaCount, setEraserAreaCount] = useState(0)`
+- In the ERASER rect selection path (~line 1042): before calling `fetchOwnedPixelsInBounds`, compute the total area `(maxX - minX + 1) * (maxY - minY + 1)` and call `setEraserAreaCount(totalArea)`
+- In the ERASER brush selection path (~line 1075): set `setEraserAreaCount(selectedPixels.length)` (total brush-painted area before ownership filter)
+- In the touch ERASER path (~line 500): same pattern
+- Reset `setEraserAreaCount(0)` alongside `setPendingPixels([])` in all clear paths
+- Pass `eraserAreaCount` to `ActionTray` as a new prop
 
-4) Limite funzionale coerente
-- Conservare `MAX_BRUSH_SELECTION = 10000` come tetto finale sui pixel owned validi.
-- Se l’area contiene più di 10.000 pixel owned, si prendono i primi 10.000 in modo deterministico (query ordinata) e il resto viene ignorato.
+### 2. `src/components/map/ActionTray.tsx`
+- Add prop `eraserAreaCount?: number`
+- When in ERASER mode and `eraserAreaCount > 0`, change the display from `Selected: {selectionCount} px` to `Selected: {selectionCount} owned / {eraserAreaCount} area`
+- Keep existing display for non-ERASER action modes
 
-Verifiche (desktop + mobile)
-- Caso A: area 30.000 celle, owned effettivi 2.500 -> selection/counter = 2.500.
-- Caso B: area 30.000 celle, owned effettivi >10.000 -> selection/counter = 10.000.
-- Caso C: area senza pixel owned -> toast informativo, niente pending.
-- Mobile (drag/touch eraser): non-owned e vuoti non devono entrare nel pending/counter.
+| File | Change |
+|------|--------|
+| `src/components/map/BitplaceMap.tsx` | Add `eraserAreaCount` state, set it before filtering, pass to ActionTray |
+| `src/components/map/ActionTray.tsx` | Accept + display `eraserAreaCount` in ERASER mode |
 
-Impatto file
-- `src/components/map/BitplaceMap.tsx` (unico file da modificare, con 2 helper + integrazione nei flow ERASE rect e brush/touch).
-- Nessuna migrazione database necessaria.
