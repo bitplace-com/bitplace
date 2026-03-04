@@ -1,65 +1,41 @@
 
+Diagnosi rapida
+- Il comportamento “si ferma a 1000” è coerente con l’attuale implementazione: in `BitplaceMap.tsx` la funzione `fetchOwnedPixelsInBounds` usa una singola query con `.limit(10000)`, ma la risposta lato API è comunque paginata/cappata a 1000 righe per richiesta.
+- Quindi la selezione ERASER rettangolare oggi non arriva mai realmente a 10.000 pixel owned, anche quando nell’area ce ne sono molti di più.
 
-# Smart ERASER selection: only count user-owned pixels
+Obiettivo
+- Applicare il limite 10.000 solo ai pixel effettivamente cancellabili (esistenti + owned dall’utente), non all’area geometrica.
+- Scartare automaticamente vuoti/non-owned prima che finiscano nel counter/selection operativa.
 
-## Problem
-When selecting a large area for erasing, the 10,000 pixel limit counts ALL coordinates in the rectangle (including empty pixels and pixels owned by others). This means you might hit the limit but only a fraction of those are actually your pixels.
+Implementazione proposta
 
-## Solution
-When the ERASER builds its selection from a rectangle, query the database for only pixels owned by the current user within the bounding box, instead of enumerating every coordinate. This way the 10,000 limit applies only to pixels you can actually erase.
+1) `src/components/map/BitplaceMap.tsx` — paginazione reale della selezione owned in bbox
+- Riscrivere `fetchOwnedPixelsInBounds(...)` in modalità paginata:
+  - page size = 1000
+  - loop con `.range(offset, offset + pageSize - 1)` + filtri bbox + `owner_user_id = user.id`
+  - accumulo fino a `MAX_BRUSH_SELECTION` (10.000) o fine dati
+- Questo elimina il collo di bottiglia dei 1000 e rende il cap 10.000 effettivo.
 
-## Changes
+2) `src/components/map/BitplaceMap.tsx` — path SPACE rettangolare ERASER
+- Mantenere la logica attuale “rettangolo -> query owned”, ma usare la nuova funzione paginata.
+- `pendingPixels` deve essere popolato solo con il risultato owned effettivo (max 10.000).
+- Se 0 risultati: toast “No pixels to erase in this area”.
 
-### 1. `src/components/map/BitplaceMap.tsx` — Smart ERASER rect selection
+3) `src/components/map/BitplaceMap.tsx` — path brush/touch ERASER (auto-scarto non-owned)
+- Aggiungere filtro ownership anche per selezioni non-rettangolari (touch/brush), non solo `dbPixels.has(...)`.
+- Implementare helper batch su coordinate selezionate (chunk <= 900) via RPC `fetch_pixels_by_coords`, filtrando `owner_user_id === user.id`.
+- Usare questo filtro prima di `setPendingPixels(...)`, così il counter mostra solo pixel realmente cancellabili (coerente con la richiesta “scartare automaticamente non disegnati/non miei”).
 
-Replace the coordinate-enumeration logic for ERASER in both the SPACE-release handler (keyboard rect, ~line 962) and the touch handler (~line 439) with an async function that:
+4) Limite funzionale coerente
+- Conservare `MAX_BRUSH_SELECTION = 10000` come tetto finale sui pixel owned validi.
+- Se l’area contiene più di 10.000 pixel owned, si prendono i primi 10.000 in modo deterministico (query ordinata) e il resto viene ignorato.
 
-1. Queries `pixels` table: `SELECT x, y FROM pixels WHERE owner_user_id = currentUserId AND x >= minX AND x <= maxX AND y >= minY AND y <= maxY LIMIT 10000`
-2. Uses the returned coordinates as `committedPixels` (already filtered to user-owned only)
-3. Shows a toast if > 0 results, or "No pixels to erase" if empty
+Verifiche (desktop + mobile)
+- Caso A: area 30.000 celle, owned effettivi 2.500 -> selection/counter = 2.500.
+- Caso B: area 30.000 celle, owned effettivi >10.000 -> selection/counter = 10.000.
+- Caso C: area senza pixel owned -> toast informativo, niente pending.
+- Mobile (drag/touch eraser): non-owned e vuoti non devono entrare nel pending/counter.
 
-```typescript
-// New helper function in BitplaceMap
-const fetchOwnedPixelsInBounds = async (
-  minX: number, maxX: number, minY: number, maxY: number, userId: string
-): Promise<{ x: number; y: number }[]> => {
-  const { data, error } = await supabase
-    .from('pixels')
-    .select('x, y')
-    .eq('owner_user_id', userId)
-    .gte('x', minX).lte('x', maxX)
-    .gte('y', minY).lte('y', maxY)
-    .limit(MAX_BRUSH_SELECTION);
-  if (error || !data) return [];
-  return data.map(p => ({ x: Number(p.x), y: Number(p.y) }));
-};
-```
-
-Then in the ERASER rect selection path, instead of:
-```typescript
-for (let x = minX; x <= maxX && selectedPixels.length < MAX_BRUSH_SELECTION; x++)
-  for (let y = minY; y <= maxY && selectedPixels.length < MAX_BRUSH_SELECTION; y++)
-    selectedPixels.push({ x, y });
-```
-
-Use:
-```typescript
-const ownedPixels = await fetchOwnedPixelsInBounds(minX, maxX, minY, maxY, user.id);
-// ... proceed with ownedPixels as committedPixels
-```
-
-### 2. `src/components/map/hooks/useBrushSelection.ts` — No change needed
-The brush (pixel-by-pixel) selection doesn't hit the same issue since users draw over specific pixels. The rect selection is the main problem.
-
-### 3. Touch handler in BitplaceMap (~line 439)
-Same change: when ERASER + rect selection ends on touch, use the async query instead of coordinate enumeration.
-
-### 4. `src/components/map/BitplaceMap.tsx` — Also filter brush-painted ERASER selections
-For single-pixel ERASER brush strokes, also filter: in `addToBrushSelection` calls for ERASER, check `dbPixels.has(key)` before adding to skip empty pixels.
-
-## Summary
-
-| File | Change |
-|------|--------|
-| `src/components/map/BitplaceMap.tsx` | Add `fetchOwnedPixelsInBounds` helper; use it for ERASER rect selections (keyboard + touch); filter brush ERASER against `dbPixels` |
-
+Impatto file
+- `src/components/map/BitplaceMap.tsx` (unico file da modificare, con 2 helper + integrazione nei flow ERASE rect e brush/touch).
+- Nessuna migrazione database necessaria.
