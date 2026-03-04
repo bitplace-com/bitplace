@@ -6,13 +6,12 @@ import { pixelToLngLat } from './coordinates';
 export function generatePixelShareLink(
   x: number,
   y: number,
-  zoom: number = 18,
+  _zoom: number = 18,
   userId?: string
 ): string {
-  const { lat, lng } = pixelToLngLat(x, y);
   const baseUrl = window.location.origin;
-  let url = `${baseUrl}/?lat=${lat.toFixed(5)}&lng=${lng.toFixed(5)}&z=${zoom}&px=${x}&py=${y}`;
-  if (userId) url += `&player=${userId}`;
+  let url = `${baseUrl}/p/${x}:${y}`;
+  if (userId) url += `?player=${userId}`;
   return url;
 }
 

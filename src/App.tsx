@@ -9,7 +9,8 @@ import { MapLayout } from "@/components/layout/MapLayout";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useEdgeFunctionWarmup } from "@/hooks/useEdgeFunctionWarmup";
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useParams, useSearchParams } from "react-router-dom";
+import { gridIntToLngLat } from "@/lib/pixelGrid";
 import MapPage from "./pages/MapPage";
 import RulesPage from "./pages/RulesPage";
 import SpecPage from "./pages/SpecPage";
@@ -27,6 +28,26 @@ const queryClient = new QueryClient();
 function ProfileRedirect() {
   const { id } = useParams();
   return <Navigate to={`/?player=${id}`} replace />;
+}
+
+// Redirect /p/X:Y to /?lat=...&lng=...&z=18&px=X&py=Y
+function PixelRedirect() {
+  const { coords } = useParams();
+  const [searchParams] = useSearchParams();
+  const player = searchParams.get('player');
+
+  if (coords) {
+    const parts = coords.split(':');
+    const x = parseInt(parts[0], 10);
+    const y = parseInt(parts[1], 10);
+    if (!isNaN(x) && !isNaN(y)) {
+      const { lat, lng } = gridIntToLngLat(x, y);
+      let to = `/?lat=${lat.toFixed(5)}&lng=${lng.toFixed(5)}&z=18&px=${x}&py=${y}`;
+      if (player) to += `&player=${player}`;
+      return <Navigate to={to} replace />;
+    }
+  }
+  return <Navigate to="/" replace />;
 }
 
 // Component to initialize warmup
@@ -62,6 +83,7 @@ const App = () => (
                 <Route element={<MainLayout><WhitePaperPage /></MainLayout>} path="/whitepaper" />
                 <Route element={<TermsPage />} path="/terms" />
                 <Route element={<PrivacyPage />} path="/privacy" />
+                <Route path="/p/:coords" element={<PixelRedirect />} />
                 <Route path="/profile/:id" element={<ProfileRedirect />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
