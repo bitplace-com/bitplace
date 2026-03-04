@@ -54,18 +54,65 @@ import { hapticsEngine } from '@/lib/hapticsEngine';
 import { markMapMountStart } from '@/lib/perfMetrics';
 
 // Helper: fetch only pixels owned by a specific user within a bounding box
+// Uses paginated queries (.range) to bypass the 1000-row API limit
 const fetchOwnedPixelsInBounds = async (
   minX: number, maxX: number, minY: number, maxY: number, userId: string
 ): Promise<{ x: number; y: number }[]> => {
-  const { data, error } = await supabase
-    .from('pixels')
-    .select('x, y')
-    .eq('owner_user_id', userId)
-    .gte('x', minX).lte('x', maxX)
-    .gte('y', minY).lte('y', maxY)
-    .limit(MAX_BRUSH_SELECTION);
-  if (error || !data) return [];
-  return data.map(p => ({ x: Number(p.x), y: Number(p.y) }));
+  const PAGE_SIZE = 1000;
+  const result: { x: number; y: number }[] = [];
+  let offset = 0;
+
+  while (result.length < MAX_BRUSH_SELECTION) {
+    const { data, error } = await supabase
+      .from('pixels')
+      .select('x, y')
+      .eq('owner_user_id', userId)
+      .gte('x', minX).lte('x', maxX)
+      .gte('y', minY).lte('y', maxY)
+      .order('x', { ascending: true })
+      .order('y', { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (error || !data || data.length === 0) break;
+
+    for (const p of data) {
+      result.push({ x: Number(p.x), y: Number(p.y) });
+      if (result.length >= MAX_BRUSH_SELECTION) break;
+    }
+
+    if (data.length < PAGE_SIZE) break; // last page
+    offset += PAGE_SIZE;
+  }
+
+  return result;
+};
+
+// Helper: filter an array of pixel coords to only those owned by the user
+// Uses fetch_pixels_by_coords RPC in batches of 900
+const filterOwnedPixels = async (
+  pixels: { x: number; y: number }[],
+  userId: string
+): Promise<{ x: number; y: number }[]> => {
+  if (pixels.length === 0) return [];
+  const CHUNK = 900;
+  const owned: { x: number; y: number }[] = [];
+
+  for (let i = 0; i < pixels.length && owned.length < MAX_BRUSH_SELECTION; i += CHUNK) {
+    const chunk = pixels.slice(i, i + CHUNK);
+    const coords = chunk.map(p => ({ x: p.x, y: p.y }));
+    const { data, error } = await supabase.rpc('fetch_pixels_by_coords', {
+      coords: coords as any,
+    });
+    if (error || !data) continue;
+    for (const row of data) {
+      if (row.owner_user_id === userId) {
+        owned.push({ x: Number(row.x), y: Number(row.y) });
+        if (owned.length >= MAX_BRUSH_SELECTION) break;
+      }
+    }
+  }
+
+  return owned;
 };
 
 // Helper to get snapped 2x2 block coordinates
@@ -452,25 +499,30 @@ export function BitplaceMap() {
       endBrushSelection();
       const selectedPixels = getBrushSelectedPixels();
       
-      if (paintTool === 'ERASER' && selectedPixels.length > 0) {
+      if (paintTool === 'ERASER' && selectedPixels.length > 0 && user) {
         // Separate draft and committed pixels
-        const committedPixels: { x: number; y: number }[] = [];
+        const dbExistingPixels: { x: number; y: number }[] = [];
         selectedPixels.forEach(({ x, y }) => {
           const key = `${x}:${y}`;
-          if (!draftPixels.has(key)) {
-            // Only include pixels that actually exist in the DB
-            if (dbPixels.has(key)) {
-              committedPixels.push({ x, y });
-            }
+          if (!draftPixels.has(key) && dbPixels.has(key)) {
+            dbExistingPixels.push({ x, y });
           }
         });
-        if (committedPixels.length > 0) {
-          setPendingPixels(committedPixels);
-          clearValidation();
+        if (dbExistingPixels.length > 0) {
+          // Async ownership filter
+          filterOwnedPixels(dbExistingPixels, user.id).then(ownedPixels => {
+            if (ownedPixels.length > 0) {
+              setPendingPixels(ownedPixels);
+              clearValidation();
+            } else {
+              toast.info('No pixels to erase in this area');
+            }
+            clearBrushSelection();
+          });
         } else {
           toast.info('No pixels to erase in this area');
+          clearBrushSelection();
         }
-        clearBrushSelection();
       } else if (selectedPixels.length > 0) {
         // Action modes
         setPendingPixels(selectedPixels);
@@ -479,7 +531,7 @@ export function BitplaceMap() {
         setValidatedActionPixels(null);
       }
     }
-  }, [mode, paintTool, endBrushSelection, getBrushSelectedPixels, clearBrushSelection, draftPixels, clearValidation]);
+  }, [mode, paintTool, endBrushSelection, getBrushSelectedPixels, clearBrushSelection, draftPixels, dbPixels, clearValidation, user]);
 
   const handleTouchTapInspect = useCallback((x: number, y: number) => {
     // In HAND mode, tap opens pixel inspector
@@ -1019,10 +1071,10 @@ export function BitplaceMap() {
               }
             });
           }
-          // ERASER mode with brush selection (non-rect): filter against dbPixels
-          else if (paintTool === 'ERASER' && selectedPixels.length > 0) {
+          // ERASER mode with brush selection (non-rect): filter against dbPixels + ownership
+          else if (paintTool === 'ERASER' && selectedPixels.length > 0 && user) {
             let removedCount = 0;
-            const committedPixels: { x: number; y: number }[] = [];
+            const dbExistingPixels: { x: number; y: number }[] = [];
             
             selectedPixels.forEach(({ x, y }) => {
               const key = `${x}:${y}`;
@@ -1030,15 +1082,25 @@ export function BitplaceMap() {
                 removeFromDraft(x, y);
                 removedCount++;
               } else if (dbPixels.has(key)) {
-                committedPixels.push({ x, y });
+                dbExistingPixels.push({ x, y });
               }
             });
-            
-            if (committedPixels.length > 0) {
-              setPendingPixels(committedPixels);
-              clearValidation();
-              setPreviewHiddenPixels(new Set());
-              setValidatedActionPixels(null);
+
+            // Async ownership check for DB pixels
+            if (dbExistingPixels.length > 0) {
+              filterOwnedPixels(dbExistingPixels, user.id).then(ownedPixels => {
+                if (ownedPixels.length > 0) {
+                  setPendingPixels(ownedPixels);
+                  clearValidation();
+                  setPreviewHiddenPixels(new Set());
+                  setValidatedActionPixels(null);
+                } else if (removedCount === 0) {
+                  toast.info('No pixels to erase in this area');
+                  clearBrushSelection();
+                } else {
+                  clearBrushSelection();
+                }
+              });
             } else if (removedCount === 0) {
               toast.info('No pixels to erase in this area');
               clearBrushSelection();
