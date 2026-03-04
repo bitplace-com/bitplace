@@ -186,6 +186,7 @@ export function BitplaceMap() {
   const lastPaintedPixelRef = useRef<{ x: number; y: number } | null>(null);
   
   const [pendingPixels, setPendingPixels] = useState<{ x: number; y: number }[]>([]);
+  const [eraserAreaCount, setEraserAreaCount] = useState(0);
   const [inspectSelection, setInspectSelection] = useState<{ x: number; y: number }[]>([]);
   const [pePerPixel, setPePerPixel] = useState(1);
   const [actionDirection, setActionDirection] = useState<'deposit' | 'withdraw'>('deposit');
@@ -500,6 +501,8 @@ export function BitplaceMap() {
       const selectedPixels = getBrushSelectedPixels();
       
       if (paintTool === 'ERASER' && selectedPixels.length > 0 && user) {
+        // Track total touch area before filtering
+        setEraserAreaCount(selectedPixels.length);
         // Separate draft and committed pixels
         const dbExistingPixels: { x: number; y: number }[] = [];
         selectedPixels.forEach(({ x, y }) => {
@@ -899,6 +902,7 @@ export function BitplaceMap() {
           clearValidation();
           clearBrushSelection();
           setPendingPixels([]);
+          setEraserAreaCount(0);
           setPreviewHiddenPixels(new Set());
           setValidatedActionPixels(null);
           playSound('pixel_deselect');
@@ -1040,6 +1044,9 @@ export function BitplaceMap() {
           
           // ERASER mode with rect selection: async query for owned pixels only
           if (paintTool === 'ERASER' && isRectSelection && user) {
+            // Track total area before filtering
+            const totalArea = (rectMaxX - rectMinX + 1) * (rectMaxY - rectMinY + 1);
+            setEraserAreaCount(totalArea);
             // Query DB for only user-owned pixels in the bounding box
             fetchOwnedPixelsInBounds(rectMinX, rectMaxX, rectMinY, rectMaxY, user.id).then(ownedPixels => {
               let removedCount = 0;
@@ -1073,6 +1080,8 @@ export function BitplaceMap() {
           }
           // ERASER mode with brush selection (non-rect): filter against dbPixels + ownership
           else if (paintTool === 'ERASER' && selectedPixels.length > 0 && user) {
+            // Track total brush area before filtering
+            setEraserAreaCount(selectedPixels.length);
             let removedCount = 0;
             const dbExistingPixels: { x: number; y: number }[] = [];
             
@@ -1189,6 +1198,7 @@ export function BitplaceMap() {
     if (modeChanged || toolChanged || interactionChanged) {
       clearBrushSelection();
       setPendingPixels([]);
+      setEraserAreaCount(0);
       clearValidation();
       setPreviewHiddenPixels(new Set());
       setValidatedActionPixels(null);
@@ -1731,6 +1741,7 @@ export function BitplaceMap() {
     clearSelection(); 
     clearValidation(); 
     setPendingPixels([]); 
+    setEraserAreaCount(0);
     setRectPreview(null);
     resetPaintState();
     playSound('pixel_deselect'); 
@@ -2109,6 +2120,7 @@ export function BitplaceMap() {
           zoom={zoom}
           draftCount={draftCount}
           selectionCount={pendingPixels.length}
+          eraserAreaCount={eraserAreaCount}
           pePerPixel={pePerPixel}
           availablePe={peBalance.free}
           isEyedropperActive={isEyedropperActive}
@@ -2223,6 +2235,7 @@ onExcludeInvalid={handleExcludeInvalid}
             lastError={lastError}
             onRetryValidate={handleValidate}
             statusStripHeight={statusStripHeight}
+            eraserAreaCount={eraserAreaCount}
           />
         )}
 

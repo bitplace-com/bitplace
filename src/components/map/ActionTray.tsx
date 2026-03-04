@@ -26,6 +26,9 @@ interface ActionTrayProps {
   draftCount: number;
   selectionCount: number;
   
+  // Eraser: total area selected (including empty/other users' pixels)
+  eraserAreaCount?: number;
+  
   // PE state for action modes
   pePerPixel: number;
   availablePe: number;
@@ -87,6 +90,7 @@ export function ActionTray({
   zoom,
   draftCount,
   selectionCount,
+  eraserAreaCount = 0,
   pePerPixel,
   availablePe,
   isEyedropperActive,
@@ -300,7 +304,11 @@ export function ActionTray({
               /* Expanded: show count if any */
               (draftCount > 0 || selectionCount > 0) && (
                 <span className="text-[10px] font-medium text-muted-foreground tabular-nums">
-                  {isPaintMode ? `Draft: ${draftCount} px` : `Selected: ${selectionCount} px`}
+                  {isPaintMode 
+                    ? (isEraser && eraserAreaCount > 0
+                        ? `Selected: ${selectionCount.toLocaleString()} owned / ${eraserAreaCount.toLocaleString()} area`
+                        : `Draft: ${draftCount} px`)
+                    : `Selected: ${selectionCount} px`}
                 </span>
               )
             )}
