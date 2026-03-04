@@ -1,44 +1,24 @@
 
 
-# Shorter pixel share links
+# Fix creator name truncation + thumbnail pixel coverage
 
-## Current format
-```
-https://bitplace.com/?lat=37.77228&lng=-122.39053&z=18&px=335599&py=810612
-```
-72 characters of path+query. The `lat`, `lng`, and `z` params are redundant — they can be derived from `px` and `py` via `gridIntToLngLat`, and zoom is always 18 for shared pixels.
+## Problem 1: Creator name truncated
+Line 113 in `PlaceCard.tsx` uses `max-w-20` (80px) which cuts names like "Bitplace_Team" to "Bitplace_Te...". Need to widen this.
 
-## New format
-```
-https://bitplace.com/p/335599:810612
-https://bitplace.com/p/335599:810612?player=abc123
-```
-~20 characters of path. Clean, memorable, easy to share.
+## Problem 2: Missing pixels in thumbnail
+`fetchPixels` queries only within the exact bbox bounds, but the canvas renders a padded view area (20% padding on each side). Pixels outside the strict bbox but inside the padded view are never fetched, creating gaps at the edges. Additionally, the padded view should include those pixels so the artwork looks complete in context.
 
 ## Changes
 
-### 1. `src/App.tsx` — Add `/p/:coords` route
-Add a new route `/p/:coords` that extracts `x:y` from the path, converts to lat/lng, and redirects to `/?lat=...&lng=...&z=18&px=X&py=Y` (preserving `?player` if present). This keeps all existing deep-link logic in `BitplaceMap` working without changes.
+### `src/components/places/PlaceCard.tsx`
+- Change `max-w-20` to `max-w-[40%]` on the creator name span (line 113), so it scales with the card width and shows more of the name before truncating.
 
-```tsx
-function PixelRedirect() {
-  const { coords } = useParams();
-  // parse "335599:810612" → x=335599, y=810612
-  // convert to lat/lng via gridIntToLngLat
-  // redirect to /?lat=...&lng=...&z=18&px=X&py=Y
-}
-
-<Route path="/p/:coords" element={<PixelRedirect />} />
-```
-
-### 2. `src/lib/shareLink.ts` — Generate short URLs
-Update `generatePixelShareLink` to produce `/p/X:Y` format instead of the query-string format. Profile links with `?player=` are appended as a query param.
-
-### 3. Backward compatibility
-The existing `/?lat=...&lng=...&px=...&py=...` format continues to work unchanged — we're only adding a new route, not removing the old parsing logic.
+### `src/components/places/PlaceThumbnail.tsx`
+- Update `fetchPixels` call to use the padded bounds (`viewXmin`, `viewYmin`, `viewXmax`, `viewYmax`) instead of the strict bbox, so all visible pixels in the thumbnail area are fetched and rendered.
+- Update the cache key to include the padded bounds so different views don't share stale cache entries.
 
 | File | Change |
 |------|--------|
-| `src/App.tsx` | Add `/p/:coords` route with redirect component |
-| `src/lib/shareLink.ts` | Generate `/p/X:Y` short links |
+| `src/components/places/PlaceCard.tsx` | Widen creator name `max-w-20` → `max-w-[40%]` |
+| `src/components/places/PlaceThumbnail.tsx` | Fetch pixels for padded view area, not just strict bbox |
 
