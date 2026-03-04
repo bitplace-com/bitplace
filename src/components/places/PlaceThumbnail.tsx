@@ -137,10 +137,11 @@ export const PlaceThumbnail = memo(function PlaceThumbnail({
       const offsetX = (cw - drawW) / 2;
       const offsetY = (ch - drawH) / 2;
 
-      // Fetch pixels first (before any branching)
+      // Fetch pixels for the full padded view area (not just strict bbox)
+      const paddedKey = `${viewXmin}-${viewYmin}-${viewXmax}-${viewYmax}`;
       const pixels = await fetchPixels(
-        { xmin: bbox.xmin, ymin: bbox.ymin, xmax: bbox.xmax, ymax: bbox.ymax },
-        bboxKey
+        { xmin: viewXmin, ymin: viewYmin, xmax: viewXmax, ymax: viewYmax },
+        paddedKey
       );
 
       const drawPixels = () => {
