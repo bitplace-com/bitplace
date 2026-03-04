@@ -1,10 +1,10 @@
-import { Component, ReactNode } from 'react';
+import { Component, ReactNode, useState } from 'react';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { PixelInfoPanel } from './PixelInfoPanel';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { X, RefreshCw } from 'lucide-react';
+import { X, RefreshCw, ChevronUp } from 'lucide-react';
 
 interface PixelInspectorDrawerProps {
   pixel: { x: number; y: number } | null;
@@ -12,6 +12,7 @@ interface PixelInspectorDrawerProps {
   currentUserId?: string;
   actionSelectionCount?: number;
   onJumpToPixel?: (x: number, y: number) => void;
+  fromPixelLink?: boolean;
 }
 
 // Local error boundary for inspector panel
@@ -76,8 +77,10 @@ export function PixelInspectorDrawer({
   currentUserId,
   actionSelectionCount = 0,
   onJumpToPixel,
+  fromPixelLink = false,
 }: PixelInspectorDrawerProps) {
   const isMobile = useIsMobile();
+  const [expanded, setExpanded] = useState(!fromPixelLink);
 
   if (!pixel) return null;
 
@@ -96,6 +99,28 @@ export function PixelInspectorDrawer({
   );
 
   if (isMobile) {
+    // Compact chip mode for pixel-link arrivals
+    if (fromPixelLink && !expanded) {
+      return (
+        <div className="fixed bottom-20 left-3 right-3 z-50 animate-in slide-in-from-bottom-4 fade-in duration-200">
+          <button
+            onClick={() => setExpanded(true)}
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-border/60 bg-background/95 backdrop-blur-md shadow-lg"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="text-sm font-medium text-foreground truncate">
+                Pixel {pixel.x.toLocaleString()}, {pixel.y.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 text-muted-foreground shrink-0">
+              <span className="text-xs">Tap for details</span>
+              <ChevronUp className="w-4 h-4" />
+            </div>
+          </button>
+        </div>
+      );
+    }
+
     return (
       <Drawer open={!!pixel} onOpenChange={(open) => !open && onClose()}>
         <DrawerContent className="px-4 pb-safe">
