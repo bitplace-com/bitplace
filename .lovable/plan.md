@@ -1,24 +1,53 @@
 
 
-# Fix creator name truncation + thumbnail pixel coverage
+# Fix pixels_painted_total accuracy
 
-## Problem 1: Creator name truncated
-Line 113 in `PlaceCard.tsx` uses `max-w-20` (80px) which cuts names like "Bitplace_Team" to "Bitplace_Te...". Need to widen this.
+## Root Cause
+`pixels_painted_total` is a leaderboard counter that can become lower than actual owned pixels due to:
+1. The 24h dedup rule skipping self-repaints
+2. ERASE decrementing the counter
+3. Counter not existing when early pixels were painted (column defaults to 0)
 
-## Problem 2: Missing pixels in thumbnail
-`fetchPixels` queries only within the exact bbox bounds, but the canvas renders a padded view area (20% padding on each side). Pixels outside the strict bbox but inside the padded view are never fetched, creating gaps at the edges. Additionally, the padded view should include those pixels so the artwork looks complete in context.
+## Recommended Fix
+Rather than changing the counter logic (which serves the leaderboard correctly), the **Player Profile** should show the real pixel count from the database for "Pixels Owned" and keep `pixels_painted_total` as a separate leaderboard-oriented metric. The issue is purely cosmetic — both numbers are independently correct for their purpose.
+
+However, if you want `pixels_painted_total` to always be >= `pixels_owned`, we can add a one-time reconciliation and prevent ERASE from decrementing below the current owned count.
 
 ## Changes
 
-### `src/components/places/PlaceCard.tsx`
-- Change `max-w-20` to `max-w-[40%]` on the creator name span (line 113), so it scales with the card width and shows more of the name before truncating.
+### 1. `supabase/functions/game-commit/index.ts` — Prevent painted < owned after ERASE
+Line 839: Instead of blindly decrementing, clamp to at least the user's current owned pixel count.
 
-### `src/components/places/PlaceThumbnail.tsx`
-- Update `fetchPixels` call to use the padded bounds (`viewXmin`, `viewYmin`, `viewXmax`, `viewYmax`) instead of the strict bbox, so all visible pixels in the thumbnail area are fetched and rendered.
-- Update the cache key to include the padded bounds so different views don't share stale cache entries.
+```typescript
+// Before:
+newPixelsPaintedTotal = Math.max(0, (user.pixels_painted_total || 0) - affectedPixels);
+
+// After: query current owned count and clamp
+const { count: currentOwned } = await supabase
+  .from("pixels")
+  .select("id", { count: "exact", head: true })
+  .eq("owner_user_id", userId);
+newPixelsPaintedTotal = Math.max(currentOwned || 0, (user.pixels_painted_total || 0) - affectedPixels);
+```
+
+### 2. Database migration — Reconcile existing data
+Run a one-time SQL to set `pixels_painted_total` to at least the owned count for all users where it's currently less:
+
+```sql
+UPDATE public.users u
+SET pixels_painted_total = sub.owned
+FROM (
+  SELECT owner_user_id, COUNT(*) as owned
+  FROM public.pixels
+  WHERE owner_user_id IS NOT NULL
+  GROUP BY owner_user_id
+) sub
+WHERE u.id = sub.owner_user_id
+  AND u.pixels_painted_total < sub.owned;
+```
 
 | File | Change |
 |------|--------|
-| `src/components/places/PlaceCard.tsx` | Widen creator name `max-w-20` → `max-w-[40%]` |
-| `src/components/places/PlaceThumbnail.tsx` | Fetch pixels for padded view area, not just strict bbox |
+| `supabase/functions/game-commit/index.ts` | Clamp `pixels_painted_total` on ERASE to never go below owned count |
+| Database migration | One-time reconciliation of existing users |
 
