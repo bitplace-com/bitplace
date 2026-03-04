@@ -110,7 +110,7 @@ export function PlaceCard({
               <BitplaceLogo className="w-3 h-3 text-muted-foreground" />
             </AvatarFallback>
           </Avatar>
-          <span className="text-xs font-medium truncate max-w-[40%]">
+          <span className="text-xs font-medium shrink-0">
             {creator?.display_name || "Anon"}
           </span>
           {country && <span className="text-xs">{country.flag}</span>}
@@ -126,7 +126,7 @@ export function PlaceCard({
 
         {/* Description */}
         {place.description && (
-          <p className="text-xs text-muted-foreground line-clamp-1">
+          <p className="text-xs text-muted-foreground line-clamp-3">
             {place.description}
           </p>
         )}
