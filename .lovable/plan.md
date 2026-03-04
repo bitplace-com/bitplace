@@ -1,36 +1,65 @@
 
 
-# Pixel link deep-link: suppress tour, keep explore mode, compact inspector
+# Smart ERASER selection: only count user-owned pixels
 
-## Context
-When a user arrives via a pixel link (`/?lat=...&lng=...&z=18&px=X&py=Y`), three things go wrong:
-1. The guided tour pops up over the pixel info
-2. The auto-switch logic restores draw mode when zoom crosses the paint threshold
-3. The `PixelInspectorDrawer` opens full-screen on mobile, overwhelming new users
+## Problem
+When selecting a large area for erasing, the 10,000 pixel limit counts ALL coordinates in the rectangle (including empty pixels and pixels owned by others). This means you might hit the limit but only a fraction of those are actually your pixels.
+
+## Solution
+When the ERASER builds its selection from a rectangle, query the database for only pixels owned by the current user within the bounding box, instead of enumerating every coordinate. This way the 10,000 limit applies only to pixels you can actually erase.
 
 ## Changes
 
-### 1. Detect "pixel link" arrival — `src/components/map/BitplaceMap.tsx`
-Create a ref `isPixelLink` set to `true` when `initialUrlPos` has `pixelX`/`pixelY`. This flag will be used to:
-- **Suppress auto-switch to draw**: In the `useEffect` at line 268, skip restoring draw mode when `isPixelLink.current` is true. Clear the flag after first user interaction (manual mode change).
-- **Force drag mode on load**: After map load (line 571), explicitly call `setInteractionMode('drag')` when it's a pixel link.
+### 1. `src/components/map/BitplaceMap.tsx` — Smart ERASER rect selection
 
-### 2. Suppress tour on pixel link — `src/hooks/useGuidedTour.ts`
-Add a check in the `useEffect` that triggers `shouldShow`: if URL contains `px` and `py` params, skip showing the tour prompt (set `TOUR_SEEN_KEY` or simply don't set `shouldShow`).
+Replace the coordinate-enumeration logic for ERASER in both the SPACE-release handler (keyboard rect, ~line 962) and the touch handler (~line 439) with an async function that:
 
-### 3. Compact pixel inspector on link arrival — `src/components/map/PixelInspectorDrawer.tsx`
-On mobile, instead of opening the full `Drawer` immediately, show a **compact summary chip** (coordinates + color swatch + owner name) fixed at the bottom. Tapping it expands the full drawer. Add a `compact` prop to control this.
+1. Queries `pixels` table: `SELECT x, y FROM pixels WHERE owner_user_id = currentUserId AND x >= minX AND x <= maxX AND y >= minY AND y <= maxY LIMIT 10000`
+2. Uses the returned coordinates as `committedPixels` (already filtered to user-owned only)
+3. Shows a toast if > 0 results, or "No pixels to erase" if empty
 
-Alternatively (simpler approach): change the mobile drawer to use `snap points` so it opens partially (30-40% height) rather than full screen, and the user can swipe up for more details.
+```typescript
+// New helper function in BitplaceMap
+const fetchOwnedPixelsInBounds = async (
+  minX: number, maxX: number, minY: number, maxY: number, userId: string
+): Promise<{ x: number; y: number }[]> => {
+  const { data, error } = await supabase
+    .from('pixels')
+    .select('x, y')
+    .eq('owner_user_id', userId)
+    .gte('x', minX).lte('x', maxX)
+    .gte('y', minY).lte('y', maxY)
+    .limit(MAX_BRUSH_SELECTION);
+  if (error || !data) return [];
+  return data.map(p => ({ x: Number(p.x), y: Number(p.y) }));
+};
+```
 
-### 4. Wire `compact` mode from BitplaceMap
-Pass `fromPixelLink` to `PixelInspectorDrawer` when the inspector was opened via URL pixel ref, so it starts in compact/snapped mode.
+Then in the ERASER rect selection path, instead of:
+```typescript
+for (let x = minX; x <= maxX && selectedPixels.length < MAX_BRUSH_SELECTION; x++)
+  for (let y = minY; y <= maxY && selectedPixels.length < MAX_BRUSH_SELECTION; y++)
+    selectedPixels.push({ x, y });
+```
 
-## File summary
+Use:
+```typescript
+const ownedPixels = await fetchOwnedPixelsInBounds(minX, maxX, minY, maxY, user.id);
+// ... proceed with ownedPixels as committedPixels
+```
+
+### 2. `src/components/map/hooks/useBrushSelection.ts` — No change needed
+The brush (pixel-by-pixel) selection doesn't hit the same issue since users draw over specific pixels. The rect selection is the main problem.
+
+### 3. Touch handler in BitplaceMap (~line 439)
+Same change: when ERASER + rect selection ends on touch, use the async query instead of coordinate enumeration.
+
+### 4. `src/components/map/BitplaceMap.tsx` — Also filter brush-painted ERASER selections
+For single-pixel ERASER brush strokes, also filter: in `addToBrushSelection` calls for ERASER, check `dbPixels.has(key)` before adding to skip empty pixels.
+
+## Summary
 
 | File | Change |
 |------|--------|
-| `src/hooks/useGuidedTour.ts` | Skip tour when URL has `px`+`py` params |
-| `src/components/map/BitplaceMap.tsx` | Add `isPixelLink` ref; suppress draw auto-switch; force drag on pixel link load; pass `fromLink` to inspector |
-| `src/components/map/PixelInspectorDrawer.tsx` | Mobile: use snap points (`[0.35, 1]`) so drawer opens at 35% height initially instead of full screen; allow swipe up for full details |
+| `src/components/map/BitplaceMap.tsx` | Add `fetchOwnedPixelsInBounds` helper; use it for ERASER rect selections (keyboard + touch); filter brush ERASER against `dbPixels` |
 
