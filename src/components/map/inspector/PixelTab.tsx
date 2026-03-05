@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Shield, Swords, RefreshCw, AlertTriangle, ArrowUpFromLine, Loader2 } from 'lucide-react';
+import { User, Shield, Swords, RefreshCw, AlertTriangle, ArrowUpFromLine, Loader2, MapPin } from 'lucide-react';
 import { useLiveTick } from '@/hooks/useLiveTick';
 import { formatLiveCountdown } from '@/lib/formatLiveTime';
 import { PixelIcon } from '@/components/icons';
@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { usePixelDetails } from '@/hooks/usePixelDetails';
 import { useWithdrawContribution } from '@/hooks/useWithdrawContribution';
+import { useReverseGeocode } from '@/hooks/useReverseGeocode';
 import { cn } from '@/lib/utils';
 
 interface PixelTabProps {
@@ -26,6 +27,7 @@ function formatTimeUntil(targetTime: Date, nowMs: number): string {
 
 export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTabProps) {
   const { pixel, isLoading, refetch } = usePixelDetails(x, y, currentUserId);
+  const { address, isLoading: addressLoading } = useReverseGeocode(x, y);
   const { isCommitting, commit } = useWithdrawContribution();
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const now = useLiveTick();
@@ -99,6 +101,18 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
 
   return (
     <div className="space-y-4">
+      {/* Location Address */}
+      <div className="flex items-start gap-2 text-xs text-muted-foreground">
+        <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
+        {addressLoading ? (
+          <Skeleton className="h-3 w-32" />
+        ) : address ? (
+          <span className="leading-relaxed">{address}</span>
+        ) : (
+          <span className="italic">Unknown location</span>
+        )}
+      </div>
+
       {/* Owner Section */}
       <div className="bg-muted/50 rounded-lg p-3 space-y-2">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
