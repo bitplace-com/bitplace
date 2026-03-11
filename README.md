@@ -2,7 +2,7 @@
 
 A real-time collaborative pixel canvas on top of a world map.
 
-🌐 [bitplace.com](https://bitplace.com)
+🌐 [bitplace.live](https://bitplace.live)
 
 ---
 
@@ -98,7 +98,7 @@ The platform does not custody, transfer, or transact tokens. It reads on-chain b
 
 ## Links
 
-- [bitplace.com](https://bitplace.com)
+- [bitplace.live](https://bitplace.live)
 - [@Bitplace_com](https://twitter.com/Bitplace_com)
 - [Token on pump.fun](https://pump.fun/coin/6az8wE4Gmns7bPLwfeR9Ed9pnGjqN5Cv9FJ3vs4Cpump)
 
