@@ -53,7 +53,7 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
 type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE" | "WITHDRAW_DEF" | "WITHDRAW_ATK" | "WITHDRAW_REINFORCE" | "PING";
 
 // Admin emails bypass cooldown + pixel limits
-const ADMIN_EMAILS = ["team@bitplace.com"];
+const ADMIN_EMAILS = ["team@bitplace.live"];
 
 // Paint-specific limits
 const MAX_PAINT_PIXELS = 1000;

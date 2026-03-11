@@ -44,7 +44,7 @@ const balanceDebug = (stage: string, data?: unknown) => {
 export function useBalance({ walletAddress, enabled = true }: UseBalanceOptions) {
   const [state, setState] = useState<BalanceState>(defaultState);
 
-  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isMountedRef = useRef(true);
 
   // Fetch balance from token-balance edge function (public, no auth required)

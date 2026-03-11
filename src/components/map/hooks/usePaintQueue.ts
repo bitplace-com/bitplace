@@ -35,7 +35,7 @@ export function usePaintQueue(
   // Store color for the current painting session
   const currentColorRef = useRef<string>('#FFFFFF');
   const flushingRef = useRef(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Track recently committed pixels to prevent double-commit
   const recentlyCommittedRef = useRef<Map<string, number>>(new Map());

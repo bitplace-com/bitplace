@@ -42,11 +42,11 @@ export function useSupabasePixels(zoom: number) {
   const reconnectAttemptsRef = useRef(0);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasRenderedFirstPixels = useRef(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isIdleRef = useRef(true);
   const lastActivityRef = useRef<number>(Date.now());
   const lastViewportRef = useRef<ViewportBounds | null>(null);

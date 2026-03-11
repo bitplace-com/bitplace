@@ -246,7 +246,7 @@ export function BitplaceMap() {
   const templateDragOffsetRef = useRef<{ dx: number; dy: number } | null>(null);
   const pendingScaleRef = useRef<number | null>(null);
   const { startAutoPaint, cancelAutoPaint, resetProgress, progress: autoPaintProgress, isRunning: isAutoPainting } = useAutoPaint();
-  const isAdminUser = user?.email === 'team@bitplace.com';
+  const isAdminUser = user?.email === 'team@bitplace.live';
 
   const handleAutoPaint = useCallback(() => {
     if (!activeTemplate) return;

@@ -134,7 +134,7 @@ const PrivacyPage = () => {
           <div className="space-y-3 text-sm text-muted-foreground">
             <p>If you have any questions about this Privacy Policy or our data practices, please contact us at:</p>
             <p>
-              Email: <a href="mailto:contact@bitplace.com" className="text-primary hover:underline">contact@bitplace.com</a>
+              Email: <a href="mailto:team@bitplace.live" className="text-primary hover:underline">team@bitplace.live</a>
             </p>
           </div>
         </SectionCard>
