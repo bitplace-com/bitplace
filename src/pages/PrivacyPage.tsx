@@ -106,7 +106,7 @@ const PrivacyPage = () => {
             </ul>
             <p>
               To exercise these rights, please contact us at{" "}
-              <a href="mailto:contact@bitplace.com" className="text-primary hover:underline">contact@bitplace.com</a>.
+              <a href="mailto:team@bitplace.live" className="text-primary hover:underline">team@bitplace.live</a>.
             </p>
           </div>
         </SectionCard>
