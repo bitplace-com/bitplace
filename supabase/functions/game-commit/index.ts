@@ -2,8 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Allowed origins for CORS
 const ALLOWED_ORIGINS = [
-  "https://bitplace.com",
-  "https://www.bitplace.com",
+  "https://bitplace.live",
+  "https://www.bitplace.live",
   "http://localhost:5173",
   "http://localhost:3000",
 ];
