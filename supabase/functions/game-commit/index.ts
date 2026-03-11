@@ -2,8 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Allowed origins for CORS
 const ALLOWED_ORIGINS = [
-  "https://bitplace.com",
-  "https://www.bitplace.com",
+  "https://bitplace.live",
+  "https://www.bitplace.live",
   "http://localhost:5173",
   "http://localhost:3000",
 ];
@@ -52,7 +52,7 @@ async function verifyToken(token: string, secret: string): Promise<{ wallet: str
 type GameMode = "PAINT" | "DEFEND" | "ATTACK" | "REINFORCE" | "ERASE" | "WITHDRAW_DEF" | "WITHDRAW_ATK" | "WITHDRAW_REINFORCE" | "PING";
 
 // Admin emails bypass cooldown + pixel limits
-const ADMIN_EMAILS = ["team@bitplace.com"];
+const ADMIN_EMAILS = ["team@bitplace.live"];
 
 // Paint-specific limits
 const MAX_PAINT_PIXELS = 1000;

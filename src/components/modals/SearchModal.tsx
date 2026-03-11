@@ -32,7 +32,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
   const [deletingPinId, setDeletingPinId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     recentSearches,

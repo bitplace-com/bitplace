@@ -43,7 +43,7 @@ serve(async (req) => {
 
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Bitplace/1.0 (https://bitplace.com)',
+        'User-Agent': 'Bitplace/1.0 (https://bitplace.live)',
         'Accept': 'application/json',
       }
     });

@@ -109,7 +109,7 @@ async function warmupAnonymous(): Promise<void> {
  * OPTIMIZATION: Now uses authenticated warmup when possible to also warm DB connection.
  */
 export function useEdgeFunctionWarmup() {
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     // Initial warmup on mount - try authenticated first, fallback to anonymous
