@@ -1,30 +1,52 @@
 
 
-# Show total area count alongside owned pixel count in ERASER mode
+# Fix build errors + Migrate domain .com → .live
 
-## Problem
-After the smart ERASER update, the sidebar counter (`Selected: X px`) only shows owned pixels (the ones that will actually be erased). The user wants to also see the total area selected (including empty/other users' pixels) for context.
+## 1. Fix build errors: `NodeJS.Timeout` namespace
 
-## Approach
-Track a separate `eraserTotalAreaCount` state that captures the full rectangle/brush area size before filtering. Display both counts in the ActionTray when in ERASER mode: e.g. `Selected: 2,400 / 10,000 px` (owned / total area).
+The previous tsconfig edit removed Node types. Fix by replacing `NodeJS.Timeout` with `ReturnType<typeof setTimeout>` in 5 files:
 
-## Changes
+| File | Lines to fix |
+|------|-------------|
+| `src/components/map/hooks/usePaintQueue.ts` | line 38 |
+| `src/components/modals/SearchModal.tsx` | line 35 |
+| `src/hooks/useBalance.ts` | line 47 |
+| `src/hooks/useEdgeFunctionWarmup.ts` | line 112 |
+| `src/hooks/useSupabasePixels.ts` | lines 45, 48, 49 |
 
-### 1. `src/components/map/BitplaceMap.tsx`
-- Add state: `const [eraserAreaCount, setEraserAreaCount] = useState(0)`
-- In the ERASER rect selection path (~line 1042): before calling `fetchOwnedPixelsInBounds`, compute the total area `(maxX - minX + 1) * (maxY - minY + 1)` and call `setEraserAreaCount(totalArea)`
-- In the ERASER brush selection path (~line 1075): set `setEraserAreaCount(selectedPixels.length)` (total brush-painted area before ownership filter)
-- In the touch ERASER path (~line 500): same pattern
-- Reset `setEraserAreaCount(0)` alongside `setPendingPixels([])` in all clear paths
-- Pass `eraserAreaCount` to `ActionTray` as a new prop
+## 2. Migrate all `bitplace.com` → `bitplace.live`
 
-### 2. `src/components/map/ActionTray.tsx`
-- Add prop `eraserAreaCount?: number`
-- When in ERASER mode and `eraserAreaCount > 0`, change the display from `Selected: {selectionCount} px` to `Selected: {selectionCount} owned / {eraserAreaCount} area`
-- Keep existing display for non-ERASER action modes
+### Edge Functions — ALLOWED_ORIGINS (11 files)
+Replace `"https://bitplace.com"` and `"https://www.bitplace.com"` with `"https://bitplace.live"` and `"https://www.bitplace.live"`:
 
-| File | Change |
-|------|--------|
-| `src/components/map/BitplaceMap.tsx` | Add `eraserAreaCount` state, set it before filtering, pass to ActionTray |
-| `src/components/map/ActionTray.tsx` | Accept + display `eraserAreaCount` in ERASER mode |
+- `auth-nonce`, `auth-verify`, `auth-google`
+- `user-update`, `notifications-manage`
+- `game-validate`, `game-commit`
+- `energy-refresh`, `avatar-upload`
+- `pe-status`, `alliance-manage`
+
+### Edge Functions — ADMIN_EMAILS (2 files)
+`game-commit` and `game-validate`: `team@bitplace.com` → `team@bitplace.live`
+
+### Edge Functions — User-Agent (2 files)
+`geocode` and `reverse-geocode`: `Bitplace/1.0 (https://bitplace.com)` → `Bitplace/1.0 (https://bitplace.live)`
+
+### Frontend — admin check (1 file)
+`BitplaceMap.tsx` line 249: `team@bitplace.com` → `team@bitplace.live`
+
+### Frontend — contact email (2 files)
+- `PrivacyPage.tsx`: 4 occurrences of `contact@bitplace.com` → `team@bitplace.live`
+- `TermsPage.tsx`: `contact@bitplace.com` → `team@bitplace.live`
+
+### `index.html` — og:url
+Line 14: `https://bitplace.lovable.app` → `https://bitplace.live`
+
+### `README.md`
+Update links from `bitplace.com` → `bitplace.live`
+
+## 3. Static Privacy Policy for Google verification
+
+Create `public/privacy.html` — a plain HTML version of the Privacy Policy content (same text as `PrivacyPage.tsx`). Google's crawler can't render React SPAs, so it needs a static file at `https://bitplace.live/privacy.html`.
+
+**Manual step after deploy**: Update the Privacy Policy URL in Google Cloud Console to `https://bitplace.live/privacy.html`.
 
