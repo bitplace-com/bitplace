@@ -73,6 +73,7 @@ export function ActionBox({
   isGoogleOnly = false,
   onLinkWallet,
 }: ActionBoxProps) {
+  const { energy } = useWallet();
   const config = modeConfig[mode];
   
   // Get effective count first (draft for paint, selection for others)
