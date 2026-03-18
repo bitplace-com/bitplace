@@ -238,7 +238,7 @@ export function ActionBox({
               {validationResult?.ok && (
                 <div className="flex items-center justify-between pt-1 border-t border-border/50">
                   <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <PixelIcon name="grid2x2" size="xs" />
+                    <PixelIcon name="pencil" size="xs" />
                     <span>Pixel Balance after</span>
                   </div>
                   <span className="text-sm font-medium tabular-nums text-emerald-500">
