@@ -52,7 +52,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             <RuleItem
               icon="google"
               title="Bitplacer (Free)"
-              description="Sign in with Google to get 300,000 Pixels — a free budget to paint and explore. Your pixels are temporary (72h) and anyone can paint over them, but they return to your budget when they expire. Repaint before expiry to reset the timer."
+              description="Sign in with Google to get 300,000 Pixels — a free budget to paint and explore. Your pixels have no PE value, so anyone can paint over them, but they return to your budget when that happens."
             />
             <RuleItem
               icon="wallet"
