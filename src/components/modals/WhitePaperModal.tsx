@@ -51,7 +51,7 @@ export function WhitePaperModal({ open, onOpenChange }: WhitePaperModalProps) {
             <span className="text-muted-foreground/50">→</span>
             <span className="px-3 py-1.5 rounded-lg bg-muted">Get 300k Pixels</span>
             <span className="text-muted-foreground/50">→</span>
-            <span className="px-3 py-1.5 rounded-lg bg-muted">Paint (72h)</span>
+            <span className="px-3 py-1.5 rounded-lg bg-muted">Paint</span>
             <span className="text-muted-foreground/50">→</span>
             <span className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-medium">Want permanent? Get $BIT</span>
           </div>
