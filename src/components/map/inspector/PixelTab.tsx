@@ -191,7 +191,7 @@ export function PixelTab({ x, y, currentUserId, hideWithdraw = false }: PixelTab
           })()}
 
           {/* Protected badge for virtual-staked pixels that have been DEFed */}
-          {pixel.isVirtualStake && !pixel.expiresAt && (
+          {pixel.isVirtualStake && !pixel.expiresAt && pixel.vNow > 0 && (
             <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 flex items-center gap-2">
               <PixelIcon name="shield" className="h-4 w-4 text-emerald-500" />
               <span className="text-sm font-medium text-emerald-500">Protected</span>

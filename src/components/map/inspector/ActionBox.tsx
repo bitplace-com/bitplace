@@ -203,70 +203,103 @@ export function ActionBox({
 
 
       {/* Cost Summary - single block */}
-      {(validationResult || (mode === 'PAINT' && draftCount > 0) || (mode !== 'PAINT' && mode !== 'ERASE' && pixelCount > 0)) && (
+      {(validationResult || (mode === 'PAINT' && draftCount > 0) || (mode !== 'PAINT' && pixelCount > 0)) && (
         <div className="space-y-1.5 px-2 py-2 rounded-lg bg-muted/30">
-          {/* Required PE */}
-          <div className="flex items-center justify-between">
-           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-               <PEIcon size="xs" />
-               <span>PE {isWithdraw ? 'Refund' : 'Required'}</span>
-             </div>
-            <span className={cn("text-base font-semibold tabular-nums", isWithdraw && "text-emerald-500")}>
-              {isWithdraw ? '+' : ''}{Math.abs(requiredPe).toLocaleString()}
-            </span>
-          </div>
-
-          {/* PE Breakdown after validation - explains why cost differs from pixel count */}
-          {validationResult && validationResult.breakdown && mode === 'PAINT' && (
-            <div className="space-y-0.5 text-[10px] text-muted-foreground border-t border-border/30 pt-1.5 mt-1">
-              {validationResult.breakdown.empty > 0 && (
-                <div className="flex justify-between">
-                  <span>Empty pixels</span>
-                  <span className="tabular-nums">{validationResult.breakdown.empty} × 1 PE</span>
-                </div>
-              )}
-              {validationResult.breakdown.ownedByUser > 0 && (
-                <div className="flex justify-between text-emerald-500">
-                  <span>Your pixels (color only)</span>
-                  <span className="tabular-nums">{validationResult.breakdown.ownedByUser} × 0 PE</span>
-                </div>
-              )}
-              {validationResult.breakdown.ownedByOthers > 0 && (
-                <div className="flex justify-between text-amber-500">
-                  <span>Takeovers</span>
-                  <span className="tabular-nums">{validationResult.breakdown.ownedByOthers} px</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Available + After action - only after validation */}
-          {validationResult && (
+          {/* ERASE-specific summary */}
+          {mode === 'ERASE' ? (
             <>
+              {/* Pixels to erase */}
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-muted-foreground">Available</span>
-                <span className="text-sm tabular-nums">{availablePe.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center justify-between pt-1 border-t border-border/50">
-                <span className="text-[11px] text-muted-foreground">After action</span>
-                <span className={cn(
-                  "text-sm font-medium tabular-nums",
-                  isWithdraw ? "text-emerald-500" : (hasSufficientPe ? "text-emerald-500" : "text-destructive")
-                )}>
-                  {isWithdraw 
-                    ? (availablePe + Math.abs(requiredPe)).toLocaleString() 
-                    : (availablePe - requiredPe).toLocaleString()}
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <PixelIcon name="trash" className="h-3 w-3" />
+                  <span>Pixels to erase</span>
+                </div>
+                <span className="text-base font-semibold tabular-nums">
+                  {(validationResult?.validPixelCount ?? pixelCount).toLocaleString()}
                 </span>
               </div>
-            </>
-          )}
 
-          {/* ERASE refund info */}
-          {mode === 'ERASE' && validationResult?.ok && validationResult.unlockPeTotal !== undefined && validationResult.unlockPeTotal > 0 && (
-            <div className="flex items-center justify-between text-[11px] pt-1 border-t border-border/50">
-              <span className="text-emerald-500">PE Refund</span>
-              <span className="text-emerald-500 font-semibold">+{validationResult.unlockPeTotal.toLocaleString()}</span>
-            </div>
+              {/* PE Refund - only if > 0 after validation */}
+              {validationResult?.ok && validationResult.unlockPeTotal !== undefined && validationResult.unlockPeTotal > 0 && (
+                <div className="flex items-center justify-between pt-1 border-t border-border/30">
+                  <div className="flex items-center gap-1.5 text-[11px] text-emerald-500">
+                    <PEIcon size="xs" />
+                    <span>PE Refund</span>
+                  </div>
+                  <span className="text-base font-semibold tabular-nums text-emerald-500">
+                    +{validationResult.unlockPeTotal.toLocaleString()}
+                  </span>
+                </div>
+              )}
+
+              {/* Pixel Balance after - only after validation */}
+              {validationResult?.ok && (
+                <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                  <span className="text-[11px] text-muted-foreground">Pixel Balance after</span>
+                  <span className="text-sm font-medium tabular-nums text-emerald-500">
+                    {(availablePe + (validationResult?.validPixelCount ?? 0)).toLocaleString()}
+                  </span>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Required PE */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <PEIcon size="xs" />
+                  <span>PE {isWithdraw ? 'Refund' : 'Required'}</span>
+                </div>
+                <span className={cn("text-base font-semibold tabular-nums", isWithdraw && "text-emerald-500")}>
+                  {isWithdraw ? '+' : ''}{Math.abs(requiredPe).toLocaleString()}
+                </span>
+              </div>
+
+              {/* PE Breakdown after validation - explains why cost differs from pixel count */}
+              {validationResult && validationResult.breakdown && mode === 'PAINT' && (
+                <div className="space-y-0.5 text-[10px] text-muted-foreground border-t border-border/30 pt-1.5 mt-1">
+                  {validationResult.breakdown.empty > 0 && (
+                    <div className="flex justify-between">
+                      <span>Empty pixels</span>
+                      <span className="tabular-nums">{validationResult.breakdown.empty} × 1 PE</span>
+                    </div>
+                  )}
+                  {validationResult.breakdown.ownedByUser > 0 && (
+                    <div className="flex justify-between text-emerald-500">
+                      <span>Your pixels (color only)</span>
+                      <span className="tabular-nums">{validationResult.breakdown.ownedByUser} × 0 PE</span>
+                    </div>
+                  )}
+                  {validationResult.breakdown.ownedByOthers > 0 && (
+                    <div className="flex justify-between text-amber-500">
+                      <span>Takeovers</span>
+                      <span className="tabular-nums">{validationResult.breakdown.ownedByOthers} px</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Available + After action - only after validation */}
+              {validationResult && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-muted-foreground">Available</span>
+                    <span className="text-sm tabular-nums">{availablePe.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                    <span className="text-[11px] text-muted-foreground">After action</span>
+                    <span className={cn(
+                      "text-sm font-medium tabular-nums",
+                      isWithdraw ? "text-emerald-500" : (hasSufficientPe ? "text-emerald-500" : "text-destructive")
+                    )}>
+                      {isWithdraw 
+                        ? (availablePe + Math.abs(requiredPe)).toLocaleString() 
+                        : (availablePe - requiredPe).toLocaleString()}
+                    </span>
+                  </div>
+                </>
+              )}
+            </>
           )}
         </div>
       )}
