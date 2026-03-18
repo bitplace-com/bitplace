@@ -353,7 +353,7 @@ export function PixelInfoPanel({
                      </TooltipTrigger>
                      <TooltipContent side="bottom" className="max-w-56 text-xs">
                         {pixel.isVirtualStake
-                          ? 'No PE staked. This pixel has no energy allocated and will expire after 72h.'
+                          ? 'No PE staked. This pixel has no energy allocated and anyone can paint over it.'
                           : 'Total PE locked across all pixels owned by this player.'}
                      </TooltipContent>
                    </Tooltip>
