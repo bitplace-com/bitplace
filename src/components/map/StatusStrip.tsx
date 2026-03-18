@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { StatusAlerts } from './StatusAlerts';
 import { PAINT_MAX_PIXELS } from './hooks/useDraftPaint';
-import { useVpeRenew } from '@/hooks/useVpeRenew';
 import { useLiveTick } from '@/hooks/useLiveTick';
 import { formatLiveCountdown } from '@/lib/formatLiveTime';
 
