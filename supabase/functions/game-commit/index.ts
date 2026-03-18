@@ -598,7 +598,7 @@ async function executeCommit(
         owner_user_id: userId,
         owner_stake_pe: actualStake,
         updated_at: now,
-        expires_at: isVirtualPe ? expiresAt : null,
+        expires_at: null,
         is_virtual_stake: isVirtualPe || false,
         virtual_pe_cost: isVirtualPe ? virtualCost : 0,
       });
