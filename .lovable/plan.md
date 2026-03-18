@@ -1,30 +1,50 @@
 
 
-# Show total area count alongside owned pixel count in ERASER mode
+# Rimuovere la scadenza dei pixel + ripristinare disegni admin
 
-## Problem
-After the smart ERASER update, the sidebar counter (`Selected: X px`) only shows owned pixels (the ones that will actually be erased). The user wants to also see the total area selected (including empty/other users' pixels) for context.
+## Situazione attuale
+- I pixel Bitplacer (Google auth) hanno un timer di 72h (`expires_at`) e un cron job che li cancella ogni 5 minuti
+- L'account admin `team@bitplace.com` aveva ~77.815 pixel dipinti, tutti cancellati dal cron. **I dati individuali (coordinate + colore per pixel) non sono recuperabili dal database** — paint_events salva solo bbox aggregati, non le coordinate singole
+- L'admin dovrà ridipingere i suoi disegni usando Auto-Paint
 
-## Approach
-Track a separate `eraserTotalAreaCount` state that captures the full rectangle/brush area size before filtering. Display both counts in the ActionTray when in ERASER mode: e.g. `Selected: 2,400 / 10,000 px` (owned / total area).
+## Piano
 
-## Changes
+### 1. Database: disabilitare il cron job di cleanup
+- Rimuovere il cron job `pixels-cleanup-expired` (job ID 2) con `cron.unschedule`
+- Aggiornare l'email admin nel DB da `team@bitplace.com` a `team@bitplace.live`
+- Reset `virtual_pe_used` a 0 per l'admin (i pixel sono stati cancellati, il contatore va azzerato)
 
-### 1. `src/components/map/BitplaceMap.tsx`
-- Add state: `const [eraserAreaCount, setEraserAreaCount] = useState(0)`
-- In the ERASER rect selection path (~line 1042): before calling `fetchOwnedPixelsInBounds`, compute the total area `(maxX - minX + 1) * (maxY - minY + 1)` and call `setEraserAreaCount(totalArea)`
-- In the ERASER brush selection path (~line 1075): set `setEraserAreaCount(selectedPixels.length)` (total brush-painted area before ownership filter)
-- In the touch ERASER path (~line 500): same pattern
-- Reset `setEraserAreaCount(0)` alongside `setPendingPixels([])` in all clear paths
-- Pass `eraserAreaCount` to `ActionTray` as a new prop
+### 2. Database: pulizia colonna `expires_at` sui pixel esistenti
+- `UPDATE pixels SET expires_at = NULL WHERE expires_at IS NOT NULL` (azzera eventuali timer residui)
 
-### 2. `src/components/map/ActionTray.tsx`
-- Add prop `eraserAreaCount?: number`
-- When in ERASER mode and `eraserAreaCount > 0`, change the display from `Selected: {selectionCount} px` to `Selected: {selectionCount} owned / {eraserAreaCount} area`
-- Keep existing display for non-ERASER action modes
+### 3. Edge function `game-commit`: rimuovere logica expiry
+- Rimuovere il calcolo di `expiresAt` (riga ~556) — sempre `null`
+- Mantenere `is_virtual_stake` e `virtual_pe_cost` (servono per la meccanica "free pixel")
+- Rimuovere il blocco DEFEND che pulisce `expires_at` (righe 444-458, non più necessario)
 
-| File | Change |
-|------|--------|
-| `src/components/map/BitplaceMap.tsx` | Add `eraserAreaCount` state, set it before filtering, pass to ActionTray |
-| `src/components/map/ActionTray.tsx` | Accept + display `eraserAreaCount` in ERASER mode |
+### 4. Eliminare file non più necessari
+- `supabase/functions/vpe-renew/index.ts` — non serve più
+- `supabase/functions/pixels-cleanup-expired/index.ts` — non serve più
+- `src/hooks/useVpeRenew.ts` — non serve più
+
+### 5. Rimuovere dal config.toml
+- Rimuovere le entry `[functions.vpe-renew]` e `[functions.pixels-cleanup-expired]`
+
+### 6. Frontend: aggiornare copy e rimuovere UI di scadenza/rinnovo
+
+| File | Modifica |
+|------|----------|
+| `PixelControlPanel.tsx` | Rimuovere import/uso di `useVpeRenew`, timer, bottone renew. Aggiornare tooltip: rimuovere "expire 72h" |
+| `UserMenuPanel.tsx` | Rimuovere import `useVpeRenew`, badge renewableCount, alert "Pixels expire after 72h" |
+| `PixelInfoPanel.tsx` | Rimuovere blocco "Starter Pixel Expiry" (righe 448-458). Aggiornare tooltip "will expire after 72h" |
+| `WalletSelectModal.tsx` | Copy: "300,000 free Pixels to draw anywhere" (rimuovere "They expire after 72h...") |
+| `WalletContext.tsx` | Toast: "Free pixels to draw anywhere" (rimuovere "They expire after 72h...") |
+| `RulesModal.tsx` | Aggiornare descrizioni Bitplacer e Pixel Balance: rimuovere riferimenti a 72h/expiry/renew |
+| `WhitePaperModal.tsx` | Rimuovere "they expire after 72h", aggiornare flow "Paint (72h)" → "Paint" |
+| `GuidedTour.tsx` | Rimuovere "They expire after 72h, but you can renew..." |
+| `StatusStrip.tsx` | Tooltip: rimuovere "expire after 72h" |
+| `usePixelDetails.ts` | Mantenere `expiresAt`/`isVirtualStake` nei tipi ma non mostrare expiry UI |
+
+### 7. Pixel admin non ripristinabili
+I pixel dell'account admin non possono essere ripristinati automaticamente perché il database non conserva le coordinate individuali degli eventi di paint (solo bounding box). L'admin dovrà ridipingere i disegni usando la funzionalità Auto-Paint con i template.
 
