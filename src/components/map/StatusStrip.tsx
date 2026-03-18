@@ -172,7 +172,7 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
                 </div>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-64 text-xs">
-                Pixel Balance: your free pixel budget. These pixels expire after 72h and can be painted over by anyone.
+                Pixel Balance: your free pixel budget. Anyone can paint over these pixels.
               </TooltipContent>
             </Tooltip>
           )}
