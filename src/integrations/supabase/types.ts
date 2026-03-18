@@ -942,15 +942,6 @@ export type Database = {
       }
     }
     Functions: {
-      cleanup_expired_pixels: {
-        Args: never
-        Returns: {
-          owner_id: string
-          pixel_x: number
-          pixel_y: number
-          refund_amount: number
-        }[]
-      }
       fetch_pixels_by_coords: {
         Args: { coords: Json }
         Returns: {
