@@ -57,7 +57,7 @@ export function WhitePaperModal({ open, onOpenChange }: WhitePaperModalProps) {
           </div>
           <div className="space-y-2 text-sm text-muted-foreground">
             <p>
-              Your free pixels are temporary — they expire after <span className="text-foreground font-medium">72 hours</span> and anyone can paint over them. But you can keep them alive: before they expire, use the <span className="text-foreground font-medium">Pixel Control Center</span> to renew all your pixels at once with a single click. When a pixel expires or is painted over, it returns to your budget.
+              Your free pixels have no PE value — anyone can paint over them. When that happens, the pixels return to your budget automatically.
             </p>
             <p>
               To make your pixels permanent, defend them, or attack others — connect a Solana wallet with <span className="text-foreground font-medium">$BIT</span> tokens.

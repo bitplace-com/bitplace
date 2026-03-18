@@ -207,23 +207,8 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
             </div>
           )}
 
-          {/* Pixels Expiring Alert */}
-          {vpeRenew.expiringBatches.urgent > 0 && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => window.dispatchEvent(new CustomEvent('bitplace:open-pixel-control'))}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
-                >
-                  <PixelIcon name="clock" className="h-3.5 w-3.5 animate-pulse" />
-                  {vpeRenew.expiringBatches.urgent} pixels expiring
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="text-xs">
-                {vpeRenew.expiringBatches.urgent} pixels expire in less than 6h. Open Pixel Control to renew.
-              </TooltipContent>
-            </Tooltip>
-          )}
+
+
 
           {/* Status Alerts */}
           <StatusAlerts

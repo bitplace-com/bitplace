@@ -159,7 +159,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             <RefRow term="DEF" definition="Defense — PE added by others to protect a pixel" />
             <RefRow term="ATK" definition="Attack — PE used by others to weaken a pixel" />
             <RefRow term="Takeover" definition="Claiming a pixel by using more PE than its value" />
-            <RefRow term="Pixel Balance" definition="Free pixel budget for Bitplacer accounts (72h expiry)" />
+            <RefRow term="Pixel Balance" definition="Free pixel budget for Bitplacer accounts" />
             <RefRow term="Decay" definition="Gradual PE reduction when wallet isn't verified" />
           </div>
         </div>

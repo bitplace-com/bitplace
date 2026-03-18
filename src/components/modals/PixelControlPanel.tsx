@@ -7,9 +7,6 @@ import { GamePanel } from "./GamePanel";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/contexts/WalletContext";
 import { usePeBalance } from "@/hooks/usePeBalance";
-import { useVpeRenew } from "@/hooks/useVpeRenew";
-import { useLiveTick } from "@/hooks/useLiveTick";
-import { formatLiveCountdown } from "@/lib/formatLiveTime";
 import { cn, formatNumber } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { PlayerProfileModal } from "./PlayerProfileModal";
@@ -22,8 +19,6 @@ interface PixelControlPanelProps {
 export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps) {
   const { user, energy, isGoogleOnly, isGoogleAuth, linkWallet, googleSignIn } = useWallet();
   const peBalance = usePeBalance(user?.id);
-  const vpeRenew = useVpeRenew(user?.id);
-  const now = useLiveTick();
 
   const [profileOpen, setProfileOpen] = useState(false);
   const hasWallet = !isGoogleOnly;
@@ -44,7 +39,7 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
           <div>
             <SectionTitle>
               <PixelBalanceIcon size="xs" className="text-muted-foreground" />
-              <TT tip="Your free pixel budget. Sign in with Google to get 300,000 pixels to draw with. These pixels expire 72h after painting and can be painted over by anyone until you add PE.">
+              <TT tip="Your free pixel budget. Sign in with Google to get 300,000 pixels to draw with. These pixels have no PE value and can be painted over by anyone until you add PE.">
                 Pixel Balance
               </TT>
             </SectionTitle>
@@ -62,68 +57,9 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                   <StatBox
                     label="Used"
                     value={formatNumber(energy.virtualPeUsed)}
-                    tip="Pixels currently placed on the map. Recycled when they expire or are painted over."
+                    tip="Pixels currently placed on the map. Recycled when painted over."
                   />
                 </div>
-
-                {/* ── Timer + Renew ── */}
-                {vpeRenew.totalVpePixels > 0 && (
-                  <div className="space-y-2">
-                    {/* Live countdown alert */}
-                    {vpeRenew.earliestExpiry && (
-                      <div className={cn(
-                        "flex items-start gap-2.5 px-3 py-2 rounded-xl border",
-                        vpeRenew.expiringBatches.urgent > 0
-                          ? "bg-destructive/10 border-destructive/20"
-                          : vpeRenew.expiringBatches.soon > 0
-                            ? "bg-amber-500/10 border-amber-500/20"
-                            : "bg-emerald-500/10 border-emerald-500/20"
-                      )}>
-                        <PixelIcon
-                          name="clock"
-                          className={cn(
-                            "h-4 w-4 mt-0.5 shrink-0",
-                            vpeRenew.expiringBatches.urgent > 0 ? "text-destructive animate-pulse" : vpeRenew.expiringBatches.soon > 0 ? "text-amber-500" : "text-emerald-500"
-                          )}
-                        />
-                        <div className="min-w-0">
-                          <p className={cn(
-                            "text-xs font-semibold tabular-nums",
-                            vpeRenew.expiringBatches.urgent > 0 ? "text-destructive" : vpeRenew.expiringBatches.soon > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
-                          )}>
-                            {vpeRenew.expiringBatches.urgent > 0
-                              ? `${vpeRenew.expiringBatches.urgent} pixel${vpeRenew.expiringBatches.urgent !== 1 ? "s" : ""} expiring soon!`
-                              : `Next expiry in ${formatLiveCountdown(vpeRenew.earliestExpiry, now)}`
-                            }
-                          </p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">
-                            {formatNumber(vpeRenew.totalVpePixels)} active pixel{vpeRenew.totalVpePixels !== 1 ? "s" : ""} · renew available after 48h
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Renew button */}
-                    <Button
-                      onClick={vpeRenew.renewAll}
-                      disabled={vpeRenew.renewableCount === 0 || vpeRenew.isRenewing}
-                      className={cn(
-                        "w-full h-9 font-semibold gap-2 text-xs",
-                        vpeRenew.renewableCount > 0 ? "bg-primary hover:bg-primary/90" : ""
-                      )}
-                    >
-                      <PixelIcon
-                        name="refresh"
-                        className={cn("h-3.5 w-3.5", vpeRenew.isRenewing && "animate-spin")}
-                      />
-                      {vpeRenew.isRenewing
-                        ? "Renewing..."
-                        : vpeRenew.renewableCount > 0
-                          ? `Renew ${vpeRenew.renewableCount} Pixel${vpeRenew.renewableCount !== 1 ? "s" : ""}`
-                          : "Renew all pixels"}
-                    </Button>
-                  </div>
-                )}
               </div>
             ) : (
               <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2.5">
@@ -137,12 +73,8 @@ export function PixelControlPanel({ open, onOpenChange }: PixelControlPanelProps
                     Draw freely on the pixel map
                   </li>
                   <li className="flex items-start gap-1.5">
-                    <PixelIcon name="clock" className="h-3 w-3 mt-0.5 shrink-0 text-amber-500" />
-                    Pixels expire after 72h — renew to keep them
-                  </li>
-                  <li className="flex items-start gap-1.5">
                     <PixelIcon name="refresh" className="h-3 w-3 mt-0.5 shrink-0 text-emerald-500" />
-                    Pixels are recycled when painted over or expired
+                    Pixels are recycled when painted over
                   </li>
                 </ul>
                 <Button
@@ -354,4 +286,3 @@ function StatBox({
     </Tooltip>
   );
 }
-

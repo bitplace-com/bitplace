@@ -20,7 +20,6 @@ import { cn, formatUsd, formatNumber } from "@/lib/utils";
 import { SettingsModal } from "./SettingsModal";
 import { ShopModal } from "./ShopModal";
 import { PixelControlPanel } from "./PixelControlPanel";
-import { useVpeRenew } from "@/hooks/useVpeRenew";
 
 interface UserMenuPanelProps {
   children: React.ReactNode;
@@ -48,8 +47,6 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
   const [pixelControlOpen, setPixelControlOpen] = useState(false);
-  const [pixelAlertDismissed, setPixelAlertDismissed] = useState(() => localStorage.getItem('bitplace_pixel_alert_dismissed') === '1');
-  const vpeRenew = useVpeRenew(user?.id);
   const { enabled: soundEnabled, toggle: toggleSound } = useSound();
 
   const country = getCountryByCode(user?.country_code);
@@ -135,7 +132,7 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                 </p>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-56 text-xs">
-                Your free pixel budget. Pixels expire after 72h but you can renew them to reset the timer.
+                Your free pixel budget. Anyone can paint over them, but they return to your budget when that happens.
               </TooltipContent>
             </Tooltip>
             <div>
@@ -150,20 +147,6 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
                 </span>
               </div>
             </div>
-            {!pixelAlertDismissed && (
-              <div className="flex items-start gap-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
-                <PixelIcon name="clock" className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">Pixels expire after 72h</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                    Open the Pixel Control Center to renew all your painted pixels at once and reset the 72h timer before they disappear.
-                  </p>
-                </div>
-                <button onClick={() => { setPixelAlertDismissed(true); localStorage.setItem('bitplace_pixel_alert_dismissed', '1'); }} className="shrink-0 p-0.5 rounded hover:bg-amber-500/20 transition-colors focus:outline-none">
-                  <PixelIcon name="close" className="h-3 w-3 text-amber-500" />
-                </button>
-              </div>
-            )}
           </div>
         )}
 
@@ -222,16 +205,11 @@ export function UserMenuPanel({ children }: UserMenuPanelProps) {
         <div className="p-2">
           <Button
             variant="ghost"
-            className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent relative"
+            className="w-full justify-start gap-3 h-10 rounded-xl hover:bg-accent"
             onClick={() => setPixelControlOpen(true)}
           >
             <PixelIcon name="grid3x3" className="h-4 w-4" />
             Pixel Control Center
-            {vpeRenew.renewableCount > 0 && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 h-5 min-w-5 px-1 flex items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
-                {vpeRenew.renewableCount}
-              </span>
-            )}
           </Button>
           <Button
             variant="ghost"
