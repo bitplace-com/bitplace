@@ -353,7 +353,7 @@ export function PixelInfoPanel({
                      </TooltipTrigger>
                      <TooltipContent side="bottom" className="max-w-56 text-xs">
                         {pixel.isVirtualStake
-                          ? 'No PE staked. This pixel has no energy allocated and will expire after 72h.'
+                          ? 'No PE staked. This pixel has no energy allocated and anyone can paint over it.'
                           : 'Total PE locked across all pixels owned by this player.'}
                      </TooltipContent>
                    </Tooltip>
@@ -445,18 +445,8 @@ export function PixelInfoPanel({
                  </div>
               </div>
 
-              {/* ── Starter Pixel Expiry ── */}
-              {pixel.isVirtualStake && pixel.expiresAt && (
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-                  <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
-                    <PixelIcon name="clock" className="w-3.5 h-3.5 shrink-0" />
-                    <span className="tabular-nums">Expires in {formatLiveCountdown(pixel.expiresAt, now)}</span>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">
-                    This pixel has no PE (Paint Energy) staked, so it will expire when the timer runs out. Until then, anyone can paint over it for free.
-                  </p>
-                </div>
-              )}
+
+
 
               {/* ── Takeover / Claim Cost ── */}
               {!isOwnPixel && (

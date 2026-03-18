@@ -83,7 +83,7 @@ function AccountTypesContent() {
         <div>
           <span className="text-xs font-semibold text-foreground">Google (Bitplacer)</span>
           <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
-            300,000 free Pixels to draw anywhere. They expire after 72h, but you can renew them all with one click before they disappear.
+            300,000 free Pixels to draw anywhere. Anyone can paint over them, but they return to your budget when that happens.
           </p>
         </div>
       </div>

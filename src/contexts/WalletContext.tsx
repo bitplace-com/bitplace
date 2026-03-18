@@ -505,7 +505,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
               toast.success('Google linked!', { description: 'Wallet + Pixels active' });
             } else {
               toast.success('300,000 Pixels credited!', {
-                description: 'Free pixels to draw anywhere. They expire after 72h but you can renew them.'
+                description: 'Free pixels to draw anywhere on the map.'
               });
             }
           }, 800);

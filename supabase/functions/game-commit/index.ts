@@ -441,21 +441,6 @@ async function executeCommit(
       affectedPixels += inserted?.length || 0;
     }
     
-    // DEFEND: Clear expires_at on pixels with virtual stake (save them from expiry)
-    if (mode === "DEFEND") {
-      const pixelIdsWithExpiry = pixelsToProcess
-        .filter(p => p.id)
-        .map(p => p.id!);
-      
-      if (pixelIdsWithExpiry.length > 0) {
-        // Only update pixels that actually have expires_at set
-        await supabase
-          .from("pixels")
-          .update({ expires_at: null })
-          .in("id", pixelIdsWithExpiry)
-          .not("expires_at", "is", null);
-      }
-    }
     
     const ownersToNotify = pixelsToProcess
       .filter(p => p.owner_user_id && p.owner_user_id !== userId)
@@ -552,8 +537,7 @@ async function executeCommit(
   } else if (mode === "PAINT") {
     // PROMPT 54+56: Batch UPSERT for all PAINT pixels with chunking for large operations
     
-    // Determine expiry for virtual PE users (Google auth)
-    const expiresAt = isVirtualPe ? new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString() : null;
+    // No expiry for any pixels
     
     // Build upsert data with calculated thresholds
     // Note: pixel_id, tile_x and tile_y are GENERATED columns, do not include them
@@ -614,7 +598,7 @@ async function executeCommit(
         owner_user_id: userId,
         owner_stake_pe: actualStake,
         updated_at: now,
-        expires_at: isVirtualPe ? expiresAt : null,
+        expires_at: null,
         is_virtual_stake: isVirtualPe || false,
         virtual_pe_cost: isVirtualPe ? virtualCost : 0,
       });

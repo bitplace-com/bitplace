@@ -282,7 +282,7 @@ export function ActionBox({
           <div className="space-y-1">
             <p className="text-[11px] font-medium text-foreground">Free Pixels</p>
             <p className="text-[11px] text-muted-foreground">
-              Sign in with Google to get 300,000 free pixels. They expire after 72h but you can renew them all with one click.
+              Sign in with Google to get 300,000 free pixels. Anyone can paint over them, but they return to your budget when that happens.
             </p>
           </div>
 

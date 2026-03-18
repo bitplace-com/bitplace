@@ -52,7 +52,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             <RuleItem
               icon="google"
               title="Bitplacer (Free)"
-              description="Sign in with Google to get 300,000 Pixels — a free budget to paint and explore. Your pixels are temporary (72h) and anyone can paint over them, but they return to your budget when they expire. Repaint before expiry to reset the timer."
+              description="Sign in with Google to get 300,000 Pixels — a free budget to paint and explore. Your pixels have no PE value, so anyone can paint over them, but they return to your budget when that happens."
             />
             <RuleItem
               icon="wallet"
@@ -76,7 +76,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             <RuleItem
               icon="grid2x2"
               title="Pixel Balance"
-              description="A free budget of 300,000 recyclable pixels for Bitplacer accounts. They have no PE value (anyone can paint over them) and expire after 72 hours. Before they expire, you can renew all your pixels at once with a single click from the Pixel Control Center — no need to repaint them one by one."
+              description="A free budget of 300,000 recyclable pixels for Bitplacer accounts. They have no PE value (anyone can paint over them). When painted over, they return to your budget automatically."
             />
           </div>
         </div>
@@ -159,7 +159,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             <RefRow term="DEF" definition="Defense — PE added by others to protect a pixel" />
             <RefRow term="ATK" definition="Attack — PE used by others to weaken a pixel" />
             <RefRow term="Takeover" definition="Claiming a pixel by using more PE than its value" />
-            <RefRow term="Pixel Balance" definition="Free pixel budget for Bitplacer accounts (72h expiry)" />
+            <RefRow term="Pixel Balance" definition="Free pixel budget for Bitplacer accounts" />
             <RefRow term="Decay" definition="Gradual PE reduction when wallet isn't verified" />
           </div>
         </div>

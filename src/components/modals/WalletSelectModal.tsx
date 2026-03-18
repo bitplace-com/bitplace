@@ -118,7 +118,7 @@ export function WalletSelectModal({
               </div>
             }
             title="Sign in with Google"
-            subtitle="300,000 free Pixels to draw anywhere. They expire after 72h but you can renew them all with one click"
+            subtitle="300,000 free Pixels to draw anywhere. Anyone can paint over them, but they return to your budget when that happens"
             badge={<span className="text-[10px] font-bold tracking-wider text-slate-400 bg-slate-400/10 px-1.5 py-0.5 rounded">BITPLACER</span>}
           />
 

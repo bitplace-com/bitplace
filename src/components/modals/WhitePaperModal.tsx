@@ -51,13 +51,13 @@ export function WhitePaperModal({ open, onOpenChange }: WhitePaperModalProps) {
             <span className="text-muted-foreground/50">→</span>
             <span className="px-3 py-1.5 rounded-lg bg-muted">Get 300k Pixels</span>
             <span className="text-muted-foreground/50">→</span>
-            <span className="px-3 py-1.5 rounded-lg bg-muted">Paint (72h)</span>
+            <span className="px-3 py-1.5 rounded-lg bg-muted">Paint</span>
             <span className="text-muted-foreground/50">→</span>
             <span className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-medium">Want permanent? Get $BIT</span>
           </div>
           <div className="space-y-2 text-sm text-muted-foreground">
             <p>
-              Your free pixels are temporary — they expire after <span className="text-foreground font-medium">72 hours</span> and anyone can paint over them. But you can keep them alive: before they expire, use the <span className="text-foreground font-medium">Pixel Control Center</span> to renew all your pixels at once with a single click. When a pixel expires or is painted over, it returns to your budget.
+              Your free pixels have no PE value — anyone can paint over them. When that happens, the pixels return to your budget automatically.
             </p>
             <p>
               To make your pixels permanent, defend them, or attack others — connect a Solana wallet with <span className="text-foreground font-medium">$BIT</span> tokens.
