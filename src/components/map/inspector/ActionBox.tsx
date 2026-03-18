@@ -237,9 +237,12 @@ export function ActionBox({
               {/* Pixel Balance after - only after validation */}
               {validationResult?.ok && (
                 <div className="flex items-center justify-between pt-1 border-t border-border/50">
-                  <span className="text-[11px] text-muted-foreground">Pixel Balance after</span>
+                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <PixelIcon name="grid2x2" size="xs" />
+                    <span>Pixel Balance after</span>
+                  </div>
                   <span className="text-sm font-medium tabular-nums text-emerald-500">
-                    {(availablePe + (validationResult?.validPixelCount ?? 0)).toLocaleString()}
+                    {((energy?.virtualPeAvailable ?? 0) + (validationResult?.validPixelCount ?? 0)).toLocaleString()}
                   </span>
                 </div>
               )}
