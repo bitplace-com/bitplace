@@ -1,44 +1,26 @@
 
 
-# Fix: Badge "Protected" fuorviante + Riepilogo ERASE migliorato
 
-## Problema 1: Badge "Protected"
-Il badge "Protected" appare su pixel virtuali (is_virtual_stake) senza scadenza, ma con 0 PE. È fuorviante perché suggerisce protezione inesistente.
+# ✅ Rimuovere la scadenza dei pixel (COMPLETATO)
 
-**Fix**: Mostrare "Protected" solo se il pixel ha effettivamente PE > 0 (owner_stake_pe > 0 o vNow > 0). Se PE è 0, non mostrare alcun badge.
+## Modifiche effettuate
 
-**File**: `src/components/map/inspector/PixelTab.tsx` riga 194
-```
-// Da:
-{pixel.isVirtualStake && !pixel.expiresAt && (
+### Database
+- Disabilitato cron job `pixels-cleanup-expired` (ID 2)
+- Azzerato `expires_at` su tutti i pixel esistenti
+- Reset `virtual_pe_used` a 0 per l'account admin team@bitplace.live
+- Rimossa funzione DB `cleanup_expired_pixels()`
 
-// A:
-{pixel.isVirtualStake && !pixel.expiresAt && pixel.vNow > 0 && (
-```
+### Edge Functions
+- `game-commit`: rimossa logica di calcolo `expiresAt` (sempre `null` ora)
+- `game-commit`: rimosso blocco DEFEND che puliva `expires_at`
+- Eliminata `vpe-renew/index.ts`
+- Eliminata `pixels-cleanup-expired/index.ts`
 
-## Problema 2: ActionBox ERASE non mostra conteggio pixel e bilancio
-Quando si seleziona un'area per ERASE, il Cost Summary mostra solo il riepilogo PE ma non:
-- Quanti pixel verranno cancellati (validPixelCount dal backend)
-- Quanti pixel tornano al Pixel Balance (virtual PE refund)
-- Il bilancio pixel aggiornato dopo l'azione
+### Frontend
+- Eliminato `useVpeRenew.ts`
+- Rimossi tutti i riferimenti a 72h, expiry, renew da: PixelControlPanel, UserMenuPanel, StatusStrip, PixelInfoPanel, WalletSelectModal, WalletContext, RulesModal, WhitePaperModal, GuidedTour, ActionBox
+- Copy aggiornato: i pixel gratuiti non scadono più, tornano al budget solo quando qualcuno ci dipinge sopra
 
-**Fix in `ActionBox.tsx`**: Aggiungere nel blocco Cost Summary per ERASE:
-
-1. **Conteggio pixel da cancellare**: Mostrare `validPixelCount` o `breakdown.pixelCount` come "Pixels to erase: X"
-2. **Pixel refund**: Mostrare quanti pixel virtuali vengono restituiti al Pixel Balance (separato dal PE refund che è già presente)
-3. **Bilancio post-azione**: Aggiungere riga "Pixels after" con il nuovo bilancio
-
-Il blocco Cost Summary per ERASE viene attualmente nascosto (la condizione alla riga 206 esclude ERASE: `mode !== 'ERASE'`). Il riepilogo PE per ERASE appare solo dopo validazione alle righe 265-270 come un piccolo "PE Refund" isolato.
-
-**Soluzione**: Ristrutturare la sezione per ERASE in modo che dopo validazione mostri:
-- Riga: "Pixels to erase" → `validPixelCount`  
-- Riga: "PE Refund" → `+unlockPeTotal` (se > 0, in verde)
-- Riga: "Pixel Balance after" → saldo aggiornato
-
-Questo mantiene la stessa gerarchia visuale (testo 11px, sfondo muted/30, separatori border-t) usata in tutti gli altri modi.
-
-| File | Modifica |
-|------|----------|
-| `PixelTab.tsx` | Aggiungere condizione `pixel.vNow > 0` al badge Protected |
-| `ActionBox.tsx` | Aggiungere riepilogo pixel count + refund per ERASE nel Cost Summary |
-
+### Nota
+I pixel dell'admin non sono ripristinabili (le coordinate individuali non sono salvate nei paint_events). L'admin dovrà ridipingerli con Auto-Paint.
