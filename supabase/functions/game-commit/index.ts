@@ -537,8 +537,7 @@ async function executeCommit(
   } else if (mode === "PAINT") {
     // PROMPT 54+56: Batch UPSERT for all PAINT pixels with chunking for large operations
     
-    // Determine expiry for virtual PE users (Google auth)
-    const expiresAt = isVirtualPe ? new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString() : null;
+    // No expiry for any pixels
     
     // Build upsert data with calculated thresholds
     // Note: pixel_id, tile_x and tile_y are GENERATED columns, do not include them
