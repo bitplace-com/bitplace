@@ -1,26 +1,26 @@
 
 
-# Fix: Reset `virtual_pe_used` per account admin
 
-## Problema
-L'account `Bitplace_Team` (id: `a9d697b2-cd9b-45af-87bf-9aaad57776e2`) mostra 20,237 pixel "usati" nel Pixel Control Center, ma ha 0 pixel sulla mappa. Il cron job di cleanup aveva cancellato i pixel scaduti ma il contatore `virtual_pe_used` non è stato azzerato correttamente. Inoltre l'email nel DB è ancora `team@bitplace.com`.
+# ✅ Rimuovere la scadenza dei pixel (COMPLETATO)
 
-## Soluzione
+## Modifiche effettuate
 
-### 1. Migrazione database
-Un singolo UPDATE per:
-- Azzerare `virtual_pe_used` a 0 (i pixel non esistono più, il contatore deve riflettere la realtà)
-- Aggiornare l'email da `team@bitplace.com` a `team@bitplace.live`
+### Database
+- Disabilitato cron job `pixels-cleanup-expired` (ID 2)
+- Azzerato `expires_at` su tutti i pixel esistenti
+- Reset `virtual_pe_used` a 0 per l'account admin team@bitplace.live
+- Rimossa funzione DB `cleanup_expired_pixels()`
 
-Target: user id `a9d697b2-cd9b-45af-87bf-9aaad57776e2`
+### Edge Functions
+- `game-commit`: rimossa logica di calcolo `expiresAt` (sempre `null` ora)
+- `game-commit`: rimosso blocco DEFEND che puliva `expires_at`
+- Eliminata `vpe-renew/index.ts`
+- Eliminata `pixels-cleanup-expired/index.ts`
 
-### 2. Pulizia funzione DB residua
-La funzione `cleanup_expired_pixels()` esiste ancora nel database ma non è più usata (il cron è stato disabilitato e la scadenza rimossa). Va eliminata per coerenza.
+### Frontend
+- Eliminato `useVpeRenew.ts`
+- Rimossi tutti i riferimenti a 72h, expiry, renew da: PixelControlPanel, UserMenuPanel, StatusStrip, PixelInfoPanel, WalletSelectModal, WalletContext, RulesModal, WhitePaperModal, GuidedTour, ActionBox
+- Copy aggiornato: i pixel gratuiti non scadono più, tornano al budget solo quando qualcuno ci dipinge sopra
 
-| Azione | Dettaglio |
-|--------|-----------|
-| `UPDATE users` | `virtual_pe_used = 0, email = 'team@bitplace.live'` per l'account admin |
-| `DROP FUNCTION` | `cleanup_expired_pixels()` — non più necessaria |
-
-Nessuna modifica frontend necessaria — il contatore si aggiornerà automaticamente.
-
+### Nota
+I pixel dell'admin non sono ripristinabili (le coordinate individuali non sono salvate nei paint_events). L'admin dovrà ridipingerli con Auto-Paint.
