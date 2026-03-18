@@ -441,21 +441,6 @@ async function executeCommit(
       affectedPixels += inserted?.length || 0;
     }
     
-    // DEFEND: Clear expires_at on pixels with virtual stake (save them from expiry)
-    if (mode === "DEFEND") {
-      const pixelIdsWithExpiry = pixelsToProcess
-        .filter(p => p.id)
-        .map(p => p.id!);
-      
-      if (pixelIdsWithExpiry.length > 0) {
-        // Only update pixels that actually have expires_at set
-        await supabase
-          .from("pixels")
-          .update({ expires_at: null })
-          .in("id", pixelIdsWithExpiry)
-          .not("expires_at", "is", null);
-      }
-    }
     
     const ownersToNotify = pixelsToProcess
       .filter(p => p.owner_user_id && p.owner_user_id !== userId)
