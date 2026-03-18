@@ -5,6 +5,7 @@ import { PEIcon } from '@/components/ui/pe-icon';
 import { OperationProgress } from '../OperationProgress';
 import type { GameMode, ValidateResult, ActionError } from '@/hooks/useGameActions';
 import { cn } from '@/lib/utils';
+import { useWallet } from '@/contexts/WalletContext';
 
 interface ActionBoxProps {
   mode: GameMode;
