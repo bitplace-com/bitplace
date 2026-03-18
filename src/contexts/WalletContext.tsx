@@ -367,11 +367,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     ) => {
       console.log('[WalletContext] updatePeStatus called:', peStatus, cooldownUntil, 'isVirtualPe:', isVirtualPe);
       if (isVirtualPe) {
-        setEnergy(prev => ({ ...prev, peTotal: peStatus.total, peUsed: peStatus.used, peAvailable: peStatus.available, isVirtualPe: true, virtualPeTotal: peStatus.total, virtualPeUsed: peStatus.used, virtualPeAvailable: peStatus.available, paintCooldownUntil: cooldownUntil ? new Date(cooldownUntil) : prev.paintCooldownUntil }));
+        // Only update virtual pixel counters — keep real PE (from $BIT wallet) untouched
+        setEnergy(prev => ({ ...prev, isVirtualPe: true, virtualPeTotal: peStatus.total, virtualPeUsed: peStatus.used, virtualPeAvailable: peStatus.available, paintCooldownUntil: cooldownUntil ? new Date(cooldownUntil) : prev.paintCooldownUntil }));
       } else {
         setEnergy(prev => ({ ...prev, peTotal: peStatus.total, peUsed: peStatus.used, peAvailable: peStatus.available, paintCooldownUntil: cooldownUntil ? new Date(cooldownUntil) : prev.paintCooldownUntil }));
+        setUser(prev => prev ? { ...prev, pe_total_pe: peStatus.total } : null);
       }
-      setUser(prev => prev ? { ...prev, pe_total_pe: peStatus.total } : null);
     }, []);
 
   // ============ GOOGLE SIGN IN ============
