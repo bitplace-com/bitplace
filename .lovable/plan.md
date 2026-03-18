@@ -1,5 +1,6 @@
 
 
+
 # ✅ Rimuovere la scadenza dei pixel (COMPLETATO)
 
 ## Modifiche effettuate
@@ -8,6 +9,7 @@
 - Disabilitato cron job `pixels-cleanup-expired` (ID 2)
 - Azzerato `expires_at` su tutti i pixel esistenti
 - Reset `virtual_pe_used` a 0 per l'account admin team@bitplace.live
+- Rimossa funzione DB `cleanup_expired_pixels()`
 
 ### Edge Functions
 - `game-commit`: rimossa logica di calcolo `expiresAt` (sempre `null` ora)
