@@ -37,7 +37,6 @@ export function StatusStrip({ userId, paintQueueSize = 0, isSpacePainting = fals
   const { isLoading, rebalanceActive, healthMultiplier, rebalanceEndsAt } = usePeBalance(userId);
   const { energy, refreshEnergy, needsSignature, signIn, isGoogleOnly, user } = useWallet();
   const { isOnCooldown, formatCooldown } = usePaintCooldown(energy.paintCooldownUntil);
-  const vpeRenew = useVpeRenew(userId);
   const now = useLiveTick();
 
   if (!userId) {
